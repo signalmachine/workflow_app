@@ -12,6 +12,8 @@ import (
 	"workflow_app/internal/platform/migrations"
 )
 
+const testDatabaseLockKey int64 = 20260319
+
 func Open(t *testing.T) *sql.DB {
 	t.Helper()
 
@@ -32,6 +34,23 @@ func Open(t *testing.T) *sql.DB {
 		t.Fatalf("ping test database: %v", err)
 	}
 
+	lockConn, err := db.Conn(ctx)
+	if err != nil {
+		t.Fatalf("open test database lock connection: %v", err)
+	}
+
+	if _, err := lockConn.ExecContext(ctx, `SELECT pg_advisory_lock($1)`, testDatabaseLockKey); err != nil {
+		_ = lockConn.Close()
+		t.Fatalf("acquire test database lock: %v", err)
+	}
+
+	t.Cleanup(func() {
+		unlockCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, _ = lockConn.ExecContext(unlockCtx, `SELECT pg_advisory_unlock($1)`, testDatabaseLockKey)
+		_ = lockConn.Close()
+	})
+
 	if _, err := migrations.Up(ctx, db); err != nil {
 		t.Fatalf("migrate test database: %v", err)
 	}
@@ -47,6 +66,13 @@ func Reset(t *testing.T, db *sql.DB) {
 
 	const statement = `
 TRUNCATE TABLE
+	ai.agent_delegations,
+	ai.agent_recommendations,
+	ai.agent_artifacts,
+	ai.agent_tool_policies,
+	ai.agent_run_steps,
+	ai.agent_runs,
+	ai.agent_tools,
 	workflow.approval_decisions,
 	workflow.approval_queue_entries,
 	workflow.approvals,

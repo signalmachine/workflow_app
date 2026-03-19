@@ -50,7 +50,8 @@ Current implementation checkpoint:
 2. audit and idempotency foundations are implemented from Milestone 0
 3. the shared document kernel now has central document identity, lifecycle state, and document-family registration
 4. approvals, approval queue entries, and approval decisions are implemented with transactional audit writes
-5. the next Milestone 1 implementation target is AI run history, tool policy, recommendations, artifacts, and delegation traces
+5. AI tool registry, tool policy, run history, artifacts, recommendations, approval linkage, and delegation traces are implemented for bounded coordinator-to-specialist routing
+6. the next implementation target is Milestone 2 accounting and tax foundation
 
 ## 3. Milestone 2: Accounting and tax foundation
 

@@ -20,12 +20,12 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 | Implementation defaults captured | done | Locked defaults now exist as a canonical active doc for implementation decisions |
 | Foundation coverage checklist captured | done | V1 completion now has an explicit foundation-complete checklist |
 | Milestone 0 bootstrap | done | Go module, migration runner, env template, and control-boundary migrations are implemented and verified against primary and test databases |
-| Milestone 1 document and approval kernel | in_progress | Shared document identity, approvals, approval queue, decisions, sessions, and role-aware service boundaries are implemented and covered by integration tests |
+| Milestone 1 document and approval kernel | done | Shared document identity, approvals, approval queue, decisions, sessions, role-aware service boundaries, and the AI run, tool-policy, artifact, recommendation, and delegation trace foundation are implemented and covered by integration tests |
 
 ## 2. Immediate next steps
 
-1. implement the remaining Milestone 1 AI foundation slice: run history, tool policy, recommendations, artifacts, and delegation traces
-2. keep the codebase limited to the approved first-class modules while finishing Milestone 1
+1. start Milestone 2 accounting and tax foundation with ledger accounts, journal truth, posting invariants, and centralized posting service boundaries
+2. keep the codebase limited to the approved first-class modules while entering Milestone 2
 3. add attachments only where they support approval evidence or document support flows
 4. use `new_app_v1_gap_review_from_current_codebase.md` as the reference list of remaining missing foundation areas after Milestone 1
 5. use `new_app_implementation_defaults.md` as the default-rules reference during implementation
