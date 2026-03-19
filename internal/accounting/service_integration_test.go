@@ -123,6 +123,196 @@ func TestPostDocumentIntegration(t *testing.T) {
 	}
 }
 
+func TestCreateTaxCodeAndUseItInPostingIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
+
+	_, approverUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleApprover, orgID)
+	approverSession := startSession(t, ctx, db, orgID, approverUserID)
+	approver := identityaccess.Actor{OrgID: orgID, UserID: approverUserID, SessionID: approverSession.ID}
+
+	_, adminUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleAdmin, orgID)
+	adminSession := startSession(t, ctx, db, orgID, adminUserID)
+	admin := identityaccess.Actor{OrgID: orgID, UserID: adminUserID, SessionID: adminSession.ID}
+
+	documentService := documents.NewService(db)
+	workflowService := workflow.NewService(db, documentService)
+	accountingService := accounting.NewService(db, documentService)
+
+	doc := prepareApprovedDocument(t, ctx, documentService, workflowService, operator, approver)
+
+	receivable := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:                "1100",
+		Name:                "Accounts Receivable",
+		AccountClass:        accounting.AccountClassAsset,
+		ControlType:         accounting.ControlTypeReceivable,
+		AllowsDirectPosting: false,
+		Actor:               admin,
+	})
+	gstOutput := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:                "2101",
+		Name:                "GST Output",
+		AccountClass:        accounting.AccountClassLiability,
+		ControlType:         accounting.ControlTypeGSTOutput,
+		AllowsDirectPosting: false,
+		Actor:               admin,
+	})
+	revenue := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:         "4000",
+		Name:         "Service Revenue",
+		AccountClass: accounting.AccountClassRevenue,
+		Actor:        admin,
+	})
+
+	gst18 := createTaxCode(t, ctx, accountingService, accounting.CreateTaxCodeInput{
+		Code:             "GST18",
+		Name:             "GST Output 18%",
+		TaxType:          accounting.TaxTypeGST,
+		RateBasisPoints:  1800,
+		PayableAccountID: gstOutput.ID,
+		Actor:            admin,
+	})
+
+	entry, lines, _, err := accountingService.PostDocument(ctx, accounting.PostDocumentInput{
+		DocumentID:   doc.ID,
+		Summary:      "Post approved invoice with GST",
+		CurrencyCode: "INR",
+		TaxScopeCode: accounting.TaxScopeGST,
+		Lines: []accounting.PostingLineInput{
+			{AccountID: receivable.ID, Description: "Customer receivable", DebitMinor: 177000},
+			{AccountID: revenue.ID, Description: "Recognized revenue", CreditMinor: 150000},
+			{AccountID: gstOutput.ID, Description: "GST payable", CreditMinor: 27000, TaxCode: gst18.Code},
+		},
+		Actor: admin,
+	})
+	if err != nil {
+		t.Fatalf("post document with GST tax code: %v", err)
+	}
+	if entry.TaxScopeCode != accounting.TaxScopeGST {
+		t.Fatalf("unexpected tax scope: %s", entry.TaxScopeCode)
+	}
+	if len(lines) != 3 {
+		t.Fatalf("unexpected journal line count: %d", len(lines))
+	}
+	if !lines[2].TaxCode.Valid || lines[2].TaxCode.String != gst18.Code {
+		t.Fatalf("unexpected tax code on journal line: %+v", lines[2].TaxCode)
+	}
+}
+
+func TestPostDocumentRejectsMissingOrMismatchedTaxCodes(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
+
+	_, approverUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleApprover, orgID)
+	approverSession := startSession(t, ctx, db, orgID, approverUserID)
+	approver := identityaccess.Actor{OrgID: orgID, UserID: approverUserID, SessionID: approverSession.ID}
+
+	_, adminUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleAdmin, orgID)
+	adminSession := startSession(t, ctx, db, orgID, adminUserID)
+	admin := identityaccess.Actor{OrgID: orgID, UserID: adminUserID, SessionID: adminSession.ID}
+
+	documentService := documents.NewService(db)
+	workflowService := workflow.NewService(db, documentService)
+	accountingService := accounting.NewService(db, documentService)
+
+	docWithoutTaxCode := prepareApprovedDocument(t, ctx, documentService, workflowService, operator, approver)
+	docWithUnknownTaxCode := prepareApprovedDocument(t, ctx, documentService, workflowService, operator, approver)
+	docWithWrongTaxType := prepareApprovedDocument(t, ctx, documentService, workflowService, operator, approver)
+
+	receivable := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:                "1100",
+		Name:                "Accounts Receivable",
+		AccountClass:        accounting.AccountClassAsset,
+		ControlType:         accounting.ControlTypeReceivable,
+		AllowsDirectPosting: false,
+		Actor:               admin,
+	})
+	tdsPayable := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:                "2201",
+		Name:                "TDS Payable",
+		AccountClass:        accounting.AccountClassLiability,
+		ControlType:         accounting.ControlTypeTDSPayable,
+		AllowsDirectPosting: false,
+		Actor:               admin,
+	})
+	revenue := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:         "4000",
+		Name:         "Service Revenue",
+		AccountClass: accounting.AccountClassRevenue,
+		Actor:        admin,
+	})
+
+	tds194c := createTaxCode(t, ctx, accountingService, accounting.CreateTaxCodeInput{
+		Code:             "TDS194C",
+		Name:             "TDS 194C",
+		TaxType:          accounting.TaxTypeTDS,
+		RateBasisPoints:  100,
+		PayableAccountID: tdsPayable.ID,
+		Actor:            admin,
+	})
+
+	_, _, _, err := accountingService.PostDocument(ctx, accounting.PostDocumentInput{
+		DocumentID:   docWithoutTaxCode.ID,
+		Summary:      "Missing tax code",
+		CurrencyCode: "INR",
+		TaxScopeCode: accounting.TaxScopeGST,
+		Lines: []accounting.PostingLineInput{
+			{AccountID: receivable.ID, Description: "Customer receivable", DebitMinor: 100000},
+			{AccountID: revenue.ID, Description: "Recognized revenue", CreditMinor: 100000},
+		},
+		Actor: admin,
+	})
+	if !errors.Is(err, accounting.ErrInvalidTaxScope) {
+		t.Fatalf("unexpected missing tax code error: got %v want %v", err, accounting.ErrInvalidTaxScope)
+	}
+
+	_, _, _, err = accountingService.PostDocument(ctx, accounting.PostDocumentInput{
+		DocumentID:   docWithUnknownTaxCode.ID,
+		Summary:      "Unknown tax code",
+		CurrencyCode: "INR",
+		TaxScopeCode: accounting.TaxScopeTDS,
+		Lines: []accounting.PostingLineInput{
+			{AccountID: receivable.ID, Description: "Customer receivable", DebitMinor: 99000},
+			{AccountID: revenue.ID, Description: "Recognized revenue", CreditMinor: 99000, TaxCode: "UNKNOWN"},
+		},
+		Actor: admin,
+	})
+	if !errors.Is(err, accounting.ErrTaxCodeNotFound) {
+		t.Fatalf("unexpected unknown tax code error: got %v want %v", err, accounting.ErrTaxCodeNotFound)
+	}
+
+	_, _, _, err = accountingService.PostDocument(ctx, accounting.PostDocumentInput{
+		DocumentID:   docWithWrongTaxType.ID,
+		Summary:      "Wrong tax type",
+		CurrencyCode: "INR",
+		TaxScopeCode: accounting.TaxScopeGST,
+		Lines: []accounting.PostingLineInput{
+			{AccountID: receivable.ID, Description: "Customer receivable", DebitMinor: 99000},
+			{AccountID: revenue.ID, Description: "Recognized revenue", CreditMinor: 99000, TaxCode: tds194c.Code},
+		},
+		Actor: admin,
+	})
+	if !errors.Is(err, accounting.ErrInvalidTaxScope) {
+		t.Fatalf("unexpected wrong tax type error: got %v want %v", err, accounting.ErrInvalidTaxScope)
+	}
+}
+
 func TestReverseDocumentIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()
@@ -163,6 +353,22 @@ func TestReverseDocumentIntegration(t *testing.T) {
 		AccountClass: accounting.AccountClassRevenue,
 		Actor:        admin,
 	})
+	gstOutput := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:                "2101",
+		Name:                "GST Output",
+		AccountClass:        accounting.AccountClassLiability,
+		ControlType:         accounting.ControlTypeGSTOutput,
+		AllowsDirectPosting: false,
+		Actor:               admin,
+	})
+	gst18 := createTaxCode(t, ctx, accountingService, accounting.CreateTaxCodeInput{
+		Code:             "GST18",
+		Name:             "GST Output 18%",
+		TaxType:          accounting.TaxTypeGST,
+		RateBasisPoints:  1800,
+		PayableAccountID: gstOutput.ID,
+		Actor:            admin,
+	})
 
 	postedEntry, postedLines, _, err := accountingService.PostDocument(ctx, accounting.PostDocumentInput{
 		DocumentID:   doc.ID,
@@ -170,8 +376,9 @@ func TestReverseDocumentIntegration(t *testing.T) {
 		CurrencyCode: "INR",
 		TaxScopeCode: accounting.TaxScopeGST,
 		Lines: []accounting.PostingLineInput{
-			{AccountID: receivable.ID, Description: "Customer receivable", DebitMinor: 150000},
-			{AccountID: revenue.ID, Description: "Recognized revenue", CreditMinor: 150000, TaxCode: "GST18"},
+			{AccountID: receivable.ID, Description: "Customer receivable", DebitMinor: 177000},
+			{AccountID: revenue.ID, Description: "Recognized revenue", CreditMinor: 150000},
+			{AccountID: gstOutput.ID, Description: "GST payable", CreditMinor: 27000, TaxCode: gst18.Code},
 		},
 		Actor: admin,
 	})
@@ -371,6 +578,16 @@ func createLedgerAccount(t *testing.T, ctx context.Context, service *accounting.
 		t.Fatalf("create ledger account %s: %v", input.Code, err)
 	}
 	return account
+}
+
+func createTaxCode(t *testing.T, ctx context.Context, service *accounting.Service, input accounting.CreateTaxCodeInput) accounting.TaxCode {
+	t.Helper()
+
+	taxCode, err := service.CreateTaxCode(ctx, input)
+	if err != nil {
+		t.Fatalf("create tax code %s: %v", input.Code, err)
+	}
+	return taxCode
 }
 
 func seedOrgAndUser(t *testing.T, ctx context.Context, db *sql.DB, roleCode, existingOrgID string) (string, string) {

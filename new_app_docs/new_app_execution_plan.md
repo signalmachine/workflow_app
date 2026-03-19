@@ -84,7 +84,8 @@ Current implementation checkpoint:
 2. append-only journal entries and journal lines are implemented with database-backed balance enforcement
 3. approved documents can post through one centralized accounting service with duplicate-post protection
 4. reversals create explicit reversal entries rather than mutating posted truth
-5. remaining Milestone 2 work is tax foundation depth, accounting control seams, and review-oriented read models
+5. GST and TDS foundation records plus tax-aware posting validation are now implemented
+6. remaining Milestone 2 work is accounting control seams and review-oriented read models
 
 ## 4. Milestone 3: Inventory foundation
 

@@ -43,8 +43,9 @@ Implemented:
 5. device-scoped sessions and role-aware authorization around document and approval service actions
 6. AI tool registry, tool policy, run history, artifacts, recommendations, approval linkage, and delegation traces
 7. accounting ledger accounts plus centralized, idempotent, document-linked journal posting and reversal with database-backed balance enforcement
+8. GST and TDS tax foundation records with tax-aware posting validation against active tax codes and control accounts
 
 Next:
 
-1. extend Milestone 2 into GST and TDS foundation records and posting seams
-2. add the remaining accounting control and review layers on top of the current journal kernel
+1. add the remaining accounting control and review layers on top of the current journal kernel
+2. extend Milestone 2 into period handling, journal review surfaces, and receivable or payable reporting readiness

@@ -18,9 +18,11 @@ import (
 var (
 	ErrLedgerAccountNotFound = errors.New("ledger account not found")
 	ErrJournalEntryNotFound  = errors.New("journal entry not found")
+	ErrTaxCodeNotFound       = errors.New("tax code not found")
 	ErrPostingAlreadyExists  = errors.New("posting already exists for document")
 	ErrAlreadyReversed       = errors.New("journal entry already reversed")
 	ErrInvalidAccount        = errors.New("invalid ledger account")
+	ErrInvalidTaxCode        = errors.New("invalid tax code")
 	ErrInvalidCurrencyCode   = errors.New("invalid currency code")
 	ErrInvalidTaxScope       = errors.New("invalid tax scope")
 	ErrInvalidJournalLine    = errors.New("invalid journal line")
@@ -50,6 +52,9 @@ const (
 	TaxScopeGST    = "gst"
 	TaxScopeTDS    = "tds"
 	TaxScopeGSTTDS = "gst_tds"
+
+	TaxTypeGST = "gst"
+	TaxTypeTDS = "tds"
 )
 
 type LedgerAccount struct {
@@ -97,6 +102,21 @@ type JournalLine struct {
 	CreatedAt   time.Time
 }
 
+type TaxCode struct {
+	ID                  string
+	OrgID               string
+	Code                string
+	Name                string
+	TaxType             string
+	RateBasisPoints     int
+	ReceivableAccountID sql.NullString
+	PayableAccountID    sql.NullString
+	Status              string
+	CreatedByUserID     string
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
+
 type CreateLedgerAccountInput struct {
 	Code                string
 	Name                string
@@ -104,6 +124,16 @@ type CreateLedgerAccountInput struct {
 	ControlType         string
 	AllowsDirectPosting bool
 	TaxCategoryCode     string
+	Actor               identityaccess.Actor
+}
+
+type CreateTaxCodeInput struct {
+	Code                string
+	Name                string
+	TaxType             string
+	RateBasisPoints     int
+	ReceivableAccountID string
+	PayableAccountID    string
 	Actor               identityaccess.Actor
 }
 
@@ -177,6 +207,48 @@ func (s *Service) CreateLedgerAccount(ctx context.Context, input CreateLedgerAcc
 	}
 
 	return account, nil
+}
+
+func (s *Service) CreateTaxCode(ctx context.Context, input CreateTaxCodeInput) (TaxCode, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return TaxCode{}, fmt.Errorf("begin create tax code: %w", err)
+	}
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin); err != nil {
+		_ = tx.Rollback()
+		return TaxCode{}, err
+	}
+
+	taxCode, err := createTaxCodeTx(ctx, tx, input)
+	if err != nil {
+		_ = tx.Rollback()
+		return TaxCode{}, err
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
+		EventType:   "accounting.tax_code_created",
+		EntityType:  "accounting.tax_code",
+		EntityID:    taxCode.ID,
+		Payload: map[string]any{
+			"code":               taxCode.Code,
+			"tax_type":           taxCode.TaxType,
+			"rate_basis_points":  taxCode.RateBasisPoints,
+			"receivable_account": taxCode.ReceivableAccountID.String,
+			"payable_account":    taxCode.PayableAccountID.String,
+		},
+	}); err != nil {
+		_ = tx.Rollback()
+		return TaxCode{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return TaxCode{}, fmt.Errorf("commit create tax code: %w", err)
+	}
+
+	return taxCode, nil
 }
 
 func (s *Service) PostDocument(ctx context.Context, input PostDocumentInput) (JournalEntry, []JournalLine, documents.Document, error) {
@@ -363,6 +435,9 @@ func (s *Service) postDocumentTx(ctx context.Context, tx *sql.Tx, input PostDocu
 	if err := validateAccountsTx(ctx, tx, input.Actor.OrgID, input.Lines); err != nil {
 		return JournalEntry{}, nil, false, err
 	}
+	if err := validatePostingTaxCodesTx(ctx, tx, input.Actor.OrgID, input.TaxScopeCode, input.Lines); err != nil {
+		return JournalEntry{}, nil, false, err
+	}
 
 	existing, lines, found, err := getPostingEntryByDocumentForUpdate(ctx, tx, input.Actor.OrgID, input.DocumentID)
 	if err != nil && !errors.Is(err, ErrJournalEntryNotFound) {
@@ -452,6 +527,63 @@ RETURNING
 	))
 }
 
+func createTaxCodeTx(ctx context.Context, tx *sql.Tx, input CreateTaxCodeInput) (TaxCode, error) {
+	taxType := strings.TrimSpace(input.TaxType)
+	if !isValidTaxType(taxType) {
+		return TaxCode{}, ErrInvalidTaxCode
+	}
+	if strings.TrimSpace(input.Code) == "" || strings.TrimSpace(input.Name) == "" {
+		return TaxCode{}, ErrInvalidTaxCode
+	}
+	if input.RateBasisPoints < 0 || input.RateBasisPoints > 10000 {
+		return TaxCode{}, ErrInvalidTaxCode
+	}
+	if strings.TrimSpace(input.ReceivableAccountID) == "" && strings.TrimSpace(input.PayableAccountID) == "" {
+		return TaxCode{}, ErrInvalidTaxCode
+	}
+	if err := validateTaxControlAccountsTx(ctx, tx, input.Actor.OrgID, taxType, input.ReceivableAccountID, input.PayableAccountID); err != nil {
+		return TaxCode{}, err
+	}
+
+	const statement = `
+INSERT INTO accounting.tax_codes (
+	org_id,
+	code,
+	name,
+	tax_type,
+	rate_basis_points,
+	receivable_account_id,
+	payable_account_id,
+	created_by_user_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING
+	id,
+	org_id,
+	code,
+	name,
+	tax_type,
+	rate_basis_points,
+	receivable_account_id,
+	payable_account_id,
+	status,
+	created_by_user_id,
+	created_at,
+	updated_at;`
+
+	return scanTaxCode(tx.QueryRowContext(
+		ctx,
+		statement,
+		input.Actor.OrgID,
+		strings.TrimSpace(input.Code),
+		strings.TrimSpace(input.Name),
+		taxType,
+		input.RateBasisPoints,
+		nullIfEmpty(strings.TrimSpace(input.ReceivableAccountID)),
+		nullIfEmpty(strings.TrimSpace(input.PayableAccountID)),
+		input.Actor.UserID,
+	))
+}
+
 func validatePostingLines(lines []PostingLineInput) error {
 	if len(lines) < 2 {
 		return ErrInvalidJournalLine
@@ -501,6 +633,86 @@ WHERE org_id = $1
 			}
 			return fmt.Errorf("validate ledger account: %w", err)
 		}
+	}
+	return nil
+}
+
+func validatePostingTaxCodesTx(ctx context.Context, tx *sql.Tx, orgID, taxScopeCode string, lines []PostingLineInput) error {
+	scope := strings.TrimSpace(taxScopeCode)
+	seen := make(map[string]struct{}, len(lines))
+	hasTaxCode := false
+
+	for _, line := range lines {
+		code := strings.TrimSpace(line.TaxCode)
+		if code == "" {
+			continue
+		}
+		hasTaxCode = true
+		if scope == TaxScopeNone {
+			return ErrInvalidTaxScope
+		}
+		if _, ok := seen[code]; ok {
+			continue
+		}
+		seen[code] = struct{}{}
+
+		taxCode, err := getActiveTaxCodeTx(ctx, tx, orgID, code)
+		if err != nil {
+			return err
+		}
+		if !taxScopeAllowsType(scope, taxCode.TaxType) {
+			return ErrInvalidTaxScope
+		}
+	}
+
+	if scope != TaxScopeNone && !hasTaxCode {
+		return ErrInvalidTaxScope
+	}
+
+	return nil
+}
+
+func validateTaxControlAccountsTx(ctx context.Context, tx *sql.Tx, orgID, taxType, receivableAccountID, payableAccountID string) error {
+	if accountID := strings.TrimSpace(receivableAccountID); accountID != "" {
+		expected := ControlTypeGSTInput
+		if taxType == TaxTypeTDS {
+			expected = ControlTypeTDSReceivable
+		}
+		if err := validateControlAccountTypeTx(ctx, tx, orgID, accountID, expected); err != nil {
+			return err
+		}
+	}
+
+	if accountID := strings.TrimSpace(payableAccountID); accountID != "" {
+		expected := ControlTypeGSTOutput
+		if taxType == TaxTypeTDS {
+			expected = ControlTypeTDSPayable
+		}
+		if err := validateControlAccountTypeTx(ctx, tx, orgID, accountID, expected); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateControlAccountTypeTx(ctx context.Context, tx *sql.Tx, orgID, accountID, expectedControlType string) error {
+	const query = `
+SELECT control_type
+FROM accounting.ledger_accounts
+WHERE org_id = $1
+  AND id = $2
+  AND status = 'active';`
+
+	var controlType string
+	if err := tx.QueryRowContext(ctx, query, orgID, accountID).Scan(&controlType); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrLedgerAccountNotFound
+		}
+		return fmt.Errorf("validate control account: %w", err)
+	}
+	if controlType != expectedControlType {
+		return ErrInvalidTaxCode
 	}
 	return nil
 }
@@ -801,6 +1013,36 @@ ORDER BY line_number ASC;`
 	return lines, nil
 }
 
+func getActiveTaxCodeTx(ctx context.Context, tx *sql.Tx, orgID, code string) (TaxCode, error) {
+	const query = `
+SELECT
+	id,
+	org_id,
+	code,
+	name,
+	tax_type,
+	rate_basis_points,
+	receivable_account_id,
+	payable_account_id,
+	status,
+	created_by_user_id,
+	created_at,
+	updated_at
+FROM accounting.tax_codes
+WHERE org_id = $1
+  AND lower(code) = lower($2)
+  AND status = 'active';`
+
+	taxCode, err := scanTaxCode(tx.QueryRowContext(ctx, query, orgID, strings.TrimSpace(code)))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return TaxCode{}, ErrTaxCodeNotFound
+		}
+		return TaxCode{}, fmt.Errorf("load tax code: %w", err)
+	}
+	return taxCode, nil
+}
+
 func (s *Service) loadDocument(ctx context.Context, orgID, documentID string) (documents.Document, error) {
 	const query = `
 SELECT
@@ -911,6 +1153,28 @@ func scanJournalLine(row rowScanner) (JournalLine, error) {
 	return line, nil
 }
 
+func scanTaxCode(row rowScanner) (TaxCode, error) {
+	var taxCode TaxCode
+	err := row.Scan(
+		&taxCode.ID,
+		&taxCode.OrgID,
+		&taxCode.Code,
+		&taxCode.Name,
+		&taxCode.TaxType,
+		&taxCode.RateBasisPoints,
+		&taxCode.ReceivableAccountID,
+		&taxCode.PayableAccountID,
+		&taxCode.Status,
+		&taxCode.CreatedByUserID,
+		&taxCode.CreatedAt,
+		&taxCode.UpdatedAt,
+	)
+	if err != nil {
+		return TaxCode{}, err
+	}
+	return taxCode, nil
+}
+
 func scanDocument(row rowScanner) (documents.Document, error) {
 	var doc documents.Document
 	err := row.Scan(
@@ -999,6 +1263,28 @@ func isValidTaxScope(value string) bool {
 	switch strings.TrimSpace(value) {
 	case TaxScopeNone, TaxScopeGST, TaxScopeTDS, TaxScopeGSTTDS:
 		return true
+	default:
+		return false
+	}
+}
+
+func isValidTaxType(value string) bool {
+	switch strings.TrimSpace(value) {
+	case TaxTypeGST, TaxTypeTDS:
+		return true
+	default:
+		return false
+	}
+}
+
+func taxScopeAllowsType(scope, taxType string) bool {
+	switch strings.TrimSpace(scope) {
+	case TaxScopeGST:
+		return taxType == TaxTypeGST
+	case TaxScopeTDS:
+		return taxType == TaxTypeTDS
+	case TaxScopeGSTTDS:
+		return taxType == TaxTypeGST || taxType == TaxTypeTDS
 	default:
 		return false
 	}

@@ -21,12 +21,12 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 | Foundation coverage checklist captured | done | V1 completion now has an explicit foundation-complete checklist |
 | Milestone 0 bootstrap | done | Go module, migration runner, env template, and control-boundary migrations are implemented and verified against primary and test databases |
 | Milestone 1 document and approval kernel | done | Shared document identity, approvals, approval queue, decisions, sessions, role-aware service boundaries, and the AI run, tool-policy, artifact, recommendation, and delegation trace foundation are implemented and covered by integration tests |
-| Milestone 2 accounting foundation | in_progress | Ledger accounts, append-only journal entries and lines, document-linked centralized posting, reversal entries, and database-backed balance enforcement are implemented and covered by integration tests |
+| Milestone 2 accounting foundation | in_progress | Ledger accounts, append-only journal entries and lines, document-linked centralized posting, reversal entries, GST/TDS tax foundation records, and tax-aware posting validation are implemented and covered by integration tests |
 
 ## 2. Immediate next steps
 
-1. continue Milestone 2 from the current accounting posting kernel into GST and TDS foundation records and posting seams
-2. add the remaining accounting control seams for period handling, journal review surfaces, and receivable or payable reporting readiness
+1. continue Milestone 2 from the completed GST and TDS foundation-record slice into period handling, journal review surfaces, and receivable or payable reporting readiness
+2. keep adding accounting control seams without broadening beyond the thin-v1 module map
 3. keep the codebase limited to the approved first-class modules while Milestone 2 expands
 4. add attachments only where they support approval evidence or document support flows
 5. use `new_app_v1_gap_review_from_current_codebase.md` as the reference list of remaining missing foundation areas after the current accounting slice
