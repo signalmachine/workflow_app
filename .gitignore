@@ -1,0 +1,54 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+*.prof
+coverage/
+coverage.out
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.*
+!.env.example
+.envrc
+
+# Logs and databases
+*.log
+/logs/
+
+# IDE and Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temporary folders
+/tmp/
+node_modules/
+
+# Build outputs
+/bin/
+/dist/
+/build/
+
+# Tool caches
+.cache/
+
+# Generated docs artifacts
+.jekyll-cache/
+.sass-cache/
+
+.claude
+.codex/

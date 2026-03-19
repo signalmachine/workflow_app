@@ -1,0 +1,348 @@
+# service_day Implementation Objectives
+
+Date: 2026-03-19
+Status: High-level multi-version implementation summary
+Purpose: capture the high-level rules, principles, objectives, requirements, specifications, and invariants that implementation work should preserve across the application across v1, v2, and later versions.
+
+## 1. Canonical source rule
+
+This document is a high-level multi-version summary, not a replacement for the active planning set.
+
+Rules:
+
+1. `plan_docs/` is the active canonical planning source for current v1 work.
+2. `implementation_plan/` is legacy reference material and future-context material unless an active `plan_docs/` document promotes a rule forward.
+3. When active and legacy planning differ, implementation should follow `plan_docs/`.
+4. this document may describe long-term implementation objectives that extend beyond thin v1
+5. thin v1 remains the active implementation priority and should be treated as the minimum serious foundation version, not the full product endpoint
+6. this document is a companion summary and is not mandatory reading for every implementation session
+7. the normal session-start source of truth remains `AGENTS.md`, `README.md`, `plan_docs/`, and optional legacy reference from `implementation_plan/` when needed
+8. when high-level objectives, rules, principles, specifications, or invariants change in those canonical sources, this summary should be reviewed and updated if needed
+
+## 2. Product identity
+
+`service_day` is intended to be:
+
+1. an AI-agent-first business operating system
+2. a database-first and SQL-first application
+3. a documents-plus-ledgers-plus-execution-context system
+4. a review-and-report product for humans rather than a form-heavy manual-entry product
+5. a service-business-first foundation that also remains usable for light trading at limited depth
+
+It is explicitly not intended to become:
+
+1. a CRM-first product
+2. a portal-first product
+3. a broad manual UI-first ERP
+4. a workflow suite without strong accounting, inventory, and audit truth
+
+## 3. Core doctrine
+
+The application is shaped by three foundational layers:
+
+1. documents as intent
+2. ledgers as truth
+3. execution context as operational reality
+
+Implementation consequences:
+
+1. every important capability should map to a document, a ledger effect, an execution context, an approval path, and a review/report surface
+2. documents explain what the business decided
+3. ledgers explain what changed in measurable terms
+4. execution records explain what actually happened operationally
+5. reports are derived views, not truth owners
+
+## 4. Versioning stance and thin-v1 objective
+
+The implementation objectives in this document span multiple versions.
+
+Rules:
+
+1. not every objective in this document is intended to land in v1
+2. thin v1 is the current foundation release target
+3. v2 and later versions may deepen localization, workflow breadth, vertical extensions, and operator surfaces on top of the v1 foundation
+4. implementation should preserve extension room for later versions without expanding thin-v1 scope prematurely
+
+The active thin v1 aims to deliver the minimum serious system that can:
+
+1. accept human requests through AI
+2. create reviewable business documents
+3. post approved documents into financial and inventory truth layers
+4. support foundational GST and TDS handling
+5. track operations through work orders and tasks
+6. expose approval, review, inspection, and reporting surfaces for humans
+
+Near-term success is defined more by safe and observable AI-assisted operation on strong foundations than by broad product breadth.
+
+## 5. Highest-priority v1 capabilities
+
+The highest thin-v1 priorities are:
+
+1. identity, org, roles, sessions, and tenant safety
+2. audit events, approvals, and idempotent write boundaries
+3. AI coordinator, specialist-agent routing, tool policy, and run observability
+4. party, contact-support, item, location, ledger-account, and tax-foundation records
+5. workforce foundation for assignment, labor capture, and labor costing
+6. accounting and posting foundations
+7. inventory movement foundations
+8. work-order and task execution foundations
+9. report and review surfaces
+
+CRM and project depth may remain in the repository where already implemented, but they are support concerns in thin v1 rather than the product center.
+
+## 6. AI-agent-first requirements
+
+AI is the primary operator interface, but not the authority over truth.
+
+Required rules:
+
+1. AI acts through explicit tools over normal domain services.
+2. AI may read, summarize, draft, recommend, and request approval.
+3. AI may execute only bounded writes allowed by policy.
+4. financially meaningful writes remain human-gated
+5. AI may never write ledger rows directly
+6. AI may never bypass posting, approval, audit, or schema constraints
+7. AI execution must be observable through durable run history, steps, artifacts, recommendations, approvals, and delegation traces
+8. the preferred architecture is multi-agent: one coordinator routes bounded work to specialist agents
+
+The short-term AI objective is to observe, evaluate, and improve agent behavior on real bounded business tasks.
+
+## 7. Human-interface stance
+
+Human surfaces in thin v1 should stay intentionally minimal.
+
+Allowed primary human surfaces:
+
+1. approval queues
+2. review screens
+3. inspection and query surfaces
+4. reports
+
+Not intended as core thin-v1 behavior:
+
+1. broad manual operational data entry
+2. direct human ledger editing
+3. broad human operational UI replacing agent-driven workflows
+
+## 8. Data and database principles
+
+The database is the main safety system.
+
+Implementation rules:
+
+1. enforce invariants in PostgreSQL wherever practical
+2. treat Go services as the second enforcement layer
+3. prefer constraints, foreign keys, unique rules, and transactional boundaries over application-only correctness
+4. tenant-relevant tables should carry `org_id`
+5. tenant-crossing references must be blocked by schema design, not only by handler checks
+6. one-time bootstrap must be database-safe
+7. invalid states, invalid transitions, and unsafe postings should be rejected by default
+8. sophisticated PostgreSQL-native modeling is preferred when it materially improves correctness, auditability, performance, or operability, provided it does not create unnecessary implementation or operational pain
+
+## 9. Module and ownership boundaries
+
+High-level ownership rules must remain explicit even though the product should feel integrated.
+
+Rules:
+
+1. each module owns its tables, write paths, and invariants
+2. other modules should not write directly into another module's tables
+3. cross-module reads should prefer explicit services, exported queries, or read models
+4. shared infrastructure does not create shared business ownership
+5. product flows should feel integrated without weakening ownership boundaries
+6. shared document identity, lifecycle, numbering, and posting-linkage rules need one canonical ownership path
+7. shared approval records and approval queues need one canonical ownership path rather than AI-only special handling
+
+## 10. Core truth invariants
+
+The following are core application invariants:
+
+1. ledger truth is append-only
+2. financial postings are balanced double-entry movements
+3. inventory truth is append-only movement history from explicit source to destination
+4. balances, stock, outstanding values, and reports are derived rather than stored as mutable truth
+5. documents do not directly store financial or stock truth
+6. posting is explicit, deterministic, idempotent, and transactional
+7. a business action that requires audit must succeed or fail with its audit event
+8. AI traceability supplements audit and does not replace it
+
+## 11. Document requirements
+
+Document handling should preserve:
+
+1. stable document identifiers
+2. explicit document types
+3. explicit lifecycle states such as draft, submitted, approved or rejected, posted where applicable, and reversed or voided where applicable
+4. source-document linkage into downstream postings
+5. durable numbering where accounting, tax, or operational correctness requires it
+6. one canonical shared document model for identity, lifecycle, numbering, and posting linkage even when payload ownership stays with domain modules
+
+High-level document families expected in thin v1:
+
+1. work-order documents
+2. invoice documents
+3. payment or receipt documents
+4. inventory receipt documents
+5. inventory issue or adjustment documents
+6. journal proposal or journal-entry documents where needed
+7. AI-created draft proposals and pending actions
+
+Canonical numbering rules:
+
+1. accounting documents and entries should support explicit document types
+2. document numbering should be durable and unique per configured series
+3. numbering should not reset every financial year unless a later explicit compliant policy is adopted for a specific document class
+
+## 12. Accounting and posting objectives
+
+Accounting is a foundational v1 capability, not a later reporting add-on.
+
+Requirements:
+
+1. `accounting` owns ledger truth and posting boundaries
+2. operational modules may prepare posting inputs but may not write posted ledger state directly
+3. posting must remain centralized, balanced, idempotent, and correction-safe
+4. reversal and correction flows must be explicit
+5. accounting-period and numbering controls should remain possible on the shared core
+6. receivable and payable control-account treatment belongs in accounting
+7. proposer, submitter, poster, and timestamps should remain reconstructible for audit and approval review
+
+## 13. Tax objectives
+
+Foundational GST and TDS support are part of v1.
+
+Rules:
+
+1. GST and TDS belong in supported document and posting flows, not only in reports
+2. tax metadata should be attachable to parties, documents, document lines, and accounting outputs where needed
+3. tax flows must be suitable for a very small service company and a light-trading operator on the same foundation
+4. deeper localization breadth and broader country-specific depth remain later concerns
+
+## 14. Inventory and material-flow objectives
+
+Inventory should use one shared truth model across service-led and light-trading scenarios.
+
+Requirements:
+
+1. one inventory foundation, not separate service and trading inventory engines
+2. on-hand stock must be derived from movements
+3. movement source and destination must be explicit
+4. resale stock, service-delivery materials, installed or traceable equipment, and direct-expense consumables must be distinguished explicitly
+5. billable versus non-billable service-material usage must be explicit where costing or billing depends on it
+6. serialized, lot-tracked, or installed-unit traceability should exist where the delivery use case requires it
+7. inventory usage should link cleanly into execution context and accounting outcomes
+
+## 15. Execution-context objectives
+
+`work_order` is the strongest long-term operational capability and should remain the primary execution record.
+
+Required execution rules:
+
+1. work orders are the main execution context
+2. projects are optional and subordinate when present
+3. one shared task engine exists across contexts
+4. each task has one primary actionable owner
+5. team ownership is a queue concept, not many simultaneous primary assignees
+6. tasks and activities are distinct concepts
+7. worker-linked labor capture and labor costing belong in thin v1
+8. execution history should remain explicit and auditable
+9. work should link to documents, labor usage, material usage, and financial outcomes
+10. serviced assets or installed units should remain first-class linked records when work targets a specific maintainable unit
+
+## 16. Parties, items, and supporting master data
+
+High-level master-data requirements:
+
+1. parties are unified external entities and should not be split into isolated customer/vendor truth models
+2. contacts exist as supporting identity detail, not as the center of product scope
+3. items are a shared foundation across service and light-trading scenarios
+4. behavior differences should come from attributes and classification rather than separate core item models
+5. inventory locations, ledger accounts, and tax-foundation records are required shared foundations
+6. internal identity, external party identity, and worker identity must remain separate concerns
+
+## 17. Audit, approvals, and idempotency
+
+These are non-negotiable control boundaries.
+
+Rules:
+
+1. every meaningful business mutation must be auditable
+2. approvals should be explicit and persisted for sensitive actions
+3. idempotent write execution is required where retries could create duplicate effects
+4. accepted AI-originated actions should carry causation links into audit metadata
+5. the system should preserve enough trace data to reconstruct who proposed, approved, submitted, and posted an action
+
+## 18. API, mobile, and client requirements
+
+The backend is intended to serve AI, mobile, and later web or portal clients through the same domain-service boundaries.
+
+Current high-level client rules:
+
+1. `/api/v1/...` is the explicit stable major-version path
+2. `/api/...` may remain a same-shape pre-production alias for the current version
+3. v1 changes should remain additive and backward-compatible
+4. request validation should happen before persistence calls
+5. device-scoped sessions and refresh-token rotation are the intended mobile-auth model
+6. retry-prone writes should use idempotent boundaries where duplicates would be harmful
+7. list endpoints intended for mobile use should support pagination and incremental-sync-friendly shapes
+8. attachment transport should use explicit bounded upload/download contracts
+9. notification registration and delivery bookkeeping are backend responsibilities
+10. the current mobile stance is online-first unless a later canonical decision changes it
+11. the first planned mobile client may use Flutter, but backend decisions must remain client-agnostic
+
+## 19. Reporting objectives
+
+Reports are first-class outputs but not first-class truth owners.
+
+Required reporting categories at high level:
+
+1. approval views
+2. document lists
+3. journal and ledger views
+4. inventory stock and movement views
+5. work-order queues and status views
+6. tax summary and review views
+7. audit lookup views
+
+Humans should inspect system state through these derived views rather than by mutating truth tables directly.
+
+## 20. Later-version objectives and deferred areas
+
+The repository preserves several future-facing seams and later-version objectives, but these are not the center of thin v1.
+
+Common v2-or-later objectives include:
+
+1. broad CRM pipeline depth
+2. advanced project-management breadth
+3. customer portal
+4. broad launch/navigation UX
+5. CSV and spreadsheet exchange workflows
+6. payroll
+7. deeper tax localization
+8. external communication-channel integrations
+9. rental-operator extensions
+10. narrow marketplace-seller or broader trading extensions
+11. mobile speech-capture workflows using approved local-language transcripts
+12. full UAE statutory and localization support beyond shared-core compatibility
+
+These should remain future-compatible where practical, but they should not distort thin-v1 implementation priorities.
+
+## 21. Multi-version completion framing
+
+This document does not define one single version-completion gate for the whole product.
+
+Rules:
+
+1. thin-v1 completion should be judged against the active `plan_docs/` scope and foundation checklist
+2. later-version objectives should be delivered only after they are promoted into active canonical planning for that version
+3. multi-version ambition should not be used to weaken thin-v1 discipline
+
+## 22. High-level completion test
+
+At a high level, the intended system should let a business:
+
+1. ask the AI agent to create or prepare a bounded business action
+2. review the resulting draft or proposal
+3. approve and post through controlled services where policy allows
+4. inspect document, execution, inventory, accounting, tax, and audit outcomes through reports
+5. trust that correctness comes from constrained documents, ledgers, execution links, approvals, and database-enforced invariants rather than mutable convenience fields
