@@ -78,6 +78,14 @@ Exit criteria:
 4. accounting posting occurs only through centralized posting paths from supported documents
 5. proposer, submitter, poster, and timestamps remain reconstructible for audit review
 
+Current implementation checkpoint:
+
+1. ledger accounts now exist as a first-class `accounting` foundation record
+2. append-only journal entries and journal lines are implemented with database-backed balance enforcement
+3. approved documents can post through one centralized accounting service with duplicate-post protection
+4. reversals create explicit reversal entries rather than mutating posted truth
+5. remaining Milestone 2 work is tax foundation depth, accounting control seams, and review-oriented read models
+
 ## 4. Milestone 3: Inventory foundation
 
 Goal:

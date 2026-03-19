@@ -1,0 +1,10 @@
+DROP TRIGGER IF EXISTS accounting_journal_lines_no_update ON accounting.journal_lines;
+DROP TRIGGER IF EXISTS accounting_journal_entries_no_update ON accounting.journal_entries;
+DROP TRIGGER IF EXISTS accounting_journal_lines_balance_check ON accounting.journal_lines;
+DROP FUNCTION IF EXISTS accounting.prevent_journal_mutation();
+DROP FUNCTION IF EXISTS accounting.enforce_journal_entry_balance();
+DROP FUNCTION IF EXISTS accounting.validate_journal_entry_balance(UUID);
+DROP TABLE IF EXISTS accounting.journal_lines;
+DROP TABLE IF EXISTS accounting.journal_entries;
+DROP TABLE IF EXISTS accounting.journal_numbering_series;
+DROP TABLE IF EXISTS accounting.ledger_accounts;

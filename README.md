@@ -2,12 +2,13 @@
 
 `workflow_app` is an AI-agent-first, database-first business operating system centered on documents, ledgers, execution context, approvals, and reports.
 
-This repository has completed Milestone 0 and Milestone 1 from the canonical planning set in [`new_app_docs/`](./new_app_docs) and is ready to begin Milestone 2:
+This repository has completed Milestone 0 and Milestone 1 from the canonical planning set in [`new_app_docs/`](./new_app_docs), and Milestone 2 is now in progress:
 
 1. bootstrap the Go module
 2. add a migration runner
 3. create the first control-boundary schema for orgs, users, memberships, audit, and idempotency
 4. add the first shared document, approval, session/auth, and AI traceability foundations
+5. start the accounting foundation with ledger accounts, append-only journals, centralized document posting, and reversals
 
 The planning documents in [`new_app_docs/`](./new_app_docs) remain the canonical source for scope, sequencing, and module boundaries.
 
@@ -41,7 +42,9 @@ Implemented:
 4. workflow approvals, approval queue entries, and approval decisions
 5. device-scoped sessions and role-aware authorization around document and approval service actions
 6. AI tool registry, tool policy, run history, artifacts, recommendations, approval linkage, and delegation traces
+7. accounting ledger accounts plus centralized, idempotent, document-linked journal posting and reversal with database-backed balance enforcement
 
 Next:
 
-1. begin Milestone 2 accounting and tax foundation with ledger accounts, journal truth, posting invariants, and centralized posting boundaries
+1. extend Milestone 2 into GST and TDS foundation records and posting seams
+2. add the remaining accounting control and review layers on top of the current journal kernel

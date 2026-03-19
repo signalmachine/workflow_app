@@ -66,6 +66,12 @@ type ApprovalOutcomeInput struct {
 	Actor      identityaccess.Actor
 }
 
+type PostingOutcomeInput struct {
+	DocumentID string
+	Action     string
+	Actor      identityaccess.Actor
+}
+
 type Service struct {
 	db *sql.DB
 }
@@ -153,6 +159,10 @@ func (s *Service) Submit(ctx context.Context, input SubmitInput) (Document, erro
 
 func (s *Service) ApplyApprovalOutcome(ctx context.Context, tx *sql.Tx, input ApprovalOutcomeInput) (Document, error) {
 	return applyApprovalOutcomeTx(ctx, tx, input)
+}
+
+func (s *Service) ApplyPostingOutcome(ctx context.Context, tx *sql.Tx, input PostingOutcomeInput) (Document, error) {
+	return applyPostingOutcomeTx(ctx, tx, input)
 }
 
 func createDraftTx(ctx context.Context, tx *sql.Tx, input CreateDraftInput) (Document, error) {
@@ -278,6 +288,73 @@ UPDATE documents.documents
 SET status = 'rejected',
 	rejected_at = NOW(),
 	approved_at = NULL,
+	updated_at = NOW()
+WHERE org_id = $1
+  AND id = $2
+RETURNING
+	id,
+	org_id,
+	type_code,
+	status,
+	title,
+	number_series_id,
+	number_value,
+	source_document_id,
+	created_by_user_id,
+	submitted_by_user_id,
+	submitted_at,
+	approved_at,
+	rejected_at,
+	created_at,
+	updated_at;`
+	default:
+		return Document{}, ErrInvalidDocumentState
+	}
+
+	return scanDocument(tx.QueryRowContext(ctx, statement, input.Actor.OrgID, input.DocumentID))
+}
+
+func applyPostingOutcomeTx(ctx context.Context, tx *sql.Tx, input PostingOutcomeInput) (Document, error) {
+	doc, err := getDocumentForUpdate(ctx, tx, input.Actor.OrgID, input.DocumentID)
+	if err != nil {
+		return Document{}, err
+	}
+
+	var statement string
+	switch input.Action {
+	case "posted":
+		if doc.Status != StatusApproved {
+			return Document{}, ErrInvalidDocumentState
+		}
+		statement = `
+UPDATE documents.documents
+SET status = 'posted',
+	updated_at = NOW()
+WHERE org_id = $1
+  AND id = $2
+RETURNING
+	id,
+	org_id,
+	type_code,
+	status,
+	title,
+	number_series_id,
+	number_value,
+	source_document_id,
+	created_by_user_id,
+	submitted_by_user_id,
+	submitted_at,
+	approved_at,
+	rejected_at,
+	created_at,
+	updated_at;`
+	case "reversed":
+		if doc.Status != StatusPosted {
+			return Document{}, ErrInvalidDocumentState
+		}
+		statement = `
+UPDATE documents.documents
+SET status = 'reversed',
 	updated_at = NOW()
 WHERE org_id = $1
   AND id = $2
