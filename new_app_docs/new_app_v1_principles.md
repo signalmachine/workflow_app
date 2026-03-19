@@ -1,19 +1,19 @@
-# New App v1 Principles
+# workflow_app v1 Principles
 
 Date: 2026-03-19
 Status: Draft canonical principles
-Purpose: define the non-negotiable doctrine for the replacement thin-v1 application.
+Purpose: define the non-negotiable doctrine for the `workflow_app` thin-v1 application.
 
 ## 1. Product identity
 
-The new application is:
+`workflow_app` is:
 
 1. an AI-agent-first business operating system
 2. a database-first and SQL-first application
 3. a documents-plus-ledgers-plus-execution-context system
 4. a review-and-report product for humans
 
-The new application is not:
+`workflow_app` is not:
 
 1. a CRM-first product
 2. a broad manual-entry ERP
@@ -57,6 +57,8 @@ Rules:
 3. AI may never write ledger truth directly
 4. meaningful writes must remain auditable
 5. financially meaningful writes must remain human-gated
+6. v1 still uses a multi-agent architecture, but only with bounded coordinator-to-specialist routing and durable observability
+7. advanced agent autonomy, speculative delegation depth, and broad self-directed workflow expansion belong in v2 unless required by a foundation invariant
 
 ## 5. Human-interface rule
 
@@ -80,7 +82,7 @@ Not part of v1:
 
 The previous codebase showed that CRM-heavy implementation creates planning drag.
 
-The replacement codebase must therefore:
+`workflow_app` must therefore:
 
 1. exclude CRM as a primary module
 2. treat party and contact data as support records only

@@ -20,6 +20,7 @@ V2 may deepen:
 3. richer operator experience
 4. broader product surfaces
 5. deeper localization
+6. deeper tax localization and statutory edge-case tooling beyond the v1 GST/TDS foundation
 
 ## 3. What must already be true before broad v2 work starts
 

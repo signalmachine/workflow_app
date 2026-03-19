@@ -1,12 +1,12 @@
-# New App v1 Gap Review From Current Codebase
+# workflow_app v1 Gap Review From Current Codebase
 
 Date: 2026-03-19
 Status: Draft review note
-Purpose: compare the current repository implementation against the replacement thin-v1 foundation plan so the new codebase starts with a realistic gap view.
+Purpose: compare the current repository implementation against the `workflow_app` thin-v1 foundation plan so the new codebase starts with a realistic gap view.
 
 ## 1. Review conclusion
 
-The current codebase proves some important foundation slices, but it does not yet satisfy the planned thin-v1 foundation shape for the replacement app.
+The current codebase proves some important foundation slices, but it does not yet satisfy the planned thin-v1 foundation shape for `workflow_app`.
 
 The biggest issue is not lack of sophistication. The biggest issue is uneven sophistication:
 
@@ -15,11 +15,11 @@ The biggest issue is not lack of sophistication. The biggest issue is uneven sop
 3. inventory, workforce, work-order execution, and reporting remain materially missing
 4. CRM depth is much heavier than the missing foundation layers
 
-This confirms that the replacement app should start new rather than trying to trim the current codebase into shape.
+This confirms that `workflow_app` should start new rather than trying to trim the current codebase into shape.
 
 ## 2. What already exists that is worth carrying forward conceptually
 
-The current codebase already demonstrates useful patterns for the replacement app:
+The current codebase already demonstrates useful patterns for `workflow_app`:
 
 1. tenant-safe identity and membership handling
 2. audit events written transactionally with business actions
@@ -100,7 +100,7 @@ That mismatch is:
 
 ## 5. Replacement-codebase implication
 
-The replacement app should preserve quality and sophistication, but redirect that sophistication into the correct layers first:
+`workflow_app` should preserve quality and sophistication, but redirect that sophistication into the correct layers first:
 
 1. stronger first migrations
 2. stronger document kernel
@@ -108,4 +108,4 @@ The replacement app should preserve quality and sophistication, but redirect tha
 4. stronger execution and labor foundations
 5. stronger reporting and review surfaces
 
-The replacement app should not spend early sophistication budget on CRM breadth.
+`workflow_app` should not spend early sophistication budget on CRM breadth.

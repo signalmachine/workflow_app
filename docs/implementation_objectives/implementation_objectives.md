@@ -1,4 +1,4 @@
-# service_day Implementation Objectives
+# workflow_app Implementation Objectives
 
 Date: 2026-03-19
 Status: High-level multi-version implementation summary
@@ -10,18 +10,18 @@ This document is a high-level multi-version summary, not a replacement for the a
 
 Rules:
 
-1. `plan_docs/` is the active canonical planning source for current v1 work.
-2. `implementation_plan/` is legacy reference material and future-context material unless an active `plan_docs/` document promotes a rule forward.
-3. When active and legacy planning differ, implementation should follow `plan_docs/`.
+1. `new_app_docs/` is the active canonical planning source for current v1 work.
+2. legacy planning material is reference-only unless an active `new_app_docs/` document promotes a rule forward.
+3. When active and legacy planning differ, implementation should follow `new_app_docs/`.
 4. this document may describe long-term implementation objectives that extend beyond thin v1
 5. thin v1 remains the active implementation priority and should be treated as the minimum serious foundation version, not the full product endpoint
 6. this document is a companion summary and is not mandatory reading for every implementation session
-7. the normal session-start source of truth remains `AGENTS.md`, `README.md`, `plan_docs/`, and optional legacy reference from `implementation_plan/` when needed
+7. the normal session-start source of truth remains `AGENTS.md`, `README.md`, `new_app_docs/`, and optional legacy reference material when needed
 8. when high-level objectives, rules, principles, specifications, or invariants change in those canonical sources, this summary should be reviewed and updated if needed
 
 ## 2. Product identity
 
-`service_day` is intended to be:
+`workflow_app` is intended to be:
 
 1. an AI-agent-first business operating system
 2. a database-first and SQL-first application
@@ -333,7 +333,7 @@ This document does not define one single version-completion gate for the whole p
 
 Rules:
 
-1. thin-v1 completion should be judged against the active `plan_docs/` scope and foundation checklist
+1. thin-v1 completion should be judged against the active `new_app_docs/` scope and foundation checklist
 2. later-version objectives should be delivered only after they are promoted into active canonical planning for that version
 3. multi-version ambition should not be used to weaken thin-v1 discipline
 

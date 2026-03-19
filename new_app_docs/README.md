@@ -1,7 +1,7 @@
-# new_app_docs README
+# workflow_app Planning README
 
 Date: 2026-03-19
-Status: Draft canonical planning set for the replacement thin-v1 codebase
+Status: Draft canonical planning set for the `workflow_app` thin-v1 codebase
 Purpose: define the planning baseline for the new repository that replaces the current CRM-heavy codebase direction.
 
 ## Why this folder exists
@@ -15,7 +15,13 @@ This folder exists to prepare a clean restart with:
 3. documents, ledgers, execution context, approvals, and reports as the real center of gravity
 4. AI-agent-first operation without broad human operational UI
 
-This planning set should later move into the new repository and become that repository's canonical planning source.
+This planning set is the repository's canonical planning source.
+
+`workflow_app` still plans for multi-agent architecture in v1, but only at foundation depth:
+
+1. one coordinator routing bounded work to specialist agents
+2. durable run history, tool policy, artifacts, and delegation traces
+3. no advanced autonomy features unless they are required for foundation correctness
 
 ## Recommended reading order
 
@@ -24,10 +30,12 @@ Read these in order:
 1. `new_app_v1_principles.md`
 2. `new_app_v1_scope.md`
 3. `new_app_schema_and_module_boundaries.md`
-4. `new_app_execution_plan.md`
-5. `new_app_v1_gap_review_from_current_codebase.md`
-6. `new_app_tracker.md`
-7. `app_v2_plans/README.md`
+4. `new_app_implementation_defaults.md`
+5. `new_app_foundation_coverage.md`
+6. `new_app_execution_plan.md`
+7. `new_app_v1_gap_review_from_current_codebase.md`
+8. `new_app_tracker.md`
+9. `app_v2_plans/README.md`
 
 ## Reset decision
 

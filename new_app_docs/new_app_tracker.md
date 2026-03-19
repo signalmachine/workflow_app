@@ -1,29 +1,35 @@
-# New App Tracker
+# workflow_app Tracker
 
 Date: 2026-03-19
 Status: Draft reset tracker
-Purpose: track the replacement-codebase plan and guard against scope drift before implementation begins.
+Purpose: track the `workflow_app` plan and guard against scope drift during bootstrap and implementation.
 
 ## 1. Current status
 
 | Item | Status | Notes |
 | --- | --- | --- |
-| New thin-v1 reset accepted | in_progress | Planning reset is being prepared before the new repository is created |
-| New canonical module map | done | The replacement codebase should start without a primary CRM module |
-| New thin-v1 scope boundary | done | Thin-v1 scope has been restated for the replacement codebase |
-| New execution path | done | Milestone order exists for the replacement codebase |
-| Thin-v1 quality rule | done | The replacement app is explicitly foundation-heavy and rigor-heavy even though breadth stays narrow |
+| New thin-v1 reset accepted | in_progress | Planning reset is now active inside the `workflow_app` repository and implementation is underway |
+| New canonical module map | done | `workflow_app` should start without a primary CRM module |
+| New thin-v1 scope boundary | done | Thin-v1 scope has been restated for `workflow_app` |
+| New execution path | done | Milestone order exists for `workflow_app` |
+| Thin-v1 quality rule | done | `workflow_app` is explicitly foundation-heavy and rigor-heavy even though breadth stays narrow |
 | Current-codebase v1 gap review | done | Main missing foundation gaps versus the new thin-v1 plan have been documented |
 | V2 breadth parking lot | done | Deferred v2 capabilities now have their own plan folder so they do not leak into v1 |
-| New repository bootstrap | not_started | Repository not created yet |
+| Foundational document and posting bridge clarified | done | Minimum document families and cross-module posting path are explicit for v1 |
+| Multi-agent stance clarified | done | Multi-agent architecture remains in v1 at bounded foundation depth; advanced autonomy is deferred to v2 |
+| Implementation defaults captured | done | Locked defaults now exist as a canonical active doc for implementation decisions |
+| Foundation coverage checklist captured | done | V1 completion now has an explicit foundation-complete checklist |
+| Milestone 0 bootstrap | done | Go module, migration runner, env template, and control-boundary migrations are implemented and verified against primary and test databases |
+| Milestone 1 document and approval kernel | in_progress | Shared document identity, approvals, approval queue, decisions, sessions, and role-aware service boundaries are implemented and covered by integration tests |
 
 ## 2. Immediate next steps
 
-1. create the new repository
-2. move `new_app_docs/` into that repository
-3. scaffold Go module, migration runner, and Milestone 0 tables
-4. keep the initial codebase limited to the approved first-class modules
-5. use `new_app_v1_gap_review_from_current_codebase.md` as the reference list of missing foundation areas to prioritize in the new repo
+1. implement the remaining Milestone 1 AI foundation slice: run history, tool policy, recommendations, artifacts, and delegation traces
+2. keep the codebase limited to the approved first-class modules while finishing Milestone 1
+3. add attachments only where they support approval evidence or document support flows
+4. use `new_app_v1_gap_review_from_current_codebase.md` as the reference list of remaining missing foundation areas after Milestone 1
+5. use `new_app_implementation_defaults.md` as the default-rules reference during implementation
+6. use `new_app_foundation_coverage.md` as the v1 completion checklist and foundation coverage control
 
 ## 3. Scope guardrail
 

@@ -6,7 +6,7 @@ Purpose: hold explicitly deferred v2 breadth so it stays visible without leaking
 
 ## Why this folder exists
 
-The replacement app should be foundation-heavy in v1 and breadth-heavy later.
+`workflow_app` should be foundation-heavy in v1 and breadth-heavy later.
 
 This folder exists so that:
 

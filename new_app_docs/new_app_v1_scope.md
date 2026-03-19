@@ -1,8 +1,8 @@
-# New App Thin v1 Scope
+# workflow_app Thin v1 Scope
 
 Date: 2026-03-19
 Status: Draft canonical scope
-Purpose: define the strict v1 boundary for the replacement codebase.
+Purpose: define the strict v1 boundary for the `workflow_app` replacement codebase.
 
 ## 1. V1 objective
 
@@ -32,12 +32,22 @@ Rules:
 4. attachments where they support evidence or documents
 5. shared approvals, approval queues, and approval decisioning
 6. AI runs, tool policy, recommendations, artifacts, and delegation traces
+7. coordinator-plus-specialist multi-agent routing at bounded foundation depth
+
+Tenant model rule:
+
+1. `org` is the tenant boundary for v1
+2. one deployed instance may host multiple orgs through `org_id`-scoped data
+3. one user may hold memberships in more than one org
+4. role assignment belongs to the user membership in an org, not to the user globally
+5. one session or request operates in one active org context at a time
+6. switching org context should be explicit and should not weaken tenant-safety guarantees
 
 ### 2.2 Master records
 
 1. parties
 2. contacts as support detail only
-3. items
+3. items with enough classification to distinguish resale stock, service-delivery materials, installed or traceable equipment, and direct-expense consumables
 4. inventory locations
 5. ledger accounts
 6. workers
@@ -51,6 +61,15 @@ Rules:
 4. numbering where required
 5. source-document linkage
 6. one central document row per supported business document
+7. minimum supported v1 document families:
+8. work-order documents
+9. invoice documents
+10. payment or receipt documents
+11. inventory receipt, issue, and adjustment documents
+12. journal proposal or journal-entry documents where needed
+13. AI-created draft proposals and pending actions
+14. documents remain editable only until finalized and posted where applicable
+15. project-linked inventory consumption in v1 uses the same supported inventory issue or adjustment document families with execution-context linkage rather than a separate project-document family
 
 ### 2.4 Accounting foundation
 
@@ -59,6 +78,14 @@ Rules:
 3. append-only posted truth
 4. reversal and correction path
 5. GST and TDS-aware posting seams at foundation depth
+6. explicit centralized posting from approved documents into accounting truth
+7. receivable and payable control-account readiness on the shared core
+8. accounting-period and numbering controls kept possible on the shared core
+
+Tax scope rule:
+
+1. v1 includes foundational GST and TDS support in documents, posting, and baseline review/reporting seams
+2. deep localization breadth and full statutory edge-case tooling are deferred to v2 unless a specific item is required for v1 foundation correctness
 
 ### 2.5 Inventory foundation
 
@@ -67,6 +94,14 @@ Rules:
 3. derived on-hand quantity
 4. item-role and movement-purpose classification
 5. service-material and resale-stock distinction
+6. explicit movement source and destination
+7. baseline billable versus non-billable material-usage distinction where costing or billing depends on it
+8. support for two distinct inventory uses on one shared foundation:
+9. buy-and-sell trading inventory flows
+10. inventory consumption into service delivery or execution flows
+11. work-order-linked material consumption with optional bill-through on the related customer-facing document
+12. project-linked inventory consumption where a project is the execution context, without requiring a broad projects module in v1
+13. schema room for identity-level traceability of serialized, lot-tracked, or installed equipment classes where the delivery use case requires it
 
 ### 2.6 Execution foundation
 
@@ -76,6 +111,10 @@ Rules:
 4. labor capture
 5. execution status history
 6. linkage to documents, inventory, and accounting outcomes
+7. one shared task engine
+8. tasks and activities remain distinct concepts
+9. work orders remain the primary execution record when work-order context exists
+10. inventory consumption may also attach to a non-work-order execution context such as project execution where required by the business flow
 
 ### 2.7 Reporting foundation
 
@@ -98,6 +137,8 @@ Rules:
 7. spreadsheet exchange
 8. broad tax localization
 9. large human operational UI
+10. broad project-management product depth beyond the minimum execution-context linkage needed for inventory consumption
+11. full statutory edge-case tooling beyond the foundational GST/TDS baseline
 
 ## 4. Scope test
 
@@ -107,5 +148,6 @@ Before adding a feature, ask:
 2. does deferring it force a schema rewrite later
 3. does deferring it force a posting-model rewrite later
 4. does deferring it force an approval-model rewrite later
+5. does deferring it break the document -> approval -> posting -> ledger/execution chain
 
 If the answer is no, defer it to v2.
