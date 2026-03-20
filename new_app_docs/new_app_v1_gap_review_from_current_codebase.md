@@ -63,7 +63,8 @@ Partially addressed, but not yet complete enough:
 1. item-role and movement-purpose modeling now exist in the first `inventory_ops` slice
 2. receipt, issue, and adjustment recording paths now exist on one shared movement ledger
 3. stock truth is now derived from movements rather than stored mutably
-4. service-material versus resale-stock separation now exists, but inventory document payload ownership and downstream handoff depth are still incomplete
+4. service-material versus resale-stock separation now exists, and inventory document payload ownership plus pending accounting and execution handoff seams now exist on top of the shared movement ledger
+5. remaining inventory depth is now concentrated around future traceable-unit detail, execution-consumption consumers, and review/reporting surfaces rather than basic document ownership
 
 ### 3.5 Workforce and execution gaps
 

@@ -20,6 +20,7 @@ var (
 	ErrInvalidLocation     = errors.New("invalid inventory location")
 	ErrInvalidMovement     = errors.New("invalid inventory movement")
 	ErrInvalidInventoryDoc = errors.New("invalid inventory document")
+	ErrInventoryDocExists  = errors.New("inventory document payload already exists")
 	ErrInsufficientStock   = errors.New("insufficient stock")
 )
 
@@ -54,6 +55,15 @@ const (
 	UsageNotApplicable = "not_applicable"
 	UsageBillable      = "billable"
 	UsageNonBillable   = "non_billable"
+
+	AccountingHandoffStatusPending = "pending"
+	AccountingHandoffStatusPosted  = "posted"
+
+	ExecutionContextWorkOrder = "work_order"
+	ExecutionContextProject   = "project"
+
+	ExecutionLinkStatusPending = "pending"
+	ExecutionLinkStatusLinked  = "linked"
 )
 
 type Item struct {
@@ -104,6 +114,63 @@ type StockBalance struct {
 	OnHandMilli int64
 }
 
+type Document struct {
+	DocumentID      string
+	OrgID           string
+	MovementType    string
+	ReferenceNote   string
+	CreatedByUserID string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+type DocumentLine struct {
+	ID                    string
+	DocumentID            string
+	OrgID                 string
+	LineNumber            int
+	MovementID            string
+	ItemID                string
+	MovementPurpose       string
+	UsageClassification   string
+	SourceLocationID      sql.NullString
+	DestinationLocationID sql.NullString
+	QuantityMilli         int64
+	ReferenceNote         string
+	CreatedAt             time.Time
+}
+
+type AccountingHandoff struct {
+	ID              string
+	OrgID           string
+	DocumentID      string
+	DocumentLineID  string
+	JournalEntryID  sql.NullString
+	HandoffStatus   string
+	CreatedByUserID string
+	CreatedAt       time.Time
+}
+
+type ExecutionLink struct {
+	ID                   string
+	OrgID                string
+	DocumentID           string
+	DocumentLineID       string
+	ExecutionContextType string
+	ExecutionContextID   string
+	LinkageStatus        string
+	CreatedByUserID      string
+	CreatedAt            time.Time
+}
+
+type CaptureDocumentResult struct {
+	Document           Document
+	Lines              []DocumentLine
+	Movements          []Movement
+	AccountingHandoffs []AccountingHandoff
+	ExecutionLinks     []ExecutionLink
+}
+
 type CreateItemInput struct {
 	SKU          string
 	Name         string
@@ -130,6 +197,26 @@ type RecordMovementInput struct {
 	QuantityMilli         int64
 	ReferenceNote         string
 	Actor                 identityaccess.Actor
+}
+
+type CaptureDocumentInput struct {
+	DocumentID    string
+	ReferenceNote string
+	Lines         []CaptureDocumentLineInput
+	Actor         identityaccess.Actor
+}
+
+type CaptureDocumentLineInput struct {
+	ItemID                string
+	MovementPurpose       string
+	UsageClassification   string
+	SourceLocationID      string
+	DestinationLocationID string
+	QuantityMilli         int64
+	ReferenceNote         string
+	AccountingHandoff     bool
+	ExecutionContextType  string
+	ExecutionContextID    string
 }
 
 type ListStockInput struct {
@@ -310,141 +397,8 @@ func (s *Service) RecordMovement(ctx context.Context, input RecordMovementInput)
 		return Movement{}, err
 	}
 
-	item, err := loadItemForOrg(ctx, tx, input.Actor.OrgID, input.ItemID)
+	movement, err := recordMovementTx(ctx, tx, input)
 	if err != nil {
-		_ = tx.Rollback()
-		return Movement{}, err
-	}
-	if item.Status != "active" {
-		_ = tx.Rollback()
-		return Movement{}, ErrInvalidItem
-	}
-
-	if err := validatePurposeAgainstItem(item.ItemRole, input.MovementPurpose); err != nil {
-		_ = tx.Rollback()
-		return Movement{}, err
-	}
-
-	if input.SourceLocationID != "" {
-		location, err := loadLocationForOrg(ctx, tx, input.Actor.OrgID, input.SourceLocationID)
-		if err != nil {
-			_ = tx.Rollback()
-			return Movement{}, err
-		}
-		if location.Status != "active" {
-			_ = tx.Rollback()
-			return Movement{}, ErrInvalidLocation
-		}
-	}
-
-	if input.DestinationLocationID != "" {
-		location, err := loadLocationForOrg(ctx, tx, input.Actor.OrgID, input.DestinationLocationID)
-		if err != nil {
-			_ = tx.Rollback()
-			return Movement{}, err
-		}
-		if location.Status != "active" {
-			_ = tx.Rollback()
-			return Movement{}, ErrInvalidLocation
-		}
-	}
-
-	if input.DocumentID != "" {
-		if err := validateInventoryDocument(ctx, tx, input.Actor.OrgID, input.DocumentID, input.MovementType); err != nil {
-			_ = tx.Rollback()
-			return Movement{}, err
-		}
-	}
-
-	if input.SourceLocationID != "" {
-		if err := lockStockKey(ctx, tx, input.Actor.OrgID, input.ItemID, input.SourceLocationID); err != nil {
-			_ = tx.Rollback()
-			return Movement{}, fmt.Errorf("lock source stock: %w", err)
-		}
-
-		onHand, err := currentStockMilli(ctx, tx, input.Actor.OrgID, input.ItemID, input.SourceLocationID)
-		if err != nil {
-			_ = tx.Rollback()
-			return Movement{}, err
-		}
-		if onHand < input.QuantityMilli {
-			_ = tx.Rollback()
-			return Movement{}, ErrInsufficientStock
-		}
-	}
-
-	movementNumber, err := nextMovementNumber(ctx, tx, input.Actor.OrgID)
-	if err != nil {
-		_ = tx.Rollback()
-		return Movement{}, err
-	}
-
-	movement, err := scanMovement(tx.QueryRowContext(ctx, `
-INSERT INTO inventory_ops.movements (
-	org_id,
-	movement_number,
-	document_id,
-	item_id,
-	movement_type,
-	movement_purpose,
-	usage_classification,
-	source_location_id,
-	destination_location_id,
-	quantity_milli,
-	reference_note,
-	created_by_user_id
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING
-	id,
-	org_id,
-	movement_number,
-	document_id,
-	item_id,
-	movement_type,
-	movement_purpose,
-	usage_classification,
-	source_location_id,
-	destination_location_id,
-	quantity_milli,
-	reference_note,
-	created_by_user_id,
-	created_at;`,
-		input.Actor.OrgID,
-		movementNumber,
-		nullIfEmpty(input.DocumentID),
-		input.ItemID,
-		input.MovementType,
-		input.MovementPurpose,
-		input.UsageClassification,
-		nullIfEmpty(input.SourceLocationID),
-		nullIfEmpty(input.DestinationLocationID),
-		input.QuantityMilli,
-		strings.TrimSpace(input.ReferenceNote),
-		input.Actor.UserID,
-	))
-	if err != nil {
-		_ = tx.Rollback()
-		return Movement{}, fmt.Errorf("insert inventory movement: %w", err)
-	}
-
-	if err := audit.WriteTx(ctx, tx, audit.Event{
-		OrgID:       input.Actor.OrgID,
-		ActorUserID: input.Actor.UserID,
-		EventType:   "inventory_ops.movement_recorded",
-		EntityType:  "inventory_ops.movement",
-		EntityID:    movement.ID,
-		Payload: map[string]any{
-			"movement_number":         movement.MovementNumber,
-			"movement_type":           movement.MovementType,
-			"movement_purpose":        movement.MovementPurpose,
-			"usage_classification":    movement.UsageClassification,
-			"item_id":                 movement.ItemID,
-			"source_location_id":      nullableString(movement.SourceLocationID),
-			"destination_location_id": nullableString(movement.DestinationLocationID),
-			"quantity_milli":          movement.QuantityMilli,
-			"document_id":             nullableString(movement.DocumentID),
-		},
-	}); err != nil {
 		_ = tx.Rollback()
 		return Movement{}, err
 	}
@@ -454,6 +408,227 @@ RETURNING
 	}
 
 	return movement, nil
+}
+
+func (s *Service) CaptureDocument(ctx context.Context, input CaptureDocumentInput) (CaptureDocumentResult, error) {
+	if strings.TrimSpace(input.DocumentID) == "" || len(input.Lines) == 0 {
+		return CaptureDocumentResult{}, ErrInvalidInventoryDoc
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return CaptureDocumentResult{}, fmt.Errorf("begin capture inventory document: %w", err)
+	}
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin, identityaccess.RoleOperator); err != nil {
+		_ = tx.Rollback()
+		return CaptureDocumentResult{}, err
+	}
+
+	movementType, err := loadInventoryDocumentMovementType(ctx, tx, input.Actor.OrgID, input.DocumentID)
+	if err != nil {
+		_ = tx.Rollback()
+		return CaptureDocumentResult{}, err
+	}
+
+	exists, err := inventoryDocumentExists(ctx, tx, input.Actor.OrgID, input.DocumentID)
+	if err != nil {
+		_ = tx.Rollback()
+		return CaptureDocumentResult{}, err
+	}
+	if exists {
+		_ = tx.Rollback()
+		return CaptureDocumentResult{}, ErrInventoryDocExists
+	}
+
+	document, err := scanInventoryDocument(tx.QueryRowContext(ctx, `
+INSERT INTO inventory_ops.documents (
+	document_id,
+	org_id,
+	movement_type,
+	reference_note,
+	created_by_user_id
+) VALUES ($1, $2, $3, $4, $5)
+RETURNING
+	document_id,
+	org_id,
+	movement_type,
+	reference_note,
+	created_by_user_id,
+	created_at,
+	updated_at;`,
+		input.DocumentID,
+		input.Actor.OrgID,
+		movementType,
+		strings.TrimSpace(input.ReferenceNote),
+		input.Actor.UserID,
+	))
+	if err != nil {
+		_ = tx.Rollback()
+		return CaptureDocumentResult{}, fmt.Errorf("insert inventory document payload: %w", err)
+	}
+
+	result := CaptureDocumentResult{
+		Document: document,
+	}
+
+	for idx, line := range input.Lines {
+		if err := validateCaptureDocumentLine(movementType, line); err != nil {
+			_ = tx.Rollback()
+			return CaptureDocumentResult{}, err
+		}
+
+		movement, err := recordMovementTx(ctx, tx, RecordMovementInput{
+			DocumentID:            input.DocumentID,
+			ItemID:                line.ItemID,
+			MovementType:          movementType,
+			MovementPurpose:       line.MovementPurpose,
+			UsageClassification:   line.UsageClassification,
+			SourceLocationID:      line.SourceLocationID,
+			DestinationLocationID: line.DestinationLocationID,
+			QuantityMilli:         line.QuantityMilli,
+			ReferenceNote:         line.ReferenceNote,
+			Actor:                 input.Actor,
+		})
+		if err != nil {
+			_ = tx.Rollback()
+			return CaptureDocumentResult{}, err
+		}
+
+		documentLine, err := scanDocumentLine(tx.QueryRowContext(ctx, `
+INSERT INTO inventory_ops.document_lines (
+	document_id,
+	org_id,
+	line_number,
+	movement_id,
+	item_id,
+	movement_purpose,
+	usage_classification,
+	source_location_id,
+	destination_location_id,
+	quantity_milli,
+	reference_note
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING
+	id,
+	document_id,
+	org_id,
+	line_number,
+	movement_id,
+	item_id,
+	movement_purpose,
+	usage_classification,
+	source_location_id,
+	destination_location_id,
+	quantity_milli,
+	reference_note,
+	created_at;`,
+			input.DocumentID,
+			input.Actor.OrgID,
+			idx+1,
+			movement.ID,
+			line.ItemID,
+			line.MovementPurpose,
+			line.UsageClassification,
+			nullIfEmpty(line.SourceLocationID),
+			nullIfEmpty(line.DestinationLocationID),
+			line.QuantityMilli,
+			strings.TrimSpace(line.ReferenceNote),
+		))
+		if err != nil {
+			_ = tx.Rollback()
+			return CaptureDocumentResult{}, fmt.Errorf("insert inventory document line: %w", err)
+		}
+
+		result.Lines = append(result.Lines, documentLine)
+		result.Movements = append(result.Movements, movement)
+
+		if line.AccountingHandoff {
+			handoff, err := scanAccountingHandoff(tx.QueryRowContext(ctx, `
+INSERT INTO inventory_ops.accounting_handoffs (
+	org_id,
+	document_id,
+	document_line_id,
+	created_by_user_id
+) VALUES ($1, $2, $3, $4)
+RETURNING
+	id,
+	org_id,
+	document_id,
+	document_line_id,
+	journal_entry_id,
+	handoff_status,
+	created_by_user_id,
+	created_at;`,
+				input.Actor.OrgID,
+				input.DocumentID,
+				documentLine.ID,
+				input.Actor.UserID,
+			))
+			if err != nil {
+				_ = tx.Rollback()
+				return CaptureDocumentResult{}, fmt.Errorf("insert accounting handoff: %w", err)
+			}
+			result.AccountingHandoffs = append(result.AccountingHandoffs, handoff)
+		}
+
+		if line.ExecutionContextType != "" {
+			link, err := scanExecutionLink(tx.QueryRowContext(ctx, `
+INSERT INTO inventory_ops.execution_links (
+	org_id,
+	document_id,
+	document_line_id,
+	execution_context_type,
+	execution_context_id,
+	created_by_user_id
+) VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING
+	id,
+	org_id,
+	document_id,
+	document_line_id,
+	execution_context_type,
+	execution_context_id,
+	linkage_status,
+	created_by_user_id,
+	created_at;`,
+				input.Actor.OrgID,
+				input.DocumentID,
+				documentLine.ID,
+				line.ExecutionContextType,
+				strings.TrimSpace(line.ExecutionContextID),
+				input.Actor.UserID,
+			))
+			if err != nil {
+				_ = tx.Rollback()
+				return CaptureDocumentResult{}, fmt.Errorf("insert execution link: %w", err)
+			}
+			result.ExecutionLinks = append(result.ExecutionLinks, link)
+		}
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
+		EventType:   "inventory_ops.document_captured",
+		EntityType:  "inventory_ops.document",
+		EntityID:    input.DocumentID,
+		Payload: map[string]any{
+			"movement_type":          movementType,
+			"line_count":             len(result.Lines),
+			"accounting_handoff_cnt": len(result.AccountingHandoffs),
+			"execution_link_cnt":     len(result.ExecutionLinks),
+		},
+	}); err != nil {
+		_ = tx.Rollback()
+		return CaptureDocumentResult{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return CaptureDocumentResult{}, fmt.Errorf("commit capture inventory document: %w", err)
+	}
+
+	return result, nil
 }
 
 func (s *Service) ListStock(ctx context.Context, input ListStockInput) ([]StockBalance, error) {
@@ -591,7 +766,49 @@ func validatePurposeAgainstItem(itemRole, movementPurpose string) error {
 	return nil
 }
 
+func validateCaptureDocumentLine(movementType string, input CaptureDocumentLineInput) error {
+	if err := validateMovementInput(RecordMovementInput{
+		ItemID:                input.ItemID,
+		MovementType:          movementType,
+		MovementPurpose:       input.MovementPurpose,
+		UsageClassification:   input.UsageClassification,
+		SourceLocationID:      input.SourceLocationID,
+		DestinationLocationID: input.DestinationLocationID,
+		QuantityMilli:         input.QuantityMilli,
+		ReferenceNote:         input.ReferenceNote,
+	}); err != nil {
+		return err
+	}
+
+	if input.ExecutionContextType == "" && strings.TrimSpace(input.ExecutionContextID) == "" {
+		return nil
+	}
+	if !isValidExecutionContextType(input.ExecutionContextType) || strings.TrimSpace(input.ExecutionContextID) == "" {
+		return ErrInvalidInventoryDoc
+	}
+	if movementType == MovementTypeReceipt {
+		return ErrInvalidInventoryDoc
+	}
+	switch input.MovementPurpose {
+	case MovementPurposeServiceConsumption, MovementPurposeInstalledEquipment, MovementPurposeDirectExpense:
+		return nil
+	default:
+		return ErrInvalidInventoryDoc
+	}
+}
+
 func validateInventoryDocument(ctx context.Context, tx *sql.Tx, orgID, documentID, movementType string) error {
+	loadedMovementType, err := loadInventoryDocumentMovementType(ctx, tx, orgID, documentID)
+	if err != nil {
+		return err
+	}
+	if loadedMovementType != movementType {
+		return ErrInvalidInventoryDoc
+	}
+	return nil
+}
+
+func loadInventoryDocumentMovementType(ctx context.Context, tx *sql.Tx, orgID, documentID string) (string, error) {
 	var typeCode string
 	var status string
 	err := tx.QueryRowContext(ctx, `
@@ -604,24 +821,179 @@ WHERE org_id = $1
 	).Scan(&typeCode, &status)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return ErrInvalidInventoryDoc
+			return "", ErrInvalidInventoryDoc
 		}
-		return fmt.Errorf("load inventory document: %w", err)
+		return "", fmt.Errorf("load inventory document: %w", err)
 	}
 
-	expectedType := map[string]string{
-		MovementTypeReceipt:    "inventory_receipt",
-		MovementTypeIssue:      "inventory_issue",
-		MovementTypeAdjustment: "inventory_adjustment",
-	}[movementType]
-	if typeCode != expectedType {
-		return ErrInvalidInventoryDoc
+	movementType, ok := inventoryDocumentMovementType(typeCode)
+	if !ok {
+		return "", ErrInvalidInventoryDoc
 	}
 	if status != "approved" && status != "posted" {
-		return ErrInvalidInventoryDoc
+		return "", ErrInvalidInventoryDoc
 	}
 
-	return nil
+	return movementType, nil
+}
+
+func inventoryDocumentExists(ctx context.Context, tx *sql.Tx, orgID, documentID string) (bool, error) {
+	var exists bool
+	if err := tx.QueryRowContext(ctx, `
+SELECT EXISTS(
+	SELECT 1
+	FROM inventory_ops.documents
+	WHERE org_id = $1
+	  AND document_id = $2
+);`,
+		orgID,
+		documentID,
+	).Scan(&exists); err != nil {
+		return false, fmt.Errorf("check inventory document payload: %w", err)
+	}
+	return exists, nil
+}
+
+func inventoryDocumentMovementType(typeCode string) (string, bool) {
+	switch typeCode {
+	case "inventory_receipt":
+		return MovementTypeReceipt, true
+	case "inventory_issue":
+		return MovementTypeIssue, true
+	case "inventory_adjustment":
+		return MovementTypeAdjustment, true
+	default:
+		return "", false
+	}
+}
+
+func recordMovementTx(ctx context.Context, tx *sql.Tx, input RecordMovementInput) (Movement, error) {
+	item, err := loadItemForOrg(ctx, tx, input.Actor.OrgID, input.ItemID)
+	if err != nil {
+		return Movement{}, err
+	}
+	if item.Status != "active" {
+		return Movement{}, ErrInvalidItem
+	}
+
+	if err := validatePurposeAgainstItem(item.ItemRole, input.MovementPurpose); err != nil {
+		return Movement{}, err
+	}
+
+	if input.SourceLocationID != "" {
+		location, err := loadLocationForOrg(ctx, tx, input.Actor.OrgID, input.SourceLocationID)
+		if err != nil {
+			return Movement{}, err
+		}
+		if location.Status != "active" {
+			return Movement{}, ErrInvalidLocation
+		}
+	}
+
+	if input.DestinationLocationID != "" {
+		location, err := loadLocationForOrg(ctx, tx, input.Actor.OrgID, input.DestinationLocationID)
+		if err != nil {
+			return Movement{}, err
+		}
+		if location.Status != "active" {
+			return Movement{}, ErrInvalidLocation
+		}
+	}
+
+	if input.DocumentID != "" {
+		if err := validateInventoryDocument(ctx, tx, input.Actor.OrgID, input.DocumentID, input.MovementType); err != nil {
+			return Movement{}, err
+		}
+	}
+
+	if input.SourceLocationID != "" {
+		if err := lockStockKey(ctx, tx, input.Actor.OrgID, input.ItemID, input.SourceLocationID); err != nil {
+			return Movement{}, fmt.Errorf("lock source stock: %w", err)
+		}
+
+		onHand, err := currentStockMilli(ctx, tx, input.Actor.OrgID, input.ItemID, input.SourceLocationID)
+		if err != nil {
+			return Movement{}, err
+		}
+		if onHand < input.QuantityMilli {
+			return Movement{}, ErrInsufficientStock
+		}
+	}
+
+	movementNumber, err := nextMovementNumber(ctx, tx, input.Actor.OrgID)
+	if err != nil {
+		return Movement{}, err
+	}
+
+	movement, err := scanMovement(tx.QueryRowContext(ctx, `
+INSERT INTO inventory_ops.movements (
+	org_id,
+	movement_number,
+	document_id,
+	item_id,
+	movement_type,
+	movement_purpose,
+	usage_classification,
+	source_location_id,
+	destination_location_id,
+	quantity_milli,
+	reference_note,
+	created_by_user_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+RETURNING
+	id,
+	org_id,
+	movement_number,
+	document_id,
+	item_id,
+	movement_type,
+	movement_purpose,
+	usage_classification,
+	source_location_id,
+	destination_location_id,
+	quantity_milli,
+	reference_note,
+	created_by_user_id,
+	created_at;`,
+		input.Actor.OrgID,
+		movementNumber,
+		nullIfEmpty(input.DocumentID),
+		input.ItemID,
+		input.MovementType,
+		input.MovementPurpose,
+		input.UsageClassification,
+		nullIfEmpty(input.SourceLocationID),
+		nullIfEmpty(input.DestinationLocationID),
+		input.QuantityMilli,
+		strings.TrimSpace(input.ReferenceNote),
+		input.Actor.UserID,
+	))
+	if err != nil {
+		return Movement{}, fmt.Errorf("insert inventory movement: %w", err)
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
+		EventType:   "inventory_ops.movement_recorded",
+		EntityType:  "inventory_ops.movement",
+		EntityID:    movement.ID,
+		Payload: map[string]any{
+			"movement_number":         movement.MovementNumber,
+			"movement_type":           movement.MovementType,
+			"movement_purpose":        movement.MovementPurpose,
+			"usage_classification":    movement.UsageClassification,
+			"item_id":                 movement.ItemID,
+			"source_location_id":      nullableString(movement.SourceLocationID),
+			"destination_location_id": nullableString(movement.DestinationLocationID),
+			"quantity_milli":          movement.QuantityMilli,
+			"document_id":             nullableString(movement.DocumentID),
+		},
+	}); err != nil {
+		return Movement{}, err
+	}
+
+	return movement, nil
 }
 
 func nextMovementNumber(ctx context.Context, tx *sql.Tx, orgID string) (int64, error) {
@@ -788,6 +1160,79 @@ func scanMovement(row rowScanner) (Movement, error) {
 	return movement, nil
 }
 
+func scanInventoryDocument(row rowScanner) (Document, error) {
+	var document Document
+	if err := row.Scan(
+		&document.DocumentID,
+		&document.OrgID,
+		&document.MovementType,
+		&document.ReferenceNote,
+		&document.CreatedByUserID,
+		&document.CreatedAt,
+		&document.UpdatedAt,
+	); err != nil {
+		return Document{}, err
+	}
+	return document, nil
+}
+
+func scanDocumentLine(row rowScanner) (DocumentLine, error) {
+	var line DocumentLine
+	if err := row.Scan(
+		&line.ID,
+		&line.DocumentID,
+		&line.OrgID,
+		&line.LineNumber,
+		&line.MovementID,
+		&line.ItemID,
+		&line.MovementPurpose,
+		&line.UsageClassification,
+		&line.SourceLocationID,
+		&line.DestinationLocationID,
+		&line.QuantityMilli,
+		&line.ReferenceNote,
+		&line.CreatedAt,
+	); err != nil {
+		return DocumentLine{}, err
+	}
+	return line, nil
+}
+
+func scanAccountingHandoff(row rowScanner) (AccountingHandoff, error) {
+	var handoff AccountingHandoff
+	if err := row.Scan(
+		&handoff.ID,
+		&handoff.OrgID,
+		&handoff.DocumentID,
+		&handoff.DocumentLineID,
+		&handoff.JournalEntryID,
+		&handoff.HandoffStatus,
+		&handoff.CreatedByUserID,
+		&handoff.CreatedAt,
+	); err != nil {
+		return AccountingHandoff{}, err
+	}
+	return handoff, nil
+}
+
+func scanExecutionLink(row rowScanner) (ExecutionLink, error) {
+	var link ExecutionLink
+	if err := row.Scan(
+		&link.ID,
+		&link.OrgID,
+		&link.DocumentID,
+		&link.DocumentLineID,
+		&link.ExecutionContextType,
+		&link.ExecutionContextID,
+		&link.LinkageStatus,
+		&link.CreatedByUserID,
+		&link.CreatedAt,
+	); err != nil {
+		return ExecutionLink{}, err
+	}
+	return link, nil
+}
+
 func isValidItemRole(value string) bool {
 	switch value {
 	case ItemRoleResale, ItemRoleServiceMaterial, ItemRoleTraceableEquipment, ItemRoleDirectExpenseConsumable:
@@ -836,6 +1281,15 @@ func isValidMovementPurpose(value string) bool {
 func isValidUsageClassification(value string) bool {
 	switch value {
 	case UsageNotApplicable, UsageBillable, UsageNonBillable:
+		return true
+	default:
+		return false
+	}
+}
+
+func isValidExecutionContextType(value string) bool {
+	switch value {
+	case ExecutionContextWorkOrder, ExecutionContextProject:
 		return true
 	default:
 		return false

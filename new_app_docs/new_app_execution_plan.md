@@ -122,7 +122,9 @@ Current implementation checkpoint:
 3. stock is now derived from movements rather than stored as mutable truth
 4. source and destination semantics, movement-purpose classification, and billable/non-billable usage classification are enforced in the first inventory service layer
 5. approved inventory document references can now validate compatible receipt, issue, and adjustment movement recording paths
-6. the next implementation target is completing inventory document payload ownership and downstream handoff paths before moving to Milestone 4 execution foundation
+6. inventory document payload ownership now exists through inventory-owned document header and line records with one-to-one `document_id` linkage back to the shared `documents` kernel
+7. pending accounting handoff rows and pending execution-context links now make downstream inventory outcomes explicit without shifting ownership away from `accounting` or future execution modules
+8. the next implementation target is Milestone 4 execution foundation, starting with work-order execution truth that can consume the pending inventory execution links
 
 ## 5. Milestone 4: Execution foundation
 

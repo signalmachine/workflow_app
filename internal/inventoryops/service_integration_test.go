@@ -243,6 +243,227 @@ func TestInventoryMovementRejectsMismatchedDocumentAndPurposeIntegration(t *test
 	}
 }
 
+func TestCaptureInventoryDocumentCreatesPayloadMovementsAndHandoffsIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
+
+	documentService := documents.NewService(db)
+	inventoryService := inventoryops.NewService(db)
+
+	item := createItem(t, ctx, inventoryService, inventoryops.CreateItemInput{
+		SKU:          "CABLE-001",
+		Name:         "Service Cable",
+		ItemRole:     inventoryops.ItemRoleServiceMaterial,
+		TrackingMode: inventoryops.TrackingModeNone,
+		Actor:        operator,
+	})
+	warehouse := createLocation(t, ctx, inventoryService, inventoryops.CreateLocationInput{
+		Code:         "WH-D",
+		Name:         "Dispatch Warehouse",
+		LocationRole: inventoryops.LocationRoleWarehouse,
+		Actor:        operator,
+	})
+
+	receiptDoc := prepareApprovedDocument(t, ctx, db, documentService, operator, "inventory_receipt")
+	recordMovement(t, ctx, inventoryService, inventoryops.RecordMovementInput{
+		DocumentID:            receiptDoc.ID,
+		ItemID:                item.ID,
+		MovementType:          inventoryops.MovementTypeReceipt,
+		MovementPurpose:       inventoryops.MovementPurposeServiceConsumption,
+		UsageClassification:   inventoryops.UsageBillable,
+		DestinationLocationID: warehouse.ID,
+		QuantityMilli:         12000,
+		ReferenceNote:         "seed stock",
+		Actor:                 operator,
+	})
+
+	issueDoc := prepareApprovedDocument(t, ctx, db, documentService, operator, "inventory_issue")
+	result, err := inventoryService.CaptureDocument(ctx, inventoryops.CaptureDocumentInput{
+		DocumentID:    issueDoc.ID,
+		ReferenceNote: "captured service issue",
+		Lines: []inventoryops.CaptureDocumentLineInput{
+			{
+				ItemID:               item.ID,
+				MovementPurpose:      inventoryops.MovementPurposeServiceConsumption,
+				UsageClassification:  inventoryops.UsageBillable,
+				SourceLocationID:     warehouse.ID,
+				QuantityMilli:        3500,
+				ReferenceNote:        "billable work",
+				AccountingHandoff:    true,
+				ExecutionContextType: inventoryops.ExecutionContextWorkOrder,
+				ExecutionContextID:   "WO-1001",
+			},
+			{
+				ItemID:               item.ID,
+				MovementPurpose:      inventoryops.MovementPurposeServiceConsumption,
+				UsageClassification:  inventoryops.UsageNonBillable,
+				SourceLocationID:     warehouse.ID,
+				QuantityMilli:        500,
+				ReferenceNote:        "warranty usage",
+				AccountingHandoff:    true,
+				ExecutionContextType: inventoryops.ExecutionContextProject,
+				ExecutionContextID:   "PROJ-9",
+			},
+		},
+		Actor: operator,
+	})
+	if err != nil {
+		t.Fatalf("capture inventory document: %v", err)
+	}
+
+	if result.Document.DocumentID != issueDoc.ID {
+		t.Fatalf("unexpected captured document id: got %s want %s", result.Document.DocumentID, issueDoc.ID)
+	}
+	if result.Document.MovementType != inventoryops.MovementTypeIssue {
+		t.Fatalf("unexpected movement type: %s", result.Document.MovementType)
+	}
+	if len(result.Lines) != 2 || len(result.Movements) != 2 {
+		t.Fatalf("unexpected capture counts: lines=%d movements=%d", len(result.Lines), len(result.Movements))
+	}
+	if len(result.AccountingHandoffs) != 2 {
+		t.Fatalf("unexpected accounting handoff count: %d", len(result.AccountingHandoffs))
+	}
+	if len(result.ExecutionLinks) != 2 {
+		t.Fatalf("unexpected execution link count: %d", len(result.ExecutionLinks))
+	}
+	if result.Lines[0].MovementID != result.Movements[0].ID {
+		t.Fatalf("expected first line to reference first movement")
+	}
+	if result.ExecutionLinks[0].ExecutionContextType != inventoryops.ExecutionContextWorkOrder {
+		t.Fatalf("unexpected first execution context type: %s", result.ExecutionLinks[0].ExecutionContextType)
+	}
+
+	var payloadCount, lineCount, accountingCount, executionCount int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM inventory_ops.documents WHERE org_id = $1`, orgID).Scan(&payloadCount); err != nil {
+		t.Fatalf("count inventory payloads: %v", err)
+	}
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM inventory_ops.document_lines WHERE org_id = $1`, orgID).Scan(&lineCount); err != nil {
+		t.Fatalf("count inventory lines: %v", err)
+	}
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM inventory_ops.accounting_handoffs WHERE org_id = $1`, orgID).Scan(&accountingCount); err != nil {
+		t.Fatalf("count accounting handoffs: %v", err)
+	}
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM inventory_ops.execution_links WHERE org_id = $1`, orgID).Scan(&executionCount); err != nil {
+		t.Fatalf("count execution links: %v", err)
+	}
+	if payloadCount != 1 || lineCount != 2 || accountingCount != 2 || executionCount != 2 {
+		t.Fatalf("unexpected persisted counts: payloads=%d lines=%d accounting=%d execution=%d", payloadCount, lineCount, accountingCount, executionCount)
+	}
+
+	stock, err := inventoryService.ListStock(ctx, inventoryops.ListStockInput{Actor: operator})
+	if err != nil {
+		t.Fatalf("list stock after capture: %v", err)
+	}
+	if got := stockAt(stock, item.ID, warehouse.ID); got != 8000 {
+		t.Fatalf("unexpected warehouse stock after capture: got %d want %d", got, 8000)
+	}
+}
+
+func TestCaptureInventoryDocumentRejectsDuplicateAndInvalidExecutionContextIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
+
+	documentService := documents.NewService(db)
+	inventoryService := inventoryops.NewService(db)
+
+	item := createItem(t, ctx, inventoryService, inventoryops.CreateItemInput{
+		SKU:          "PIPE-001",
+		Name:         "Installation Pipe",
+		ItemRole:     inventoryops.ItemRoleServiceMaterial,
+		TrackingMode: inventoryops.TrackingModeNone,
+		Actor:        operator,
+	})
+	warehouse := createLocation(t, ctx, inventoryService, inventoryops.CreateLocationInput{
+		Code:         "WH-E",
+		Name:         "Field Warehouse",
+		LocationRole: inventoryops.LocationRoleWarehouse,
+		Actor:        operator,
+	})
+
+	receiptDoc := prepareApprovedDocument(t, ctx, db, documentService, operator, "inventory_receipt")
+	recordMovement(t, ctx, inventoryService, inventoryops.RecordMovementInput{
+		DocumentID:            receiptDoc.ID,
+		ItemID:                item.ID,
+		MovementType:          inventoryops.MovementTypeReceipt,
+		MovementPurpose:       inventoryops.MovementPurposeServiceConsumption,
+		UsageClassification:   inventoryops.UsageBillable,
+		DestinationLocationID: warehouse.ID,
+		QuantityMilli:         3000,
+		Actor:                 operator,
+	})
+
+	issueDoc := prepareApprovedDocument(t, ctx, db, documentService, operator, "inventory_issue")
+	_, err := inventoryService.CaptureDocument(ctx, inventoryops.CaptureDocumentInput{
+		DocumentID: issueDoc.ID,
+		Lines: []inventoryops.CaptureDocumentLineInput{
+			{
+				ItemID:              item.ID,
+				MovementPurpose:     inventoryops.MovementPurposeServiceConsumption,
+				UsageClassification: inventoryops.UsageBillable,
+				SourceLocationID:    warehouse.ID,
+				QuantityMilli:       1000,
+				AccountingHandoff:   true,
+			},
+		},
+		Actor: operator,
+	})
+	if err != nil {
+		t.Fatalf("capture initial inventory document: %v", err)
+	}
+
+	_, err = inventoryService.CaptureDocument(ctx, inventoryops.CaptureDocumentInput{
+		DocumentID: issueDoc.ID,
+		Lines: []inventoryops.CaptureDocumentLineInput{
+			{
+				ItemID:              item.ID,
+				MovementPurpose:     inventoryops.MovementPurposeServiceConsumption,
+				UsageClassification: inventoryops.UsageBillable,
+				SourceLocationID:    warehouse.ID,
+				QuantityMilli:       500,
+			},
+		},
+		Actor: operator,
+	})
+	if !errors.Is(err, inventoryops.ErrInventoryDocExists) {
+		t.Fatalf("unexpected duplicate capture error: got %v want %v", err, inventoryops.ErrInventoryDocExists)
+	}
+
+	secondIssueDoc := prepareApprovedDocument(t, ctx, db, documentService, operator, "inventory_issue")
+	_, err = inventoryService.CaptureDocument(ctx, inventoryops.CaptureDocumentInput{
+		DocumentID: secondIssueDoc.ID,
+		Lines: []inventoryops.CaptureDocumentLineInput{
+			{
+				ItemID:               item.ID,
+				MovementPurpose:      inventoryops.MovementPurposeServiceConsumption,
+				UsageClassification:  inventoryops.UsageBillable,
+				SourceLocationID:     warehouse.ID,
+				QuantityMilli:        250,
+				ExecutionContextType: inventoryops.ExecutionContextWorkOrder,
+			},
+		},
+		Actor: operator,
+	})
+	if !errors.Is(err, inventoryops.ErrInvalidInventoryDoc) {
+		t.Fatalf("unexpected invalid execution context error: got %v want %v", err, inventoryops.ErrInvalidInventoryDoc)
+	}
+}
+
 func createItem(t *testing.T, ctx context.Context, service *inventoryops.Service, input inventoryops.CreateItemInput) inventoryops.Item {
 	t.Helper()
 

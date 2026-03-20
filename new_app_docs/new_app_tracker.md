@@ -22,15 +22,15 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 | Milestone 0 bootstrap | done | Go module, migration runner, env template, and control-boundary migrations are implemented and verified against primary and test databases |
 | Milestone 1 document and approval kernel | done | Shared document identity, approvals, approval queue, decisions, sessions, role-aware service boundaries, and the AI run, tool-policy, artifact, recommendation, and delegation trace foundation are implemented and covered by integration tests |
 | Milestone 2 accounting foundation | done | Ledger accounts, append-only journal entries and lines, document-linked centralized posting, reversal entries, GST/TDS tax foundation records, accounting periods, effective-date posting control, journal review queries, and control-account balance views are implemented and covered by integration tests |
-| Milestone 3 inventory foundation | in_progress | The first inventory slice is implemented with `inventory_ops` items, locations, movement numbering, append-only movements, derived stock balances, source/destination semantics, purpose and usage classification, and inventory-document validation covered by integration tests |
+| Milestone 3 inventory foundation | in_progress | The inventory foundation now includes `inventory_ops` items, locations, movement numbering, append-only movements, derived stock balances, inventory-owned document payload and line records, and explicit pending handoff seams into accounting and execution contexts covered by integration tests |
 
 ## 2. Immediate next steps
 
-1. continue Milestone 3 by adding payload ownership for supported inventory document families on top of the shared movement ledger
-2. add explicit inventory handoff paths into accounting and later execution contexts without weakening module ownership
-3. keep the codebase limited to the approved first-class modules while inventory foundation expands
+1. start Milestone 4 execution foundation by adding first-class work-order execution truth that can consume the pending inventory execution links
+2. decide the first narrow accounting-consumption path that should consume the new inventory accounting handoff records without weakening centralized posting ownership
+3. keep the codebase limited to the approved first-class modules while execution and inventory depth expand
 4. add attachments only where they support approval evidence or document support flows
-5. use `new_app_v1_gap_review_from_current_codebase.md` as the reference list of remaining missing foundation areas after the started inventory slice
+5. use `new_app_v1_gap_review_from_current_codebase.md` as the reference list of remaining missing foundation areas after the expanded inventory slice
 6. use `new_app_implementation_defaults.md` as the default-rules reference during implementation
 7. use `new_app_foundation_coverage.md` as the v1 completion checklist and foundation coverage control
 
