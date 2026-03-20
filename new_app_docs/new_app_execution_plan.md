@@ -150,6 +150,14 @@ Exit criteria:
 4. execution records link back to source documents and forward to accounting or inventory outcomes where applicable
 5. work orders are primary where present, but the model can also attach inventory consumption to project execution without requiring a broad projects module
 
+Current implementation checkpoint:
+
+1. `work_orders` now exists as a first-class module with work-order identity, code, title, summary, and lifecycle status
+2. execution status history is now append-only and recorded transactionally with work-order state changes
+3. pending `inventory_ops.execution_links` for `work_order` context can now be consumed transactionally into first-class `work_orders.material_usages`
+4. inventory execution-link consumption now marks the originating inventory linkage as `linked` without shifting ownership away from `inventory_ops`
+5. the next implementation target is Milestone 4 task, accountable-owner, and labor-capture depth on top of the new work-order truth
+
 ## 6. Milestone 5: Reports and review
 
 Goal:

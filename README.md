@@ -2,7 +2,7 @@
 
 `workflow_app` is an AI-agent-first, database-first business operating system centered on documents, ledgers, execution context, approvals, and reports.
 
-This repository has completed Milestone 0, Milestone 1, and Milestone 2 from the canonical planning set in [`new_app_docs/`](./new_app_docs), and has now started the first Milestone 3 inventory foundation slice:
+This repository has completed Milestone 0, Milestone 1, and Milestone 2 from the canonical planning set in [`new_app_docs/`](./new_app_docs), completed the first Milestone 3 inventory foundation slice, and has now started Milestone 4 execution foundation:
 
 1. bootstrap the Go module
 2. add a migration runner
@@ -10,6 +10,7 @@ This repository has completed Milestone 0, Milestone 1, and Milestone 2 from the
 4. add the first shared document, approval, session/auth, and AI traceability foundations
 5. complete the accounting foundation with ledger accounts, append-only journals, centralized document posting, reversals, tax seams, accounting periods, and review queries
 6. add the first `inventory_ops` foundation with items, locations, append-only movements, stock derivation, source and destination semantics, inventory document payload ownership, and explicit accounting/execution handoff seams
+7. add the first `work_orders` foundation with work-order truth, append-only status history, and transactional consumption of pending inventory execution links into work-order material usage
 
 The planning documents in [`new_app_docs/`](./new_app_docs) remain the canonical source for scope, sequencing, and module boundaries.
 
@@ -48,9 +49,10 @@ Implemented:
 9. accounting periods with effective-date posting control, journal review queries, and control-account balance views for receivable/payable readiness
 10. inventory items, locations, movement numbering, append-only movement truth, derived stock queries, inventory document payload ownership, and receipt/issue/adjustment movement recording with purpose and usage classification
 11. pending accounting handoff rows and pending execution-context links for inventory document lines so later modules can consume inventory outcomes without crossing ownership boundaries
+12. first-class work-order records with append-only execution status history and material-usage records derived from pending inventory execution links
 
 Next:
 
-1. start Milestone 4 execution foundation with first-class work-order execution truth on top of the pending inventory execution links
+1. continue Milestone 4 with task, accountable-owner, and labor-capture depth on top of the new work-order truth
 2. define the first narrow accounting consumer for inventory accounting handoff rows while preserving centralized posting ownership
 3. keep the thin-v1 module map narrow while execution foundation expands

@@ -73,9 +73,9 @@ Currently missing as first-class implementation areas:
 1. worker master records as a distinct bounded context
 2. labor capture
 3. labor costing baseline
-4. work orders as the primary execution record
-5. execution status history
-6. execution linkage to documents, inventory, and accounting outcomes
+4. task and accountable-owner depth on top of the new work-order foundation
+5. execution linkage depth beyond the first work-order material-usage bridge from inventory execution links
+6. execution linkage to accounting outcomes
 
 ### 3.6 Reporting gaps
 
