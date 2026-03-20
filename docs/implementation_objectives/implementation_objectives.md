@@ -1,6 +1,6 @@
 # workflow_app Implementation Objectives
 
-Date: 2026-03-19
+Date: 2026-03-20
 Status: High-level multi-version implementation summary
 Purpose: capture the high-level rules, principles, objectives, requirements, specifications, and invariants that implementation work should preserve across the application across v1, v2, and later versions.
 
@@ -16,8 +16,9 @@ Rules:
 4. this document may describe long-term implementation objectives that extend beyond thin v1
 5. thin v1 remains the active implementation priority and should be treated as the minimum serious foundation version, not the full product endpoint
 6. this document is a companion summary and is not mandatory reading for every implementation session
-7. the normal session-start source of truth remains `AGENTS.md`, `README.md`, `new_app_docs/`, and optional legacy reference material when needed
-8. when high-level objectives, rules, principles, specifications, or invariants change in those canonical sources, this summary should be reviewed and updated if needed
+7. `docs/implementation_objectives/implementation_principles.md` is a reference-only companion note that provides implementation-principles guidance, but it is not the sole source of implementation principles and it is not part of the canonical planning set
+8. the normal session-start source of truth remains `AGENTS.md`, `README.md`, `new_app_docs/`, and optional reference material when needed
+9. when high-level objectives, rules, principles, specifications, or invariants change in those canonical sources, this summary should be reviewed and updated if needed
 
 ## 2. Product identity
 

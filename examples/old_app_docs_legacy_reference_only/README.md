@@ -2,7 +2,7 @@
 
 Date: 2026-03-19
 Status: Active canonical planning set
-Purpose: define the active thin-v1 planning direction for `service_day` based on the doctrine in `docs/IMP_PRINCIPLES.md`.
+Purpose: define the active thin-v1 planning direction for `service_day` based on the doctrine in `docs/implementation_objectives/implementation_principles.md`.
 
 ## Why this folder exists
 

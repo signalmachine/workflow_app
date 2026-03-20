@@ -2,7 +2,7 @@
 
 Date: 2026-03-18
 Status: Draft refactor principle set
-Purpose: translate `docs/IMP_PRINCIPLES.md` into concrete product and architecture rules for a thin `service_day` v1.
+Purpose: translate `docs/implementation_objectives/implementation_principles.md` into concrete product and architecture rules for a thin `service_day` v1.
 
 ## 1. Product statement
 

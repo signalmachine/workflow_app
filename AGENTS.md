@@ -2,11 +2,11 @@
 
 ## Project Structure & Module Organization
 
-This repository is the planning baseline for the future `workflow_app` codebase. The active canonical set lives in `new_app_docs/`; start with `new_app_docs/README.md`, then use `new_app_tracker.md` for current status and next steps. Core doctrine, scope, defaults, and execution order are defined in `new_app_v1_principles.md`, `new_app_v1_scope.md`, `new_app_implementation_defaults.md`, and `new_app_execution_plan.md`. Use `new_app_docs/app_v2_plans/` only for explicitly deferred v2 work. `docs/implementation_objectives/implementation_objectives.md` is a companion summary, not a replacement for the canonical planning set. Treat `examples/old_app_docs_legacy_reference_only/` as legacy reference only.
+This repository is the active `workflow_app` implementation codebase, with the canonical planning set living in `new_app_docs/`. Start with `new_app_docs/README.md`, then use `new_app_tracker.md` for current status and next steps. Core doctrine, scope, defaults, and execution order are defined in `new_app_v1_principles.md`, `new_app_v1_scope.md`, `new_app_implementation_defaults.md`, and `new_app_execution_plan.md`. Use `new_app_docs/app_v2_plans/` only for explicitly deferred v2 work. `docs/implementation_objectives/implementation_objectives.md` is a companion summary, not a replacement for the canonical planning set. Treat `docs/implementation_objectives/implementation_principles.md` and `examples/old_app_docs_legacy_reference_only/` as reference only.
 
 ## Document Hygiene
 
-Keep `AGENTS.md` short and durable. Put repository-wide contributor rules here, and move detailed plans, review notes, or session-specific material into the appropriate document under `new_app_docs/` or `docs/`. After every implementation change, review the canonical docs in `new_app_docs/` and update status, completed work, and next steps in the same change whenever they have drifted. When high-level rules, principles, scope boundaries, or invariants change in `AGENTS.md`, `new_app_docs/`, or `README` files, review `docs/implementation_objectives/implementation_objectives.md` and update it if the summary has drifted. After implementation changes, update `README.md` when setup, commands, architecture shape, or user-visible capabilities have changed.
+Keep `AGENTS.md` short and durable. Put repository-wide contributor rules here, and move detailed plans, review notes, or session-specific material into the appropriate document under `new_app_docs/` or `docs/`. After every implementation change, review the canonical docs in `new_app_docs/` and update status, completed work, and next steps in the same change whenever they have drifted. When high-level rules, principles, scope boundaries, or invariants change in `AGENTS.md`, `new_app_docs/`, or `README` files, review `docs/implementation_objectives/implementation_objectives.md` and update it if the summary has drifted. `docs/implementation_objectives/implementation_principles.md` is reference-only and does not need maintenance sync when canonical docs change. After implementation changes, update `README.md` when setup, commands, architecture shape, or user-visible capabilities have changed.
 
 ## MCP Usage
 
@@ -68,4 +68,4 @@ Current Git history is minimal, so use short imperative commit subjects that des
 
 ## Security & Configuration Tips
 
-Do not commit `.env`, `.envrc`, logs, coverage output, or generated artifacts; `.gitignore` already excludes them. When the implementation repository is bootstrapped, keep local configuration rules and any new operational guidance aligned between `AGENTS.md`, the active planning set, and the top-level setup docs.
+Do not commit `.env`, `.envrc`, logs, coverage output, or generated artifacts; `.gitignore` already excludes them. Keep local configuration rules and any new operational guidance aligned between `AGENTS.md`, the active planning set, and the top-level setup docs as the repository evolves.

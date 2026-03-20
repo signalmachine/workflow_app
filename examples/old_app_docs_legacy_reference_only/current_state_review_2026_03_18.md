@@ -10,7 +10,7 @@ This review considered:
 
 1. `AGENTS.md`
 2. root `README.md`
-3. `docs/IMP_PRINCIPLES.md`
+3. `docs/implementation_objectives/implementation_principles.md`
 4. the main documents in `implementation_plan/`
 5. the current module layout under `internal/`
 6. current migration and package names
@@ -63,9 +63,9 @@ That breadth creates two planning problems:
 1. v1 foundations are not isolated sharply enough from later expansion
 2. CRM became the earliest concrete center of gravity even though the intended long-term center is `work_order` plus accounting/inventory truth
 
-## 4. Main mismatch against `docs/IMP_PRINCIPLES.md`
+## 4. Main mismatch against `docs/implementation_objectives/implementation_principles.md`
 
-The doctrine in `docs/IMP_PRINCIPLES.md` pushes toward:
+The doctrine in `docs/implementation_objectives/implementation_principles.md` pushes toward:
 
 1. documents as intent
 2. ledgers as truth

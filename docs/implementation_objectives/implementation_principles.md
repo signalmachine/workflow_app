@@ -1,6 +1,8 @@
 Everything is a ledger + documents + execution context
 
-Use this as a working doctrine for designing or refactoring any business system.
+Status: Reference-only implementation principles guidance
+
+Use this as a reference note for designing or refactoring business systems. It provides implementation-principles guidance, but the implementation principles for `workflow_app` are not limited to this document alone.
 
 ---
 
