@@ -156,7 +156,9 @@ Current implementation checkpoint:
 2. execution status history is now append-only and recorded transactionally with work-order state changes
 3. pending `inventory_ops.execution_links` for `work_order` context can now be consumed transactionally into first-class `work_orders.material_usages`
 4. inventory execution-link consumption now marks the originating inventory linkage as `linked` without shifting ownership away from `inventory_ops`
-5. the next implementation target is Milestone 4 task, accountable-owner, and labor-capture depth on top of the new work-order truth
+5. `workflow` now owns shared work-order task records with one clear accountable worker and append-only task lifecycle participation
+6. `workforce` now owns worker master records plus first labor-entry capture with cost-rate snapshots linked to work orders and optional work-order tasks
+7. the next implementation target is the first narrow execution-to-accounting consumption path that can reuse the new task and labor truth without weakening centralized posting ownership
 
 ## 6. Milestone 5: Reports and review
 

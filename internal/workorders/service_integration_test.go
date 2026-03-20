@@ -12,6 +12,7 @@ import (
 	"workflow_app/internal/inventoryops"
 	"workflow_app/internal/testsupport/dbtest"
 	"workflow_app/internal/workflow"
+	"workflow_app/internal/workforce"
 	"workflow_app/internal/workorders"
 )
 
@@ -281,6 +282,195 @@ func TestUpdateWorkOrderStatusRecordsHistoryAndRejectsInvalidTransitionIntegrati
 	}
 	if historyCount != 3 {
 		t.Fatalf("unexpected history count: %d", historyCount)
+	}
+}
+
+func TestWorkOrderTasksAndLaborCaptureIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
+
+	documentService := documents.NewService(db)
+	workflowService := workflow.NewService(db, documentService)
+	workforceService := workforce.NewService(db)
+	workOrderService := workorders.NewService(db)
+
+	result, err := workOrderService.CreateWorkOrder(ctx, workorders.CreateWorkOrderInput{
+		WorkOrderCode: "WO-4001",
+		Title:         "Service rooftop unit",
+		Summary:       "Execution slice with accountable task and labor capture",
+		Actor:         operator,
+	})
+	if err != nil {
+		t.Fatalf("create work order: %v", err)
+	}
+
+	worker, err := workforceService.CreateWorker(ctx, workforce.CreateWorkerInput{
+		WorkerCode:             "TECH-001",
+		DisplayName:            "Field Technician",
+		DefaultHourlyCostMinor: 3600,
+		CostCurrencyCode:       "INR",
+		Actor:                  operator,
+	})
+	if err != nil {
+		t.Fatalf("create worker: %v", err)
+	}
+
+	task, err := workflowService.CreateTask(ctx, workflow.CreateTaskInput{
+		ContextType:         "work_order",
+		ContextID:           result.WorkOrder.ID,
+		Title:               "Install replacement control board",
+		Instructions:        "Bring calibrated tools and record labor against the task",
+		QueueCode:           "dispatch",
+		AccountableWorkerID: worker.ID,
+		Actor:               operator,
+	})
+	if err != nil {
+		t.Fatalf("create task: %v", err)
+	}
+	if task.Status != "open" {
+		t.Fatalf("unexpected task status: %s", task.Status)
+	}
+
+	task, err = workflowService.UpdateTaskStatus(ctx, workflow.UpdateTaskStatusInput{
+		TaskID: task.ID,
+		Status: "in_progress",
+		Actor:  operator,
+	})
+	if err != nil {
+		t.Fatalf("update task status: %v", err)
+	}
+	if task.Status != "in_progress" {
+		t.Fatalf("unexpected updated task status: %s", task.Status)
+	}
+
+	startedAt := time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC)
+	entry, err := workforceService.RecordLabor(ctx, workforce.RecordLaborInput{
+		WorkerID:    worker.ID,
+		WorkOrderID: result.WorkOrder.ID,
+		TaskID:      task.ID,
+		StartedAt:   startedAt,
+		EndedAt:     startedAt.Add(90 * time.Minute),
+		Note:        "On-site installation and calibration",
+		Actor:       operator,
+	})
+	if err != nil {
+		t.Fatalf("record labor: %v", err)
+	}
+	if entry.DurationMinutes != 90 {
+		t.Fatalf("unexpected labor duration: %d", entry.DurationMinutes)
+	}
+	if entry.CostMinor != 5400 {
+		t.Fatalf("unexpected labor cost: %d", entry.CostMinor)
+	}
+
+	tasks, err := workflowService.ListTasks(ctx, workflow.ListTasksInput{
+		ContextType: "work_order",
+		ContextID:   result.WorkOrder.ID,
+		Actor:       operator,
+	})
+	if err != nil {
+		t.Fatalf("list tasks: %v", err)
+	}
+	if len(tasks) != 1 {
+		t.Fatalf("unexpected task count: %d", len(tasks))
+	}
+	if tasks[0].AccountableWorkerID != worker.ID {
+		t.Fatalf("unexpected accountable worker id: %s", tasks[0].AccountableWorkerID)
+	}
+
+	laborEntries, err := workforceService.ListLaborEntries(ctx, workforce.ListLaborEntriesInput{
+		WorkOrderID: result.WorkOrder.ID,
+		Actor:       operator,
+	})
+	if err != nil {
+		t.Fatalf("list labor entries: %v", err)
+	}
+	if len(laborEntries) != 1 {
+		t.Fatalf("unexpected labor entry count: %d", len(laborEntries))
+	}
+	if laborEntries[0].TaskID.String != task.ID {
+		t.Fatalf("unexpected labor task linkage: %s", laborEntries[0].TaskID.String)
+	}
+}
+
+func TestRecordLaborRejectsTaskOwnershipMismatchIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
+
+	documentService := documents.NewService(db)
+	workflowService := workflow.NewService(db, documentService)
+	workforceService := workforce.NewService(db)
+	workOrderService := workorders.NewService(db)
+
+	result, err := workOrderService.CreateWorkOrder(ctx, workorders.CreateWorkOrderInput{
+		WorkOrderCode: "WO-4002",
+		Title:         "Inspect generator controls",
+		Actor:         operator,
+	})
+	if err != nil {
+		t.Fatalf("create work order: %v", err)
+	}
+
+	assignedWorker, err := workforceService.CreateWorker(ctx, workforce.CreateWorkerInput{
+		WorkerCode:             "TECH-002",
+		DisplayName:            "Assigned Technician",
+		DefaultHourlyCostMinor: 3000,
+		CostCurrencyCode:       "INR",
+		Actor:                  operator,
+	})
+	if err != nil {
+		t.Fatalf("create assigned worker: %v", err)
+	}
+
+	otherWorker, err := workforceService.CreateWorker(ctx, workforce.CreateWorkerInput{
+		WorkerCode:             "TECH-003",
+		DisplayName:            "Other Technician",
+		DefaultHourlyCostMinor: 3200,
+		CostCurrencyCode:       "INR",
+		Actor:                  operator,
+	})
+	if err != nil {
+		t.Fatalf("create other worker: %v", err)
+	}
+
+	task, err := workflowService.CreateTask(ctx, workflow.CreateTaskInput{
+		ContextType:         "work_order",
+		ContextID:           result.WorkOrder.ID,
+		Title:               "Run diagnostic sequence",
+		AccountableWorkerID: assignedWorker.ID,
+		Actor:               operator,
+	})
+	if err != nil {
+		t.Fatalf("create task: %v", err)
+	}
+
+	startedAt := time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)
+	_, err = workforceService.RecordLabor(ctx, workforce.RecordLaborInput{
+		WorkerID:    otherWorker.ID,
+		WorkOrderID: result.WorkOrder.ID,
+		TaskID:      task.ID,
+		StartedAt:   startedAt,
+		EndedAt:     startedAt.Add(30 * time.Minute),
+		Actor:       operator,
+	})
+	if !errors.Is(err, workforce.ErrTaskOwnershipMismatch) {
+		t.Fatalf("unexpected ownership mismatch error: %v", err)
 	}
 }
 

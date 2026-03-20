@@ -68,14 +68,12 @@ Partially addressed, but not yet complete enough:
 
 ### 3.5 Workforce and execution gaps
 
-Currently missing as first-class implementation areas:
+Partially addressed, but not yet complete enough:
 
-1. worker master records as a distinct bounded context
-2. labor capture
-3. labor costing baseline
-4. task and accountable-owner depth on top of the new work-order foundation
-5. execution linkage depth beyond the first work-order material-usage bridge from inventory execution links
-6. execution linkage to accounting outcomes
+1. worker master records now exist as a distinct `workforce` bounded context
+2. labor capture now exists with first cost-rate snapshotting on append-only labor entries
+3. task and accountable-owner depth now exists through shared `workflow.tasks` linked to work orders with one accountable worker
+4. remaining execution depth is now concentrated around broader labor-costing outcomes, execution linkage beyond the first work-order material-usage bridge, and execution linkage to accounting outcomes
 
 ### 3.6 Reporting gaps
 

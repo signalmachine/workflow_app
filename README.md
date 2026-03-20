@@ -10,7 +10,7 @@ This repository has completed Milestone 0, Milestone 1, and Milestone 2 from the
 4. add the first shared document, approval, session/auth, and AI traceability foundations
 5. complete the accounting foundation with ledger accounts, append-only journals, centralized document posting, reversals, tax seams, accounting periods, and review queries
 6. add the first `inventory_ops` foundation with items, locations, append-only movements, stock derivation, source and destination semantics, inventory document payload ownership, and explicit accounting/execution handoff seams
-7. add the first `work_orders` foundation with work-order truth, append-only status history, and transactional consumption of pending inventory execution links into work-order material usage
+7. add the first `work_orders` foundation with work-order truth, append-only status history, transactional consumption of pending inventory execution links into work-order material usage, workflow-owned tasks with one accountable worker, and workforce-owned labor capture with cost snapshots
 
 The planning documents in [`new_app_docs/`](./new_app_docs) remain the canonical source for scope, sequencing, and module boundaries.
 
@@ -52,9 +52,10 @@ Implemented:
 10. inventory items, locations, movement numbering, append-only movement truth, derived stock queries, inventory document payload ownership, and receipt/issue/adjustment movement recording with purpose and usage classification
 11. pending accounting handoff rows and pending execution-context links for inventory document lines so later modules can consume inventory outcomes without crossing ownership boundaries
 12. first-class work-order records with append-only execution status history and material-usage records derived from pending inventory execution links
+13. shared workflow tasks linked to work orders with one accountable worker plus workforce workers and append-only labor entries with captured cost snapshots
 
 Next:
 
-1. continue Milestone 4 with task, accountable-owner, and labor-capture depth on top of the new work-order truth
-2. define the first narrow accounting consumer for inventory accounting handoff rows while preserving centralized posting ownership
+1. define the first narrow accounting consumer for inventory accounting handoff rows while preserving centralized posting ownership
+2. deepen execution linkage from the new task and labor truth into accounting outcomes without widening scope
 3. keep the thin-v1 module map narrow while execution foundation expands
