@@ -14,6 +14,8 @@ This repository has completed Milestone 0, Milestone 1, and Milestone 2 from the
 
 The planning documents in [`new_app_docs/`](./new_app_docs) remain the canonical source for scope, sequencing, and module boundaries.
 
+Testing guidance for collaborating with Codex on Go tests lives in [`testing/README.md`](./testing/README.md).
+
 ## Current commands
 
 Apply migrations:
