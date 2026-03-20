@@ -1,6 +1,6 @@
 # workflow_app v1 Gap Review From Current Codebase
 
-Date: 2026-03-19
+Date: 2026-03-20
 Status: Draft review note
 Purpose: compare the current repository implementation against the `workflow_app` thin-v1 foundation plan so the new codebase starts with a realistic gap view.
 
@@ -11,9 +11,9 @@ The current codebase proves some important foundation slices, but it does not ye
 The biggest issue is not lack of sophistication. The biggest issue is uneven sophistication:
 
 1. identity, auth, audit, idempotency, AI traceability, and parts of workflow are already credible
-2. accounting and documents have a first serious kernel
-3. inventory, workforce, work-order execution, and reporting remain materially missing
-4. CRM depth is much heavier than the missing foundation layers
+2. accounting, documents, and the first inventory movement foundation now have serious kernels
+3. workforce, work-order execution, reporting, and the remaining inventory document-handoff depth are still materially missing
+4. CRM depth is much heavier than the remaining missing foundation layers
 
 This confirms that `workflow_app` should start new rather than trying to trim the current codebase into shape.
 
@@ -58,12 +58,12 @@ Still missing or not complete enough:
 
 ### 3.4 Inventory gaps
 
-Currently missing as a first-class implementation area:
+Partially addressed, but not yet complete enough:
 
-1. item-role and movement-purpose modeling at inventory-foundation depth
-2. receipt, issue, and adjustment flows
-3. movement ledger as the source of stock truth
-4. service-material versus resale-stock separation
+1. item-role and movement-purpose modeling now exist in the first `inventory_ops` slice
+2. receipt, issue, and adjustment recording paths now exist on one shared movement ledger
+3. stock truth is now derived from movements rather than stored mutably
+4. service-material versus resale-stock separation now exists, but inventory document payload ownership and downstream handoff depth are still incomplete
 
 ### 3.5 Workforce and execution gaps
 
@@ -93,7 +93,7 @@ The current repository is most advanced where the replacement thin-v1 plan wants
 That mismatch is:
 
 1. too much CRM depth
-2. not enough inventory depth
+2. inventory depth is improving but still incomplete at the document-handoff and review layers
 3. not enough workforce depth
 4. not enough work-order depth
 5. not enough reporting depth

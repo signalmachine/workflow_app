@@ -1,6 +1,6 @@
 # workflow_app Execution Plan
 
-Date: 2026-03-19
+Date: 2026-03-20
 Status: Draft canonical execution plan
 Purpose: define the narrow implementation path for the `workflow_app` replacement codebase.
 
@@ -114,6 +114,15 @@ Exit criteria:
 4. inventory documents can feed both execution context and accounting outcomes through explicit handoff paths
 5. inventory foundation supports both buy-sell trading and service or project execution consumption on one shared movement model
 6. traceable equipment classes can preserve identity-level linkage where the business flow requires it
+
+Current implementation checkpoint:
+
+1. `inventory_ops` now exists as a first-class module with item and location master records
+2. append-only inventory movement truth is implemented with database-backed mutation blocking
+3. stock is now derived from movements rather than stored as mutable truth
+4. source and destination semantics, movement-purpose classification, and billable/non-billable usage classification are enforced in the first inventory service layer
+5. approved inventory document references can now validate compatible receipt, issue, and adjustment movement recording paths
+6. the next implementation target is completing inventory document payload ownership and downstream handoff paths before moving to Milestone 4 execution foundation
 
 ## 5. Milestone 4: Execution foundation
 
