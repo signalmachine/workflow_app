@@ -73,6 +73,7 @@ TRUNCATE TABLE
 	ai.agent_run_steps,
 	ai.agent_runs,
 	ai.agent_tools,
+	workforce.labor_accounting_handoffs,
 	workforce.labor_entries,
 	workflow.tasks,
 	workforce.workers,

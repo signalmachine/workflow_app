@@ -13,6 +13,8 @@ import (
 	"workflow_app/internal/identityaccess"
 	"workflow_app/internal/testsupport/dbtest"
 	"workflow_app/internal/workflow"
+	"workflow_app/internal/workforce"
+	"workflow_app/internal/workorders"
 )
 
 func TestPostDocumentIntegration(t *testing.T) {
@@ -204,6 +206,163 @@ func TestCreateTaxCodeAndUseItInPostingIntegration(t *testing.T) {
 	}
 	if !lines[2].TaxCode.Valid || lines[2].TaxCode.String != gst18.Code {
 		t.Fatalf("unexpected tax code on journal line: %+v", lines[2].TaxCode)
+	}
+}
+
+func TestPostWorkOrderLaborIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
+
+	_, approverUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleApprover, orgID)
+	approverSession := startSession(t, ctx, db, orgID, approverUserID)
+	approver := identityaccess.Actor{OrgID: orgID, UserID: approverUserID, SessionID: approverSession.ID}
+
+	_, adminUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleAdmin, orgID)
+	adminSession := startSession(t, ctx, db, orgID, adminUserID)
+	admin := identityaccess.Actor{OrgID: orgID, UserID: adminUserID, SessionID: adminSession.ID}
+
+	documentService := documents.NewService(db)
+	workflowService := workflow.NewService(db, documentService)
+	workOrderService := workorders.NewService(db)
+	workforceService := workforce.NewService(db)
+	accountingService := accounting.NewService(db, documentService)
+
+	workOrderResult, err := workOrderService.CreateWorkOrder(ctx, workorders.CreateWorkOrderInput{
+		WorkOrderCode: "WO-5001",
+		Title:         "Commission air handling unit",
+		Actor:         operator,
+	})
+	if err != nil {
+		t.Fatalf("create work order: %v", err)
+	}
+
+	worker, err := workforceService.CreateWorker(ctx, workforce.CreateWorkerInput{
+		WorkerCode:             "TECH-5001",
+		DisplayName:            "Commissioning Technician",
+		DefaultHourlyCostMinor: 3600,
+		CostCurrencyCode:       "INR",
+		Actor:                  operator,
+	})
+	if err != nil {
+		t.Fatalf("create worker: %v", err)
+	}
+
+	task, err := workflowService.CreateTask(ctx, workflow.CreateTaskInput{
+		ContextType:         "work_order",
+		ContextID:           workOrderResult.WorkOrder.ID,
+		Title:               "Calibrate controls",
+		AccountableWorkerID: worker.ID,
+		Actor:               operator,
+	})
+	if err != nil {
+		t.Fatalf("create task: %v", err)
+	}
+
+	startedAt := time.Date(2026, 3, 20, 8, 0, 0, 0, time.UTC)
+	laborEntry, err := workforceService.RecordLabor(ctx, workforce.RecordLaborInput{
+		WorkerID:    worker.ID,
+		WorkOrderID: workOrderResult.WorkOrder.ID,
+		TaskID:      task.ID,
+		StartedAt:   startedAt,
+		EndedAt:     startedAt.Add(2 * time.Hour),
+		Note:        "Commissioning and validation",
+		Actor:       operator,
+	})
+	if err != nil {
+		t.Fatalf("record labor: %v", err)
+	}
+	if laborEntry.CostMinor != 7200 {
+		t.Fatalf("unexpected labor cost: %d", laborEntry.CostMinor)
+	}
+
+	journalDoc := prepareApprovedDocumentOfType(t, ctx, documentService, workflowService, operator, approver, "journal", "Labor posting")
+	laborExpense := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:         "5100",
+		Name:         "Direct Labor Expense",
+		AccountClass: accounting.AccountClassExpense,
+		Actor:        admin,
+	})
+	accruedLabor := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:         "2205",
+		Name:         "Accrued Labor",
+		AccountClass: accounting.AccountClassLiability,
+		Actor:        admin,
+	})
+
+	result, err := accountingService.PostWorkOrderLabor(ctx, accounting.PostWorkOrderLaborInput{
+		DocumentID:       journalDoc.ID,
+		WorkOrderID:      workOrderResult.WorkOrder.ID,
+		ExpenseAccountID: laborExpense.ID,
+		OffsetAccountID:  accruedLabor.ID,
+		Summary:          "Post work-order labor costs",
+		EffectiveOn:      startedAt,
+		Actor:            admin,
+	})
+	if err != nil {
+		t.Fatalf("post work-order labor: %v", err)
+	}
+	if result.Document.Status != documents.StatusPosted {
+		t.Fatalf("unexpected posted document status: %s", result.Document.Status)
+	}
+	if result.LaborEntryCount != 1 {
+		t.Fatalf("unexpected labor entry count: %d", result.LaborEntryCount)
+	}
+	if result.TotalCostMinor != 7200 {
+		t.Fatalf("unexpected total labor cost: %d", result.TotalCostMinor)
+	}
+	if result.CurrencyCode != "INR" {
+		t.Fatalf("unexpected labor posting currency: %s", result.CurrencyCode)
+	}
+	if len(result.Lines) != 2 {
+		t.Fatalf("unexpected journal line count: %d", len(result.Lines))
+	}
+	if result.Lines[0].DebitMinor != 7200 || result.Lines[1].CreditMinor != 7200 {
+		t.Fatalf("unexpected journal amounts: %+v", result.Lines)
+	}
+
+	idempotent, err := accountingService.PostWorkOrderLabor(ctx, accounting.PostWorkOrderLaborInput{
+		DocumentID:       journalDoc.ID,
+		WorkOrderID:      workOrderResult.WorkOrder.ID,
+		ExpenseAccountID: laborExpense.ID,
+		OffsetAccountID:  accruedLabor.ID,
+		Summary:          "Post work-order labor costs",
+		EffectiveOn:      startedAt,
+		Actor:            admin,
+	})
+	if err != nil {
+		t.Fatalf("idempotent post work-order labor: %v", err)
+	}
+	if idempotent.Entry.ID != result.Entry.ID {
+		t.Fatalf("unexpected idempotent journal entry id: %s", idempotent.Entry.ID)
+	}
+
+	var (
+		handoffStatus  string
+		journalEntryID sql.NullString
+		postedAt       sql.NullTime
+	)
+	if err := db.QueryRowContext(ctx, `
+SELECT handoff_status, journal_entry_id, posted_at
+FROM workforce.labor_accounting_handoffs
+WHERE labor_entry_id = $1;`, laborEntry.ID).Scan(&handoffStatus, &journalEntryID, &postedAt); err != nil {
+		t.Fatalf("load labor accounting handoff: %v", err)
+	}
+	if handoffStatus != "posted" {
+		t.Fatalf("unexpected labor handoff status: %s", handoffStatus)
+	}
+	if !journalEntryID.Valid || journalEntryID.String != result.Entry.ID {
+		t.Fatalf("unexpected labor handoff journal entry: %+v", journalEntryID)
+	}
+	if !postedAt.Valid {
+		t.Fatal("expected labor handoff posted_at")
 	}
 }
 
@@ -837,10 +996,15 @@ INSERT INTO accounting.journal_lines (
 
 func prepareApprovedDocument(t *testing.T, ctx context.Context, documentService *documents.Service, workflowService *workflow.Service, operator, approver identityaccess.Actor) documents.Document {
 	t.Helper()
+	return prepareApprovedDocumentOfType(t, ctx, documentService, workflowService, operator, approver, "invoice", "Approved invoice")
+}
+
+func prepareApprovedDocumentOfType(t *testing.T, ctx context.Context, documentService *documents.Service, workflowService *workflow.Service, operator, approver identityaccess.Actor, typeCode, title string) documents.Document {
+	t.Helper()
 
 	doc, err := documentService.CreateDraft(ctx, documents.CreateDraftInput{
-		TypeCode: "invoice",
-		Title:    "Approved invoice",
+		TypeCode: typeCode,
+		Title:    title,
 		Actor:    operator,
 	})
 	if err != nil {

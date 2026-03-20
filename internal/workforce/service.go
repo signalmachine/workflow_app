@@ -56,6 +56,19 @@ type LaborEntry struct {
 	CreatedAt        time.Time
 }
 
+type laborAccountingHandoff struct {
+	ID              string
+	OrgID           string
+	LaborEntryID    string
+	WorkOrderID     string
+	TaskID          sql.NullString
+	JournalEntryID  sql.NullString
+	HandoffStatus   string
+	CreatedByUserID string
+	CreatedAt       time.Time
+	PostedAt        sql.NullTime
+}
+
 type CreateWorkerInput struct {
 	WorkerCode             string
 	DisplayName            string
@@ -267,6 +280,11 @@ RETURNING
 		return LaborEntry{}, fmt.Errorf("insert labor entry: %w", err)
 	}
 
+	if _, err := insertLaborAccountingHandoffTx(ctx, tx, entry); err != nil {
+		_ = tx.Rollback()
+		return LaborEntry{}, err
+	}
+
 	if err := audit.WriteTx(ctx, tx, audit.Event{
 		OrgID:       input.Actor.OrgID,
 		ActorUserID: input.Actor.UserID,
@@ -437,6 +455,43 @@ FOR UPDATE;`
 	return task, nil
 }
 
+func insertLaborAccountingHandoffTx(ctx context.Context, tx *sql.Tx, entry LaborEntry) (laborAccountingHandoff, error) {
+	const statement = `
+INSERT INTO workforce.labor_accounting_handoffs (
+	org_id,
+	labor_entry_id,
+	work_order_id,
+	task_id,
+	created_by_user_id
+) VALUES ($1, $2, $3, $4, $5)
+RETURNING
+	id,
+	org_id,
+	labor_entry_id,
+	work_order_id,
+	task_id,
+	journal_entry_id,
+	handoff_status,
+	created_by_user_id,
+	created_at,
+	posted_at;`
+
+	handoff, err := scanLaborAccountingHandoff(tx.QueryRowContext(
+		ctx,
+		statement,
+		entry.OrgID,
+		entry.ID,
+		entry.WorkOrderID,
+		nullStringParam(entry.TaskID),
+		entry.CapturedByUserID,
+	))
+	if err != nil {
+		return laborAccountingHandoff{}, fmt.Errorf("insert labor accounting handoff: %w", err)
+	}
+
+	return handoff, nil
+}
+
 func roundedCostMinor(hourlyCostMinor int64, durationMinutes int) int64 {
 	return (hourlyCostMinor*int64(durationMinutes) + 30) / 60
 }
@@ -507,6 +562,25 @@ func scanLaborEntry(row rowScanner) (LaborEntry, error) {
 		return LaborEntry{}, err
 	}
 	return entry, nil
+}
+
+func scanLaborAccountingHandoff(row rowScanner) (laborAccountingHandoff, error) {
+	var handoff laborAccountingHandoff
+	if err := row.Scan(
+		&handoff.ID,
+		&handoff.OrgID,
+		&handoff.LaborEntryID,
+		&handoff.WorkOrderID,
+		&handoff.TaskID,
+		&handoff.JournalEntryID,
+		&handoff.HandoffStatus,
+		&handoff.CreatedByUserID,
+		&handoff.CreatedAt,
+		&handoff.PostedAt,
+	); err != nil {
+		return laborAccountingHandoff{}, err
+	}
+	return handoff, nil
 }
 
 func scanTask(row rowScanner) (workflow.Task, error) {

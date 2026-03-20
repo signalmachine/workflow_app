@@ -32,6 +32,8 @@ var (
 	ErrAccountingPeriodOverlap  = errors.New("accounting period overlaps an existing period")
 	ErrAccountingPeriodNotOpen  = errors.New("accounting period is not open")
 	ErrUnbalancedJournal        = errors.New("journal entry is unbalanced")
+	ErrLaborHandoffNotFound     = errors.New("labor accounting handoff not found")
+	ErrInvalidLaborHandoff      = errors.New("invalid labor accounting handoff")
 )
 
 const (
@@ -226,6 +228,34 @@ type ControlAccountBalance struct {
 	TotalCreditMinor int64
 	NetMinor         int64
 	LastEffectiveOn  sql.NullTime
+}
+
+type PostWorkOrderLaborInput struct {
+	DocumentID       string
+	WorkOrderID      string
+	ExpenseAccountID string
+	OffsetAccountID  string
+	Summary          string
+	EffectiveOn      time.Time
+	Actor            identityaccess.Actor
+}
+
+type WorkOrderLaborPostingResult struct {
+	Entry           JournalEntry
+	Lines           []JournalLine
+	Document        documents.Document
+	LaborEntryCount int
+	TotalCostMinor  int64
+	CurrencyCode    string
+}
+
+type laborAccountingHandoff struct {
+	ID               string
+	LaborEntryID     string
+	WorkOrderID      string
+	TaskID           sql.NullString
+	CostMinor        int64
+	CostCurrencyCode string
 }
 
 type Service struct {
@@ -613,6 +643,171 @@ func (s *Service) ReverseDocument(ctx context.Context, input ReverseDocumentInpu
 	}
 
 	return reversal, lines, doc, nil
+}
+
+func (s *Service) PostWorkOrderLabor(ctx context.Context, input PostWorkOrderLaborInput) (WorkOrderLaborPostingResult, error) {
+	if strings.TrimSpace(input.DocumentID) == "" ||
+		strings.TrimSpace(input.WorkOrderID) == "" ||
+		strings.TrimSpace(input.ExpenseAccountID) == "" ||
+		strings.TrimSpace(input.OffsetAccountID) == "" ||
+		strings.TrimSpace(input.Summary) == "" {
+		return WorkOrderLaborPostingResult{}, ErrInvalidLaborHandoff
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return WorkOrderLaborPostingResult{}, fmt.Errorf("begin post work order labor: %w", err)
+	}
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin, identityaccess.RoleApprover); err != nil {
+		_ = tx.Rollback()
+		return WorkOrderLaborPostingResult{}, err
+	}
+
+	entry, lines, found, err := getPostingEntryByDocumentForUpdate(ctx, tx, input.Actor.OrgID, input.DocumentID)
+	if err != nil && !errors.Is(err, ErrJournalEntryNotFound) {
+		_ = tx.Rollback()
+		return WorkOrderLaborPostingResult{}, err
+	}
+	if found {
+		count, total, currency, summaryFound, err := getPostedLaborSummaryTx(ctx, tx, input.Actor.OrgID, input.WorkOrderID, entry.ID)
+		if err != nil {
+			_ = tx.Rollback()
+			return WorkOrderLaborPostingResult{}, err
+		}
+		if !summaryFound {
+			_ = tx.Rollback()
+			return WorkOrderLaborPostingResult{}, ErrPostingAlreadyExists
+		}
+		doc, err := s.loadDocument(ctx, input.Actor.OrgID, input.DocumentID)
+		if err != nil {
+			_ = tx.Rollback()
+			return WorkOrderLaborPostingResult{}, err
+		}
+		if err := tx.Commit(); err != nil {
+			return WorkOrderLaborPostingResult{}, fmt.Errorf("commit idempotent post work order labor: %w", err)
+		}
+		return WorkOrderLaborPostingResult{
+			Entry:           entry,
+			Lines:           lines,
+			Document:        doc,
+			LaborEntryCount: count,
+			TotalCostMinor:  total,
+			CurrencyCode:    currency,
+		}, nil
+	}
+
+	handoffs, totalCostMinor, currencyCode, err := listPendingLaborHandoffsForWorkOrderTx(ctx, tx, input.Actor.OrgID, input.WorkOrderID)
+	if err != nil {
+		_ = tx.Rollback()
+		return WorkOrderLaborPostingResult{}, err
+	}
+	if len(handoffs) == 0 {
+		_ = tx.Rollback()
+		return WorkOrderLaborPostingResult{}, ErrLaborHandoffNotFound
+	}
+	if totalCostMinor <= 0 || !isValidCurrencyCode(currencyCode) {
+		_ = tx.Rollback()
+		return WorkOrderLaborPostingResult{}, ErrInvalidLaborHandoff
+	}
+
+	postInput := PostDocumentInput{
+		DocumentID:   input.DocumentID,
+		Summary:      strings.TrimSpace(input.Summary),
+		CurrencyCode: currencyCode,
+		TaxScopeCode: TaxScopeNone,
+		EffectiveOn:  input.EffectiveOn,
+		Lines: []PostingLineInput{
+			{
+				AccountID:   strings.TrimSpace(input.ExpenseAccountID),
+				Description: "Work-order labor cost",
+				DebitMinor:  totalCostMinor,
+			},
+			{
+				AccountID:   strings.TrimSpace(input.OffsetAccountID),
+				Description: "Labor cost clearing",
+				CreditMinor: totalCostMinor,
+			},
+		},
+		Actor: input.Actor,
+	}
+
+	fingerprint, err := postingFingerprint(postInput)
+	if err != nil {
+		_ = tx.Rollback()
+		return WorkOrderLaborPostingResult{}, err
+	}
+
+	entry, lines, existing, err := s.postDocumentTx(ctx, tx, postInput, fingerprint)
+	if err != nil {
+		_ = tx.Rollback()
+		return WorkOrderLaborPostingResult{}, err
+	}
+	if existing {
+		_ = tx.Rollback()
+		return WorkOrderLaborPostingResult{}, ErrPostingAlreadyExists
+	}
+
+	doc, err := s.documents.ApplyPostingOutcome(ctx, tx, documents.PostingOutcomeInput{
+		DocumentID: input.DocumentID,
+		Action:     "posted",
+		Actor:      input.Actor,
+	})
+	if err != nil {
+		_ = tx.Rollback()
+		return WorkOrderLaborPostingResult{}, err
+	}
+
+	if err := markLaborHandoffsPostedTx(ctx, tx, input.Actor.OrgID, entry.ID, handoffs); err != nil {
+		_ = tx.Rollback()
+		return WorkOrderLaborPostingResult{}, err
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
+		EventType:   "accounting.work_order_labor_posted",
+		EntityType:  "accounting.journal_entry",
+		EntityID:    entry.ID,
+		Payload: map[string]any{
+			"document_id":        input.DocumentID,
+			"work_order_id":      input.WorkOrderID,
+			"labor_entry_count":  len(handoffs),
+			"total_cost_minor":   totalCostMinor,
+			"cost_currency_code": currencyCode,
+		},
+	}); err != nil {
+		_ = tx.Rollback()
+		return WorkOrderLaborPostingResult{}, err
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
+		EventType:   "documents.document_posted",
+		EntityType:  "documents.document",
+		EntityID:    doc.ID,
+		Payload: map[string]any{
+			"journal_entry_id": entry.ID,
+			"status":           doc.Status,
+		},
+	}); err != nil {
+		_ = tx.Rollback()
+		return WorkOrderLaborPostingResult{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return WorkOrderLaborPostingResult{}, fmt.Errorf("commit post work order labor: %w", err)
+	}
+
+	return WorkOrderLaborPostingResult{
+		Entry:           entry,
+		Lines:           lines,
+		Document:        doc,
+		LaborEntryCount: len(handoffs),
+		TotalCostMinor:  totalCostMinor,
+		CurrencyCode:    currencyCode,
+	}, nil
 }
 
 func (s *Service) postDocumentTx(ctx context.Context, tx *sql.Tx, input PostDocumentInput, fingerprint string) (JournalEntry, []JournalLine, bool, error) {
@@ -1057,6 +1252,100 @@ ORDER BY a.code ASC;`
 	return balances, nil
 }
 
+func listPendingLaborHandoffsForWorkOrderTx(ctx context.Context, tx *sql.Tx, orgID, workOrderID string) ([]laborAccountingHandoff, int64, string, error) {
+	const query = `
+SELECT
+	h.id,
+	h.labor_entry_id,
+	h.work_order_id,
+	h.task_id,
+	le.cost_minor,
+	le.cost_currency_code
+FROM workforce.labor_accounting_handoffs h
+JOIN workforce.labor_entries le
+	ON le.id = h.labor_entry_id
+   AND le.org_id = h.org_id
+WHERE h.org_id = $1
+  AND h.work_order_id = $2
+  AND h.handoff_status = 'pending'
+ORDER BY le.started_at ASC, le.id ASC
+FOR UPDATE OF h, le;`
+
+	rows, err := tx.QueryContext(ctx, query, orgID, workOrderID)
+	if err != nil {
+		return nil, 0, "", fmt.Errorf("list pending labor handoffs: %w", err)
+	}
+	defer rows.Close()
+
+	var (
+		handoffs     []laborAccountingHandoff
+		totalCost    int64
+		currencyCode string
+	)
+	for rows.Next() {
+		var handoff laborAccountingHandoff
+		if err := rows.Scan(
+			&handoff.ID,
+			&handoff.LaborEntryID,
+			&handoff.WorkOrderID,
+			&handoff.TaskID,
+			&handoff.CostMinor,
+			&handoff.CostCurrencyCode,
+		); err != nil {
+			return nil, 0, "", fmt.Errorf("scan pending labor handoff: %w", err)
+		}
+		if handoff.CostMinor < 0 || !isValidCurrencyCode(handoff.CostCurrencyCode) {
+			return nil, 0, "", ErrInvalidLaborHandoff
+		}
+		if currencyCode == "" {
+			currencyCode = handoff.CostCurrencyCode
+		} else if currencyCode != handoff.CostCurrencyCode {
+			return nil, 0, "", ErrInvalidLaborHandoff
+		}
+		totalCost += handoff.CostMinor
+		handoffs = append(handoffs, handoff)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, "", fmt.Errorf("iterate pending labor handoffs: %w", err)
+	}
+
+	return handoffs, totalCost, currencyCode, nil
+}
+
+func getPostedLaborSummaryTx(ctx context.Context, tx *sql.Tx, orgID, workOrderID, journalEntryID string) (int, int64, string, bool, error) {
+	const query = `
+SELECT
+	COUNT(*),
+	COALESCE(SUM(le.cost_minor), 0),
+	MIN(le.cost_currency_code),
+	MAX(le.cost_currency_code)
+FROM workforce.labor_accounting_handoffs h
+JOIN workforce.labor_entries le
+	ON le.id = h.labor_entry_id
+   AND le.org_id = h.org_id
+WHERE h.org_id = $1
+  AND h.work_order_id = $2
+  AND h.journal_entry_id = $3
+  AND h.handoff_status = 'posted';`
+
+	var (
+		count       int
+		total       int64
+		minCurrency sql.NullString
+		maxCurrency sql.NullString
+	)
+	if err := tx.QueryRowContext(ctx, query, orgID, workOrderID, journalEntryID).Scan(&count, &total, &minCurrency, &maxCurrency); err != nil {
+		return 0, 0, "", false, fmt.Errorf("load posted labor summary: %w", err)
+	}
+	if count == 0 {
+		return 0, 0, "", false, nil
+	}
+	if !minCurrency.Valid || !maxCurrency.Valid || minCurrency.String != maxCurrency.String {
+		return 0, 0, "", false, ErrInvalidLaborHandoff
+	}
+	return count, total, minCurrency.String, true, nil
+}
+
 func validatePostingLines(lines []PostingLineInput) error {
 	if len(lines) < 2 {
 		return ErrInvalidJournalLine
@@ -1079,6 +1368,32 @@ func validatePostingLines(lines []PostingLineInput) error {
 	}
 	if debitTotal != creditTotal {
 		return ErrUnbalancedJournal
+	}
+	return nil
+}
+
+func markLaborHandoffsPostedTx(ctx context.Context, tx *sql.Tx, orgID, journalEntryID string, handoffs []laborAccountingHandoff) error {
+	const statement = `
+UPDATE workforce.labor_accounting_handoffs
+SET journal_entry_id = $3,
+	handoff_status = 'posted',
+	posted_at = NOW()
+WHERE org_id = $1
+  AND id = $2
+  AND handoff_status = 'pending';`
+
+	for _, handoff := range handoffs {
+		result, err := tx.ExecContext(ctx, statement, orgID, handoff.ID, journalEntryID)
+		if err != nil {
+			return fmt.Errorf("mark labor handoff posted: %w", err)
+		}
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("count marked labor handoff rows: %w", err)
+		}
+		if rowsAffected != 1 {
+			return ErrLaborHandoffNotFound
+		}
 	}
 	return nil
 }

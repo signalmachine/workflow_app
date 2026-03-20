@@ -399,6 +399,29 @@ func TestWorkOrderTasksAndLaborCaptureIntegration(t *testing.T) {
 	if laborEntries[0].TaskID.String != task.ID {
 		t.Fatalf("unexpected labor task linkage: %s", laborEntries[0].TaskID.String)
 	}
+
+	var (
+		handoffStatus string
+		handoffCount  int
+	)
+	if err := db.QueryRowContext(ctx, `
+SELECT handoff_status
+FROM workforce.labor_accounting_handoffs
+WHERE labor_entry_id = $1;`, entry.ID).Scan(&handoffStatus); err != nil {
+		t.Fatalf("load labor accounting handoff: %v", err)
+	}
+	if handoffStatus != "pending" {
+		t.Fatalf("unexpected labor handoff status: %s", handoffStatus)
+	}
+	if err := db.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM workforce.labor_accounting_handoffs
+WHERE work_order_id = $1;`, result.WorkOrder.ID).Scan(&handoffCount); err != nil {
+		t.Fatalf("count labor accounting handoffs: %v", err)
+	}
+	if handoffCount != 1 {
+		t.Fatalf("unexpected labor accounting handoff count: %d", handoffCount)
+	}
 }
 
 func TestRecordLaborRejectsTaskOwnershipMismatchIntegration(t *testing.T) {

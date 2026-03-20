@@ -158,7 +158,9 @@ Current implementation checkpoint:
 4. inventory execution-link consumption now marks the originating inventory linkage as `linked` without shifting ownership away from `inventory_ops`
 5. `workflow` now owns shared work-order task records with one clear accountable worker and append-only task lifecycle participation
 6. `workforce` now owns worker master records plus first labor-entry capture with cost-rate snapshots linked to work orders and optional work-order tasks
-7. the next implementation target is the first narrow execution-to-accounting consumption path that can reuse the new task and labor truth without weakening centralized posting ownership
+7. `workforce` now creates pending labor-accounting handoffs from append-only labor truth without writing ledger state directly
+8. `accounting` can now consume approved journal documents plus pending labor handoffs into centralized work-order labor postings while preserving idempotent posting ownership
+9. the next implementation target is the first narrow accounting consumer for pending inventory accounting handoff rows so inventory and execution both reach explicit accounting outcomes through `accounting`
 
 ## 6. Milestone 5: Reports and review
 
