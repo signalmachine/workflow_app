@@ -11,6 +11,7 @@ import (
 	"workflow_app/internal/accounting"
 	"workflow_app/internal/documents"
 	"workflow_app/internal/identityaccess"
+	"workflow_app/internal/inventoryops"
 	"workflow_app/internal/testsupport/dbtest"
 	"workflow_app/internal/workflow"
 	"workflow_app/internal/workforce"
@@ -363,6 +364,203 @@ WHERE labor_entry_id = $1;`, laborEntry.ID).Scan(&handoffStatus, &journalEntryID
 	}
 	if !postedAt.Valid {
 		t.Fatal("expected labor handoff posted_at")
+	}
+}
+
+func TestPostWorkOrderInventoryIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
+
+	_, approverUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleApprover, orgID)
+	approverSession := startSession(t, ctx, db, orgID, approverUserID)
+	approver := identityaccess.Actor{OrgID: orgID, UserID: approverUserID, SessionID: approverSession.ID}
+
+	_, adminUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleAdmin, orgID)
+	adminSession := startSession(t, ctx, db, orgID, adminUserID)
+	admin := identityaccess.Actor{OrgID: orgID, UserID: adminUserID, SessionID: adminSession.ID}
+
+	documentService := documents.NewService(db)
+	workflowService := workflow.NewService(db, documentService)
+	accountingService := accounting.NewService(db, documentService)
+	inventoryService := inventoryops.NewService(db)
+	workOrderService := workorders.NewService(db)
+
+	workOrderResult, err := workOrderService.CreateWorkOrder(ctx, workorders.CreateWorkOrderInput{
+		WorkOrderCode: "WO-INV-1001",
+		Title:         "Install service materials",
+		Actor:         operator,
+	})
+	if err != nil {
+		t.Fatalf("create work order: %v", err)
+	}
+
+	item := createInventoryItem(t, ctx, inventoryService, inventoryops.CreateItemInput{
+		SKU:          "MAT-1001",
+		Name:         "Service Material",
+		ItemRole:     inventoryops.ItemRoleServiceMaterial,
+		TrackingMode: inventoryops.TrackingModeNone,
+		Actor:        operator,
+	})
+	warehouse := createInventoryLocation(t, ctx, inventoryService, inventoryops.CreateLocationInput{
+		Code:         "WH-INV-1",
+		Name:         "Inventory Warehouse",
+		LocationRole: inventoryops.LocationRoleWarehouse,
+		Actor:        operator,
+	})
+
+	receiptDoc := prepareApprovedDocumentOfType(t, ctx, documentService, workflowService, operator, approver, "inventory_receipt", "Inventory receipt")
+	_, err = inventoryService.CaptureDocument(ctx, inventoryops.CaptureDocumentInput{
+		DocumentID: receiptDoc.ID,
+		Lines: []inventoryops.CaptureDocumentLineInput{{
+			ItemID:                item.ID,
+			MovementPurpose:       inventoryops.MovementPurposeServiceConsumption,
+			UsageClassification:   inventoryops.UsageBillable,
+			DestinationLocationID: warehouse.ID,
+			QuantityMilli:         5000,
+		}},
+		Actor: operator,
+	})
+	if err != nil {
+		t.Fatalf("capture receipt document: %v", err)
+	}
+
+	issueDoc := prepareApprovedDocumentOfType(t, ctx, documentService, workflowService, operator, approver, "inventory_issue", "Inventory issue")
+	captured, err := inventoryService.CaptureDocument(ctx, inventoryops.CaptureDocumentInput{
+		DocumentID: issueDoc.ID,
+		Lines: []inventoryops.CaptureDocumentLineInput{
+			{
+				ItemID:               item.ID,
+				MovementPurpose:      inventoryops.MovementPurposeServiceConsumption,
+				UsageClassification:  inventoryops.UsageBillable,
+				SourceLocationID:     warehouse.ID,
+				QuantityMilli:        2000,
+				AccountingHandoff:    true,
+				CostMinor:            8600,
+				CostCurrencyCode:     "INR",
+				ExecutionContextType: inventoryops.ExecutionContextWorkOrder,
+				ExecutionContextID:   "WO-INV-1001",
+			},
+			{
+				ItemID:               item.ID,
+				MovementPurpose:      inventoryops.MovementPurposeServiceConsumption,
+				UsageClassification:  inventoryops.UsageNonBillable,
+				SourceLocationID:     warehouse.ID,
+				QuantityMilli:        500,
+				AccountingHandoff:    true,
+				CostMinor:            2150,
+				CostCurrencyCode:     "INR",
+				ExecutionContextType: inventoryops.ExecutionContextWorkOrder,
+				ExecutionContextID:   "WO-INV-1001",
+			},
+		},
+		Actor: operator,
+	})
+	if err != nil {
+		t.Fatalf("capture issue document: %v", err)
+	}
+	if len(captured.AccountingHandoffs) != 2 {
+		t.Fatalf("unexpected inventory handoff count: %d", len(captured.AccountingHandoffs))
+	}
+
+	materialUsages, err := workOrderService.SyncInventoryUsage(ctx, workorders.SyncInventoryUsageInput{
+		WorkOrderID: workOrderResult.WorkOrder.ID,
+		Actor:       operator,
+	})
+	if err != nil {
+		t.Fatalf("sync work order inventory usage: %v", err)
+	}
+	if len(materialUsages) != 2 {
+		t.Fatalf("unexpected material usage count: %d", len(materialUsages))
+	}
+
+	journalDoc := prepareApprovedDocumentOfType(t, ctx, documentService, workflowService, operator, approver, "journal", "Inventory posting")
+	materialExpense := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:         "5200",
+		Name:         "Material Consumption Expense",
+		AccountClass: accounting.AccountClassExpense,
+		Actor:        admin,
+	})
+	inventoryClearing := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:         "2210",
+		Name:         "Inventory Issue Clearing",
+		AccountClass: accounting.AccountClassLiability,
+		Actor:        admin,
+	})
+
+	result, err := accountingService.PostWorkOrderInventory(ctx, accounting.PostWorkOrderInventoryInput{
+		DocumentID:       journalDoc.ID,
+		WorkOrderID:      workOrderResult.WorkOrder.ID,
+		ExpenseAccountID: materialExpense.ID,
+		OffsetAccountID:  inventoryClearing.ID,
+		Summary:          "Post work-order material costs",
+		EffectiveOn:      time.Date(2026, 3, 20, 11, 0, 0, 0, time.UTC),
+		Actor:            admin,
+	})
+	if err != nil {
+		t.Fatalf("post work-order inventory: %v", err)
+	}
+	if result.Document.Status != documents.StatusPosted {
+		t.Fatalf("unexpected posted inventory document status: %s", result.Document.Status)
+	}
+	if result.InventoryLineCount != 2 {
+		t.Fatalf("unexpected inventory line count: %d", result.InventoryLineCount)
+	}
+	if result.TotalCostMinor != 10750 {
+		t.Fatalf("unexpected total inventory cost: %d", result.TotalCostMinor)
+	}
+	if result.CurrencyCode != "INR" {
+		t.Fatalf("unexpected inventory posting currency: %s", result.CurrencyCode)
+	}
+	if len(result.Lines) != 2 {
+		t.Fatalf("unexpected inventory journal line count: %d", len(result.Lines))
+	}
+	if result.Lines[0].DebitMinor != 10750 || result.Lines[1].CreditMinor != 10750 {
+		t.Fatalf("unexpected inventory journal amounts: %+v", result.Lines)
+	}
+
+	idempotent, err := accountingService.PostWorkOrderInventory(ctx, accounting.PostWorkOrderInventoryInput{
+		DocumentID:       journalDoc.ID,
+		WorkOrderID:      workOrderResult.WorkOrder.ID,
+		ExpenseAccountID: materialExpense.ID,
+		OffsetAccountID:  inventoryClearing.ID,
+		Summary:          "Post work-order material costs",
+		EffectiveOn:      time.Date(2026, 3, 20, 11, 0, 0, 0, time.UTC),
+		Actor:            admin,
+	})
+	if err != nil {
+		t.Fatalf("idempotent post work-order inventory: %v", err)
+	}
+	if idempotent.Entry.ID != result.Entry.ID {
+		t.Fatalf("unexpected idempotent inventory journal entry id: %s", idempotent.Entry.ID)
+	}
+
+	var (
+		handoffStatus  string
+		journalEntryID sql.NullString
+		postedAt       sql.NullTime
+	)
+	if err := db.QueryRowContext(ctx, `
+SELECT handoff_status, journal_entry_id, posted_at
+FROM inventory_ops.accounting_handoffs
+WHERE document_line_id = $1;`, materialUsages[0].InventoryDocumentLineID).Scan(&handoffStatus, &journalEntryID, &postedAt); err != nil {
+		t.Fatalf("load inventory accounting handoff: %v", err)
+	}
+	if handoffStatus != "posted" {
+		t.Fatalf("unexpected inventory handoff status: %s", handoffStatus)
+	}
+	if !journalEntryID.Valid || journalEntryID.String != result.Entry.ID {
+		t.Fatalf("unexpected inventory handoff journal entry: %+v", journalEntryID)
+	}
+	if !postedAt.Valid {
+		t.Fatal("expected inventory handoff posted_at")
 	}
 }
 
@@ -1060,6 +1258,26 @@ func createTaxCode(t *testing.T, ctx context.Context, service *accounting.Servic
 		t.Fatalf("create tax code %s: %v", input.Code, err)
 	}
 	return taxCode
+}
+
+func createInventoryItem(t *testing.T, ctx context.Context, service *inventoryops.Service, input inventoryops.CreateItemInput) inventoryops.Item {
+	t.Helper()
+
+	item, err := service.CreateItem(ctx, input)
+	if err != nil {
+		t.Fatalf("create inventory item %s: %v", input.SKU, err)
+	}
+	return item
+}
+
+func createInventoryLocation(t *testing.T, ctx context.Context, service *inventoryops.Service, input inventoryops.CreateLocationInput) inventoryops.Location {
+	t.Helper()
+
+	location, err := service.CreateLocation(ctx, input)
+	if err != nil {
+		t.Fatalf("create inventory location %s: %v", input.Code, err)
+	}
+	return location
 }
 
 func seedOrgAndUser(t *testing.T, ctx context.Context, db *sql.DB, roleCode, existingOrgID string) (string, string) {

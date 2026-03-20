@@ -298,6 +298,8 @@ func TestCaptureInventoryDocumentCreatesPayloadMovementsAndHandoffsIntegration(t
 				QuantityMilli:        3500,
 				ReferenceNote:        "billable work",
 				AccountingHandoff:    true,
+				CostMinor:            8750,
+				CostCurrencyCode:     "INR",
 				ExecutionContextType: inventoryops.ExecutionContextWorkOrder,
 				ExecutionContextID:   "WO-1001",
 			},
@@ -309,6 +311,8 @@ func TestCaptureInventoryDocumentCreatesPayloadMovementsAndHandoffsIntegration(t
 				QuantityMilli:        500,
 				ReferenceNote:        "warranty usage",
 				AccountingHandoff:    true,
+				CostMinor:            1250,
+				CostCurrencyCode:     "INR",
 				ExecutionContextType: inventoryops.ExecutionContextProject,
 				ExecutionContextID:   "PROJ-9",
 			},
@@ -330,6 +334,12 @@ func TestCaptureInventoryDocumentCreatesPayloadMovementsAndHandoffsIntegration(t
 	}
 	if len(result.AccountingHandoffs) != 2 {
 		t.Fatalf("unexpected accounting handoff count: %d", len(result.AccountingHandoffs))
+	}
+	if !result.AccountingHandoffs[0].CostMinor.Valid || result.AccountingHandoffs[0].CostMinor.Int64 != 8750 {
+		t.Fatalf("unexpected first accounting handoff cost: %+v", result.AccountingHandoffs[0].CostMinor)
+	}
+	if !result.AccountingHandoffs[0].CostCurrencyCode.Valid || result.AccountingHandoffs[0].CostCurrencyCode.String != "INR" {
+		t.Fatalf("unexpected first accounting handoff currency: %+v", result.AccountingHandoffs[0].CostCurrencyCode)
 	}
 	if len(result.ExecutionLinks) != 2 {
 		t.Fatalf("unexpected execution link count: %d", len(result.ExecutionLinks))
@@ -419,6 +429,8 @@ func TestCaptureInventoryDocumentRejectsDuplicateAndInvalidExecutionContextInteg
 				SourceLocationID:    warehouse.ID,
 				QuantityMilli:       1000,
 				AccountingHandoff:   true,
+				CostMinor:           2400,
+				CostCurrencyCode:    "INR",
 			},
 		},
 		Actor: operator,

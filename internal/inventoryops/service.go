@@ -141,14 +141,17 @@ type DocumentLine struct {
 }
 
 type AccountingHandoff struct {
-	ID              string
-	OrgID           string
-	DocumentID      string
-	DocumentLineID  string
-	JournalEntryID  sql.NullString
-	HandoffStatus   string
-	CreatedByUserID string
-	CreatedAt       time.Time
+	ID               string
+	OrgID            string
+	DocumentID       string
+	DocumentLineID   string
+	CostMinor        sql.NullInt64
+	CostCurrencyCode sql.NullString
+	JournalEntryID   sql.NullString
+	HandoffStatus    string
+	CreatedByUserID  string
+	CreatedAt        time.Time
+	PostedAt         sql.NullTime
 }
 
 type ExecutionLink struct {
@@ -215,6 +218,8 @@ type CaptureDocumentLineInput struct {
 	QuantityMilli         int64
 	ReferenceNote         string
 	AccountingHandoff     bool
+	CostMinor             int64
+	CostCurrencyCode      string
 	ExecutionContextType  string
 	ExecutionContextID    string
 }
@@ -549,20 +554,27 @@ INSERT INTO inventory_ops.accounting_handoffs (
 	org_id,
 	document_id,
 	document_line_id,
+	cost_minor,
+	cost_currency_code,
 	created_by_user_id
-) VALUES ($1, $2, $3, $4)
+) VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING
 	id,
 	org_id,
 	document_id,
 	document_line_id,
+	cost_minor,
+	cost_currency_code,
 	journal_entry_id,
 	handoff_status,
 	created_by_user_id,
-	created_at;`,
+	created_at,
+	posted_at;`,
 				input.Actor.OrgID,
 				input.DocumentID,
 				documentLine.ID,
+				line.CostMinor,
+				strings.ToUpper(strings.TrimSpace(line.CostCurrencyCode)),
 				input.Actor.UserID,
 			))
 			if err != nil {
@@ -780,6 +792,14 @@ func validateCaptureDocumentLine(movementType string, input CaptureDocumentLineI
 		return err
 	}
 
+	if input.AccountingHandoff {
+		if input.CostMinor <= 0 || !isValidCurrencyCode(input.CostCurrencyCode) {
+			return ErrInvalidInventoryDoc
+		}
+	} else if input.CostMinor != 0 || strings.TrimSpace(input.CostCurrencyCode) != "" {
+		return ErrInvalidInventoryDoc
+	}
+
 	if input.ExecutionContextType == "" && strings.TrimSpace(input.ExecutionContextID) == "" {
 		return nil
 	}
@@ -806,6 +826,19 @@ func validateInventoryDocument(ctx context.Context, tx *sql.Tx, orgID, documentI
 		return ErrInvalidInventoryDoc
 	}
 	return nil
+}
+
+func isValidCurrencyCode(value string) bool {
+	code := strings.ToUpper(strings.TrimSpace(value))
+	if len(code) != 3 {
+		return false
+	}
+	for _, r := range code {
+		if r < 'A' || r > 'Z' {
+			return false
+		}
+	}
+	return true
 }
 
 func loadInventoryDocumentMovementType(ctx context.Context, tx *sql.Tx, orgID, documentID string) (string, error) {
@@ -1205,10 +1238,13 @@ func scanAccountingHandoff(row rowScanner) (AccountingHandoff, error) {
 		&handoff.OrgID,
 		&handoff.DocumentID,
 		&handoff.DocumentLineID,
+		&handoff.CostMinor,
+		&handoff.CostCurrencyCode,
 		&handoff.JournalEntryID,
 		&handoff.HandoffStatus,
 		&handoff.CreatedByUserID,
 		&handoff.CreatedAt,
+		&handoff.PostedAt,
 	); err != nil {
 		return AccountingHandoff{}, err
 	}

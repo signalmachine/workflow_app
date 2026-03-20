@@ -160,7 +160,8 @@ Current implementation checkpoint:
 6. `workforce` now owns worker master records plus first labor-entry capture with cost-rate snapshots linked to work orders and optional work-order tasks
 7. `workforce` now creates pending labor-accounting handoffs from append-only labor truth without writing ledger state directly
 8. `accounting` can now consume approved journal documents plus pending labor handoffs into centralized work-order labor postings while preserving idempotent posting ownership
-9. the next implementation target is the first narrow accounting consumer for pending inventory accounting handoff rows so inventory and execution both reach explicit accounting outcomes through `accounting`
+9. `inventory_ops` accounting handoffs now carry explicit cost snapshots so `accounting` can consume pending work-order-linked inventory handoffs into centralized material-cost postings without weakening posting ownership
+10. the next implementation target is Milestone 5 review and reporting surfaces
 
 ## 6. Milestone 5: Reports and review
 

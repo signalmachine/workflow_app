@@ -34,6 +34,8 @@ var (
 	ErrUnbalancedJournal        = errors.New("journal entry is unbalanced")
 	ErrLaborHandoffNotFound     = errors.New("labor accounting handoff not found")
 	ErrInvalidLaborHandoff      = errors.New("invalid labor accounting handoff")
+	ErrInventoryHandoffNotFound = errors.New("inventory accounting handoff not found")
+	ErrInvalidInventoryHandoff  = errors.New("invalid inventory accounting handoff")
 )
 
 const (
@@ -249,11 +251,38 @@ type WorkOrderLaborPostingResult struct {
 	CurrencyCode    string
 }
 
+type PostWorkOrderInventoryInput struct {
+	DocumentID       string
+	WorkOrderID      string
+	ExpenseAccountID string
+	OffsetAccountID  string
+	Summary          string
+	EffectiveOn      time.Time
+	Actor            identityaccess.Actor
+}
+
+type WorkOrderInventoryPostingResult struct {
+	Entry              JournalEntry
+	Lines              []JournalLine
+	Document           documents.Document
+	InventoryLineCount int
+	TotalCostMinor     int64
+	CurrencyCode       string
+}
+
 type laborAccountingHandoff struct {
 	ID               string
 	LaborEntryID     string
 	WorkOrderID      string
 	TaskID           sql.NullString
+	CostMinor        int64
+	CostCurrencyCode string
+}
+
+type inventoryAccountingHandoff struct {
+	ID               string
+	DocumentLineID   string
+	WorkOrderID      string
 	CostMinor        int64
 	CostCurrencyCode string
 }
@@ -810,6 +839,171 @@ func (s *Service) PostWorkOrderLabor(ctx context.Context, input PostWorkOrderLab
 	}, nil
 }
 
+func (s *Service) PostWorkOrderInventory(ctx context.Context, input PostWorkOrderInventoryInput) (WorkOrderInventoryPostingResult, error) {
+	if strings.TrimSpace(input.DocumentID) == "" ||
+		strings.TrimSpace(input.WorkOrderID) == "" ||
+		strings.TrimSpace(input.ExpenseAccountID) == "" ||
+		strings.TrimSpace(input.OffsetAccountID) == "" ||
+		strings.TrimSpace(input.Summary) == "" {
+		return WorkOrderInventoryPostingResult{}, ErrInvalidInventoryHandoff
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return WorkOrderInventoryPostingResult{}, fmt.Errorf("begin post work order inventory: %w", err)
+	}
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin, identityaccess.RoleApprover); err != nil {
+		_ = tx.Rollback()
+		return WorkOrderInventoryPostingResult{}, err
+	}
+
+	entry, lines, found, err := getPostingEntryByDocumentForUpdate(ctx, tx, input.Actor.OrgID, input.DocumentID)
+	if err != nil && !errors.Is(err, ErrJournalEntryNotFound) {
+		_ = tx.Rollback()
+		return WorkOrderInventoryPostingResult{}, err
+	}
+	if found {
+		count, total, currency, summaryFound, err := getPostedInventorySummaryTx(ctx, tx, input.Actor.OrgID, input.WorkOrderID, entry.ID)
+		if err != nil {
+			_ = tx.Rollback()
+			return WorkOrderInventoryPostingResult{}, err
+		}
+		if !summaryFound {
+			_ = tx.Rollback()
+			return WorkOrderInventoryPostingResult{}, ErrPostingAlreadyExists
+		}
+		doc, err := s.loadDocument(ctx, input.Actor.OrgID, input.DocumentID)
+		if err != nil {
+			_ = tx.Rollback()
+			return WorkOrderInventoryPostingResult{}, err
+		}
+		if err := tx.Commit(); err != nil {
+			return WorkOrderInventoryPostingResult{}, fmt.Errorf("commit idempotent post work order inventory: %w", err)
+		}
+		return WorkOrderInventoryPostingResult{
+			Entry:              entry,
+			Lines:              lines,
+			Document:           doc,
+			InventoryLineCount: count,
+			TotalCostMinor:     total,
+			CurrencyCode:       currency,
+		}, nil
+	}
+
+	handoffs, totalCostMinor, currencyCode, err := listPendingInventoryHandoffsForWorkOrderTx(ctx, tx, input.Actor.OrgID, input.WorkOrderID)
+	if err != nil {
+		_ = tx.Rollback()
+		return WorkOrderInventoryPostingResult{}, err
+	}
+	if len(handoffs) == 0 {
+		_ = tx.Rollback()
+		return WorkOrderInventoryPostingResult{}, ErrInventoryHandoffNotFound
+	}
+	if totalCostMinor <= 0 || !isValidCurrencyCode(currencyCode) {
+		_ = tx.Rollback()
+		return WorkOrderInventoryPostingResult{}, ErrInvalidInventoryHandoff
+	}
+
+	postInput := PostDocumentInput{
+		DocumentID:   input.DocumentID,
+		Summary:      strings.TrimSpace(input.Summary),
+		CurrencyCode: currencyCode,
+		TaxScopeCode: TaxScopeNone,
+		EffectiveOn:  input.EffectiveOn,
+		Lines: []PostingLineInput{
+			{
+				AccountID:   strings.TrimSpace(input.ExpenseAccountID),
+				Description: "Work-order material cost",
+				DebitMinor:  totalCostMinor,
+			},
+			{
+				AccountID:   strings.TrimSpace(input.OffsetAccountID),
+				Description: "Inventory issue clearing",
+				CreditMinor: totalCostMinor,
+			},
+		},
+		Actor: input.Actor,
+	}
+
+	fingerprint, err := postingFingerprint(postInput)
+	if err != nil {
+		_ = tx.Rollback()
+		return WorkOrderInventoryPostingResult{}, err
+	}
+
+	entry, lines, existing, err := s.postDocumentTx(ctx, tx, postInput, fingerprint)
+	if err != nil {
+		_ = tx.Rollback()
+		return WorkOrderInventoryPostingResult{}, err
+	}
+	if existing {
+		_ = tx.Rollback()
+		return WorkOrderInventoryPostingResult{}, ErrPostingAlreadyExists
+	}
+
+	doc, err := s.documents.ApplyPostingOutcome(ctx, tx, documents.PostingOutcomeInput{
+		DocumentID: input.DocumentID,
+		Action:     "posted",
+		Actor:      input.Actor,
+	})
+	if err != nil {
+		_ = tx.Rollback()
+		return WorkOrderInventoryPostingResult{}, err
+	}
+
+	if err := markInventoryHandoffsPostedTx(ctx, tx, input.Actor.OrgID, entry.ID, handoffs); err != nil {
+		_ = tx.Rollback()
+		return WorkOrderInventoryPostingResult{}, err
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
+		EventType:   "accounting.work_order_inventory_posted",
+		EntityType:  "accounting.journal_entry",
+		EntityID:    entry.ID,
+		Payload: map[string]any{
+			"document_id":          input.DocumentID,
+			"work_order_id":        input.WorkOrderID,
+			"inventory_line_count": len(handoffs),
+			"total_cost_minor":     totalCostMinor,
+			"cost_currency_code":   currencyCode,
+		},
+	}); err != nil {
+		_ = tx.Rollback()
+		return WorkOrderInventoryPostingResult{}, err
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
+		EventType:   "documents.document_posted",
+		EntityType:  "documents.document",
+		EntityID:    doc.ID,
+		Payload: map[string]any{
+			"journal_entry_id": entry.ID,
+			"status":           doc.Status,
+		},
+	}); err != nil {
+		_ = tx.Rollback()
+		return WorkOrderInventoryPostingResult{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return WorkOrderInventoryPostingResult{}, fmt.Errorf("commit post work order inventory: %w", err)
+	}
+
+	return WorkOrderInventoryPostingResult{
+		Entry:              entry,
+		Lines:              lines,
+		Document:           doc,
+		InventoryLineCount: len(handoffs),
+		TotalCostMinor:     totalCostMinor,
+		CurrencyCode:       currencyCode,
+	}, nil
+}
+
 func (s *Service) postDocumentTx(ctx context.Context, tx *sql.Tx, input PostDocumentInput, fingerprint string) (JournalEntry, []JournalLine, bool, error) {
 	if strings.TrimSpace(input.DocumentID) == "" || strings.TrimSpace(input.Summary) == "" {
 		return JournalEntry{}, nil, false, ErrInvalidJournalLine
@@ -1346,6 +1540,104 @@ WHERE h.org_id = $1
 	return count, total, minCurrency.String, true, nil
 }
 
+func listPendingInventoryHandoffsForWorkOrderTx(ctx context.Context, tx *sql.Tx, orgID, workOrderID string) ([]inventoryAccountingHandoff, int64, string, error) {
+	const query = `
+SELECT
+	h.id,
+	h.document_line_id,
+	mu.work_order_id,
+	h.cost_minor,
+	h.cost_currency_code
+FROM inventory_ops.accounting_handoffs h
+JOIN work_orders.material_usages mu
+	ON mu.inventory_document_line_id = h.document_line_id
+   AND mu.org_id = h.org_id
+WHERE h.org_id = $1
+  AND mu.work_order_id = $2
+  AND h.handoff_status = 'pending'
+ORDER BY mu.linked_at ASC, mu.id ASC
+FOR UPDATE OF h, mu;`
+
+	rows, err := tx.QueryContext(ctx, query, orgID, workOrderID)
+	if err != nil {
+		return nil, 0, "", fmt.Errorf("list pending inventory handoffs: %w", err)
+	}
+	defer rows.Close()
+
+	var (
+		handoffs     []inventoryAccountingHandoff
+		totalCost    int64
+		currencyCode string
+	)
+	for rows.Next() {
+		var (
+			handoff   inventoryAccountingHandoff
+			costMinor sql.NullInt64
+			currency  sql.NullString
+		)
+		if err := rows.Scan(
+			&handoff.ID,
+			&handoff.DocumentLineID,
+			&handoff.WorkOrderID,
+			&costMinor,
+			&currency,
+		); err != nil {
+			return nil, 0, "", fmt.Errorf("scan pending inventory handoff: %w", err)
+		}
+		if !costMinor.Valid || costMinor.Int64 <= 0 || !currency.Valid || !isValidCurrencyCode(currency.String) {
+			return nil, 0, "", ErrInvalidInventoryHandoff
+		}
+		handoff.CostMinor = costMinor.Int64
+		handoff.CostCurrencyCode = strings.ToUpper(currency.String)
+		if currencyCode == "" {
+			currencyCode = handoff.CostCurrencyCode
+		} else if currencyCode != handoff.CostCurrencyCode {
+			return nil, 0, "", ErrInvalidInventoryHandoff
+		}
+		totalCost += handoff.CostMinor
+		handoffs = append(handoffs, handoff)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, "", fmt.Errorf("iterate pending inventory handoffs: %w", err)
+	}
+
+	return handoffs, totalCost, currencyCode, nil
+}
+
+func getPostedInventorySummaryTx(ctx context.Context, tx *sql.Tx, orgID, workOrderID, journalEntryID string) (int, int64, string, bool, error) {
+	const query = `
+SELECT
+	COUNT(*),
+	COALESCE(SUM(h.cost_minor), 0),
+	MIN(h.cost_currency_code),
+	MAX(h.cost_currency_code)
+FROM inventory_ops.accounting_handoffs h
+JOIN work_orders.material_usages mu
+	ON mu.inventory_document_line_id = h.document_line_id
+   AND mu.org_id = h.org_id
+WHERE h.org_id = $1
+  AND mu.work_order_id = $2
+  AND h.journal_entry_id = $3
+  AND h.handoff_status = 'posted';`
+
+	var (
+		count       int
+		total       int64
+		minCurrency sql.NullString
+		maxCurrency sql.NullString
+	)
+	if err := tx.QueryRowContext(ctx, query, orgID, workOrderID, journalEntryID).Scan(&count, &total, &minCurrency, &maxCurrency); err != nil {
+		return 0, 0, "", false, fmt.Errorf("load posted inventory summary: %w", err)
+	}
+	if count == 0 {
+		return 0, 0, "", false, nil
+	}
+	if !minCurrency.Valid || !maxCurrency.Valid || minCurrency.String != maxCurrency.String {
+		return 0, 0, "", false, ErrInvalidInventoryHandoff
+	}
+	return count, total, strings.ToUpper(minCurrency.String), true, nil
+}
+
 func validatePostingLines(lines []PostingLineInput) error {
 	if len(lines) < 2 {
 		return ErrInvalidJournalLine
@@ -1393,6 +1685,32 @@ WHERE org_id = $1
 		}
 		if rowsAffected != 1 {
 			return ErrLaborHandoffNotFound
+		}
+	}
+	return nil
+}
+
+func markInventoryHandoffsPostedTx(ctx context.Context, tx *sql.Tx, orgID, journalEntryID string, handoffs []inventoryAccountingHandoff) error {
+	const statement = `
+UPDATE inventory_ops.accounting_handoffs
+SET journal_entry_id = $3,
+	handoff_status = 'posted',
+	posted_at = NOW()
+WHERE org_id = $1
+  AND id = $2
+  AND handoff_status = 'pending';`
+
+	for _, handoff := range handoffs {
+		result, err := tx.ExecContext(ctx, statement, orgID, handoff.ID, journalEntryID)
+		if err != nil {
+			return fmt.Errorf("mark inventory handoff posted: %w", err)
+		}
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("count marked inventory handoff rows: %w", err)
+		}
+		if rowsAffected != 1 {
+			return ErrInventoryHandoffNotFound
 		}
 	}
 	return nil

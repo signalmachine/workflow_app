@@ -12,7 +12,8 @@ The biggest issue is not lack of sophistication. The biggest issue is uneven sop
 
 1. identity, auth, audit, idempotency, AI traceability, and parts of workflow are already credible
 2. accounting, documents, and the first inventory movement foundation now have serious kernels
-3. workforce, work-order execution, reporting, and the remaining inventory document-handoff depth are still materially missing
+3. workforce, work-order execution, and the inventory-to-accounting bridge now have credible foundation slices
+4. reporting and review surfaces are still materially missing
 4. CRM depth is much heavier than the remaining missing foundation layers
 
 This confirms that `workflow_app` should start new rather than trying to trim the current codebase into shape.
@@ -63,8 +64,9 @@ Partially addressed, but not yet complete enough:
 1. item-role and movement-purpose modeling now exist in the first `inventory_ops` slice
 2. receipt, issue, and adjustment recording paths now exist on one shared movement ledger
 3. stock truth is now derived from movements rather than stored mutably
-4. service-material versus resale-stock separation now exists, and inventory document payload ownership plus pending accounting and execution handoff seams now exist on top of the shared movement ledger
-5. remaining inventory depth is now concentrated around future traceable-unit detail, execution-consumption consumers, and review/reporting surfaces rather than basic document ownership
+4. service-material versus resale-stock separation now exists, and inventory document payload ownership plus execution handoff seams and costed accounting handoffs now exist on top of the shared movement ledger
+5. pending work-order-linked inventory handoffs can now be consumed through centralized accounting posting without crossing ownership boundaries
+6. remaining inventory depth is now concentrated around future traceable-unit detail and review/reporting surfaces rather than basic document ownership
 
 ### 3.5 Workforce and execution gaps
 
@@ -73,7 +75,8 @@ Partially addressed, but not yet complete enough:
 1. worker master records now exist as a distinct `workforce` bounded context
 2. labor capture now exists with first cost-rate snapshotting on append-only labor entries
 3. task and accountable-owner depth now exists through shared `workflow.tasks` linked to work orders with one accountable worker
-4. remaining execution depth is now concentrated around broader labor-costing outcomes, execution linkage beyond the first work-order material-usage bridge, and execution linkage to accounting outcomes
+4. execution linkage now reaches accounting outcomes for both labor and the first work-order material-usage slice
+5. remaining execution depth is now concentrated around broader costing breadth, non-work-order execution linkage, and review/reporting surfaces
 
 ### 3.6 Reporting gaps
 
