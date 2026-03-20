@@ -76,6 +76,8 @@ TRUNCATE TABLE
 	accounting.journal_lines,
 	accounting.journal_entries,
 	accounting.journal_numbering_series,
+	accounting.tax_codes,
+	accounting.periods,
 	accounting.ledger_accounts,
 	workflow.approval_decisions,
 	workflow.approval_queue_entries,

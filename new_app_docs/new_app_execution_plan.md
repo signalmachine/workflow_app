@@ -85,7 +85,8 @@ Current implementation checkpoint:
 3. approved documents can post through one centralized accounting service with duplicate-post protection
 4. reversals create explicit reversal entries rather than mutating posted truth
 5. GST and TDS foundation records plus tax-aware posting validation are now implemented
-6. remaining Milestone 2 work is accounting control seams and review-oriented read models
+6. accounting periods, effective-date control, journal review queries, and control-account balance views are now implemented
+7. the next implementation target is Milestone 3 inventory foundation
 
 ## 4. Milestone 3: Inventory foundation
 

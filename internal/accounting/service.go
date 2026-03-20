@@ -16,18 +16,22 @@ import (
 )
 
 var (
-	ErrLedgerAccountNotFound = errors.New("ledger account not found")
-	ErrJournalEntryNotFound  = errors.New("journal entry not found")
-	ErrTaxCodeNotFound       = errors.New("tax code not found")
-	ErrPostingAlreadyExists  = errors.New("posting already exists for document")
-	ErrAlreadyReversed       = errors.New("journal entry already reversed")
-	ErrInvalidAccount        = errors.New("invalid ledger account")
-	ErrInvalidTaxCode        = errors.New("invalid tax code")
-	ErrInvalidCurrencyCode   = errors.New("invalid currency code")
-	ErrInvalidTaxScope       = errors.New("invalid tax scope")
-	ErrInvalidJournalLine    = errors.New("invalid journal line")
-	ErrInvalidReversal       = errors.New("invalid reversal")
-	ErrUnbalancedJournal     = errors.New("journal entry is unbalanced")
+	ErrLedgerAccountNotFound    = errors.New("ledger account not found")
+	ErrJournalEntryNotFound     = errors.New("journal entry not found")
+	ErrTaxCodeNotFound          = errors.New("tax code not found")
+	ErrAccountingPeriodNotFound = errors.New("accounting period not found")
+	ErrPostingAlreadyExists     = errors.New("posting already exists for document")
+	ErrAlreadyReversed          = errors.New("journal entry already reversed")
+	ErrInvalidAccount           = errors.New("invalid ledger account")
+	ErrInvalidTaxCode           = errors.New("invalid tax code")
+	ErrInvalidCurrencyCode      = errors.New("invalid currency code")
+	ErrInvalidTaxScope          = errors.New("invalid tax scope")
+	ErrInvalidJournalLine       = errors.New("invalid journal line")
+	ErrInvalidReversal          = errors.New("invalid reversal")
+	ErrInvalidAccountingPeriod  = errors.New("invalid accounting period")
+	ErrAccountingPeriodOverlap  = errors.New("accounting period overlaps an existing period")
+	ErrAccountingPeriodNotOpen  = errors.New("accounting period is not open")
+	ErrUnbalancedJournal        = errors.New("journal entry is unbalanced")
 )
 
 const (
@@ -72,6 +76,20 @@ type LedgerAccount struct {
 	UpdatedAt           time.Time
 }
 
+type AccountingPeriod struct {
+	ID              string
+	OrgID           string
+	PeriodCode      string
+	StartOn         time.Time
+	EndOn           time.Time
+	Status          string
+	ClosedByUserID  sql.NullString
+	ClosedAt        sql.NullTime
+	CreatedByUserID string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
 type JournalEntry struct {
 	ID                 string
 	OrgID              string
@@ -85,6 +103,7 @@ type JournalEntry struct {
 	Summary            string
 	ReversalReason     sql.NullString
 	PostedByUserID     string
+	EffectiveOn        time.Time
 	PostedAt           time.Time
 	CreatedAt          time.Time
 }
@@ -127,6 +146,18 @@ type CreateLedgerAccountInput struct {
 	Actor               identityaccess.Actor
 }
 
+type CreateAccountingPeriodInput struct {
+	PeriodCode string
+	StartOn    time.Time
+	EndOn      time.Time
+	Actor      identityaccess.Actor
+}
+
+type CloseAccountingPeriodInput struct {
+	PeriodID string
+	Actor    identityaccess.Actor
+}
+
 type CreateTaxCodeInput struct {
 	Code                string
 	Name                string
@@ -150,14 +181,51 @@ type PostDocumentInput struct {
 	Summary      string
 	CurrencyCode string
 	TaxScopeCode string
+	EffectiveOn  time.Time
 	Lines        []PostingLineInput
 	Actor        identityaccess.Actor
 }
 
 type ReverseDocumentInput struct {
-	DocumentID string
-	Reason     string
-	Actor      identityaccess.Actor
+	DocumentID  string
+	Reason      string
+	EffectiveOn time.Time
+	Actor       identityaccess.Actor
+}
+
+type ListJournalEntriesInput struct {
+	StartOn time.Time
+	EndOn   time.Time
+	Limit   int
+	Actor   identityaccess.Actor
+}
+
+type JournalEntryReview struct {
+	Entry            JournalEntry
+	DocumentTypeCode sql.NullString
+	DocumentNumber   sql.NullString
+	DocumentStatus   sql.NullString
+	LineCount        int
+	TotalDebitMinor  int64
+	TotalCreditMinor int64
+	HasReversal      bool
+}
+
+type ListControlAccountBalancesInput struct {
+	AsOf  time.Time
+	Actor identityaccess.Actor
+}
+
+type ControlAccountBalance struct {
+	AccountID        string
+	AccountCode      string
+	AccountName      string
+	AccountClass     string
+	ControlType      string
+	TotalDebitMinor  int64
+	TotalCreditMinor int64
+	NetMinor         int64
+	LastEffectiveOn  sql.NullTime
 }
 
 type Service struct {
@@ -209,6 +277,88 @@ func (s *Service) CreateLedgerAccount(ctx context.Context, input CreateLedgerAcc
 	return account, nil
 }
 
+func (s *Service) CreateAccountingPeriod(ctx context.Context, input CreateAccountingPeriodInput) (AccountingPeriod, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return AccountingPeriod{}, fmt.Errorf("begin create accounting period: %w", err)
+	}
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin); err != nil {
+		_ = tx.Rollback()
+		return AccountingPeriod{}, err
+	}
+
+	period, err := createAccountingPeriodTx(ctx, tx, input)
+	if err != nil {
+		_ = tx.Rollback()
+		return AccountingPeriod{}, err
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
+		EventType:   "accounting.period_created",
+		EntityType:  "accounting.period",
+		EntityID:    period.ID,
+		Payload: map[string]any{
+			"period_code": period.PeriodCode,
+			"start_on":    period.StartOn.Format(time.DateOnly),
+			"end_on":      period.EndOn.Format(time.DateOnly),
+			"status":      period.Status,
+		},
+	}); err != nil {
+		_ = tx.Rollback()
+		return AccountingPeriod{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return AccountingPeriod{}, fmt.Errorf("commit create accounting period: %w", err)
+	}
+
+	return period, nil
+}
+
+func (s *Service) CloseAccountingPeriod(ctx context.Context, input CloseAccountingPeriodInput) (AccountingPeriod, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return AccountingPeriod{}, fmt.Errorf("begin close accounting period: %w", err)
+	}
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin); err != nil {
+		_ = tx.Rollback()
+		return AccountingPeriod{}, err
+	}
+
+	period, err := closeAccountingPeriodTx(ctx, tx, input)
+	if err != nil {
+		_ = tx.Rollback()
+		return AccountingPeriod{}, err
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
+		EventType:   "accounting.period_closed",
+		EntityType:  "accounting.period",
+		EntityID:    period.ID,
+		Payload: map[string]any{
+			"period_code": period.PeriodCode,
+			"start_on":    period.StartOn.Format(time.DateOnly),
+			"end_on":      period.EndOn.Format(time.DateOnly),
+			"status":      period.Status,
+		},
+	}); err != nil {
+		_ = tx.Rollback()
+		return AccountingPeriod{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return AccountingPeriod{}, fmt.Errorf("commit close accounting period: %w", err)
+	}
+
+	return period, nil
+}
+
 func (s *Service) CreateTaxCode(ctx context.Context, input CreateTaxCodeInput) (TaxCode, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -249,6 +399,52 @@ func (s *Service) CreateTaxCode(ctx context.Context, input CreateTaxCodeInput) (
 	}
 
 	return taxCode, nil
+}
+
+func (s *Service) ListJournalEntries(ctx context.Context, input ListJournalEntriesInput) ([]JournalEntryReview, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin list journal entries: %w", err)
+	}
+	defer tx.Rollback()
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin, identityaccess.RoleApprover); err != nil {
+		return nil, err
+	}
+
+	reviews, err := listJournalEntriesTx(ctx, tx, input)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit list journal entries: %w", err)
+	}
+
+	return reviews, nil
+}
+
+func (s *Service) ListControlAccountBalances(ctx context.Context, input ListControlAccountBalancesInput) ([]ControlAccountBalance, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin list control account balances: %w", err)
+	}
+	defer tx.Rollback()
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin, identityaccess.RoleApprover); err != nil {
+		return nil, err
+	}
+
+	balances, err := listControlAccountBalancesTx(ctx, tx, input)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit list control account balances: %w", err)
+	}
+
+	return balances, nil
 }
 
 func (s *Service) PostDocument(ctx context.Context, input PostDocumentInput) (JournalEntry, []JournalLine, documents.Document, error) {
@@ -364,7 +560,7 @@ func (s *Service) ReverseDocument(ctx context.Context, input ReverseDocumentInpu
 		return existingReversal, reversalLines, doc, err
 	}
 
-	reversal, lines, err := createReversalTx(ctx, tx, original, originalLines, strings.TrimSpace(input.Reason), input.Actor)
+	reversal, lines, err := createReversalTx(ctx, tx, original, originalLines, strings.TrimSpace(input.Reason), normalizeEffectiveOn(input.EffectiveOn), input.Actor)
 	if err != nil {
 		_ = tx.Rollback()
 		return JournalEntry{}, nil, documents.Document{}, err
@@ -439,6 +635,11 @@ func (s *Service) postDocumentTx(ctx context.Context, tx *sql.Tx, input PostDocu
 		return JournalEntry{}, nil, false, err
 	}
 
+	effectiveOn := normalizeEffectiveOn(input.EffectiveOn)
+	if err := validateAccountingPeriodOpenTx(ctx, tx, input.Actor.OrgID, effectiveOn); err != nil {
+		return JournalEntry{}, nil, false, err
+	}
+
 	existing, lines, found, err := getPostingEntryByDocumentForUpdate(ctx, tx, input.Actor.OrgID, input.DocumentID)
 	if err != nil && !errors.Is(err, ErrJournalEntryNotFound) {
 		return JournalEntry{}, nil, false, err
@@ -465,6 +666,7 @@ func (s *Service) postDocumentTx(ctx context.Context, tx *sql.Tx, input PostDocu
 		TaxScopeCode:       input.TaxScopeCode,
 		Summary:            strings.TrimSpace(input.Summary),
 		PostedByUserID:     input.Actor.UserID,
+		EffectiveOn:        effectiveOn,
 	})
 	if err != nil {
 		return JournalEntry{}, nil, false, err
@@ -584,6 +786,277 @@ RETURNING
 	))
 }
 
+func createAccountingPeriodTx(ctx context.Context, tx *sql.Tx, input CreateAccountingPeriodInput) (AccountingPeriod, error) {
+	periodCode := strings.TrimSpace(input.PeriodCode)
+	startOn, endOn, err := normalizePeriodRange(input.StartOn, input.EndOn)
+	if err != nil || periodCode == "" {
+		return AccountingPeriod{}, ErrInvalidAccountingPeriod
+	}
+	if err := ensureNoPeriodOverlapTx(ctx, tx, input.Actor.OrgID, "", startOn, endOn); err != nil {
+		return AccountingPeriod{}, err
+	}
+
+	const statement = `
+INSERT INTO accounting.periods (
+	org_id,
+	period_code,
+	start_on,
+	end_on,
+	created_by_user_id
+) VALUES ($1, $2, $3, $4, $5)
+RETURNING
+	id,
+	org_id,
+	period_code,
+	start_on,
+	end_on,
+	status,
+	closed_by_user_id,
+	closed_at,
+	created_by_user_id,
+	created_at,
+	updated_at;`
+
+	return scanAccountingPeriod(tx.QueryRowContext(
+		ctx,
+		statement,
+		input.Actor.OrgID,
+		periodCode,
+		startOn,
+		endOn,
+		input.Actor.UserID,
+	))
+}
+
+func closeAccountingPeriodTx(ctx context.Context, tx *sql.Tx, input CloseAccountingPeriodInput) (AccountingPeriod, error) {
+	const query = `
+SELECT
+	id,
+	org_id,
+	period_code,
+	start_on,
+	end_on,
+	status,
+	closed_by_user_id,
+	closed_at,
+	created_by_user_id,
+	created_at,
+	updated_at
+FROM accounting.periods
+WHERE org_id = $1
+  AND id = $2
+FOR UPDATE;`
+
+	period, err := scanAccountingPeriod(tx.QueryRowContext(ctx, query, input.Actor.OrgID, strings.TrimSpace(input.PeriodID)))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return AccountingPeriod{}, ErrAccountingPeriodNotFound
+		}
+		return AccountingPeriod{}, fmt.Errorf("load accounting period: %w", err)
+	}
+	if period.Status != "open" {
+		return AccountingPeriod{}, ErrAccountingPeriodNotOpen
+	}
+
+	const statement = `
+UPDATE accounting.periods
+SET status = 'closed',
+	closed_by_user_id = $3,
+	closed_at = NOW(),
+	updated_at = NOW()
+WHERE org_id = $1
+  AND id = $2
+RETURNING
+	id,
+	org_id,
+	period_code,
+	start_on,
+	end_on,
+	status,
+	closed_by_user_id,
+	closed_at,
+	created_by_user_id,
+	created_at,
+	updated_at;`
+
+	return scanAccountingPeriod(tx.QueryRowContext(ctx, statement, input.Actor.OrgID, input.PeriodID, input.Actor.UserID))
+}
+
+func listJournalEntriesTx(ctx context.Context, tx *sql.Tx, input ListJournalEntriesInput) ([]JournalEntryReview, error) {
+	limit := input.Limit
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+
+	startOn, startSet := normalizeOptionalDate(input.StartOn)
+	endOn, endSet := normalizeOptionalDate(input.EndOn)
+
+	const query = `
+SELECT
+	e.id,
+	e.org_id,
+	e.entry_number,
+	e.entry_kind,
+	e.source_document_id,
+	e.reversal_of_entry_id,
+	e.posting_fingerprint,
+	e.currency_code,
+	e.tax_scope_code,
+	e.summary,
+	e.reversal_reason,
+	e.posted_by_user_id,
+	e.effective_on,
+	e.posted_at,
+	e.created_at,
+	d.type_code,
+	d.number_value,
+	d.status,
+	COUNT(l.id) AS line_count,
+	COALESCE(SUM(l.debit_minor), 0) AS total_debit_minor,
+	COALESCE(SUM(l.credit_minor), 0) AS total_credit_minor,
+	EXISTS (
+		SELECT 1
+		FROM accounting.journal_entries reversals
+		WHERE reversals.org_id = e.org_id
+		  AND reversals.reversal_of_entry_id = e.id
+	) AS has_reversal
+FROM accounting.journal_entries e
+JOIN accounting.journal_lines l
+	ON l.entry_id = e.id
+LEFT JOIN documents.documents d
+	ON d.org_id = e.org_id
+   AND d.id = e.source_document_id
+WHERE e.org_id = $1
+  AND ($2::date IS NULL OR e.effective_on >= $2::date)
+  AND ($3::date IS NULL OR e.effective_on <= $3::date)
+GROUP BY
+	e.id,
+	e.org_id,
+	e.entry_number,
+	e.entry_kind,
+	e.source_document_id,
+	e.reversal_of_entry_id,
+	e.posting_fingerprint,
+	e.currency_code,
+	e.tax_scope_code,
+	e.summary,
+	e.reversal_reason,
+	e.posted_by_user_id,
+	e.effective_on,
+	e.posted_at,
+	e.created_at,
+	d.type_code,
+	d.number_value,
+	d.status
+ORDER BY e.effective_on DESC, e.entry_number DESC
+LIMIT $4;`
+
+	rows, err := tx.QueryContext(
+		ctx,
+		query,
+		input.Actor.OrgID,
+		nullableDate(startOn, startSet),
+		nullableDate(endOn, endSet),
+		limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list journal entries: %w", err)
+	}
+	defer rows.Close()
+
+	var reviews []JournalEntryReview
+	for rows.Next() {
+		var review JournalEntryReview
+		if err := rows.Scan(
+			&review.Entry.ID,
+			&review.Entry.OrgID,
+			&review.Entry.EntryNumber,
+			&review.Entry.EntryKind,
+			&review.Entry.SourceDocumentID,
+			&review.Entry.ReversalOfEntryID,
+			&review.Entry.PostingFingerprint,
+			&review.Entry.CurrencyCode,
+			&review.Entry.TaxScopeCode,
+			&review.Entry.Summary,
+			&review.Entry.ReversalReason,
+			&review.Entry.PostedByUserID,
+			&review.Entry.EffectiveOn,
+			&review.Entry.PostedAt,
+			&review.Entry.CreatedAt,
+			&review.DocumentTypeCode,
+			&review.DocumentNumber,
+			&review.DocumentStatus,
+			&review.LineCount,
+			&review.TotalDebitMinor,
+			&review.TotalCreditMinor,
+			&review.HasReversal,
+		); err != nil {
+			return nil, fmt.Errorf("scan journal entry review: %w", err)
+		}
+		reviews = append(reviews, review)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate journal entries: %w", err)
+	}
+	return reviews, nil
+}
+
+func listControlAccountBalancesTx(ctx context.Context, tx *sql.Tx, input ListControlAccountBalancesInput) ([]ControlAccountBalance, error) {
+	asOf, asOfSet := normalizeOptionalDate(input.AsOf)
+
+	const query = `
+SELECT
+	a.id,
+	a.code,
+	a.name,
+	a.account_class,
+	a.control_type,
+	COALESCE(SUM(l.debit_minor) FILTER (WHERE $2::date IS NULL OR e.effective_on <= $2::date), 0) AS total_debit_minor,
+	COALESCE(SUM(l.credit_minor) FILTER (WHERE $2::date IS NULL OR e.effective_on <= $2::date), 0) AS total_credit_minor,
+	MAX(e.effective_on) FILTER (WHERE $2::date IS NULL OR e.effective_on <= $2::date) AS last_effective_on
+FROM accounting.ledger_accounts a
+LEFT JOIN accounting.journal_lines l
+	ON l.account_id = a.id
+   AND l.org_id = a.org_id
+LEFT JOIN accounting.journal_entries e
+	ON e.id = l.entry_id
+   AND e.org_id = a.org_id
+WHERE a.org_id = $1
+  AND a.status = 'active'
+  AND a.control_type <> 'none'
+GROUP BY a.id, a.code, a.name, a.account_class, a.control_type
+ORDER BY a.code ASC;`
+
+	rows, err := tx.QueryContext(ctx, query, input.Actor.OrgID, nullableDate(asOf, asOfSet))
+	if err != nil {
+		return nil, fmt.Errorf("list control account balances: %w", err)
+	}
+	defer rows.Close()
+
+	var balances []ControlAccountBalance
+	for rows.Next() {
+		var balance ControlAccountBalance
+		if err := rows.Scan(
+			&balance.AccountID,
+			&balance.AccountCode,
+			&balance.AccountName,
+			&balance.AccountClass,
+			&balance.ControlType,
+			&balance.TotalDebitMinor,
+			&balance.TotalCreditMinor,
+			&balance.LastEffectiveOn,
+		); err != nil {
+			return nil, fmt.Errorf("scan control account balance: %w", err)
+		}
+		balance.NetMinor = balance.TotalDebitMinor - balance.TotalCreditMinor
+		balances = append(balances, balance)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate control account balances: %w", err)
+	}
+	return balances, nil
+}
+
 func validatePostingLines(lines []PostingLineInput) error {
 	if len(lines) < 2 {
 		return ErrInvalidJournalLine
@@ -696,6 +1169,95 @@ func validateTaxControlAccountsTx(ctx context.Context, tx *sql.Tx, orgID, taxTyp
 	return nil
 }
 
+func validateAccountingPeriodOpenTx(ctx context.Context, tx *sql.Tx, orgID string, effectiveOn time.Time) error {
+	const countQuery = `
+SELECT COUNT(*)
+FROM accounting.periods
+WHERE org_id = $1;`
+
+	var count int
+	if err := tx.QueryRowContext(ctx, countQuery, orgID).Scan(&count); err != nil {
+		return fmt.Errorf("count accounting periods: %w", err)
+	}
+	if count == 0 {
+		return nil
+	}
+
+	const query = `
+SELECT status
+FROM accounting.periods
+WHERE org_id = $1
+  AND $2 BETWEEN start_on AND end_on
+ORDER BY start_on DESC
+LIMIT 1
+FOR UPDATE;`
+
+	var status string
+	if err := tx.QueryRowContext(ctx, query, orgID, effectiveOn).Scan(&status); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrAccountingPeriodNotOpen
+		}
+		return fmt.Errorf("load accounting period: %w", err)
+	}
+	if status != "open" {
+		return ErrAccountingPeriodNotOpen
+	}
+	return nil
+}
+
+func ensureNoPeriodOverlapTx(ctx context.Context, tx *sql.Tx, orgID, periodID string, startOn, endOn time.Time) error {
+	const query = `
+SELECT 1
+FROM accounting.periods
+WHERE org_id = $1
+  AND ($2::uuid IS NULL OR id <> $2::uuid)
+  AND start_on <= $4
+  AND end_on >= $3
+LIMIT 1;`
+
+	var exists int
+	if err := tx.QueryRowContext(ctx, query, orgID, nullIfEmpty(strings.TrimSpace(periodID)), startOn, endOn).Scan(&exists); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return fmt.Errorf("check accounting period overlap: %w", err)
+	}
+	return ErrAccountingPeriodOverlap
+}
+
+func normalizeEffectiveOn(value time.Time) time.Time {
+	if value.IsZero() {
+		value = time.Now().UTC()
+	}
+	return time.Date(value.UTC().Year(), value.UTC().Month(), value.UTC().Day(), 0, 0, 0, 0, time.UTC)
+}
+
+func normalizeOptionalDate(value time.Time) (time.Time, bool) {
+	if value.IsZero() {
+		return time.Time{}, false
+	}
+	return normalizeEffectiveOn(value), true
+}
+
+func normalizePeriodRange(startOn, endOn time.Time) (time.Time, time.Time, error) {
+	if startOn.IsZero() || endOn.IsZero() {
+		return time.Time{}, time.Time{}, ErrInvalidAccountingPeriod
+	}
+	normalizedStart := normalizeEffectiveOn(startOn)
+	normalizedEnd := normalizeEffectiveOn(endOn)
+	if normalizedEnd.Before(normalizedStart) {
+		return time.Time{}, time.Time{}, ErrInvalidAccountingPeriod
+	}
+	return normalizedStart, normalizedEnd, nil
+}
+
+func nullableDate(value time.Time, ok bool) any {
+	if !ok {
+		return nil
+	}
+	return value
+}
+
 func validateControlAccountTypeTx(ctx context.Context, tx *sql.Tx, orgID, accountID, expectedControlType string) error {
 	const query = `
 SELECT control_type
@@ -729,6 +1291,7 @@ type insertJournalEntryParams struct {
 	Summary            string
 	ReversalReason     string
 	PostedByUserID     string
+	EffectiveOn        time.Time
 }
 
 func insertJournalEntryTx(ctx context.Context, tx *sql.Tx, params insertJournalEntryParams) (JournalEntry, error) {
@@ -744,8 +1307,9 @@ INSERT INTO accounting.journal_entries (
 	tax_scope_code,
 	summary,
 	reversal_reason,
-	posted_by_user_id
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	posted_by_user_id,
+	effective_on
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING
 	id,
 	org_id,
@@ -759,6 +1323,7 @@ RETURNING
 	summary,
 	reversal_reason,
 	posted_by_user_id,
+	effective_on,
 	posted_at,
 	created_at;`
 
@@ -776,6 +1341,7 @@ RETURNING
 		params.Summary,
 		nullIfEmpty(params.ReversalReason),
 		params.PostedByUserID,
+		params.EffectiveOn,
 	))
 }
 
@@ -864,6 +1430,7 @@ SELECT
 	summary,
 	reversal_reason,
 	posted_by_user_id,
+	effective_on,
 	posted_at,
 	created_at
 FROM accounting.journal_entries
@@ -903,6 +1470,7 @@ SELECT
 	summary,
 	reversal_reason,
 	posted_by_user_id,
+	effective_on,
 	posted_at,
 	created_at
 FROM accounting.journal_entries
@@ -926,9 +1494,12 @@ FOR UPDATE;`
 	return entry, lines, true, nil
 }
 
-func createReversalTx(ctx context.Context, tx *sql.Tx, original JournalEntry, originalLines []JournalLine, reason string, actor identityaccess.Actor) (JournalEntry, []JournalLine, error) {
+func createReversalTx(ctx context.Context, tx *sql.Tx, original JournalEntry, originalLines []JournalLine, reason string, effectiveOn time.Time, actor identityaccess.Actor) (JournalEntry, []JournalLine, error) {
 	if strings.TrimSpace(reason) == "" {
 		return JournalEntry{}, nil, ErrInvalidReversal
+	}
+	if err := validateAccountingPeriodOpenTx(ctx, tx, actor.OrgID, effectiveOn); err != nil {
+		return JournalEntry{}, nil, err
 	}
 
 	entryNumber, err := reserveEntryNumberTx(ctx, tx, actor.OrgID)
@@ -952,6 +1523,7 @@ func createReversalTx(ctx context.Context, tx *sql.Tx, original JournalEntry, or
 		Summary:            "Reversal of entry " + fmt.Sprint(original.EntryNumber),
 		ReversalReason:     reason,
 		PostedByUserID:     actor.UserID,
+		EffectiveOn:        effectiveOn,
 	})
 	if err != nil {
 		return JournalEntry{}, nil, err
@@ -1109,6 +1681,27 @@ func scanLedgerAccount(row rowScanner) (LedgerAccount, error) {
 	return account, nil
 }
 
+func scanAccountingPeriod(row rowScanner) (AccountingPeriod, error) {
+	var period AccountingPeriod
+	err := row.Scan(
+		&period.ID,
+		&period.OrgID,
+		&period.PeriodCode,
+		&period.StartOn,
+		&period.EndOn,
+		&period.Status,
+		&period.ClosedByUserID,
+		&period.ClosedAt,
+		&period.CreatedByUserID,
+		&period.CreatedAt,
+		&period.UpdatedAt,
+	)
+	if err != nil {
+		return AccountingPeriod{}, err
+	}
+	return period, nil
+}
+
 func scanJournalEntry(row rowScanner) (JournalEntry, error) {
 	var entry JournalEntry
 	err := row.Scan(
@@ -1124,6 +1717,7 @@ func scanJournalEntry(row rowScanner) (JournalEntry, error) {
 		&entry.Summary,
 		&entry.ReversalReason,
 		&entry.PostedByUserID,
+		&entry.EffectiveOn,
 		&entry.PostedAt,
 		&entry.CreatedAt,
 	)

@@ -441,6 +441,314 @@ func TestReverseDocumentIntegration(t *testing.T) {
 	}
 }
 
+func TestAccountingPeriodsControlPostingAndReversalIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
+
+	_, approverUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleApprover, orgID)
+	approverSession := startSession(t, ctx, db, orgID, approverUserID)
+	approver := identityaccess.Actor{OrgID: orgID, UserID: approverUserID, SessionID: approverSession.ID}
+
+	_, adminUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleAdmin, orgID)
+	adminSession := startSession(t, ctx, db, orgID, adminUserID)
+	admin := identityaccess.Actor{OrgID: orgID, UserID: adminUserID, SessionID: adminSession.ID}
+
+	documentService := documents.NewService(db)
+	workflowService := workflow.NewService(db, documentService)
+	accountingService := accounting.NewService(db, documentService)
+
+	receivable := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:                "1100",
+		Name:                "Accounts Receivable",
+		AccountClass:        accounting.AccountClassAsset,
+		ControlType:         accounting.ControlTypeReceivable,
+		AllowsDirectPosting: false,
+		Actor:               admin,
+	})
+	revenue := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:         "4000",
+		Name:         "Service Revenue",
+		AccountClass: accounting.AccountClassRevenue,
+		Actor:        admin,
+	})
+
+	today := time.Date(2026, 3, 20, 14, 0, 0, 0, time.UTC)
+	tomorrow := today.Add(24 * time.Hour)
+
+	period, err := accountingService.CreateAccountingPeriod(ctx, accounting.CreateAccountingPeriodInput{
+		PeriodCode: "2026-03-20",
+		StartOn:    today,
+		EndOn:      today,
+		Actor:      admin,
+	})
+	if err != nil {
+		t.Fatalf("create accounting period: %v", err)
+	}
+
+	docForPosting := prepareApprovedDocument(t, ctx, documentService, workflowService, operator, approver)
+	entry, _, _, err := accountingService.PostDocument(ctx, accounting.PostDocumentInput{
+		DocumentID:   docForPosting.ID,
+		Summary:      "Post inside open period",
+		CurrencyCode: "INR",
+		TaxScopeCode: accounting.TaxScopeNone,
+		EffectiveOn:  today,
+		Lines: []accounting.PostingLineInput{
+			{AccountID: receivable.ID, Description: "Customer receivable", DebitMinor: 150000},
+			{AccountID: revenue.ID, Description: "Recognized revenue", CreditMinor: 150000},
+		},
+		Actor: admin,
+	})
+	if err != nil {
+		t.Fatalf("post inside open period: %v", err)
+	}
+	if got := entry.EffectiveOn.Format(time.DateOnly); got != "2026-03-20" {
+		t.Fatalf("unexpected effective_on: %s", got)
+	}
+
+	period, err = accountingService.CloseAccountingPeriod(ctx, accounting.CloseAccountingPeriodInput{
+		PeriodID: period.ID,
+		Actor:    admin,
+	})
+	if err != nil {
+		t.Fatalf("close accounting period: %v", err)
+	}
+	if period.Status != "closed" {
+		t.Fatalf("unexpected period status: %s", period.Status)
+	}
+
+	docBlockedByClosedPeriod := prepareApprovedDocument(t, ctx, documentService, workflowService, operator, approver)
+	_, _, _, err = accountingService.PostDocument(ctx, accounting.PostDocumentInput{
+		DocumentID:   docBlockedByClosedPeriod.ID,
+		Summary:      "Blocked by closed period",
+		CurrencyCode: "INR",
+		TaxScopeCode: accounting.TaxScopeNone,
+		EffectiveOn:  today,
+		Lines: []accounting.PostingLineInput{
+			{AccountID: receivable.ID, Description: "Customer receivable", DebitMinor: 120000},
+			{AccountID: revenue.ID, Description: "Recognized revenue", CreditMinor: 120000},
+		},
+		Actor: admin,
+	})
+	if !errors.Is(err, accounting.ErrAccountingPeriodNotOpen) {
+		t.Fatalf("unexpected closed-period post error: got %v want %v", err, accounting.ErrAccountingPeriodNotOpen)
+	}
+
+	_, _, _, err = accountingService.ReverseDocument(ctx, accounting.ReverseDocumentInput{
+		DocumentID:  docForPosting.ID,
+		Reason:      "blocked in closed period",
+		EffectiveOn: today,
+		Actor:       admin,
+	})
+	if !errors.Is(err, accounting.ErrAccountingPeriodNotOpen) {
+		t.Fatalf("unexpected closed-period reversal error: got %v want %v", err, accounting.ErrAccountingPeriodNotOpen)
+	}
+
+	if _, err := accountingService.CreateAccountingPeriod(ctx, accounting.CreateAccountingPeriodInput{
+		PeriodCode: "2026-03-21",
+		StartOn:    tomorrow,
+		EndOn:      tomorrow,
+		Actor:      admin,
+	}); err != nil {
+		t.Fatalf("create next accounting period: %v", err)
+	}
+
+	reversal, _, _, err := accountingService.ReverseDocument(ctx, accounting.ReverseDocumentInput{
+		DocumentID:  docForPosting.ID,
+		Reason:      "next-day reversal",
+		EffectiveOn: tomorrow,
+		Actor:       admin,
+	})
+	if err != nil {
+		t.Fatalf("reverse inside next open period: %v", err)
+	}
+	if got := reversal.EffectiveOn.Format(time.DateOnly); got != "2026-03-21" {
+		t.Fatalf("unexpected reversal effective_on: %s", got)
+	}
+}
+
+func TestListJournalEntriesAndControlAccountBalancesIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
+
+	_, approverUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleApprover, orgID)
+	approverSession := startSession(t, ctx, db, orgID, approverUserID)
+	approver := identityaccess.Actor{OrgID: orgID, UserID: approverUserID, SessionID: approverSession.ID}
+
+	_, adminUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleAdmin, orgID)
+	adminSession := startSession(t, ctx, db, orgID, adminUserID)
+	admin := identityaccess.Actor{OrgID: orgID, UserID: adminUserID, SessionID: adminSession.ID}
+
+	documentService := documents.NewService(db)
+	workflowService := workflow.NewService(db, documentService)
+	accountingService := accounting.NewService(db, documentService)
+
+	receivable := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:                "1100",
+		Name:                "Accounts Receivable",
+		AccountClass:        accounting.AccountClassAsset,
+		ControlType:         accounting.ControlTypeReceivable,
+		AllowsDirectPosting: false,
+		Actor:               admin,
+	})
+	gstOutput := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:                "2101",
+		Name:                "GST Output",
+		AccountClass:        accounting.AccountClassLiability,
+		ControlType:         accounting.ControlTypeGSTOutput,
+		AllowsDirectPosting: false,
+		Actor:               admin,
+	})
+	revenue := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:         "4000",
+		Name:         "Service Revenue",
+		AccountClass: accounting.AccountClassRevenue,
+		Actor:        admin,
+	})
+	gst18 := createTaxCode(t, ctx, accountingService, accounting.CreateTaxCodeInput{
+		Code:             "GST18",
+		Name:             "GST Output 18%",
+		TaxType:          accounting.TaxTypeGST,
+		RateBasisPoints:  1800,
+		PayableAccountID: gstOutput.ID,
+		Actor:            admin,
+	})
+
+	dayOne := time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC)
+	dayTwo := dayOne.Add(24 * time.Hour)
+	dayThree := dayTwo.Add(24 * time.Hour)
+
+	docOne := prepareApprovedDocument(t, ctx, documentService, workflowService, operator, approver)
+	postOne, _, _, err := accountingService.PostDocument(ctx, accounting.PostDocumentInput{
+		DocumentID:   docOne.ID,
+		Summary:      "Invoice one",
+		CurrencyCode: "INR",
+		TaxScopeCode: accounting.TaxScopeGST,
+		EffectiveOn:  dayOne,
+		Lines: []accounting.PostingLineInput{
+			{AccountID: receivable.ID, Description: "Customer receivable", DebitMinor: 177000},
+			{AccountID: revenue.ID, Description: "Recognized revenue", CreditMinor: 150000},
+			{AccountID: gstOutput.ID, Description: "GST payable", CreditMinor: 27000, TaxCode: gst18.Code},
+		},
+		Actor: admin,
+	})
+	if err != nil {
+		t.Fatalf("post first document: %v", err)
+	}
+
+	reversal, _, _, err := accountingService.ReverseDocument(ctx, accounting.ReverseDocumentInput{
+		DocumentID:  docOne.ID,
+		Reason:      "invoice corrected",
+		EffectiveOn: dayTwo,
+		Actor:       admin,
+	})
+	if err != nil {
+		t.Fatalf("reverse first document: %v", err)
+	}
+
+	docTwo := prepareApprovedDocument(t, ctx, documentService, workflowService, operator, approver)
+	postTwo, _, _, err := accountingService.PostDocument(ctx, accounting.PostDocumentInput{
+		DocumentID:   docTwo.ID,
+		Summary:      "Invoice two",
+		CurrencyCode: "INR",
+		TaxScopeCode: accounting.TaxScopeGST,
+		EffectiveOn:  dayThree,
+		Lines: []accounting.PostingLineInput{
+			{AccountID: receivable.ID, Description: "Customer receivable", DebitMinor: 118000},
+			{AccountID: revenue.ID, Description: "Recognized revenue", CreditMinor: 100000},
+			{AccountID: gstOutput.ID, Description: "GST payable", CreditMinor: 18000, TaxCode: gst18.Code},
+		},
+		Actor: admin,
+	})
+	if err != nil {
+		t.Fatalf("post second document: %v", err)
+	}
+
+	reviews, err := accountingService.ListJournalEntries(ctx, accounting.ListJournalEntriesInput{
+		StartOn: dayOne,
+		EndOn:   dayThree,
+		Limit:   10,
+		Actor:   admin,
+	})
+	if err != nil {
+		t.Fatalf("list journal entries: %v", err)
+	}
+	if len(reviews) != 3 {
+		t.Fatalf("unexpected journal review count: %d", len(reviews))
+	}
+	if reviews[0].Entry.ID != postTwo.ID || reviews[0].Entry.EffectiveOn.Format(time.DateOnly) != "2026-03-22" {
+		t.Fatalf("unexpected latest review entry: %+v", reviews[0].Entry)
+	}
+	if reviews[1].Entry.ID != reversal.ID || reviews[1].Entry.EntryKind != accounting.EntryKindReversal {
+		t.Fatalf("unexpected middle review entry: %+v", reviews[1].Entry)
+	}
+	if reviews[2].Entry.ID != postOne.ID || !reviews[2].HasReversal {
+		t.Fatalf("unexpected original review entry: %+v", reviews[2])
+	}
+	if reviews[2].DocumentTypeCode.String != "invoice" || reviews[2].DocumentStatus.String != string(documents.StatusReversed) {
+		t.Fatalf("unexpected document linkage in review: %+v", reviews[2])
+	}
+
+	balancesDayOne, err := accountingService.ListControlAccountBalances(ctx, accounting.ListControlAccountBalancesInput{
+		AsOf:  dayOne,
+		Actor: admin,
+	})
+	if err != nil {
+		t.Fatalf("list control account balances as of day one: %v", err)
+	}
+	receivableDayOne := findControlAccountBalance(t, balancesDayOne, receivable.Code)
+	if receivableDayOne.NetMinor != 177000 {
+		t.Fatalf("unexpected day-one receivable balance: %+v", receivableDayOne)
+	}
+	gstDayOne := findControlAccountBalance(t, balancesDayOne, gstOutput.Code)
+	if gstDayOne.NetMinor != -27000 {
+		t.Fatalf("unexpected day-one gst balance: %+v", gstDayOne)
+	}
+
+	balancesDayTwo, err := accountingService.ListControlAccountBalances(ctx, accounting.ListControlAccountBalancesInput{
+		AsOf:  dayTwo,
+		Actor: admin,
+	})
+	if err != nil {
+		t.Fatalf("list control account balances as of day two: %v", err)
+	}
+	if got := findControlAccountBalance(t, balancesDayTwo, receivable.Code).NetMinor; got != 0 {
+		t.Fatalf("unexpected day-two receivable balance: %d", got)
+	}
+	if got := findControlAccountBalance(t, balancesDayTwo, gstOutput.Code).NetMinor; got != 0 {
+		t.Fatalf("unexpected day-two gst balance: %d", got)
+	}
+
+	balancesDayThree, err := accountingService.ListControlAccountBalances(ctx, accounting.ListControlAccountBalancesInput{
+		AsOf:  dayThree,
+		Actor: admin,
+	})
+	if err != nil {
+		t.Fatalf("list control account balances as of day three: %v", err)
+	}
+	if got := findControlAccountBalance(t, balancesDayThree, receivable.Code).NetMinor; got != 118000 {
+		t.Fatalf("unexpected day-three receivable balance: %d", got)
+	}
+	if got := findControlAccountBalance(t, balancesDayThree, gstOutput.Code).NetMinor; got != -18000 {
+		t.Fatalf("unexpected day-three gst balance: %d", got)
+	}
+}
+
 func TestJournalBalanceConstraintAtDatabaseBoundary(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()
@@ -655,4 +963,16 @@ func uniqueEmail() string {
 
 func uniqueTokenHash() string {
 	return "token-" + time.Now().UTC().Format("150405.000000000")
+}
+
+func findControlAccountBalance(t *testing.T, balances []accounting.ControlAccountBalance, code string) accounting.ControlAccountBalance {
+	t.Helper()
+
+	for _, balance := range balances {
+		if balance.AccountCode == code {
+			return balance
+		}
+	}
+	t.Fatalf("control account balance %s not found", code)
+	return accounting.ControlAccountBalance{}
 }

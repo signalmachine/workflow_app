@@ -2,13 +2,13 @@
 
 `workflow_app` is an AI-agent-first, database-first business operating system centered on documents, ledgers, execution context, approvals, and reports.
 
-This repository has completed Milestone 0 and Milestone 1 from the canonical planning set in [`new_app_docs/`](./new_app_docs), and Milestone 2 is now in progress:
+This repository has completed Milestone 0, Milestone 1, and Milestone 2 from the canonical planning set in [`new_app_docs/`](./new_app_docs):
 
 1. bootstrap the Go module
 2. add a migration runner
 3. create the first control-boundary schema for orgs, users, memberships, audit, and idempotency
 4. add the first shared document, approval, session/auth, and AI traceability foundations
-5. start the accounting foundation with ledger accounts, append-only journals, centralized document posting, and reversals
+5. complete the accounting foundation with ledger accounts, append-only journals, centralized document posting, reversals, tax seams, accounting periods, and review queries
 
 The planning documents in [`new_app_docs/`](./new_app_docs) remain the canonical source for scope, sequencing, and module boundaries.
 
@@ -44,8 +44,9 @@ Implemented:
 6. AI tool registry, tool policy, run history, artifacts, recommendations, approval linkage, and delegation traces
 7. accounting ledger accounts plus centralized, idempotent, document-linked journal posting and reversal with database-backed balance enforcement
 8. GST and TDS tax foundation records with tax-aware posting validation against active tax codes and control accounts
+9. accounting periods with effective-date posting control, journal review queries, and control-account balance views for receivable/payable readiness
 
 Next:
 
-1. add the remaining accounting control and review layers on top of the current journal kernel
-2. extend Milestone 2 into period handling, journal review surfaces, and receivable or payable reporting readiness
+1. start Milestone 3 inventory foundation with items, locations, and append-only movement truth
+2. keep the thin-v1 module map narrow while inventory foundation expands
