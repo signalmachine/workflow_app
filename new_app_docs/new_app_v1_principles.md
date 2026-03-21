@@ -59,6 +59,10 @@ Rules:
 5. financially meaningful writes must remain policy-gated, human-gated by default in thin v1, and must not bypass approval, posting, audit, or role controls
 6. v1 still uses a multi-agent architecture, but only with bounded coordinator-to-specialist routing and durable observability
 7. advanced agent autonomy, speculative delegation depth, and broad self-directed workflow expansion belong in v2 unless required by a foundation invariant
+8. thin v1 may stay narrow in workflow breadth, but the AI provider-execution layer itself should still be foundation-complete enough to run real provider-backed agent flows safely
+9. the AI layer should use modern workflow AI agent architectures such as persisted intake, bounded tool loops, explicit specialist routing, durable run history, and structured outputs rather than prompt-only or opaque single-call automation
+10. `workflow_app` is a strictly controlled AI-agent application, so only workflow-suitable agent patterns should be used and they must stay inside approval, audit, posting, and domain-service boundaries
+11. tool calling should be the primary AI execution pattern, and AI tool handlers should be thin orchestration adapters over the existing domain services in this codebase rather than duplicate business-logic implementations
 
 Posting-control rule:
 
@@ -68,21 +72,28 @@ Posting-control rule:
 
 ## 5. Human-interface rule
 
-Human UI in v1 stays intentionally minimal.
+Human UI in v1 should now be usable, but it must still preserve the AI-agent-first operating model.
 
 Allowed primary human surfaces:
 
-1. approval queue
-2. review views
-3. inspection views
-4. reporting views
+1. inbound request submission and tracking through the web layer
+2. approval queue
+3. review views
+4. inspection views
+5. reporting views
+
+Rules:
+
+1. the web layer should run on the same backend foundations that a later mobile client will reuse
+2. differences between web and mobile should mostly live in client behavior and presentation rather than duplicate backend truth models
+3. web usability does not justify bypassing approval, posting, audit, or domain-service boundaries
 
 Not part of v1:
 
-1. broad operational data-entry UI
-2. direct ledger editing
-3. full CRM workspace
-4. broad project-management UI
+1. direct ledger editing
+2. full CRM workspace
+3. broad project-management UI
+4. a separate backend dedicated only to one client type
 
 ## 6. Reset warning
 

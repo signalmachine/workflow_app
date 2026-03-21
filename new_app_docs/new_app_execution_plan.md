@@ -60,8 +60,8 @@ Current implementation checkpoint:
 10. persisted inbound requests now allocate a durable user-visible `REQ-...` reference at draft creation time and preserve it through queue submission so acknowledgments and review surfaces do not depend on raw UUIDs
 11. draft inbound requests now support editing and hard deletion, while queued or cancelled pre-processing requests can return to `draft` for amendment and later resubmission without changing the stable request reference
 12. inbound-request list filtering, request-detail lookup, and processed-proposal lookup now all support the stable `REQ-...` request reference, with reference resolution staying inside the authorized reporting read path
-13. the current browser-ready intake slice is implemented at the service and reporting-read-model level rather than as a shipped browser UI
-14. this milestone is now complete in its main control-boundary foundation, and the next thin-v1 slice should focus on remaining reporting polish on top of that stable request-reference model
+13. the current intake and review foundation is implemented at the service and reporting-read-model level, providing the backend base that later provider-backed AI execution and the promoted web application layer will build on
+14. this milestone is now complete in its main control-boundary foundation, and the next v1 slice should focus on remaining reporting polish on top of that stable request-reference model
 
 Remediation planning note:
 
@@ -217,16 +217,85 @@ Current implementation checkpoint:
 9. work-order review now exposes task, labor, material-usage, and posted-cost rollups in one inspection surface
 10. audit lookup now exists as a coherent reporting read path scoped to tenant and entity filters
 11. minimum thin-v1 party and contact support depth now exists through tenant-safe `parties` support records and support-depth contacts
-12. inbound-request list and detail review plus processed-proposal review now expose the persist-first request -> AI -> approval -> document chain needed for thin-v1 browser testing through service and reporting-read-model seams
+12. inbound-request list and detail review plus processed-proposal review now expose the persist-first request -> AI -> approval -> document chain needed for the promoted v1 application layer through service and reporting-read-model seams
 13. inbound-request reporting now includes persisted cancellation and failure reasons with their timestamps plus submitter, session, metadata, attachment-provenance, and processed-proposal document context so operator troubleshooting does not require raw table reads
 14. remaining thin-v1 completion is now concentrated around final operator-facing reporting polish rather than missing inbound-request, request-reference, or adopted-document foundation coverage
 15. the next implementation target is to finish the remaining reporting polish before any v2 breadth work begins
 
-## 7. Execution warning
+## 7. Milestone 6: Provider-backed AI execution
+
+Goal:
+
+1. make the AI-agent-first operating model usable through a real provider-backed execution path
+
+Scope:
+
+1. OpenAI Go SDK integration in `internal/ai`
+2. Responses API-based agent execution
+3. environment wiring for `OPENAI_API_KEY` and bounded model selection
+4. provider-backed coordinator execution over persisted inbound requests
+5. bounded coordinator-to-specialist delegation on top of the existing durable run model
+6. tool-loop and tool-policy enforcement for real provider-backed runs
+7. structured-output and validation boundaries where provider output drives downstream proposals
+8. provider timeout, retry, and failure handling that preserves business-state safety
+9. modern workflow AI agent architecture patterns including persisted intake, explicit specialist routing, loop control, and structured execution traces
+10. opt-in live-provider verification and integration tests
+
+Exit criteria:
+
+1. the active codebase uses the OpenAI Go SDK for the first real v1 agent path
+2. provider-backed AI can process at least one queued inbound request through the existing request -> run -> artifact or recommendation -> approval -> document chain
+3. AI writes still route only through normal domain services, approvals, and policy checks
+4. `.env.example` documents the required provider configuration
+5. the provider-backed path includes the core reliability and validation foundations needed for safe real use rather than only a thin happy-path demo
+6. provider-backed tests are opt-in and do not make default repository verification depend on external credentials
+
+Planned implementation checkpoint:
+
+1. this milestone is not yet implemented
+2. detailed sequencing and constraints are captured in `ai_provider_execution_plan.md`
+3. this milestone should start after the remaining Milestone 5 reporting polish is complete
+4. this milestone should be executed as a sequence of narrow vertical slices rather than one monolithic delivery
+
+## 8. Milestone 7: Usable web application layer
+
+Goal:
+
+1. make the application usable through a real web layer on top of the shared backend foundations
+
+Scope:
+
+1. browser-usable auth and active-org handling
+2. inbound request submission and tracking
+3. attachment upload and download contracts
+4. approval queue and decision surfaces
+5. request, proposal, document, accounting, inventory, work-order, and audit review surfaces through the web layer
+6. enough page flow, navigation, and operator continuity that v1 is usable without direct service or database tooling
+7. shared backend contracts that a later v2 mobile client can also reuse
+
+Exit criteria:
+
+1. the application has a real web layer rather than only service or API seams
+2. the web layer can drive and inspect the live provider-backed AI path
+3. the web and later mobile clients are planned around one backend foundation rather than separate backends
+4. the web layer remains aligned with approval, audit, and domain-service boundaries
+
+Planned implementation checkpoint:
+
+1. this milestone is not yet implemented
+2. detailed sequencing and constraints are captured in `web_application_layer_plan.md`
+3. this milestone should start after Milestone 6 establishes the live provider-backed AI path
+4. this milestone should be executed as a sequence of narrow vertical slices rather than one monolithic delivery
+
+## 9. Execution warning
 
 Do not add CRM breadth, advanced projects, portal work, payroll, broad UI work, or advanced agent-autonomy features during milestones 0 through 5.
 
-## 8. Quality and sophistication rule
+Do not treat Milestone 6 as permission to add broad autonomy, broad chat UX, or multi-provider breadth.
+
+Do not treat Milestone 7 as permission to create a second backend for web versus mobile or to turn the product into a broad manual-entry ERP.
+
+## 10. Quality and sophistication rule
 
 `workflow_app` is allowed to be thin in breadth, but it is not allowed to be weak in foundation design.
 

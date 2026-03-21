@@ -118,6 +118,7 @@ The highest thin-v1 priorities are:
 8. adopted document-family payload ownership for work-order, invoice, payment or receipt, and inventory flows
 9. work-order and task execution foundations
 10. report and review surfaces
+11. provider-backed AI execution using the OpenAI Go SDK plus the minimum backend API and attachment-transport contract required to exercise that path in real testing
 
 CRM and project depth may remain in the repository where already implemented, but they are support concerns in thin v1 rather than the product center.
 
@@ -139,12 +140,16 @@ Required rules:
 10. queue-oriented processing is preferred because it preserves durability, supports clearer human review, and extends cleanly to requests originating from external systems as well as humans
 11. modular tool or skill boundaries are preferred where they keep agent capabilities explicit, reviewable, and policy-gated rather than hidden inside prompt-only behavior
 12. AI workers should not process requests that remain in draft or have been cancelled before pickup
+13. thin v1 may stay narrow in workflow breadth, but the AI execution layer should still be foundation-complete enough to run real provider-backed agent flows safely
+14. the preferred first live provider path for v1 is OpenAI through the Go SDK and Responses API
+15. `workflow_app` should use modern workflow AI agent architectures that are suitable for strictly controlled business workflows rather than autonomy-heavy general-agent patterns
+16. tool calling should be the primary AI execution pattern, and AI tool handlers should route into the existing domain services in the codebase rather than duplicating business logic inside the AI layer
 
 The short-term AI objective is to observe, evaluate, and improve agent behavior on real bounded business tasks.
 
 ## 7. Human-interface stance
 
-Human surfaces in thin v1 should stay intentionally minimal.
+Human surfaces in thin v1 should now include a usable web application layer while still preserving the AI-agent-first operating model.
 
 Allowed primary human surfaces:
 
@@ -152,13 +157,15 @@ Allowed primary human surfaces:
 2. review screens
 3. inspection and query surfaces
 4. reports
+5. a usable web application layer over the shared backend contracts
 
 Not intended as core thin-v1 behavior:
 
 1. broad manual operational data entry
 2. direct human ledger editing
 3. broad human operational UI replacing agent-driven workflows
-4. service-level browser-ready intake or review semantics should not be described as a shipped browser UI until that surface actually exists
+4. a separate backend for web versus mobile clients
+5. thin v1 should still preserve one shared backend foundation that later mobile and web clients can both use, even where their capture and presentation layers differ
 
 ## 8. Data and database principles
 

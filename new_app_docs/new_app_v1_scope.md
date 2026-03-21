@@ -34,6 +34,9 @@ Rules:
 6. AI runs, tool policy, recommendations, artifacts, and delegation traces
 7. coordinator-plus-specialist multi-agent routing at bounded foundation depth
 8. persisted inbound request intake for browser-driven user testing, with queueable AI processing and durable status tracking
+9. provider-backed AI execution foundations using the OpenAI Go SDK and Responses API so v1 can process real inbound requests rather than stopping at AI persistence scaffolding
+10. one minimal HTTP or API surface for session-auth, persist-first inbound request submission, attachment upload and download, and review-oriented reads so v1 is usable beyond service-layer-only seams
+11. modern workflow AI agent architecture foundations including persisted intake, bounded tool loops, structured outputs where needed, and explicit coordinator-to-specialist routing
 
 Tenant model rule:
 
@@ -48,9 +51,11 @@ AI interaction rule:
 
 1. the primary interaction model should persist the inbound request before AI processing begins
 2. AI processing may be asynchronous and queue-driven rather than request-response by default
-3. thin v1 may include minimal browser-usable request-submission and review semantics where required for real user testing
-4. those browser-usable semantics may land first as service and API contracts plus review read models rather than a shipped browser UI
+3. v1 should include browser-usable request-submission, approval, and review semantics through the promoted application layer
+4. service and API contracts plus review read models remain valid foundation seams, but they are no longer the intended stopping point for the v1 web layer
 5. mobile-product depth, voice-capture UX, and richer multimodal client behavior remain v2 concerns unless a foundation dependency proves otherwise
+6. v1 should include foundation-complete provider-backed AI execution so the AI-agent-first operating model is usable in practice, while richer client and multimodal breadth remains deferred
+7. v1 should also include the minimum backend API and attachment transport contract required to exercise that provider-backed path in real browser-based testing
 
 ### 2.2 Master records
 
@@ -145,7 +150,7 @@ Tax scope rule:
 5. work-order views
 6. audit lookup
 7. GST/TDS summary views at baseline depth
-8. inbound-request and processed-proposal review views sufficient for thin-v1 browser testing where that testing is required to validate the AI -> document -> approval -> posting or execution flow
+8. inbound-request and processed-proposal review views sufficient for the promoted v1 web layer to validate the AI -> document -> approval -> posting or execution flow
 
 ## 3. Explicitly out of scope for v1
 

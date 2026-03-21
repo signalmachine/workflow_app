@@ -132,6 +132,9 @@ Required:
 7. artifact, recommendation, and approval persistence
 8. delegation traces
 9. linkage from persisted inbound requests into AI runs and downstream proposals or actions
+10. provider-backed AI execution foundations using the OpenAI Go SDK and Responses API so the v1 AI layer is usable beyond persistence scaffolding
+11. environment, safety, and verification support for provider-backed AI without making default local development depend on external credentials
+12. backend API and transport foundations for session-auth, request submission, attachment upload and download, and review-oriented reads so the promoted v1 web layer and later mobile client can share one backend model
 
 ### 2.9 Reporting foundation
 
@@ -144,7 +147,7 @@ Required:
 5. execution views
 6. tax summary views
 7. audit lookup views
-8. inbound-request and processed-proposal review views sufficient for thin-v1 browser testing when that testing is required before v2 breadth
+8. inbound-request and processed-proposal review views sufficient for the promoted v1 web layer and later shared-backend client evolution
 
 ## 3. Missing-foundation test
 

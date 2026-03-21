@@ -46,10 +46,9 @@ Candidate v2 work:
 
 Candidate v2 work:
 
-1. broader operational web UI
-2. richer review workbenches
-3. mobile-product depth beyond the v1 foundation contract
-4. portal surfaces where later justified
+1. richer review and operator workbenches beyond the promoted usable-v1 web layer
+2. mobile-product depth beyond the v1 shared-backend contract
+3. portal surfaces where later justified
 
 ## 6. Operational and financial breadth
 

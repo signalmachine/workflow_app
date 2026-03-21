@@ -25,6 +25,8 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 | Milestone 3 inventory foundation | done | The inventory foundation now includes `inventory_ops` items, locations, movement numbering, append-only movements, derived stock balances, inventory-owned document payload and line records, explicit execution and accounting handoffs, and costed inventory-accounting handoffs consumed through centralized journal posting covered by integration tests |
 | Milestone 4 execution foundation | done | `work_orders` now includes first-class work-order records, append-only execution status history, transactional consumption of pending inventory execution links into work-order material-usage truth, workflow-owned work-order tasks with one accountable worker, workforce-owned labor capture with cost snapshots, and centralized accounting consumption of both labor and work-order-linked inventory handoffs covered by integration tests |
 | Milestone 5 review and reporting surfaces | in_progress | `reporting` now exposes approval queue, document, accounting journal review, control-account balance review, GST/TDS tax summaries, inventory stock, inventory movement review, inventory reconciliation review, work-order, audit lookup, inbound-request, and processed-proposal review surfaces covered by integration tests; stable inbound-request references now exist for operator tracking and submission acknowledgments, inbound-request list filtering now supports exact `REQ-...` reference lookup, request detail and processed-proposal reads resolve by stable `REQ-...` reference inside the authorized reporting read path instead of depending on raw UUID-only lookup, inbound-request review now also surfaces persisted cancellation and failure reasons with their timestamps for operator troubleshooting plus submitter, session, metadata, and attachment-provenance context, and the current browser-ready intake slice is implemented at the service and reporting-read-model level rather than as a shipped browser UI, so remaining work is final reporting polish rather than missing foundation coverage |
+| Milestone 6 provider-backed AI execution | planned | the next planned v1 milestone after reporting polish is to make the AI layer provider-backed and usable in practice through OpenAI Go SDK plus Responses API integration, environment wiring, tool-loop and policy enforcement, provider-backed coordinator and specialist execution, plus opt-in live-provider verification; execute this as multiple narrow vertical slices rather than one monolithic delivery; see `ai_provider_execution_plan.md` |
+| Milestone 7 usable web application layer | planned | after provider-backed AI execution, v1 should land a usable web layer for auth, request submission, attachment transport, approval actions, and operator review on top of the shared backend foundation that a later v2 mobile client will also use; execute this as multiple narrow vertical slices rather than one monolithic delivery; see `web_application_layer_plan.md` |
 | Minimum thin-v1 party and contact support depth | done | `parties` support records now cover external party identity plus support-depth contacts with tenant-safe service boundaries and integration tests |
 | Remaining thin-v1 adopted-document gaps | done | thin v1 adopted document-family ownership is now implemented for work-order, invoice, and payment or receipt document families through module-owned one-to-one payload bridges keyed by `document_id`; see `adopted_document_ownership_remediation_plan.md` |
 | Minimum thin-v1 inbound-request and browser-ingress foundation | done | persist-first inbound requests, request messages, PostgreSQL-backed attachments, transcription derivatives, queue claim and status transitions, stable `REQ-...` references, draft editing and hard deletion, queued-request amend-back-to-draft support, AI run causation, and reporting-visible inbound-request and processed-proposal review now exist for thin-v1 browser testing at the service and reporting-read-model level; see `inbound_request_and_attachment_foundation_plan.md` |
@@ -34,23 +36,30 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 1. continue the remaining Milestone 5 reporting polish now that stable inbound-request references drive list filtering as well as request-detail and processed-proposal lookup paths and request review also exposes cancellation, failure, submitter, session, metadata, and attachment-provenance context
 2. keep any further request review and lookup additions centered on the stable inbound-request reference rather than raw UUIDs wherever thin-v1 operator-facing reads are extended
 3. keep verifying that new reporting or review additions stay read-oriented and do not widen into broad operational UI scope
-4. keep the codebase centered on the approved first-class modules while allowing support-depth records such as `parties` and `contacts` where the canonical module-boundary doc explicitly permits them
-5. add attachments only where they support approval evidence, document support flows, or persisted inbound request intake
-6. use `new_app_v1_gap_review_from_current_codebase.md` as historical context only, not as the live list of remaining missing foundation areas
-7. use `new_app_implementation_defaults.md` as the default-rules reference during implementation
-8. use `new_app_foundation_coverage.md` as the v1 completion checklist and foundation coverage control
+4. after Milestone 5, begin the provider-backed AI execution milestone so v1 has a usable AI-agent layer rather than only AI persistence and observability scaffolding
+5. after Milestone 6, implement the usable web application layer on the same backend foundation that a later v2 mobile client will reuse
+6. keep the codebase centered on the approved first-class modules while allowing support-depth records such as `parties` and `contacts` where the canonical module-boundary doc explicitly permits them
+7. add attachments only where they support approval evidence, document support flows, or persisted inbound request intake
+8. use `new_app_v1_gap_review_from_current_codebase.md` as historical context only, not as the live list of remaining missing foundation areas
+9. use `new_app_implementation_defaults.md` as the default-rules reference during implementation
+10. use `new_app_foundation_coverage.md` as the v1 completion checklist and foundation coverage control
 
 ## 2.1 Planned next implementation order
 
 Recommended sequence:
 
 1. continue the remaining reporting polish on top of the now-landed persist-first inbound request, attachment, and stable request-reference foundations
+2. implement provider-backed AI execution after reporting polish so the v1 AI layer becomes usable in practice through a foundation-complete OpenAI-backed path
+3. implement the usable web application layer after Milestone 6 so operators can work through the browser on the same backend contracts that later mobile will reuse
+4. execute Milestones 6 and 7 through small end-to-end slices rather than broad monolithic pushes so implementation stays controllable and reviewable
 
 Reason:
 
 1. the adopted document-family ownership mismatch is now closed for work-order, invoice, and payment or receipt families
 2. inbound request intake, attachment support, queue claim semantics, and reporting-visible AI causation now sit on top of the stabilized document-adoption model
 3. reporting polish should now continue on top of the stable request-reference model rather than forcing later retrofit of user-visible request lookup and acknowledgments
+4. once reporting polish is complete, the next major remaining v1 gaps are live provider-backed AI execution and the usable web layer needed to make the application operable through the browser
+5. both remaining milestones are substantial enough that they should be decomposed into narrow vertical slices to avoid schedule drag and architecture sprawl
 
 ## 3. Scope guardrail
 

@@ -2,7 +2,7 @@
 
 `workflow_app` is an AI-agent-first, database-first business operating system centered on documents, ledgers, execution context, approvals, and reports.
 
-This repository has completed Milestone 0 through Milestone 4 from the canonical planning set in [`new_app_docs/`](./new_app_docs). The shared control boundary now includes adopted document ownership for work orders, invoices, and payment or receipt documents plus persist-first inbound request and attachment foundations with stable `REQ-...` inbound-request references for submission acknowledgments and review. Draft requests can now be edited or hard-deleted before queueing, while queued pre-processing requests can be soft-cancelled or returned to draft for amendment and resubmission. The current browser-ready intake slice exists at the service and reporting-read-model level rather than as a shipped browser UI. The repository is now finishing the remaining thin-v1 reporting polish before any broader implementation proceeds:
+This repository has completed Milestone 0 through Milestone 4 from the canonical planning set in [`new_app_docs/`](./new_app_docs). The shared control boundary now includes adopted document ownership for work orders, invoices, and payment or receipt documents plus persist-first inbound request and attachment foundations with stable `REQ-...` inbound-request references for submission acknowledgments and review. Draft requests can now be edited or hard-deleted before queueing, while queued pre-processing requests can be soft-cancelled or returned to draft for amendment and resubmission. The repository is now finishing the remaining Milestone 5 reporting polish before moving into provider-backed AI execution and the promoted usable web application layer.
 
 1. bootstrap the Go module
 2. add a migration runner
@@ -67,5 +67,7 @@ Implemented:
 Immediate next steps:
 
 1. continue the remaining thin-v1 reporting polish on top of the now-landed inbound-request, processed-proposal, and stable request-reference foundations
-2. keep later review additions centered on stable request references instead of raw UUIDs where operator-facing lookup is involved
-3. keep later review additions read-oriented so thin v1 does not widen back into broad operational UI scope
+2. after reporting polish, implement provider-backed AI execution through the OpenAI Go SDK
+3. after Milestone 6, implement the usable web application layer on backend contracts that a later v2 mobile client will also reuse
+4. keep later review additions centered on stable request references instead of raw UUIDs where operator-facing lookup is involved
+5. keep later review additions read-oriented so v1 web usability does not widen into a broad manual-entry ERP

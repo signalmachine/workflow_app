@@ -34,6 +34,8 @@ Purpose: record the active defaults that implementation should preserve unless t
 8. draft inbound requests must not be processed by AI until explicitly queued or submitted
 9. cancellation of parked requests should normally be soft cancel or soft delete rather than unrestricted hard deletion
 10. AI workers must not claim cancelled, hidden, or incomplete draft requests
+11. the first live provider-backed thin-v1 execution path should use the OpenAI Go SDK and the Responses API
+12. provider-backed AI verification should be opt-in so the default repository build and test flow does not require external API credentials
 
 ### 2.3 Document identity and ownership
 
@@ -98,12 +100,11 @@ Purpose: record the active defaults that implementation should preserve unless t
 
 ### 2.9 Interface stance
 
-1. the intended product surfaces are AI plus minimal review, approval, inspection, and reporting surfaces
-2. broad human operational UI is not a thin-v1 priority
+1. the intended product surfaces are AI plus a usable web application layer for intake, review, approval, inspection, and reporting
+2. the web layer should stay aligned with the AI-agent-first operating model rather than becoming a broad manual-entry product by default
 3. CLI tooling may exist for developer or support work, but it is not a first-class product interface
-4. thin v1 may include minimal browser-usable API or review support where required for real user testing
-5. those browser-usable seams may exist as service or API contracts and reporting read models before any shipped browser UI exists
-6. mobile-product depth, voice-capture UX, and richer multimodal client behavior remain v2 concerns unless a foundation dependency proves otherwise
+4. the web layer should use backend contracts that a later mobile client can also reuse rather than diverging into a second backend model
+5. mobile-product depth, voice-capture UX, and richer multimodal client behavior remain v2 concerns unless a foundation dependency proves otherwise
 
 ### 2.10 Inbound request and attachment handling
 
