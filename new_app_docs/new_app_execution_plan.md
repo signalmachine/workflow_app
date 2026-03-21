@@ -59,8 +59,9 @@ Current implementation checkpoint:
 9. adopted payload ownership is now implemented for work-order, invoice, and payment or receipt document families with shared party/contact support records reused where applicable rather than duplicated into document-local truth
 10. persisted inbound requests now allocate a durable user-visible `REQ-...` reference at draft creation time and preserve it through queue submission so acknowledgments and review surfaces do not depend on raw UUIDs
 11. draft inbound requests now support editing and hard deletion, while queued or cancelled pre-processing requests can return to `draft` for amendment and later resubmission without changing the stable request reference
-12. the current browser-ready intake slice is implemented at the service and reporting-read-model level rather than as a shipped browser UI
-13. this milestone is now complete in its main control-boundary foundation, and the next thin-v1 slice should focus on remaining reporting polish on top of that stable request-reference model
+12. inbound-request list filtering, request-detail lookup, and processed-proposal lookup now all support the stable `REQ-...` request reference, with reference resolution staying inside the authorized reporting read path
+13. the current browser-ready intake slice is implemented at the service and reporting-read-model level rather than as a shipped browser UI
+14. this milestone is now complete in its main control-boundary foundation, and the next thin-v1 slice should focus on remaining reporting polish on top of that stable request-reference model
 
 Remediation planning note:
 

@@ -257,6 +257,18 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 		t.Fatalf("unexpected last recommendation: %+v want %s", requests[0].LastRecommendationID, recommendation.ID)
 	}
 
+	filteredRequests, err := reportingService.ListInboundRequests(ctx, reporting.ListInboundRequestsInput{
+		RequestReference: request.RequestReference,
+		Limit:            10,
+		Actor:            operator,
+	})
+	if err != nil {
+		t.Fatalf("list inbound requests by reference: %v", err)
+	}
+	if len(filteredRequests) != 1 || filteredRequests[0].RequestID != request.ID {
+		t.Fatalf("unexpected inbound request rows for reference filter: %+v", filteredRequests)
+	}
+
 	detail, err := reportingService.GetInboundRequestDetail(ctx, reporting.GetInboundRequestDetailInput{
 		RequestReference: request.RequestReference,
 		Actor:            operator,
@@ -291,6 +303,47 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 	}
 	if proposals[0].RequestID != request.ID || proposals[0].RequestReference != request.RequestReference || proposals[0].DocumentID.String != doc.ID {
 		t.Fatalf("unexpected processed proposal row: %+v", proposals[0])
+	}
+}
+
+func TestInboundRequestReportingAuthorizesBeforeReferenceLookupIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	session := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: session.ID}
+
+	intakeService := intake.NewService(db)
+	reportingService := reporting.NewService(db)
+
+	request := createQueuedRequest(t, ctx, intakeService, operator, "authorization ordering check")
+
+	unauthorized := identityaccess.Actor{
+		OrgID:     orgID,
+		UserID:    operatorUserID,
+		SessionID: "00000000-0000-0000-0000-000000000000",
+	}
+
+	_, err := reportingService.GetInboundRequestDetail(ctx, reporting.GetInboundRequestDetailInput{
+		RequestReference: request.RequestReference,
+		Actor:            unauthorized,
+	})
+	if !errors.Is(err, identityaccess.ErrUnauthorized) {
+		t.Fatalf("expected unauthorized detail lookup, got %v", err)
+	}
+
+	_, err = reportingService.ListProcessedProposals(ctx, reporting.ListProcessedProposalsInput{
+		RequestReference: request.RequestReference,
+		Limit:            10,
+		Actor:            unauthorized,
+	})
+	if !errors.Is(err, identityaccess.ErrUnauthorized) {
+		t.Fatalf("expected unauthorized proposal lookup, got %v", err)
 	}
 }
 

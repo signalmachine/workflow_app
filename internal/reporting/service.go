@@ -330,9 +330,10 @@ type InboundRequestReview struct {
 }
 
 type ListInboundRequestsInput struct {
-	Status string
-	Limit  int
-	Actor  identityaccess.Actor
+	Status           string
+	RequestReference string
+	Limit            int
+	Actor            identityaccess.Actor
 }
 
 type InboundRequestMessageReview struct {
@@ -1566,10 +1567,11 @@ LEFT JOIN LATERAL (
 ) lrec ON TRUE
 WHERE r.org_id = $1
   AND ($2 = '' OR r.status = $2)
+  AND ($3 = '' OR r.request_reference = $3)
 ORDER BY COALESCE(r.queued_at, r.received_at) DESC, r.id DESC
-LIMIT $3;`
+LIMIT $4;`
 
-	rows, err := tx.QueryContext(ctx, query, input.Actor.OrgID, strings.TrimSpace(input.Status), normalizeLimit(input.Limit))
+	rows, err := tx.QueryContext(ctx, query, input.Actor.OrgID, strings.TrimSpace(input.Status), strings.TrimSpace(input.RequestReference), normalizeLimit(input.Limit))
 	if err != nil {
 		_ = tx.Rollback()
 		return nil, fmt.Errorf("list inbound requests: %w", err)
@@ -1616,17 +1618,19 @@ LIMIT $3;`
 }
 
 func (s *Service) GetInboundRequestDetail(ctx context.Context, input GetInboundRequestDetailInput) (InboundRequestDetail, error) {
-	requestID, err := normalizeInboundRequestLookup(ctx, s.db, input.Actor.OrgID, input.RequestID, input.RequestReference)
-	if err != nil {
-		return InboundRequestDetail{}, err
-	}
-	if requestID == "" {
-		return InboundRequestDetail{}, ErrInvalidReviewFilter
-	}
-
 	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
 	if err != nil {
 		return InboundRequestDetail{}, err
+	}
+
+	requestID, err := normalizeInboundRequestLookupTx(ctx, tx, input.Actor.OrgID, input.RequestID, input.RequestReference)
+	if err != nil {
+		_ = tx.Rollback()
+		return InboundRequestDetail{}, err
+	}
+	if requestID == "" {
+		_ = tx.Rollback()
+		return InboundRequestDetail{}, ErrInvalidReviewFilter
 	}
 
 	requests, err := s.listInboundRequestsTx(ctx, tx, input.Actor.OrgID, requestID)
@@ -1815,13 +1819,15 @@ func (s *Service) ListProcessedProposals(ctx context.Context, input ListProcesse
 	if input.Status != "" && !isValidRecommendationStatus(input.Status) {
 		return nil, ErrInvalidReviewFilter
 	}
-	requestID, err := normalizeInboundRequestLookup(ctx, s.db, input.Actor.OrgID, input.RequestID, input.RequestReference)
+
+	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
 	if err != nil {
 		return nil, err
 	}
 
-	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
+	requestID, err := normalizeInboundRequestLookupTx(ctx, tx, input.Actor.OrgID, input.RequestID, input.RequestReference)
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, err
 	}
 
@@ -2005,7 +2011,7 @@ LIMIT 200;`
 	return proposals, nil
 }
 
-func normalizeInboundRequestLookup(ctx context.Context, db *sql.DB, orgID, requestID, requestReference string) (string, error) {
+func normalizeInboundRequestLookupTx(ctx context.Context, tx *sql.Tx, orgID, requestID, requestReference string) (string, error) {
 	trimmedID := strings.TrimSpace(requestID)
 	trimmedReference := strings.TrimSpace(requestReference)
 	switch {
@@ -2018,7 +2024,7 @@ func normalizeInboundRequestLookup(ctx context.Context, db *sql.DB, orgID, reque
 	}
 
 	var resolvedID string
-	err := db.QueryRowContext(ctx, `
+	err := tx.QueryRowContext(ctx, `
 SELECT id
 FROM ai.inbound_requests
 WHERE org_id = $1
