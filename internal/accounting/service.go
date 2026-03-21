@@ -20,6 +20,8 @@ var (
 	ErrJournalEntryNotFound     = errors.New("journal entry not found")
 	ErrTaxCodeNotFound          = errors.New("tax code not found")
 	ErrAccountingPeriodNotFound = errors.New("accounting period not found")
+	ErrInvoiceDocumentNotFound  = errors.New("invoice document not found")
+	ErrPaymentReceiptNotFound   = errors.New("payment or receipt document not found")
 	ErrPostingAlreadyExists     = errors.New("posting already exists for document")
 	ErrAlreadyReversed          = errors.New("journal entry already reversed")
 	ErrInvalidAccount           = errors.New("invalid ledger account")
@@ -32,6 +34,8 @@ var (
 	ErrAccountingPeriodOverlap  = errors.New("accounting period overlaps an existing period")
 	ErrAccountingPeriodNotOpen  = errors.New("accounting period is not open")
 	ErrUnbalancedJournal        = errors.New("journal entry is unbalanced")
+	ErrInvalidInvoiceDocument   = errors.New("invalid invoice document")
+	ErrInvalidPaymentReceipt    = errors.New("invalid payment or receipt document")
 	ErrLaborHandoffNotFound     = errors.New("labor accounting handoff not found")
 	ErrInvalidLaborHandoff      = errors.New("invalid labor accounting handoff")
 	ErrInventoryHandoffNotFound = errors.New("inventory accounting handoff not found")
@@ -63,6 +67,12 @@ const (
 
 	TaxTypeGST = "gst"
 	TaxTypeTDS = "tds"
+
+	InvoiceRoleSales    = "sales"
+	InvoiceRolePurchase = "purchase"
+
+	PaymentReceiptDirectionPayment = "payment"
+	PaymentReceiptDirectionReceipt = "receipt"
 )
 
 type LedgerAccount struct {
@@ -140,6 +150,34 @@ type TaxCode struct {
 	UpdatedAt           time.Time
 }
 
+type InvoiceDocument struct {
+	DocumentID       string
+	OrgID            string
+	InvoiceRole      sql.NullString
+	BilledPartyID    sql.NullString
+	BillingContactID sql.NullString
+	CurrencyCode     sql.NullString
+	ReferenceValue   string
+	Summary          string
+	CreatedByUserID  string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+type PaymentReceiptDocument struct {
+	DocumentID            string
+	OrgID                 string
+	Direction             sql.NullString
+	CounterpartyID        sql.NullString
+	CounterpartyContactID sql.NullString
+	CurrencyCode          sql.NullString
+	ReferenceValue        string
+	Summary               string
+	CreatedByUserID       string
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+}
+
 type CreateLedgerAccountInput struct {
 	Code                string
 	Name                string
@@ -170,6 +208,28 @@ type CreateTaxCodeInput struct {
 	ReceivableAccountID string
 	PayableAccountID    string
 	Actor               identityaccess.Actor
+}
+
+type CreateInvoiceInput struct {
+	Title            string
+	InvoiceRole      string
+	BilledPartyID    string
+	BillingContactID string
+	CurrencyCode     string
+	ReferenceValue   string
+	Summary          string
+	Actor            identityaccess.Actor
+}
+
+type CreatePaymentReceiptInput struct {
+	Title                 string
+	Direction             string
+	CounterpartyID        string
+	CounterpartyContactID string
+	CurrencyCode          string
+	ReferenceValue        string
+	Summary               string
+	Actor                 identityaccess.Actor
 }
 
 type PostingLineInput struct {
@@ -294,6 +354,116 @@ type Service struct {
 
 func NewService(db *sql.DB, documentService *documents.Service) *Service {
 	return &Service{db: db, documents: documentService}
+}
+
+func (s *Service) CreateInvoice(ctx context.Context, input CreateInvoiceInput) (documents.Document, InvoiceDocument, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return documents.Document{}, InvoiceDocument{}, fmt.Errorf("begin create invoice: %w", err)
+	}
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin, identityaccess.RoleOperator); err != nil {
+		_ = tx.Rollback()
+		return documents.Document{}, InvoiceDocument{}, err
+	}
+
+	document, payload, err := s.createInvoiceTx(ctx, tx, input)
+	if err != nil {
+		_ = tx.Rollback()
+		return documents.Document{}, InvoiceDocument{}, err
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
+		EventType:   "documents.document_created",
+		EntityType:  "documents.document",
+		EntityID:    document.ID,
+		Payload: map[string]any{
+			"type_code": document.TypeCode,
+			"status":    document.Status,
+		},
+	}); err != nil {
+		_ = tx.Rollback()
+		return documents.Document{}, InvoiceDocument{}, err
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
+		EventType:   "accounting.invoice_document_created",
+		EntityType:  "accounting.invoice_document",
+		EntityID:    payload.DocumentID,
+		Payload: map[string]any{
+			"invoice_role":    nullableString(payload.InvoiceRole),
+			"billed_party_id": nullableString(payload.BilledPartyID),
+			"currency_code":   nullableString(payload.CurrencyCode),
+		},
+	}); err != nil {
+		_ = tx.Rollback()
+		return documents.Document{}, InvoiceDocument{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return documents.Document{}, InvoiceDocument{}, fmt.Errorf("commit create invoice: %w", err)
+	}
+
+	return document, payload, nil
+}
+
+func (s *Service) CreatePaymentReceipt(ctx context.Context, input CreatePaymentReceiptInput) (documents.Document, PaymentReceiptDocument, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return documents.Document{}, PaymentReceiptDocument{}, fmt.Errorf("begin create payment receipt: %w", err)
+	}
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin, identityaccess.RoleOperator); err != nil {
+		_ = tx.Rollback()
+		return documents.Document{}, PaymentReceiptDocument{}, err
+	}
+
+	document, payload, err := s.createPaymentReceiptTx(ctx, tx, input)
+	if err != nil {
+		_ = tx.Rollback()
+		return documents.Document{}, PaymentReceiptDocument{}, err
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
+		EventType:   "documents.document_created",
+		EntityType:  "documents.document",
+		EntityID:    document.ID,
+		Payload: map[string]any{
+			"type_code": document.TypeCode,
+			"status":    document.Status,
+		},
+	}); err != nil {
+		_ = tx.Rollback()
+		return documents.Document{}, PaymentReceiptDocument{}, err
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
+		EventType:   "accounting.payment_receipt_document_created",
+		EntityType:  "accounting.payment_receipt_document",
+		EntityID:    payload.DocumentID,
+		Payload: map[string]any{
+			"direction":       nullableString(payload.Direction),
+			"counterparty_id": nullableString(payload.CounterpartyID),
+			"currency_code":   nullableString(payload.CurrencyCode),
+		},
+	}); err != nil {
+		_ = tx.Rollback()
+		return documents.Document{}, PaymentReceiptDocument{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return documents.Document{}, PaymentReceiptDocument{}, fmt.Errorf("commit create payment receipt: %w", err)
+	}
+
+	return document, payload, nil
 }
 
 func (s *Service) CreateLedgerAccount(ctx context.Context, input CreateLedgerAccountInput) (LedgerAccount, error) {
@@ -1023,6 +1193,9 @@ func (s *Service) postDocumentTx(ctx context.Context, tx *sql.Tx, input PostDocu
 	if err := validatePostingTaxCodesTx(ctx, tx, input.Actor.OrgID, input.TaxScopeCode, input.Lines); err != nil {
 		return JournalEntry{}, nil, false, err
 	}
+	if err := validateAccountingDocumentOwnershipTx(ctx, tx, input.Actor.OrgID, input.DocumentID); err != nil {
+		return JournalEntry{}, nil, false, err
+	}
 
 	effectiveOn := normalizeEffectiveOn(input.EffectiveOn)
 	if err := validateAccountingPeriodOpenTx(ctx, tx, input.Actor.OrgID, effectiveOn); err != nil {
@@ -1067,6 +1240,128 @@ func (s *Service) postDocumentTx(ctx context.Context, tx *sql.Tx, input PostDocu
 	}
 
 	return entry, lines, false, nil
+}
+
+func (s *Service) createInvoiceTx(ctx context.Context, tx *sql.Tx, input CreateInvoiceInput) (documents.Document, InvoiceDocument, error) {
+	role := normalizeInvoiceRole(input.InvoiceRole)
+	currencyCode := strings.ToUpper(strings.TrimSpace(input.CurrencyCode))
+	if strings.TrimSpace(input.Title) == "" || !isValidInvoiceRole(role) || !isValidCurrencyCode(currencyCode) {
+		return documents.Document{}, InvoiceDocument{}, ErrInvalidInvoiceDocument
+	}
+
+	if err := validatePartyContactPairTx(ctx, tx, input.Actor.OrgID, input.BilledPartyID, input.BillingContactID, ErrInvalidInvoiceDocument); err != nil {
+		return documents.Document{}, InvoiceDocument{}, err
+	}
+
+	document, err := s.documents.CreateDraftTx(ctx, tx, documents.CreateDraftInput{
+		TypeCode: "invoice",
+		Title:    strings.TrimSpace(input.Title),
+		Actor:    input.Actor,
+	})
+	if err != nil {
+		return documents.Document{}, InvoiceDocument{}, fmt.Errorf("create invoice document: %w", err)
+	}
+
+	payload, err := scanInvoiceDocument(tx.QueryRowContext(ctx, `
+INSERT INTO accounting.invoice_documents (
+	document_id,
+	org_id,
+	invoice_role,
+	billed_party_id,
+	billing_contact_id,
+	currency_code,
+	reference_value,
+	summary,
+	created_by_user_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING
+	document_id,
+	org_id,
+	invoice_role,
+	billed_party_id,
+	billing_contact_id,
+	currency_code,
+	reference_value,
+	summary,
+	created_by_user_id,
+	created_at,
+	updated_at;`,
+		document.ID,
+		input.Actor.OrgID,
+		role,
+		nullIfEmpty(strings.TrimSpace(input.BilledPartyID)),
+		nullIfEmpty(strings.TrimSpace(input.BillingContactID)),
+		currencyCode,
+		strings.TrimSpace(input.ReferenceValue),
+		strings.TrimSpace(input.Summary),
+		input.Actor.UserID,
+	))
+	if err != nil {
+		return documents.Document{}, InvoiceDocument{}, fmt.Errorf("insert invoice payload: %w", err)
+	}
+
+	return document, payload, nil
+}
+
+func (s *Service) createPaymentReceiptTx(ctx context.Context, tx *sql.Tx, input CreatePaymentReceiptInput) (documents.Document, PaymentReceiptDocument, error) {
+	direction := normalizePaymentReceiptDirection(input.Direction)
+	currencyCode := strings.ToUpper(strings.TrimSpace(input.CurrencyCode))
+	if strings.TrimSpace(input.Title) == "" || !isValidPaymentReceiptDirection(direction) || !isValidCurrencyCode(currencyCode) {
+		return documents.Document{}, PaymentReceiptDocument{}, ErrInvalidPaymentReceipt
+	}
+
+	if err := validatePartyContactPairTx(ctx, tx, input.Actor.OrgID, input.CounterpartyID, input.CounterpartyContactID, ErrInvalidPaymentReceipt); err != nil {
+		return documents.Document{}, PaymentReceiptDocument{}, err
+	}
+
+	document, err := s.documents.CreateDraftTx(ctx, tx, documents.CreateDraftInput{
+		TypeCode: "payment_receipt",
+		Title:    strings.TrimSpace(input.Title),
+		Actor:    input.Actor,
+	})
+	if err != nil {
+		return documents.Document{}, PaymentReceiptDocument{}, fmt.Errorf("create payment receipt document: %w", err)
+	}
+
+	payload, err := scanPaymentReceiptDocument(tx.QueryRowContext(ctx, `
+INSERT INTO accounting.payment_receipt_documents (
+	document_id,
+	org_id,
+	direction,
+	counterparty_id,
+	counterparty_contact_id,
+	currency_code,
+	reference_value,
+	summary,
+	created_by_user_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING
+	document_id,
+	org_id,
+	direction,
+	counterparty_id,
+	counterparty_contact_id,
+	currency_code,
+	reference_value,
+	summary,
+	created_by_user_id,
+	created_at,
+	updated_at;`,
+		document.ID,
+		input.Actor.OrgID,
+		direction,
+		nullIfEmpty(strings.TrimSpace(input.CounterpartyID)),
+		nullIfEmpty(strings.TrimSpace(input.CounterpartyContactID)),
+		currencyCode,
+		strings.TrimSpace(input.ReferenceValue),
+		strings.TrimSpace(input.Summary),
+		input.Actor.UserID,
+	))
+	if err != nil {
+		return documents.Document{}, PaymentReceiptDocument{}, fmt.Errorf("insert payment receipt payload: %w", err)
+	}
+
+	return document, payload, nil
 }
 
 func createLedgerAccountTx(ctx context.Context, tx *sql.Tx, input CreateLedgerAccountInput) (LedgerAccount, error) {
@@ -1838,6 +2133,135 @@ FOR UPDATE;`
 	return nil
 }
 
+func validateAccountingDocumentOwnershipTx(ctx context.Context, tx *sql.Tx, orgID, documentID string) error {
+	const query = `
+SELECT type_code
+FROM documents.documents
+WHERE org_id = $1
+  AND id = $2
+FOR UPDATE;`
+
+	var typeCode string
+	if err := tx.QueryRowContext(ctx, query, orgID, documentID).Scan(&typeCode); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return documents.ErrDocumentNotFound
+		}
+		return fmt.Errorf("load posting document: %w", err)
+	}
+
+	switch typeCode {
+	case "invoice":
+		var exists bool
+		if err := tx.QueryRowContext(ctx, `
+SELECT EXISTS(
+	SELECT 1
+	FROM accounting.invoice_documents
+	WHERE org_id = $1
+	  AND document_id = $2
+);`, orgID, documentID).Scan(&exists); err != nil {
+			return fmt.Errorf("check invoice payload: %w", err)
+		}
+		if !exists {
+			return ErrInvoiceDocumentNotFound
+		}
+	case "payment_receipt":
+		var exists bool
+		if err := tx.QueryRowContext(ctx, `
+SELECT EXISTS(
+	SELECT 1
+	FROM accounting.payment_receipt_documents
+	WHERE org_id = $1
+	  AND document_id = $2
+);`, orgID, documentID).Scan(&exists); err != nil {
+			return fmt.Errorf("check payment receipt payload: %w", err)
+		}
+		if !exists {
+			return ErrPaymentReceiptNotFound
+		}
+	}
+
+	return nil
+}
+
+func validatePartyContactPairTx(ctx context.Context, tx *sql.Tx, orgID, partyID, contactID string, invalidErr error) error {
+	trimmedPartyID := strings.TrimSpace(partyID)
+	trimmedContactID := strings.TrimSpace(contactID)
+	if trimmedContactID != "" && trimmedPartyID == "" {
+		return invalidErr
+	}
+
+	if trimmedPartyID == "" {
+		return nil
+	}
+
+	var partyExists bool
+	if err := tx.QueryRowContext(ctx, `
+SELECT EXISTS(
+	SELECT 1
+	FROM parties.parties
+	WHERE org_id = $1
+	  AND id = $2
+	  AND status = 'active'
+);`, orgID, trimmedPartyID).Scan(&partyExists); err != nil {
+		return fmt.Errorf("check party: %w", err)
+	}
+	if !partyExists {
+		return invalidErr
+	}
+
+	if trimmedContactID == "" {
+		return nil
+	}
+
+	var contactExists bool
+	if err := tx.QueryRowContext(ctx, `
+SELECT EXISTS(
+	SELECT 1
+	FROM parties.contacts
+	WHERE org_id = $1
+	  AND id = $2
+	  AND party_id = $3
+	  AND status = 'active'
+);`, orgID, trimmedContactID, trimmedPartyID).Scan(&contactExists); err != nil {
+		return fmt.Errorf("check contact: %w", err)
+	}
+	if !contactExists {
+		return invalidErr
+	}
+
+	return nil
+}
+
+func isValidInvoiceRole(value string) bool {
+	switch value {
+	case InvoiceRoleSales, InvoiceRolePurchase:
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizeInvoiceRole(value string) string {
+	role := strings.TrimSpace(value)
+	if role == "" {
+		return InvoiceRoleSales
+	}
+	return role
+}
+
+func isValidPaymentReceiptDirection(value string) bool {
+	switch value {
+	case PaymentReceiptDirectionPayment, PaymentReceiptDirectionReceipt:
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizePaymentReceiptDirection(value string) string {
+	return strings.TrimSpace(value)
+}
+
 func ensureNoPeriodOverlapTx(ctx context.Context, tx *sql.Tx, orgID, periodID string, startOn, endOn time.Time) error {
 	const query = `
 SELECT 1
@@ -2280,6 +2704,13 @@ WHERE org_id = $1
 	return doc, nil
 }
 
+func nullableString(value sql.NullString) any {
+	if !value.Valid {
+		return nil
+	}
+	return value.String
+}
+
 type rowScanner interface {
 	Scan(dest ...any) error
 }
@@ -2290,6 +2721,48 @@ type txRow struct {
 
 func (r txRow) Scan(dest ...any) error {
 	return r.row.Scan(dest...)
+}
+
+func scanInvoiceDocument(row rowScanner) (InvoiceDocument, error) {
+	var doc InvoiceDocument
+	err := row.Scan(
+		&doc.DocumentID,
+		&doc.OrgID,
+		&doc.InvoiceRole,
+		&doc.BilledPartyID,
+		&doc.BillingContactID,
+		&doc.CurrencyCode,
+		&doc.ReferenceValue,
+		&doc.Summary,
+		&doc.CreatedByUserID,
+		&doc.CreatedAt,
+		&doc.UpdatedAt,
+	)
+	if err != nil {
+		return InvoiceDocument{}, err
+	}
+	return doc, nil
+}
+
+func scanPaymentReceiptDocument(row rowScanner) (PaymentReceiptDocument, error) {
+	var doc PaymentReceiptDocument
+	err := row.Scan(
+		&doc.DocumentID,
+		&doc.OrgID,
+		&doc.Direction,
+		&doc.CounterpartyID,
+		&doc.CounterpartyContactID,
+		&doc.CurrencyCode,
+		&doc.ReferenceValue,
+		&doc.Summary,
+		&doc.CreatedByUserID,
+		&doc.CreatedAt,
+		&doc.UpdatedAt,
+	)
+	if err != nil {
+		return PaymentReceiptDocument{}, err
+	}
+	return doc, nil
 }
 
 func scanLedgerAccount(row rowScanner) (LedgerAccount, error) {

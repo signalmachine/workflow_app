@@ -92,6 +92,8 @@ TRUNCATE TABLE
 	accounting.journal_lines,
 	accounting.journal_entries,
 	accounting.journal_numbering_series,
+	accounting.payment_receipt_documents,
+	accounting.invoice_documents,
 	accounting.tax_codes,
 	accounting.periods,
 	accounting.ledger_accounts,

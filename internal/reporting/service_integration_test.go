@@ -250,7 +250,7 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 		t.Fatalf("post material costs: %v", err)
 	}
 
-	gstInvoiceDoc := prepareApprovedDocumentOfType(t, ctx, documentService, workflowService, operator, approver, "invoice", "GST invoice")
+	gstInvoiceDoc := prepareApprovedInvoiceDocument(t, ctx, accountingService, documentService, workflowService, operator, approver, "GST invoice")
 	gstPostedAt := time.Date(2026, 3, 22, 10, 0, 0, 0, time.UTC)
 	gstEntry, _, _, err := accountingService.PostDocument(ctx, accounting.PostDocumentInput{
 		DocumentID:   gstInvoiceDoc.ID,
@@ -269,7 +269,7 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 		t.Fatalf("post GST document: %v", err)
 	}
 
-	tdsBillDoc := prepareApprovedDocumentOfType(t, ctx, documentService, workflowService, operator, approver, "invoice", "TDS bill")
+	tdsBillDoc := prepareApprovedInvoiceDocument(t, ctx, accountingService, documentService, workflowService, operator, approver, "TDS bill")
 	tdsPostedAt := gstPostedAt.Add(24 * time.Hour)
 	tdsEntry, _, _, err := accountingService.PostDocument(ctx, accounting.PostDocumentInput{
 		DocumentID:   tdsBillDoc.ID,
@@ -655,6 +655,50 @@ func createWorker(t *testing.T, ctx context.Context, service *workforce.Service,
 		t.Fatalf("create worker: %v", err)
 	}
 	return worker
+}
+
+func prepareApprovedInvoiceDocument(t *testing.T, ctx context.Context, accountingService *accounting.Service, documentService *documents.Service, workflowService *workflow.Service, operator, approver identityaccess.Actor, title string) documents.Document {
+	t.Helper()
+
+	doc, _, err := accountingService.CreateInvoice(ctx, accounting.CreateInvoiceInput{
+		Title:        title,
+		InvoiceRole:  accounting.InvoiceRoleSales,
+		CurrencyCode: "INR",
+		Summary:      title,
+		Actor:        operator,
+	})
+	if err != nil {
+		t.Fatalf("create invoice: %v", err)
+	}
+
+	doc, err = documentService.Submit(ctx, documents.SubmitInput{
+		DocumentID: doc.ID,
+		Actor:      operator,
+	})
+	if err != nil {
+		t.Fatalf("submit invoice: %v", err)
+	}
+
+	approval, err := workflowService.RequestApproval(ctx, workflow.RequestApprovalInput{
+		DocumentID: doc.ID,
+		QueueCode:  "finance-review",
+		Reason:     "ready for review",
+		Actor:      operator,
+	})
+	if err != nil {
+		t.Fatalf("request approval: %v", err)
+	}
+
+	_, doc, err = workflowService.DecideApproval(ctx, workflow.DecideApprovalInput{
+		ApprovalID: approval.ID,
+		Decision:   "approved",
+		Actor:      approver,
+	})
+	if err != nil {
+		t.Fatalf("decide approval: %v", err)
+	}
+
+	return doc
 }
 
 func prepareApprovedDocumentOfType(t *testing.T, ctx context.Context, documentService *documents.Service, workflowService *workflow.Service, operator, approver identityaccess.Actor, typeCode, title string) documents.Document {

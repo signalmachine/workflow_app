@@ -12,6 +12,7 @@ import (
 	"workflow_app/internal/documents"
 	"workflow_app/internal/identityaccess"
 	"workflow_app/internal/inventoryops"
+	"workflow_app/internal/parties"
 	"workflow_app/internal/testsupport/dbtest"
 	"workflow_app/internal/workflow"
 	"workflow_app/internal/workforce"
@@ -42,7 +43,7 @@ func TestPostDocumentIntegration(t *testing.T) {
 	workflowService := workflow.NewService(db, documentService)
 	accountingService := accounting.NewService(db, documentService)
 
-	doc := prepareApprovedDocument(t, ctx, documentService, workflowService, operator, approver)
+	doc := prepareApprovedInvoiceDocument(t, ctx, accountingService, documentService, workflowService, operator, approver)
 
 	receivable := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
 		Code:                "1100",
@@ -150,7 +151,7 @@ func TestCreateTaxCodeAndUseItInPostingIntegration(t *testing.T) {
 	workflowService := workflow.NewService(db, documentService)
 	accountingService := accounting.NewService(db, documentService)
 
-	doc := prepareApprovedDocument(t, ctx, documentService, workflowService, operator, approver)
+	doc := prepareApprovedInvoiceDocument(t, ctx, accountingService, documentService, workflowService, operator, approver)
 
 	receivable := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
 		Code:                "1100",
@@ -207,6 +208,169 @@ func TestCreateTaxCodeAndUseItInPostingIntegration(t *testing.T) {
 	}
 	if !lines[2].TaxCode.Valid || lines[2].TaxCode.String != gst18.Code {
 		t.Fatalf("unexpected tax code on journal line: %+v", lines[2].TaxCode)
+	}
+}
+
+func TestCreateAdoptedAccountingDocumentsIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
+
+	documentService := documents.NewService(db)
+	accountingService := accounting.NewService(db, documentService)
+	partiesService := parties.NewService(db)
+
+	customer := createParty(t, ctx, partiesService, parties.CreatePartyInput{
+		PartyCode:   "CUST-1001",
+		DisplayName: "Acme Customer",
+		LegalName:   "Acme Customer Pvt Ltd",
+		PartyKind:   parties.PartyKindCustomerVendor,
+		Actor:       operator,
+	})
+	contact := createContact(t, ctx, partiesService, parties.CreateContactInput{
+		PartyID:   customer.ID,
+		FullName:  "Taylor Example",
+		RoleTitle: "Finance",
+		Email:     "taylor@example.com",
+		IsPrimary: true,
+		Actor:     operator,
+	})
+
+	invoiceDoc, invoicePayload, err := accountingService.CreateInvoice(ctx, accounting.CreateInvoiceInput{
+		Title:            "Customer invoice",
+		InvoiceRole:      accounting.InvoiceRoleSales,
+		BilledPartyID:    customer.ID,
+		BillingContactID: contact.ID,
+		CurrencyCode:     "INR",
+		ReferenceValue:   "INV-REF-1001",
+		Summary:          "Monthly services",
+		Actor:            operator,
+	})
+	if err != nil {
+		t.Fatalf("create invoice: %v", err)
+	}
+	if invoiceDoc.TypeCode != "invoice" || invoicePayload.DocumentID != invoiceDoc.ID {
+		t.Fatalf("unexpected invoice ownership result: doc=%+v payload=%+v", invoiceDoc, invoicePayload)
+	}
+	if !invoicePayload.BilledPartyID.Valid || invoicePayload.BilledPartyID.String != customer.ID {
+		t.Fatalf("unexpected invoice billed party: %+v", invoicePayload.BilledPartyID)
+	}
+	if !invoicePayload.BillingContactID.Valid || invoicePayload.BillingContactID.String != contact.ID {
+		t.Fatalf("unexpected invoice billing contact: %+v", invoicePayload.BillingContactID)
+	}
+
+	paymentDoc, paymentPayload, err := accountingService.CreatePaymentReceipt(ctx, accounting.CreatePaymentReceiptInput{
+		Title:                 "Customer receipt",
+		Direction:             accounting.PaymentReceiptDirectionReceipt,
+		CounterpartyID:        customer.ID,
+		CounterpartyContactID: contact.ID,
+		CurrencyCode:          "INR",
+		ReferenceValue:        "RCPT-1001",
+		Summary:               "Receipt against invoice",
+		Actor:                 operator,
+	})
+	if err != nil {
+		t.Fatalf("create payment receipt: %v", err)
+	}
+	if paymentDoc.TypeCode != "payment_receipt" || paymentPayload.DocumentID != paymentDoc.ID {
+		t.Fatalf("unexpected payment receipt ownership result: doc=%+v payload=%+v", paymentDoc, paymentPayload)
+	}
+	if !paymentPayload.Direction.Valid || paymentPayload.Direction.String != accounting.PaymentReceiptDirectionReceipt {
+		t.Fatalf("unexpected payment receipt direction: %+v", paymentPayload.Direction)
+	}
+
+	var invoicePayloadCount int
+	if err := db.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM accounting.invoice_documents
+WHERE org_id = $1
+  AND document_id = $2;`,
+		orgID,
+		invoiceDoc.ID,
+	).Scan(&invoicePayloadCount); err != nil {
+		t.Fatalf("count invoice payload rows: %v", err)
+	}
+	if invoicePayloadCount != 1 {
+		t.Fatalf("unexpected invoice payload count: %d", invoicePayloadCount)
+	}
+
+	var paymentPayloadCount int
+	if err := db.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM accounting.payment_receipt_documents
+WHERE org_id = $1
+  AND document_id = $2;`,
+		orgID,
+		paymentDoc.ID,
+	).Scan(&paymentPayloadCount); err != nil {
+		t.Fatalf("count payment receipt payload rows: %v", err)
+	}
+	if paymentPayloadCount != 1 {
+		t.Fatalf("unexpected payment receipt payload count: %d", paymentPayloadCount)
+	}
+}
+
+func TestPostDocumentRejectsBareInvoiceWithoutPayloadIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
+
+	_, approverUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleApprover, orgID)
+	approverSession := startSession(t, ctx, db, orgID, approverUserID)
+	approver := identityaccess.Actor{OrgID: orgID, UserID: approverUserID, SessionID: approverSession.ID}
+
+	_, adminUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleAdmin, orgID)
+	adminSession := startSession(t, ctx, db, orgID, adminUserID)
+	admin := identityaccess.Actor{OrgID: orgID, UserID: adminUserID, SessionID: adminSession.ID}
+
+	documentService := documents.NewService(db)
+	workflowService := workflow.NewService(db, documentService)
+	accountingService := accounting.NewService(db, documentService)
+
+	doc := prepareApprovedDocumentOfType(t, ctx, documentService, workflowService, operator, approver, "invoice", "Bare invoice")
+
+	receivable := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:                "1100",
+		Name:                "Accounts Receivable",
+		AccountClass:        accounting.AccountClassAsset,
+		ControlType:         accounting.ControlTypeReceivable,
+		AllowsDirectPosting: false,
+		Actor:               admin,
+	})
+	revenue := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:         "4000",
+		Name:         "Service Revenue",
+		AccountClass: accounting.AccountClassRevenue,
+		Actor:        admin,
+	})
+
+	_, _, _, err := accountingService.PostDocument(ctx, accounting.PostDocumentInput{
+		DocumentID:   doc.ID,
+		Summary:      "Post bare invoice",
+		CurrencyCode: "INR",
+		TaxScopeCode: accounting.TaxScopeNone,
+		Lines: []accounting.PostingLineInput{
+			{AccountID: receivable.ID, Description: "Customer receivable", DebitMinor: 100000},
+			{AccountID: revenue.ID, Description: "Recognized revenue", CreditMinor: 100000},
+		},
+		Actor: admin,
+	})
+	if !errors.Is(err, accounting.ErrInvoiceDocumentNotFound) {
+		t.Fatalf("unexpected bare invoice posting error: got %v want %v", err, accounting.ErrInvoiceDocumentNotFound)
 	}
 }
 
@@ -588,9 +752,9 @@ func TestPostDocumentRejectsMissingOrMismatchedTaxCodes(t *testing.T) {
 	workflowService := workflow.NewService(db, documentService)
 	accountingService := accounting.NewService(db, documentService)
 
-	docWithoutTaxCode := prepareApprovedDocument(t, ctx, documentService, workflowService, operator, approver)
-	docWithUnknownTaxCode := prepareApprovedDocument(t, ctx, documentService, workflowService, operator, approver)
-	docWithWrongTaxType := prepareApprovedDocument(t, ctx, documentService, workflowService, operator, approver)
+	docWithoutTaxCode := prepareApprovedInvoiceDocument(t, ctx, accountingService, documentService, workflowService, operator, approver)
+	docWithUnknownTaxCode := prepareApprovedInvoiceDocument(t, ctx, accountingService, documentService, workflowService, operator, approver)
+	docWithWrongTaxType := prepareApprovedInvoiceDocument(t, ctx, accountingService, documentService, workflowService, operator, approver)
 
 	receivable := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
 		Code:                "1100",
@@ -694,7 +858,7 @@ func TestReverseDocumentIntegration(t *testing.T) {
 	workflowService := workflow.NewService(db, documentService)
 	accountingService := accounting.NewService(db, documentService)
 
-	doc := prepareApprovedDocument(t, ctx, documentService, workflowService, operator, approver)
+	doc := prepareApprovedInvoiceDocument(t, ctx, accountingService, documentService, workflowService, operator, approver)
 
 	receivable := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
 		Code:                "1100",
@@ -850,7 +1014,7 @@ func TestAccountingPeriodsControlPostingAndReversalIntegration(t *testing.T) {
 		t.Fatalf("create accounting period: %v", err)
 	}
 
-	docForPosting := prepareApprovedDocument(t, ctx, documentService, workflowService, operator, approver)
+	docForPosting := prepareApprovedInvoiceDocument(t, ctx, accountingService, documentService, workflowService, operator, approver)
 	entry, _, _, err := accountingService.PostDocument(ctx, accounting.PostDocumentInput{
 		DocumentID:   docForPosting.ID,
 		Summary:      "Post inside open period",
@@ -881,7 +1045,7 @@ func TestAccountingPeriodsControlPostingAndReversalIntegration(t *testing.T) {
 		t.Fatalf("unexpected period status: %s", period.Status)
 	}
 
-	docBlockedByClosedPeriod := prepareApprovedDocument(t, ctx, documentService, workflowService, operator, approver)
+	docBlockedByClosedPeriod := prepareApprovedInvoiceDocument(t, ctx, accountingService, documentService, workflowService, operator, approver)
 	_, _, _, err = accountingService.PostDocument(ctx, accounting.PostDocumentInput{
 		DocumentID:   docBlockedByClosedPeriod.ID,
 		Summary:      "Blocked by closed period",
@@ -990,7 +1154,7 @@ func TestListJournalEntriesAndControlAccountBalancesIntegration(t *testing.T) {
 	dayTwo := dayOne.Add(24 * time.Hour)
 	dayThree := dayTwo.Add(24 * time.Hour)
 
-	docOne := prepareApprovedDocument(t, ctx, documentService, workflowService, operator, approver)
+	docOne := prepareApprovedInvoiceDocument(t, ctx, accountingService, documentService, workflowService, operator, approver)
 	postOne, _, _, err := accountingService.PostDocument(ctx, accounting.PostDocumentInput{
 		DocumentID:   docOne.ID,
 		Summary:      "Invoice one",
@@ -1018,7 +1182,7 @@ func TestListJournalEntriesAndControlAccountBalancesIntegration(t *testing.T) {
 		t.Fatalf("reverse first document: %v", err)
 	}
 
-	docTwo := prepareApprovedDocument(t, ctx, documentService, workflowService, operator, approver)
+	docTwo := prepareApprovedInvoiceDocument(t, ctx, accountingService, documentService, workflowService, operator, approver)
 	postTwo, _, _, err := accountingService.PostDocument(ctx, accounting.PostDocumentInput{
 		DocumentID:   docTwo.ID,
 		Summary:      "Invoice two",
@@ -1130,7 +1294,7 @@ func TestJournalBalanceConstraintAtDatabaseBoundary(t *testing.T) {
 	workflowService := workflow.NewService(db, documentService)
 	accountingService := accounting.NewService(db, documentService)
 
-	doc := prepareApprovedDocument(t, ctx, documentService, workflowService, operator, approver)
+	doc := prepareApprovedInvoiceDocument(t, ctx, accountingService, documentService, workflowService, operator, approver)
 	receivable := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
 		Code:                "1100",
 		Name:                "Accounts Receivable",
@@ -1192,9 +1356,26 @@ INSERT INTO accounting.journal_lines (
 	}
 }
 
-func prepareApprovedDocument(t *testing.T, ctx context.Context, documentService *documents.Service, workflowService *workflow.Service, operator, approver identityaccess.Actor) documents.Document {
+func prepareApprovedInvoiceDocument(t *testing.T, ctx context.Context, accountingService *accounting.Service, documentService *documents.Service, workflowService *workflow.Service, operator, approver identityaccess.Actor) documents.Document {
 	t.Helper()
-	return prepareApprovedDocumentOfType(t, ctx, documentService, workflowService, operator, approver, "invoice", "Approved invoice")
+
+	doc, _, err := accountingService.CreateInvoice(ctx, accounting.CreateInvoiceInput{
+		Title:        "Approved invoice",
+		InvoiceRole:  accounting.InvoiceRoleSales,
+		CurrencyCode: "INR",
+		Summary:      "Approved invoice",
+		Actor:        operator,
+	})
+	if err != nil {
+		t.Fatalf("create invoice: %v", err)
+	}
+
+	doc, err = submitAndApproveDocument(ctx, documentService, workflowService, operator, approver, doc)
+	if err != nil {
+		t.Fatalf("approve invoice: %v", err)
+	}
+
+	return doc
 }
 
 func prepareApprovedDocumentOfType(t *testing.T, ctx context.Context, documentService *documents.Service, workflowService *workflow.Service, operator, approver identityaccess.Actor, typeCode, title string) documents.Document {
@@ -1209,12 +1390,21 @@ func prepareApprovedDocumentOfType(t *testing.T, ctx context.Context, documentSe
 		t.Fatalf("create draft: %v", err)
 	}
 
-	doc, err = documentService.Submit(ctx, documents.SubmitInput{
+	doc, err = submitAndApproveDocument(ctx, documentService, workflowService, operator, approver, doc)
+	if err != nil {
+		t.Fatalf("approve document: %v", err)
+	}
+
+	return doc
+}
+
+func submitAndApproveDocument(ctx context.Context, documentService *documents.Service, workflowService *workflow.Service, operator, approver identityaccess.Actor, doc documents.Document) (documents.Document, error) {
+	documentServiceDoc, err := documentService.Submit(ctx, documents.SubmitInput{
 		DocumentID: doc.ID,
 		Actor:      operator,
 	})
 	if err != nil {
-		t.Fatalf("submit document: %v", err)
+		return documents.Document{}, err
 	}
 
 	approval, err := workflowService.RequestApproval(ctx, workflow.RequestApprovalInput{
@@ -1224,20 +1414,20 @@ func prepareApprovedDocumentOfType(t *testing.T, ctx context.Context, documentSe
 		Actor:      operator,
 	})
 	if err != nil {
-		t.Fatalf("request approval: %v", err)
+		return documents.Document{}, err
 	}
 
-	_, doc, err = workflowService.DecideApproval(ctx, workflow.DecideApprovalInput{
+	_, documentServiceDoc, err = workflowService.DecideApproval(ctx, workflow.DecideApprovalInput{
 		ApprovalID:   approval.ID,
 		Decision:     "approved",
 		DecisionNote: "approved for posting",
 		Actor:        approver,
 	})
 	if err != nil {
-		t.Fatalf("decide approval: %v", err)
+		return documents.Document{}, err
 	}
 
-	return doc
+	return documentServiceDoc, nil
 }
 
 func createLedgerAccount(t *testing.T, ctx context.Context, service *accounting.Service, input accounting.CreateLedgerAccountInput) accounting.LedgerAccount {
@@ -1258,6 +1448,26 @@ func createTaxCode(t *testing.T, ctx context.Context, service *accounting.Servic
 		t.Fatalf("create tax code %s: %v", input.Code, err)
 	}
 	return taxCode
+}
+
+func createParty(t *testing.T, ctx context.Context, service *parties.Service, input parties.CreatePartyInput) parties.Party {
+	t.Helper()
+
+	party, err := service.CreateParty(ctx, input)
+	if err != nil {
+		t.Fatalf("create party %s: %v", input.PartyCode, err)
+	}
+	return party
+}
+
+func createContact(t *testing.T, ctx context.Context, service *parties.Service, input parties.CreateContactInput) parties.Contact {
+	t.Helper()
+
+	contact, err := service.CreateContact(ctx, input)
+	if err != nil {
+		t.Fatalf("create contact %s: %v", input.FullName, err)
+	}
+	return contact
 }
 
 func createInventoryItem(t *testing.T, ctx context.Context, service *inventoryops.Service, input inventoryops.CreateItemInput) inventoryops.Item {

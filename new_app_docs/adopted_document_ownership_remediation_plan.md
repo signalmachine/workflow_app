@@ -1,14 +1,14 @@
 # workflow_app Adopted Document Ownership Remediation Plan
 
 Date: 2026-03-21
-Status: In-progress targeted remediation plan
-Purpose: define the implementation slice that closes the remaining thin-v1 adopted document-family ownership gaps before later interaction foundations land on top of an unstable document model.
+Status: Completed implementation slice
+Purpose: record the completed implementation slice that closed the remaining thin-v1 adopted document-family ownership gaps before later interaction foundations land on top of an unstable document model.
 
 ## 1. Problem statement
 
 The canonical thin-v1 plan now requires one-to-one payload ownership for adopted `work_order`, `invoice`, and `payment or receipt` document families.
 
-Current state:
+Current state before the slice:
 
 1. inventory document families already have inventory-owned payload rows keyed one-to-one by `document_id`
 2. `work_orders` now uses a thin work-order document payload bridge keyed by `document_id` with a unique link into execution truth
@@ -132,7 +132,17 @@ Recommended minimum payload:
 2. reporting queries may need careful refactoring so they do not accidentally duplicate truth between `documents` and the new payload tables
 3. the landed work-order bridge intentionally avoids a direct `document_id` primary-key migration, so later collapse should be reconsidered only if it delivers clear value
 
-## 7. Success criteria
+## 7. Outcome
+
+Landed implementation:
+
+1. `accounting.invoice_documents` now owns invoice payload truth through a one-to-one `document_id` bridge back to `documents.documents`
+2. `accounting.payment_receipt_documents` now owns payment or receipt payload truth through the same one-to-one `document_id` bridge pattern
+3. accounting service flows now create the shared document row and the module-owned payload row transactionally for both adopted accounting document families
+4. posting now rejects bare `invoice` documents that bypass adopted payload ownership
+5. integration tests now cover invoice and payment-or-receipt payload ownership plus migration backfill behavior
+
+## 8. Success criteria
 
 This remediation slice is complete only when:
 

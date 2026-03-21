@@ -75,6 +75,7 @@ For implementation work:
 - run `go build ./...` before closing out the task
 - run `set -a; source .env; set +a; go test -p 1 ./...` before closing out the task when code or persistence behavior changed
 - if migrations or persistence behavior change, verify against the configured development and test databases unless an explicit blocker is documented
+- while the application remains pre-production, it is acceptable to drop and recreate the configured test database to recover from schema drift, failed migration experiments, or other disposable development-state issues
 
 ## Commit & Pull Request Guidelines
 
