@@ -53,6 +53,11 @@ Tenant model rule:
 6. workers
 7. tax-foundation records for GST and TDS baseline
 
+Master-record rule:
+
+1. thin v1 must include the minimum party and contact support depth required for invoice, payment or receipt, trading inventory, and service execution document flows
+2. party and contact support depth is required foundation even though it does not justify a primary CRM module
+
 ### 2.3 Document foundation
 
 1. shared document identity
@@ -70,6 +75,11 @@ Tenant model rule:
 13. AI-created draft proposals and pending actions
 14. documents remain editable only until finalized and posted where applicable
 15. project-linked inventory consumption in v1 uses the same supported inventory issue or adjustment document families with execution-context linkage rather than a separate project-document family
+
+Document-family adoption rule:
+
+1. a supported thin-v1 document family is not implementation-complete until its owning module has one payload row linked one-to-one to the central `documents` row
+2. thin v1 therefore includes the minimum owning payload implementations for work-order, invoice, payment or receipt, and inventory document families
 
 ### 2.4 Accounting foundation
 

@@ -25,15 +25,18 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 | Milestone 3 inventory foundation | done | The inventory foundation now includes `inventory_ops` items, locations, movement numbering, append-only movements, derived stock balances, inventory-owned document payload and line records, explicit execution and accounting handoffs, and costed inventory-accounting handoffs consumed through centralized journal posting covered by integration tests |
 | Milestone 4 execution foundation | done | `work_orders` now includes first-class work-order records, append-only execution status history, transactional consumption of pending inventory execution links into work-order material-usage truth, workflow-owned work-order tasks with one accountable worker, workforce-owned labor capture with cost snapshots, and centralized accounting consumption of both labor and work-order-linked inventory handoffs covered by integration tests |
 | Milestone 5 review and reporting surfaces | in_progress | `reporting` now exposes approval queue, document, accounting journal review, control-account balance review, GST/TDS tax summaries, inventory stock, inventory movement review, inventory reconciliation review, work-order, and audit lookup surfaces covered by integration tests |
+| Remaining thin-v1 support-record and adopted-document gaps | in_progress | thin v1 still requires minimum parties and contacts plus owning payload completion for work-order, invoice, and payment or receipt document families before the foundation can be considered complete |
 
 ## 2. Immediate next steps
 
-1. continue Milestone 5 from the new inventory movement and reconciliation review slice into the remaining reporting polish needed for thin-v1 operator review
-2. keep the codebase limited to the approved first-class modules while reporting depth expands
-3. add attachments only where they support approval evidence or document support flows
-4. use `new_app_v1_gap_review_from_current_codebase.md` as the reference list of remaining missing foundation areas after the broader inventory reporting slice
-5. use `new_app_implementation_defaults.md` as the default-rules reference during implementation
-6. use `new_app_foundation_coverage.md` as the v1 completion checklist and foundation coverage control
+1. implement minimum party and contact support depth needed by thin-v1 invoice, payment or receipt, trading inventory, and service execution flows
+2. complete adopted document-family ownership for work-order, invoice, and payment or receipt payloads with one-to-one linkage back to the shared `documents` kernel
+3. finish the remaining Milestone 5 reporting polish after those support-record and adopted-document foundations land
+4. keep the codebase limited to the approved first-class modules while thin-v1 foundation completion continues
+5. add attachments only where they support approval evidence or document support flows
+6. use `new_app_v1_gap_review_from_current_codebase.md` as the reference list of remaining missing foundation areas
+7. use `new_app_implementation_defaults.md` as the default-rules reference during implementation
+8. use `new_app_foundation_coverage.md` as the v1 completion checklist and foundation coverage control
 
 ## 3. Scope guardrail
 

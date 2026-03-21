@@ -13,8 +13,8 @@ The biggest issue is not lack of sophistication. The biggest issue is uneven sop
 1. identity, auth, audit, idempotency, AI traceability, and parts of workflow are already credible
 2. accounting, documents, and the first inventory movement foundation now have serious kernels
 3. workforce, work-order execution, and the inventory-to-accounting bridge now have credible foundation slices
-4. reporting and review surfaces are still materially missing
-4. CRM depth is much heavier than the remaining missing foundation layers
+4. support-record and adopted-document completion still lag the intended thin-v1 foundation shape
+5. CRM depth is much heavier than the remaining missing foundation layers
 
 This confirms that `workflow_app` should start new rather than trying to trim the current codebase into shape.
 
@@ -46,10 +46,19 @@ Still missing or not complete enough:
 Still missing or not complete enough:
 
 1. broader supported document-family adoption beyond the current accounting-linked kernel
-2. stronger shared lifecycle participation for later invoice, payment, inventory, and work-order document families
-3. fuller shared numbering strategy for all supported foundation document families
+2. owning payload completion for adopted work-order, invoice, and payment or receipt document families so the one-to-one document ownership rule is actually satisfied
+3. stronger shared lifecycle participation for later invoice, payment, inventory, and work-order document families
+4. fuller shared numbering strategy for all supported foundation document families
 
-### 3.3 Accounting and tax gaps
+### 3.3 Support-record gaps
+
+Still missing or not complete enough:
+
+1. minimum party support required by invoice, payment or receipt, trading inventory, and service execution flows is not yet implemented
+2. contact support depth remains missing even though thin v1 treats it as required support detail rather than optional CRM breadth
+3. these records must land as support depth, not as a revived primary CRM module
+
+### 3.4 Accounting and tax gaps
 
 Still missing or not complete enough:
 
@@ -57,7 +66,7 @@ Still missing or not complete enough:
 2. fuller posting flows from operational documents into accounting truth
 3. explicit GST and TDS baseline implementation at the intended foundation depth
 
-### 3.4 Inventory gaps
+### 3.5 Inventory gaps
 
 Partially addressed, but not yet complete enough:
 
@@ -68,7 +77,7 @@ Partially addressed, but not yet complete enough:
 5. pending work-order-linked inventory handoffs can now be consumed through centralized accounting posting without crossing ownership boundaries
 6. remaining inventory depth is now concentrated around future traceable-unit detail and review/reporting surfaces rather than basic document ownership
 
-### 3.5 Workforce and execution gaps
+### 3.6 Workforce and execution gaps
 
 Partially addressed, but not yet complete enough:
 
@@ -76,9 +85,10 @@ Partially addressed, but not yet complete enough:
 2. labor capture now exists with first cost-rate snapshotting on append-only labor entries
 3. task and accountable-owner depth now exists through shared `workflow.tasks` linked to work orders with one accountable worker
 4. execution linkage now reaches accounting outcomes for both labor and the first work-order material-usage slice
-5. remaining execution depth is now concentrated around broader costing breadth, non-work-order execution linkage, and review/reporting surfaces
+5. work-order execution truth still needs canonical one-to-one document ownership completion rather than document-type support alone
+6. remaining execution depth is now concentrated around broader costing breadth, non-work-order execution linkage, and review/reporting surfaces
 
-### 3.6 Reporting gaps
+### 3.7 Reporting gaps
 
 Partially addressed, but not yet complete enough:
 
@@ -95,19 +105,21 @@ The current repository is most advanced where the replacement thin-v1 plan wants
 That mismatch is:
 
 1. too much CRM depth
-2. inventory depth is improving but still incomplete at the document-handoff and review layers
-3. not enough workforce depth
-4. not enough work-order depth
-5. not enough reporting depth
+2. not enough support-record depth for parties and contacts
+3. inventory depth is improving but still incomplete at the document-handoff and review layers
+4. not enough workforce depth
+5. not enough work-order depth
+6. not enough reporting depth
 
 ## 5. Replacement-codebase implication
 
 `workflow_app` should preserve quality and sophistication, but redirect that sophistication into the correct layers first:
 
 1. stronger first migrations
-2. stronger document kernel
-3. stronger accounting and inventory foundations
-4. stronger execution and labor foundations
-5. stronger reporting and review surfaces
+2. stronger support-record foundation for parties and contacts
+3. stronger document kernel with adopted payload ownership completed
+4. stronger accounting and inventory foundations
+5. stronger execution and labor foundations
+6. stronger reporting and review surfaces
 
 `workflow_app` should not spend early sophistication budget on CRM breadth.

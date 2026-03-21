@@ -51,7 +51,8 @@ Current implementation checkpoint:
 3. the shared document kernel now has central document identity, lifecycle state, and document-family registration
 4. approvals, approval queue entries, and approval decisions are implemented with transactional audit writes
 5. AI tool registry, tool policy, run history, artifacts, recommendations, approval linkage, and delegation traces are implemented for bounded coordinator-to-specialist routing
-6. the next implementation target is Milestone 2 accounting and tax foundation
+6. remaining thin-v1 document-kernel completion is concentrated around adopted payload ownership for work-order, invoice, and payment or receipt document families plus the support records they depend on
+7. this milestone is complete, but thin-v1 still requires adopted payload ownership completion for supported document families before the overall document foundation can be considered complete
 
 ## 3. Milestone 2: Accounting and tax foundation
 
@@ -86,7 +87,7 @@ Current implementation checkpoint:
 4. reversals create explicit reversal entries rather than mutating posted truth
 5. GST and TDS foundation records plus tax-aware posting validation are now implemented
 6. accounting periods, effective-date control, journal review queries, and control-account balance views are now implemented
-7. the next implementation target is Milestone 3 inventory foundation
+7. this milestone is complete and now serves as the accounting base for the remaining thin-v1 support-record and adopted-document work
 
 ## 4. Milestone 3: Inventory foundation
 
@@ -124,7 +125,7 @@ Current implementation checkpoint:
 5. approved inventory document references can now validate compatible receipt, issue, and adjustment movement recording paths
 6. inventory document payload ownership now exists through inventory-owned document header and line records with one-to-one `document_id` linkage back to the shared `documents` kernel
 7. pending accounting handoff rows and pending execution-context links now make downstream inventory outcomes explicit without shifting ownership away from `accounting` or future execution modules
-8. the next implementation target is Milestone 4 execution foundation, starting with work-order execution truth that can consume the pending inventory execution links
+8. this milestone is complete and now serves as the inventory base for the remaining thin-v1 support-record and adopted-document work
 
 ## 5. Milestone 4: Execution foundation
 
@@ -161,7 +162,8 @@ Current implementation checkpoint:
 7. `workforce` now creates pending labor-accounting handoffs from append-only labor truth without writing ledger state directly
 8. `accounting` can now consume approved journal documents plus pending labor handoffs into centralized work-order labor postings while preserving idempotent posting ownership
 9. `inventory_ops` accounting handoffs now carry explicit cost snapshots so `accounting` can consume pending work-order-linked inventory handoffs into centralized material-cost postings without weakening posting ownership
-10. the next implementation target is Milestone 5 review and reporting surfaces
+10. remaining thin-v1 execution completion includes linking adopted work-order payload truth back to the shared document kernel with one-to-one ownership semantics
+11. this milestone is complete in its first execution slice, but thin-v1 still requires adopted work-order document ownership completion
 
 ## 6. Milestone 5: Reports and review
 
@@ -198,7 +200,8 @@ Current implementation checkpoint:
 8. inventory reconciliation review now exposes document-line accounting and execution handoff state, linked work-order context, and posted journal linkage for inventory review without raw SQL
 9. work-order review now exposes task, labor, material-usage, and posted-cost rollups in one inspection surface
 10. audit lookup now exists as a coherent reporting read path scoped to tenant and entity filters
-11. the next implementation target is the remaining Milestone 5 reporting polish after the broader inventory review slice
+11. remaining thin-v1 completion is now concentrated around support-record and adopted-document gaps: minimum party and contact support depth plus owning payload completion for work-order, invoice, and payment or receipt flows
+12. the next implementation target is to complete those remaining thin-v1 foundation gaps before any v2 breadth work begins
 
 ## 7. Execution warning
 

@@ -86,8 +86,9 @@ The highest thin-v1 priorities are:
 5. workforce foundation for assignment, labor capture, and labor costing
 6. accounting and posting foundations
 7. inventory movement foundations
-8. work-order and task execution foundations
-9. report and review surfaces
+8. adopted document-family payload ownership for work-order, invoice, payment or receipt, and inventory flows
+9. work-order and task execution foundations
+10. report and review surfaces
 
 CRM and project depth may remain in the repository where already implemented, but they are support concerns in thin v1 rather than the product center.
 
@@ -187,6 +188,11 @@ High-level document families expected in thin v1:
 5. inventory issue or adjustment documents
 6. journal proposal or journal-entry documents where needed
 7. AI-created draft proposals and pending actions
+
+Thin-v1 completion rule for adopted document families:
+
+1. a supported thin-v1 document family is not considered complete merely because its type is registered in `documents`
+2. adopted thin-v1 work-order, invoice, payment or receipt, and inventory document families should each have their owning payload truth implemented with one-to-one linkage back to the central document row
 
 Canonical numbering rules:
 

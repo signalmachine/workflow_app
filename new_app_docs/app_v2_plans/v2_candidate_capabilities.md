@@ -22,7 +22,27 @@ Candidate v2 work:
 2. project-to-work-order coordination layers
 3. richer dependency and schedule tooling
 
-## 3. Human-interface breadth
+## 3. Trading-company breadth
+
+Candidate v2 work:
+
+1. richer sales-order to fulfillment coordination on top of the shared inventory core
+2. returns, replacement, and fulfillment-exception handling beyond the thin-v1 document kernel
+3. broader procurement and replenishment workflows beyond the minimum shared inventory and accounting foundation
+4. richer customer and vendor operational timelines beyond thin-v1 support-record depth
+5. trading-specific profitability and exception workbenches beyond the thin-v1 review baseline
+
+## 4. Service-company breadth
+
+Candidate v2 work:
+
+1. advanced dispatch and field-service coordination
+2. service-contract or recurring-service workflow depth
+3. broader project and site coordination beyond the thin-v1 execution-context linkage
+4. richer installed-base and service-history surfaces beyond the thin-v1 traceability baseline
+5. service-specific planning and utilization workbenches beyond the thin-v1 review baseline
+
+## 5. Human-interface breadth
 
 Candidate v2 work:
 
@@ -31,7 +51,7 @@ Candidate v2 work:
 3. mobile-product depth beyond the v1 foundation contract
 4. portal surfaces where later justified
 
-## 4. Operational and financial breadth
+## 6. Operational and financial breadth
 
 Candidate v2 work:
 
@@ -41,7 +61,7 @@ Candidate v2 work:
 4. payroll
 5. richer procurement or fulfillment depth if later justified
 
-## 5. Integration and expansion breadth
+## 7. Integration and expansion breadth
 
 Candidate v2 work:
 

@@ -2,7 +2,7 @@
 
 `workflow_app` is an AI-agent-first, database-first business operating system centered on documents, ledgers, execution context, approvals, and reports.
 
-This repository has completed Milestone 0, Milestone 1, Milestone 2, Milestone 3, and Milestone 4 from the canonical planning set in [`new_app_docs/`](./new_app_docs) and is continuing through the thin Milestone 5 review and reporting slice:
+This repository has completed Milestone 0, Milestone 1, Milestone 2, Milestone 3, and Milestone 4 from the canonical planning set in [`new_app_docs/`](./new_app_docs) and is continuing through the remaining thin-v1 foundation slice, including Milestone 5 review and reporting polish plus the still-missing support-record and adopted-document work:
 
 1. bootstrap the Go module
 2. add a migration runner
@@ -59,5 +59,6 @@ Implemented:
 
 Next:
 
-1. continue Milestone 5 from the new inventory movement and reconciliation slice into the remaining thin-v1 reporting polish
-2. keep the thin-v1 module map narrow while reporting depth expands
+1. implement minimum party and contact support depth needed by thin-v1 invoice, payment or receipt, trading inventory, and service execution flows
+2. complete adopted document-family ownership for work-order, invoice, and payment or receipt payloads with one-to-one linkage back to the shared `documents` kernel
+3. finish the remaining thin-v1 reporting polish after those foundation gaps land

@@ -42,6 +42,7 @@ Purpose: record the active defaults that implementation should preserve unless t
 8. every supported business document family uses exactly one central `documents` row per document
 9. the preferred table shape is a direct `document_id` link from the domain payload row to the central `documents` row, with one-to-one semantics enforced
 10. central ownership-routing fields may exist in `documents`, but they do not replace the one-to-one contract between document identity and module-owned payload truth
+11. adopted thin-v1 document families are not complete until their owning payload tables exist, including minimum work-order, invoice, and payment or receipt payload support
 
 ### 2.4 Accounting and posting
 
@@ -61,14 +62,20 @@ Purpose: record the active defaults that implementation should preserve unless t
 7. inventory consumption may attach to work orders or other minimal supported execution contexts without requiring a broad projects module
 8. serialized, lot-tracked, or installed-equipment identity should be preserved where the delivery use case requires it
 
-### 2.6 Workforce and identity
+### 2.6 Support records
+
+1. thin v1 includes minimum party and contact support depth for trading and service document flows
+2. party and contact support records do not justify a primary CRM module
+3. support-record depth should stay anchored to document, accounting, inventory, and execution correctness rather than commercial CRM breadth
+
+### 2.7 Workforce and identity
 
 1. worker identity remains distinct from login identity
 2. external party identity remains distinct from worker identity
 3. worker-linked labor capture is part of thin-v1 foundation, not a v2-only extension
 4. assignment, time capture, and labor costing should fit together without requiring payroll to exist first
 
-### 2.7 Tenant and session model
+### 2.8 Tenant and session model
 
 1. `org` is the canonical tenant unit
 2. a deployed instance may host multiple orgs on one shared application foundation
@@ -80,7 +87,7 @@ Purpose: record the active defaults that implementation should preserve unless t
 8. org switching must be explicit and must re-establish the active org context safely
 9. tenant-owned reads and writes must always execute against the active `org_id`
 
-### 2.8 Interface stance
+### 2.9 Interface stance
 
 1. the intended product surfaces are AI plus minimal review, approval, inspection, and reporting surfaces
 2. broad human operational UI is not a thin-v1 priority

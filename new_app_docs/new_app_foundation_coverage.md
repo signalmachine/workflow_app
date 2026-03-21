@@ -40,6 +40,11 @@ Required:
 6. workers and labor cost-rate support records
 7. tax-foundation records needed for GST and TDS handling
 
+Interpretation rule:
+
+1. the minimum party and contact foundation must be sufficient to support thin-v1 invoice, payment or receipt, trading inventory, and service execution document flows
+2. support depth is enough for v1, but total absence of party or contact support is not
+
 ### 2.3 Document foundation
 
 Required:
@@ -52,6 +57,10 @@ Required:
 6. one canonical ownership path for shared document identity and lifecycle rules across supported document families
 7. one-to-one linkage between the central document row and the owning payload row for every adopted supported document family
 8. central document authority for identity, lifecycle, numbering, and posting linkage, with payload truth remaining in the owning domain module
+
+Adopted-family rule:
+
+1. for thin v1, adopted work-order, invoice, payment or receipt, and inventory document families must have their owning payload rows implemented rather than only document-type registration
 
 ### 2.4 Accounting foundation
 
