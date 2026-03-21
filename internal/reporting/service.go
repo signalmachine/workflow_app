@@ -311,6 +311,7 @@ type LookupAuditEventsInput struct {
 
 type InboundRequestReview struct {
 	RequestID                string
+	RequestReference         string
 	OriginType               string
 	Channel                  string
 	Status                   string
@@ -1509,6 +1510,7 @@ func (s *Service) ListInboundRequests(ctx context.Context, input ListInboundRequ
 	const query = `
 SELECT
 	r.id,
+	r.request_reference,
 	r.origin_type,
 	r.channel,
 	r.status,
@@ -1575,6 +1577,7 @@ LIMIT $3;`
 		var review InboundRequestReview
 		if err := rows.Scan(
 			&review.RequestID,
+			&review.RequestReference,
 			&review.OriginType,
 			&review.Channel,
 			&review.Status,
@@ -1830,6 +1833,7 @@ func (s *Service) listInboundRequestsTx(ctx context.Context, tx *sql.Tx, orgID, 
 	const query = `
 SELECT
 	r.id,
+	r.request_reference,
 	r.origin_type,
 	r.channel,
 	r.status,
@@ -1893,6 +1897,7 @@ WHERE r.org_id = $1
 		var review InboundRequestReview
 		if err := rows.Scan(
 			&review.RequestID,
+			&review.RequestReference,
 			&review.OriginType,
 			&review.Channel,
 			&review.Status,

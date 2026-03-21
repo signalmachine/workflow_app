@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -47,6 +48,12 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create draft request: %v", err)
 	}
+	if request.RequestNumber != 1 {
+		t.Fatalf("unexpected draft request number: %d", request.RequestNumber)
+	}
+	if !strings.HasPrefix(request.RequestReference, "REQ-") {
+		t.Fatalf("expected request reference to use REQ- prefix, got %q", request.RequestReference)
+	}
 
 	message, err := intakeService.AddMessage(ctx, intake.AddMessageInput{
 		RequestID:   request.ID,
@@ -84,6 +91,9 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 	}
 	if request.Status != intake.StatusQueued {
 		t.Fatalf("unexpected queued status: %s", request.Status)
+	}
+	if request.RequestReference == "" {
+		t.Fatal("expected queued request to retain stable request reference")
 	}
 
 	if _, err := aiService.StartRun(ctx, ai.StartRunInput{
@@ -237,6 +247,9 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 	if len(requests) != 1 {
 		t.Fatalf("unexpected inbound request review count: %d", len(requests))
 	}
+	if requests[0].RequestReference != request.RequestReference {
+		t.Fatalf("unexpected request reference in review: got %q want %q", requests[0].RequestReference, request.RequestReference)
+	}
 	if requests[0].AttachmentCount != 1 || requests[0].MessageCount != 1 {
 		t.Fatalf("unexpected request counts: attachments=%d messages=%d", requests[0].AttachmentCount, requests[0].MessageCount)
 	}
@@ -253,6 +266,9 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 	}
 	if len(detail.Messages) != 1 || len(detail.Attachments) != 1 || len(detail.Runs) != 1 || len(detail.Proposals) != 1 {
 		t.Fatalf("unexpected detail sizes: messages=%d attachments=%d runs=%d proposals=%d", len(detail.Messages), len(detail.Attachments), len(detail.Runs), len(detail.Proposals))
+	}
+	if detail.Request.RequestReference != request.RequestReference {
+		t.Fatalf("unexpected request reference in detail: got %q want %q", detail.Request.RequestReference, request.RequestReference)
 	}
 	if !detail.Attachments[0].LatestDerivedText.Valid || detail.Attachments[0].LatestDerivedText.String == "" {
 		t.Fatal("expected latest derived text in attachment review")

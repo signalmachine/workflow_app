@@ -38,11 +38,14 @@ const (
 	MessageRoleSystem        = "system"
 	MessageRoleAssistant     = "assistant"
 	MessageRoleTranscription = "transcription"
+	requestReferencePrefix   = "REQ-"
 )
 
 type InboundRequest struct {
 	ID                  string
 	OrgID               string
+	RequestNumber       int64
+	RequestReference    string
 	SessionID           sql.NullString
 	ActorUserID         sql.NullString
 	OriginType          string
@@ -323,16 +326,20 @@ func createDraftTx(ctx context.Context, tx *sql.Tx, input CreateDraftInput) (Inb
 	const statement = `
 INSERT INTO ai.inbound_requests (
 	org_id,
+	request_number,
+	request_reference,
 	session_id,
 	actor_user_id,
 	origin_type,
 	channel,
 	status,
 	metadata
-) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
 RETURNING
 	id,
 	org_id,
+	request_number,
+	request_reference,
 	session_id,
 	actor_user_id,
 	origin_type,
@@ -352,10 +359,17 @@ RETURNING
 	created_at,
 	updated_at;`
 
+	requestNumber, requestReference, err := nextRequestReference(ctx, tx, input.Actor.OrgID)
+	if err != nil {
+		return InboundRequest{}, err
+	}
+
 	return scanInboundRequest(tx.QueryRowContext(
 		ctx,
 		statement,
 		input.Actor.OrgID,
+		requestNumber,
+		requestReference,
 		nullIfEmpty(input.Actor.SessionID),
 		nullIfEmpty(input.Actor.UserID),
 		originType,
@@ -452,6 +466,8 @@ WHERE org_id = $1
 RETURNING
 	id,
 	org_id,
+	request_number,
+	request_reference,
 	session_id,
 	actor_user_id,
 	origin_type,
@@ -499,6 +515,8 @@ WHERE org_id = $1
 RETURNING
 	id,
 	org_id,
+	request_number,
+	request_reference,
 	session_id,
 	actor_user_id,
 	origin_type,
@@ -557,6 +575,8 @@ WHERE org_id = $1
 RETURNING
 	id,
 	org_id,
+	request_number,
+	request_reference,
 	session_id,
 	actor_user_id,
 	origin_type,
@@ -609,6 +629,8 @@ WHERE org_id = $1
 RETURNING
 	id,
 	org_id,
+	request_number,
+	request_reference,
 	session_id,
 	actor_user_id,
 	origin_type,
@@ -636,6 +658,8 @@ func getInboundRequestForUpdate(ctx context.Context, tx *sql.Tx, orgID, requestI
 SELECT
 	id,
 	org_id,
+	request_number,
+	request_reference,
 	session_id,
 	actor_user_id,
 	origin_type,
@@ -693,6 +717,8 @@ func scanInboundRequest(row rowScanner) (InboundRequest, error) {
 	err := row.Scan(
 		&request.ID,
 		&request.OrgID,
+		&request.RequestNumber,
+		&request.RequestReference,
 		&request.SessionID,
 		&request.ActorUserID,
 		&request.OriginType,
@@ -717,6 +743,24 @@ func scanInboundRequest(row rowScanner) (InboundRequest, error) {
 	}
 	request.Metadata = append(request.Metadata[:0], metadata...)
 	return request, nil
+}
+
+func nextRequestReference(ctx context.Context, tx *sql.Tx, orgID string) (int64, string, error) {
+	const statement = `
+INSERT INTO ai.inbound_request_numbering_series (org_id, next_number)
+VALUES ($1, 2)
+ON CONFLICT (org_id)
+DO UPDATE SET
+	next_number = ai.inbound_request_numbering_series.next_number + 1,
+	updated_at = NOW()
+RETURNING next_number - 1;`
+
+	var requestNumber int64
+	if err := tx.QueryRowContext(ctx, statement, orgID).Scan(&requestNumber); err != nil {
+		return 0, "", fmt.Errorf("allocate inbound request number: %w", err)
+	}
+
+	return requestNumber, fmt.Sprintf("%s%06d", requestReferencePrefix, requestNumber), nil
 }
 
 func scanMessage(row rowScanner) (Message, error) {

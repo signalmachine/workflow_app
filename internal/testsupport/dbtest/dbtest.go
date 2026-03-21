@@ -80,6 +80,7 @@ TRUNCATE TABLE
 	attachments.attachments,
 	ai.inbound_request_messages,
 	ai.inbound_requests,
+	ai.inbound_request_numbering_series,
 	ai.agent_tools,
 	workforce.labor_accounting_handoffs,
 	workforce.labor_entries,
