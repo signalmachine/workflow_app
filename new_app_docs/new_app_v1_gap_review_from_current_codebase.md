@@ -13,8 +13,9 @@ The biggest issue is not lack of sophistication. The biggest issue is uneven sop
 1. identity, auth, audit, idempotency, AI traceability, and parts of workflow are already credible
 2. accounting, documents, and the first inventory movement foundation now have serious kernels
 3. workforce, work-order execution, and the inventory-to-accounting bridge now have credible foundation slices
-4. adopted-document completion still lags the intended thin-v1 foundation shape, while support-record depth now has its first required slice
-5. CRM depth is much heavier than the remaining missing foundation layers
+4. persisted inbound-request intake, attachment references, queue-oriented AI processing seams, and browser-usable reporting review now have their first required slice
+5. the remaining thin-v1 gaps are now mostly reporting polish and future breadth controls rather than missing control-boundary primitives
+6. CRM depth is still much heavier than the remaining missing foundation layers
 
 This confirms that `workflow_app` should start new rather than trying to trim the current codebase into shape.
 
@@ -36,11 +37,11 @@ These ideas should inform the new codebase, but the implementation should not be
 
 ### 3.1 Platform and control gaps
 
-Still missing or not complete enough:
+Now implemented at the required first slice:
 
-1. persisted inbound request intake with durable request-status handling and attachment references
-2. queue-oriented AI processing linked from persisted inbound requests into downstream proposals or actions
-3. minimum browser-usable ingress and review support needed for real thin-v1 user testing without promoting broad client-product breadth
+1. persisted inbound request intake now exists with durable request-status handling, request messages, and attachment references
+2. queue-oriented AI processing can now claim queued requests and link AI runs back to the originating persisted request
+3. browser-usable reporting review now exists for inbound requests, processed proposals, linked approvals, and downstream documents without broad client-product breadth
 
 ### 3.2 Document foundation gaps
 
@@ -61,10 +62,10 @@ Now implemented at the required first slice:
 
 ### 3.4 Accounting and tax gaps
 
-Still missing or not complete enough:
+Remaining accounting work is now concentrated around later operational breadth rather than missing thin-v1 ownership primitives:
 
-1. adopted invoice and payment or receipt payload ownership still needs to connect more operational document flows into the already-implemented accounting foundation through the intended one-to-one document-ownership path
-2. remaining accounting work is now concentrated around consuming those remaining adopted document families rather than absence of journal, tax, period, or review foundations
+1. adopted invoice and payment or receipt payload ownership now exists on the intended one-to-one document-ownership path
+2. remaining accounting work is no longer absence of journal, tax, period, review, or adopted-document foundation
 
 ### 3.5 Inventory gaps
 
@@ -85,8 +86,8 @@ Partially addressed, but not yet complete enough:
 2. labor capture now exists with first cost-rate snapshotting on append-only labor entries
 3. task and accountable-owner depth now exists through shared `workflow.tasks` linked to work orders with one accountable worker
 4. execution linkage now reaches accounting outcomes for both labor and the first work-order material-usage slice
-5. work-order execution truth still needs canonical one-to-one document ownership completion rather than document-type support alone
-6. remaining execution depth is now concentrated around adopted work-order document ownership completion plus later broader costing breadth and non-work-order execution linkage rather than absence of the first review/reporting slice
+5. work-order execution truth now has canonical one-to-one document ownership completion rather than document-type support alone
+6. remaining execution depth is now concentrated around later broader costing breadth and non-work-order execution linkage rather than absence of the first review/reporting slice
 
 ### 3.7 Reporting gaps
 
@@ -96,7 +97,8 @@ Partially addressed, but not yet complete enough:
 2. accounting journal review and control-account balance review now exist through coherent reporting-oriented read surfaces rather than only domain-local list methods
 3. GST and TDS summary views now exist as explicit first-class reporting outputs
 4. inventory movement review and document-line inventory reconciliation now exist for inventory execution and accounting handoff inspection
-5. remaining reporting depth is now narrower and concentrated around final operator-facing polish plus the inbound-request and processed-proposal review surfaces needed for thin-v1 browser testing
+5. inbound-request and processed-proposal review surfaces now exist for thin-v1 browser testing
+6. remaining reporting depth is now narrower and concentrated around final operator-facing polish rather than missing request-ingress review primitives
 
 ## 4. Main shape mismatch
 
@@ -105,9 +107,8 @@ The current repository is most advanced where the replacement thin-v1 plan wants
 That mismatch is:
 
 1. too much CRM depth
-2. adopted document-family ownership is still incomplete even though support-record depth has improved
-3. minimum inbound-request, attachment-reference, and browser-ingress foundations still lag the now-stronger domain core
-4. the remaining gaps are now narrower and concentrated around adopted document ownership plus interaction-ingress completion, not broad absence of accounting, inventory, execution, or reporting foundations
+2. the old codebase still carries more CRM depth than the thin-v1 plan wants
+3. the replacement foundation now closes the former adopted-document and interaction-ingress gaps, so the remaining work is mainly reporting polish and controlled breadth deferral
 
 ## 5. Replacement-codebase implication
 

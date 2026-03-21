@@ -309,6 +309,97 @@ type LookupAuditEventsInput struct {
 	Actor      identityaccess.Actor
 }
 
+type InboundRequestReview struct {
+	RequestID                string
+	OriginType               string
+	Channel                  string
+	Status                   string
+	ReceivedAt               time.Time
+	QueuedAt                 sql.NullTime
+	ProcessingStartedAt      sql.NullTime
+	ProcessedAt              sql.NullTime
+	CompletedAt              sql.NullTime
+	CancelledAt              sql.NullTime
+	MessageCount             int
+	AttachmentCount          int
+	LastRunID                sql.NullString
+	LastRunStatus            sql.NullString
+	LastRecommendationID     sql.NullString
+	LastRecommendationStatus sql.NullString
+}
+
+type ListInboundRequestsInput struct {
+	Status string
+	Limit  int
+	Actor  identityaccess.Actor
+}
+
+type InboundRequestMessageReview struct {
+	MessageID       string
+	MessageIndex    int
+	MessageRole     string
+	TextContent     string
+	AttachmentCount int
+	CreatedAt       time.Time
+}
+
+type RequestAttachmentReview struct {
+	AttachmentID      string
+	RequestMessageID  string
+	LinkRole          string
+	OriginalFileName  string
+	MediaType         string
+	SizeBytes         int64
+	LatestDerivedText sql.NullString
+	DerivedTextCount  int
+	CreatedAt         time.Time
+}
+
+type AIRunReview struct {
+	RunID          string
+	AgentRole      string
+	CapabilityCode string
+	Status         string
+	Summary        string
+	StartedAt      time.Time
+	CompletedAt    sql.NullTime
+}
+
+type ProcessedProposalReview struct {
+	RequestID            string
+	RequestStatus        string
+	RecommendationID     string
+	RunID                string
+	RecommendationType   string
+	RecommendationStatus string
+	Summary              string
+	ApprovalID           sql.NullString
+	ApprovalStatus       sql.NullString
+	DocumentID           sql.NullString
+	DocumentTypeCode     sql.NullString
+	DocumentStatus       sql.NullString
+	CreatedAt            time.Time
+}
+
+type ListProcessedProposalsInput struct {
+	Status string
+	Limit  int
+	Actor  identityaccess.Actor
+}
+
+type GetInboundRequestDetailInput struct {
+	RequestID string
+	Actor     identityaccess.Actor
+}
+
+type InboundRequestDetail struct {
+	Request     InboundRequestReview
+	Messages    []InboundRequestMessageReview
+	Attachments []RequestAttachmentReview
+	Runs        []AIRunReview
+	Proposals   []ProcessedProposalReview
+}
+
 type Service struct {
 	db *sql.DB
 }
@@ -1405,6 +1496,496 @@ LIMIT $4;`,
 	return events, nil
 }
 
+func (s *Service) ListInboundRequests(ctx context.Context, input ListInboundRequestsInput) ([]InboundRequestReview, error) {
+	if input.Status != "" && !isValidInboundRequestStatus(input.Status) {
+		return nil, ErrInvalidReviewFilter
+	}
+
+	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
+	if err != nil {
+		return nil, err
+	}
+
+	const query = `
+SELECT
+	r.id,
+	r.origin_type,
+	r.channel,
+	r.status,
+	r.received_at,
+	r.queued_at,
+	r.processing_started_at,
+	r.processed_at,
+	r.completed_at,
+	r.cancelled_at,
+	COALESCE(msg.message_count, 0),
+	COALESCE(att.attachment_count, 0),
+	lr.run_id,
+	lr.run_status,
+	lrec.recommendation_id,
+	lrec.recommendation_status
+FROM ai.inbound_requests r
+LEFT JOIN LATERAL (
+	SELECT COUNT(*) AS message_count
+	FROM ai.inbound_request_messages m
+	WHERE m.org_id = r.org_id
+	  AND m.request_id = r.id
+) msg ON TRUE
+LEFT JOIN LATERAL (
+	SELECT COUNT(*) AS attachment_count
+	FROM ai.inbound_request_messages m
+	JOIN attachments.request_message_links l
+	  ON l.org_id = m.org_id
+	 AND l.request_message_id = m.id
+	WHERE m.org_id = r.org_id
+	  AND m.request_id = r.id
+) att ON TRUE
+LEFT JOIN LATERAL (
+	SELECT ar.id AS run_id, ar.status AS run_status
+	FROM ai.agent_runs ar
+	WHERE ar.org_id = r.org_id
+	  AND ar.inbound_request_id = r.id
+	ORDER BY ar.started_at DESC, ar.id DESC
+	LIMIT 1
+) lr ON TRUE
+LEFT JOIN LATERAL (
+	SELECT rec.id AS recommendation_id, rec.status AS recommendation_status
+	FROM ai.agent_runs ar
+	JOIN ai.agent_recommendations rec
+	  ON rec.run_id = ar.id
+	WHERE ar.org_id = r.org_id
+	  AND ar.inbound_request_id = r.id
+	ORDER BY rec.created_at DESC, rec.id DESC
+	LIMIT 1
+) lrec ON TRUE
+WHERE r.org_id = $1
+  AND ($2 = '' OR r.status = $2)
+ORDER BY COALESCE(r.queued_at, r.received_at) DESC, r.id DESC
+LIMIT $3;`
+
+	rows, err := tx.QueryContext(ctx, query, input.Actor.OrgID, strings.TrimSpace(input.Status), normalizeLimit(input.Limit))
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, fmt.Errorf("list inbound requests: %w", err)
+	}
+	defer rows.Close()
+
+	var reviews []InboundRequestReview
+	for rows.Next() {
+		var review InboundRequestReview
+		if err := rows.Scan(
+			&review.RequestID,
+			&review.OriginType,
+			&review.Channel,
+			&review.Status,
+			&review.ReceivedAt,
+			&review.QueuedAt,
+			&review.ProcessingStartedAt,
+			&review.ProcessedAt,
+			&review.CompletedAt,
+			&review.CancelledAt,
+			&review.MessageCount,
+			&review.AttachmentCount,
+			&review.LastRunID,
+			&review.LastRunStatus,
+			&review.LastRecommendationID,
+			&review.LastRecommendationStatus,
+		); err != nil {
+			_ = tx.Rollback()
+			return nil, fmt.Errorf("scan inbound request review: %w", err)
+		}
+		reviews = append(reviews, review)
+	}
+	if err := rows.Err(); err != nil {
+		_ = tx.Rollback()
+		return nil, fmt.Errorf("iterate inbound request reviews: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit inbound request review read: %w", err)
+	}
+
+	return reviews, nil
+}
+
+func (s *Service) GetInboundRequestDetail(ctx context.Context, input GetInboundRequestDetailInput) (InboundRequestDetail, error) {
+	if strings.TrimSpace(input.RequestID) == "" {
+		return InboundRequestDetail{}, ErrInvalidReviewFilter
+	}
+
+	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
+	if err != nil {
+		return InboundRequestDetail{}, err
+	}
+
+	requests, err := s.listInboundRequestsTx(ctx, tx, input.Actor.OrgID, input.RequestID)
+	if err != nil {
+		_ = tx.Rollback()
+		return InboundRequestDetail{}, err
+	}
+	if len(requests) == 0 {
+		_ = tx.Rollback()
+		return InboundRequestDetail{}, sql.ErrNoRows
+	}
+
+	detail := InboundRequestDetail{Request: requests[0]}
+
+	const messagesQuery = `
+SELECT
+	m.id,
+	m.message_index,
+	m.message_role,
+	m.text_content,
+	COUNT(l.id) AS attachment_count,
+	m.created_at
+FROM ai.inbound_request_messages m
+LEFT JOIN attachments.request_message_links l
+	ON l.org_id = m.org_id
+ AND l.request_message_id = m.id
+WHERE m.org_id = $1
+  AND m.request_id = $2
+GROUP BY m.id, m.message_index, m.message_role, m.text_content, m.created_at
+ORDER BY m.message_index ASC;`
+
+	messageRows, err := tx.QueryContext(ctx, messagesQuery, input.Actor.OrgID, input.RequestID)
+	if err != nil {
+		_ = tx.Rollback()
+		return InboundRequestDetail{}, fmt.Errorf("query inbound request messages: %w", err)
+	}
+	for messageRows.Next() {
+		var message InboundRequestMessageReview
+		if err := messageRows.Scan(
+			&message.MessageID,
+			&message.MessageIndex,
+			&message.MessageRole,
+			&message.TextContent,
+			&message.AttachmentCount,
+			&message.CreatedAt,
+		); err != nil {
+			messageRows.Close()
+			_ = tx.Rollback()
+			return InboundRequestDetail{}, fmt.Errorf("scan inbound request message review: %w", err)
+		}
+		detail.Messages = append(detail.Messages, message)
+	}
+	if err := messageRows.Err(); err != nil {
+		messageRows.Close()
+		_ = tx.Rollback()
+		return InboundRequestDetail{}, fmt.Errorf("iterate inbound request messages: %w", err)
+	}
+	messageRows.Close()
+
+	const attachmentsQuery = `
+SELECT
+	a.id,
+	l.request_message_id,
+	l.link_role,
+	a.original_file_name,
+	a.media_type,
+	a.size_bytes,
+	dt.latest_text,
+	COALESCE(dt.derived_count, 0),
+	a.created_at
+FROM ai.inbound_request_messages m
+JOIN attachments.request_message_links l
+	ON l.org_id = m.org_id
+ AND l.request_message_id = m.id
+JOIN attachments.attachments a
+	ON a.org_id = l.org_id
+ AND a.id = l.attachment_id
+LEFT JOIN LATERAL (
+	SELECT
+		COUNT(*) AS derived_count,
+		(
+			SELECT content_text
+			FROM attachments.derived_texts dt2
+			WHERE dt2.org_id = a.org_id
+			  AND dt2.source_attachment_id = a.id
+			ORDER BY dt2.created_at DESC, dt2.id DESC
+			LIMIT 1
+		) AS latest_text
+	FROM attachments.derived_texts dt
+	WHERE dt.org_id = a.org_id
+	  AND dt.source_attachment_id = a.id
+) dt ON TRUE
+WHERE m.org_id = $1
+  AND m.request_id = $2
+ORDER BY a.created_at ASC, a.id ASC;`
+
+	attachmentRows, err := tx.QueryContext(ctx, attachmentsQuery, input.Actor.OrgID, input.RequestID)
+	if err != nil {
+		_ = tx.Rollback()
+		return InboundRequestDetail{}, fmt.Errorf("query inbound request attachments: %w", err)
+	}
+	for attachmentRows.Next() {
+		var attachment RequestAttachmentReview
+		if err := attachmentRows.Scan(
+			&attachment.AttachmentID,
+			&attachment.RequestMessageID,
+			&attachment.LinkRole,
+			&attachment.OriginalFileName,
+			&attachment.MediaType,
+			&attachment.SizeBytes,
+			&attachment.LatestDerivedText,
+			&attachment.DerivedTextCount,
+			&attachment.CreatedAt,
+		); err != nil {
+			attachmentRows.Close()
+			_ = tx.Rollback()
+			return InboundRequestDetail{}, fmt.Errorf("scan inbound request attachment review: %w", err)
+		}
+		detail.Attachments = append(detail.Attachments, attachment)
+	}
+	if err := attachmentRows.Err(); err != nil {
+		attachmentRows.Close()
+		_ = tx.Rollback()
+		return InboundRequestDetail{}, fmt.Errorf("iterate inbound request attachments: %w", err)
+	}
+	attachmentRows.Close()
+
+	const runsQuery = `
+SELECT
+	id,
+	agent_role,
+	capability_code,
+	status,
+	summary,
+	started_at,
+	completed_at
+FROM ai.agent_runs
+WHERE org_id = $1
+  AND inbound_request_id = $2
+ORDER BY started_at ASC, id ASC;`
+
+	runRows, err := tx.QueryContext(ctx, runsQuery, input.Actor.OrgID, input.RequestID)
+	if err != nil {
+		_ = tx.Rollback()
+		return InboundRequestDetail{}, fmt.Errorf("query inbound request runs: %w", err)
+	}
+	for runRows.Next() {
+		var run AIRunReview
+		if err := runRows.Scan(
+			&run.RunID,
+			&run.AgentRole,
+			&run.CapabilityCode,
+			&run.Status,
+			&run.Summary,
+			&run.StartedAt,
+			&run.CompletedAt,
+		); err != nil {
+			runRows.Close()
+			_ = tx.Rollback()
+			return InboundRequestDetail{}, fmt.Errorf("scan inbound request run review: %w", err)
+		}
+		detail.Runs = append(detail.Runs, run)
+	}
+	if err := runRows.Err(); err != nil {
+		runRows.Close()
+		_ = tx.Rollback()
+		return InboundRequestDetail{}, fmt.Errorf("iterate inbound request runs: %w", err)
+	}
+	runRows.Close()
+
+	proposals, err := s.listProcessedProposalsTx(ctx, tx, input.Actor.OrgID, input.RequestID, "")
+	if err != nil {
+		_ = tx.Rollback()
+		return InboundRequestDetail{}, err
+	}
+	detail.Proposals = proposals
+
+	if err := tx.Commit(); err != nil {
+		return InboundRequestDetail{}, fmt.Errorf("commit inbound request detail read: %w", err)
+	}
+
+	return detail, nil
+}
+
+func (s *Service) ListProcessedProposals(ctx context.Context, input ListProcessedProposalsInput) ([]ProcessedProposalReview, error) {
+	if input.Status != "" && !isValidRecommendationStatus(input.Status) {
+		return nil, ErrInvalidReviewFilter
+	}
+
+	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
+	if err != nil {
+		return nil, err
+	}
+
+	proposals, err := s.listProcessedProposalsTx(ctx, tx, input.Actor.OrgID, "", strings.TrimSpace(input.Status))
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, err
+	}
+	if len(proposals) > normalizeLimit(input.Limit) {
+		proposals = proposals[:normalizeLimit(input.Limit)]
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit processed proposal review read: %w", err)
+	}
+
+	return proposals, nil
+}
+
+func (s *Service) listInboundRequestsTx(ctx context.Context, tx *sql.Tx, orgID, requestID string) ([]InboundRequestReview, error) {
+	const query = `
+SELECT
+	r.id,
+	r.origin_type,
+	r.channel,
+	r.status,
+	r.received_at,
+	r.queued_at,
+	r.processing_started_at,
+	r.processed_at,
+	r.completed_at,
+	r.cancelled_at,
+	COALESCE(msg.message_count, 0),
+	COALESCE(att.attachment_count, 0),
+	lr.run_id,
+	lr.run_status,
+	lrec.recommendation_id,
+	lrec.recommendation_status
+FROM ai.inbound_requests r
+LEFT JOIN LATERAL (
+	SELECT COUNT(*) AS message_count
+	FROM ai.inbound_request_messages m
+	WHERE m.org_id = r.org_id
+	  AND m.request_id = r.id
+) msg ON TRUE
+LEFT JOIN LATERAL (
+	SELECT COUNT(*) AS attachment_count
+	FROM ai.inbound_request_messages m
+	JOIN attachments.request_message_links l
+	  ON l.org_id = m.org_id
+	 AND l.request_message_id = m.id
+	WHERE m.org_id = r.org_id
+	  AND m.request_id = r.id
+) att ON TRUE
+LEFT JOIN LATERAL (
+	SELECT ar.id AS run_id, ar.status AS run_status
+	FROM ai.agent_runs ar
+	WHERE ar.org_id = r.org_id
+	  AND ar.inbound_request_id = r.id
+	ORDER BY ar.started_at DESC, ar.id DESC
+	LIMIT 1
+) lr ON TRUE
+LEFT JOIN LATERAL (
+	SELECT rec.id AS recommendation_id, rec.status AS recommendation_status
+	FROM ai.agent_runs ar
+	JOIN ai.agent_recommendations rec
+	  ON rec.run_id = ar.id
+	WHERE ar.org_id = r.org_id
+	  AND ar.inbound_request_id = r.id
+	ORDER BY rec.created_at DESC, rec.id DESC
+	LIMIT 1
+) lrec ON TRUE
+WHERE r.org_id = $1
+  AND r.id = $2;`
+
+	rows, err := tx.QueryContext(ctx, query, orgID, requestID)
+	if err != nil {
+		return nil, fmt.Errorf("get inbound request detail header: %w", err)
+	}
+	defer rows.Close()
+
+	var reviews []InboundRequestReview
+	for rows.Next() {
+		var review InboundRequestReview
+		if err := rows.Scan(
+			&review.RequestID,
+			&review.OriginType,
+			&review.Channel,
+			&review.Status,
+			&review.ReceivedAt,
+			&review.QueuedAt,
+			&review.ProcessingStartedAt,
+			&review.ProcessedAt,
+			&review.CompletedAt,
+			&review.CancelledAt,
+			&review.MessageCount,
+			&review.AttachmentCount,
+			&review.LastRunID,
+			&review.LastRunStatus,
+			&review.LastRecommendationID,
+			&review.LastRecommendationStatus,
+		); err != nil {
+			return nil, fmt.Errorf("scan inbound request detail header: %w", err)
+		}
+		reviews = append(reviews, review)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate inbound request detail header: %w", err)
+	}
+	return reviews, nil
+}
+
+func (s *Service) listProcessedProposalsTx(ctx context.Context, tx *sql.Tx, orgID, requestID, status string) ([]ProcessedProposalReview, error) {
+	const query = `
+SELECT
+	r.id,
+	r.status,
+	rec.id,
+	rec.run_id,
+	rec.recommendation_type,
+	rec.status,
+	rec.summary,
+	rec.approval_id,
+	ap.status,
+	d.id,
+	d.type_code,
+	d.status,
+	rec.created_at
+FROM ai.inbound_requests r
+JOIN ai.agent_runs ar
+	ON ar.org_id = r.org_id
+ AND ar.inbound_request_id = r.id
+JOIN ai.agent_recommendations rec
+	ON rec.run_id = ar.id
+LEFT JOIN workflow.approvals ap
+	ON ap.id = rec.approval_id
+LEFT JOIN documents.documents d
+	ON d.id = ap.document_id
+WHERE r.org_id = $1
+  AND ($2 = '' OR r.id = NULLIF($2, '')::uuid)
+  AND ($3 = '' OR rec.status = $3)
+ORDER BY rec.created_at DESC, rec.id DESC
+LIMIT 200;`
+
+	rows, err := tx.QueryContext(ctx, query, orgID, requestID, status)
+	if err != nil {
+		return nil, fmt.Errorf("list processed proposals: %w", err)
+	}
+	defer rows.Close()
+
+	var proposals []ProcessedProposalReview
+	for rows.Next() {
+		var proposal ProcessedProposalReview
+		if err := rows.Scan(
+			&proposal.RequestID,
+			&proposal.RequestStatus,
+			&proposal.RecommendationID,
+			&proposal.RunID,
+			&proposal.RecommendationType,
+			&proposal.RecommendationStatus,
+			&proposal.Summary,
+			&proposal.ApprovalID,
+			&proposal.ApprovalStatus,
+			&proposal.DocumentID,
+			&proposal.DocumentTypeCode,
+			&proposal.DocumentStatus,
+			&proposal.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan processed proposal review: %w", err)
+		}
+		proposals = append(proposals, proposal)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate processed proposal reviews: %w", err)
+	}
+
+	return proposals, nil
+}
+
 func (s *Service) beginAuthorizedRead(ctx context.Context, actor identityaccess.Actor) (*sql.Tx, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -1443,6 +2024,24 @@ func nullableDate(value time.Time, set bool) any {
 func isValidDocumentStatus(status string) bool {
 	switch status {
 	case "draft", "submitted", "approved", "rejected", "posted", "reversed", "voided":
+		return true
+	default:
+		return false
+	}
+}
+
+func isValidInboundRequestStatus(status string) bool {
+	switch status {
+	case "draft", "queued", "processing", "processed", "acted_on", "completed", "failed", "cancelled":
+		return true
+	default:
+		return false
+	}
+}
+
+func isValidRecommendationStatus(status string) bool {
+	switch status {
+	case "proposed", "approval_requested", "accepted", "rejected":
 		return true
 	default:
 		return false

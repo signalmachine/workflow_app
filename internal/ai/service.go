@@ -62,19 +62,20 @@ type Tool struct {
 }
 
 type Run struct {
-	ID             string
-	OrgID          string
-	SessionID      string
-	ActorUserID    string
-	AgentRole      string
-	CapabilityCode string
-	Status         string
-	RequestText    string
-	Summary        string
-	Metadata       json.RawMessage
-	ParentRunID    sql.NullString
-	StartedAt      time.Time
-	CompletedAt    sql.NullTime
+	ID               string
+	OrgID            string
+	SessionID        string
+	ActorUserID      string
+	InboundRequestID sql.NullString
+	AgentRole        string
+	CapabilityCode   string
+	Status           string
+	RequestText      string
+	Summary          string
+	Metadata         json.RawMessage
+	ParentRunID      sql.NullString
+	StartedAt        time.Time
+	CompletedAt      sql.NullTime
 }
 
 type RunStep struct {
@@ -150,12 +151,13 @@ type RegisterToolInput struct {
 }
 
 type StartRunInput struct {
-	AgentRole      string
-	CapabilityCode string
-	RequestText    string
-	Metadata       any
-	ParentRunID    string
-	Actor          identityaccess.Actor
+	AgentRole        string
+	CapabilityCode   string
+	InboundRequestID string
+	RequestText      string
+	Metadata         any
+	ParentRunID      string
+	Actor            identityaccess.Actor
 }
 
 type CompleteRunInput struct {
@@ -289,9 +291,10 @@ func (s *Service) StartRun(ctx context.Context, input StartRunInput) (Run, error
 		EntityType:  "ai.agent_run",
 		EntityID:    run.ID,
 		Payload: map[string]any{
-			"agent_role":      run.AgentRole,
-			"capability_code": run.CapabilityCode,
-			"parent_run_id":   nullStringValue(run.ParentRunID),
+			"agent_role":         run.AgentRole,
+			"capability_code":    run.CapabilityCode,
+			"parent_run_id":      nullStringValue(run.ParentRunID),
+			"inbound_request_id": nullStringValue(run.InboundRequestID),
 		},
 	}); err != nil {
 		_ = tx.Rollback()
@@ -606,6 +609,15 @@ func startRunTx(ctx context.Context, tx *sql.Tx, input StartRunInput) (Run, erro
 			return Run{}, ErrRunNotActive
 		}
 	}
+	if input.InboundRequestID != "" {
+		requestStatus, err := getInboundRequestStatusForRunTx(ctx, tx, input.Actor.OrgID, input.InboundRequestID)
+		if err != nil {
+			return Run{}, err
+		}
+		if requestStatus != "processing" && requestStatus != "processed" && requestStatus != "acted_on" && requestStatus != "completed" {
+			return Run{}, ErrRunNotActive
+		}
+	}
 
 	metadata, err := marshalJSON(input.Metadata)
 	if err != nil {
@@ -617,18 +629,20 @@ INSERT INTO ai.agent_runs (
 	org_id,
 	session_id,
 	actor_user_id,
+	inbound_request_id,
 	agent_role,
 	capability_code,
 	status,
 	request_text,
 	metadata,
 	parent_run_id
-) VALUES ($1, $2, $3, $4, $5, 'running', $6, $7::jsonb, $8)
+) VALUES ($1, $2, $3, $4, $5, $6, 'running', $7, $8::jsonb, $9)
 RETURNING
 	id,
 	org_id,
 	session_id,
 	actor_user_id,
+	inbound_request_id,
 	agent_role,
 	capability_code,
 	status,
@@ -645,6 +659,7 @@ RETURNING
 		input.Actor.OrgID,
 		input.Actor.SessionID,
 		input.Actor.UserID,
+		nullIfEmpty(input.InboundRequestID),
 		role,
 		capabilityCode,
 		strings.TrimSpace(input.RequestText),
@@ -685,6 +700,7 @@ RETURNING
 	org_id,
 	session_id,
 	actor_user_id,
+	inbound_request_id,
 	agent_role,
 	capability_code,
 	status,
@@ -1033,6 +1049,7 @@ SELECT
 	org_id,
 	session_id,
 	actor_user_id,
+	inbound_request_id,
 	agent_role,
 	capability_code,
 	status,
@@ -1243,6 +1260,7 @@ func scanRun(row rowScanner) (Run, error) {
 		&run.OrgID,
 		&run.SessionID,
 		&run.ActorUserID,
+		&run.InboundRequestID,
 		&run.AgentRole,
 		&run.CapabilityCode,
 		&run.Status,
@@ -1258,6 +1276,24 @@ func scanRun(row rowScanner) (Run, error) {
 	}
 	run.Metadata = metadata
 	return run, nil
+}
+
+func getInboundRequestStatusForRunTx(ctx context.Context, tx *sql.Tx, orgID, requestID string) (string, error) {
+	const query = `
+SELECT status
+FROM ai.inbound_requests
+WHERE org_id = $1
+  AND id = $2
+FOR UPDATE;`
+
+	var status string
+	if err := tx.QueryRowContext(ctx, query, orgID, requestID).Scan(&status); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", ErrRunNotFound
+		}
+		return "", fmt.Errorf("load inbound request for run: %w", err)
+	}
+	return status, nil
 }
 
 func scanRunStep(row rowScanner) (RunStep, error) {

@@ -20,19 +20,19 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 | Implementation defaults captured | done | Locked defaults now exist as a canonical active doc for implementation decisions |
 | Foundation coverage checklist captured | done | V1 completion now has an explicit foundation-complete checklist |
 | Milestone 0 bootstrap | done | Go module, migration runner, env template, and control-boundary migrations are implemented and verified against primary and test databases |
-| Milestone 1 document and approval kernel | in_progress | Shared document identity, approvals, approval queue, decisions, sessions, role-aware service boundaries, and the AI run, tool-policy, artifact, recommendation, and delegation trace foundation are implemented. Work-order, invoice, and payment-receipt document ownership now use one-to-one module payload bridges keyed by `document_id`; persist-first inbound-request and attachment support still remain before the overall interaction foundation is complete |
+| Milestone 1 document and approval kernel | done | Shared document identity, approvals, approval queue, decisions, sessions, role-aware service boundaries, and the AI run, tool-policy, artifact, recommendation, delegation trace, inbound-request, and attachment foundations are implemented with queue-oriented request processing seams and reporting-visible causation |
 | Milestone 2 accounting foundation | done | Ledger accounts, append-only journal entries and lines, document-linked centralized posting, reversal entries, GST/TDS tax foundation records, accounting periods, effective-date posting control, journal review queries, and control-account balance views are implemented and covered by integration tests |
 | Milestone 3 inventory foundation | done | The inventory foundation now includes `inventory_ops` items, locations, movement numbering, append-only movements, derived stock balances, inventory-owned document payload and line records, explicit execution and accounting handoffs, and costed inventory-accounting handoffs consumed through centralized journal posting covered by integration tests |
 | Milestone 4 execution foundation | done | `work_orders` now includes first-class work-order records, append-only execution status history, transactional consumption of pending inventory execution links into work-order material-usage truth, workflow-owned work-order tasks with one accountable worker, workforce-owned labor capture with cost snapshots, and centralized accounting consumption of both labor and work-order-linked inventory handoffs covered by integration tests |
-| Milestone 5 review and reporting surfaces | in_progress | `reporting` now exposes approval queue, document, accounting journal review, control-account balance review, GST/TDS tax summaries, inventory stock, inventory movement review, inventory reconciliation review, work-order, and audit lookup surfaces covered by integration tests |
+| Milestone 5 review and reporting surfaces | in_progress | `reporting` now exposes approval queue, document, accounting journal review, control-account balance review, GST/TDS tax summaries, inventory stock, inventory movement review, inventory reconciliation review, work-order, audit lookup, inbound-request, and processed-proposal review surfaces covered by integration tests; remaining work is final polish rather than missing foundation coverage |
 | Minimum thin-v1 party and contact support depth | done | `parties` support records now cover external party identity plus support-depth contacts with tenant-safe service boundaries and integration tests |
 | Remaining thin-v1 adopted-document gaps | done | thin v1 adopted document-family ownership is now implemented for work-order, invoice, and payment or receipt document families through module-owned one-to-one payload bridges keyed by `document_id`; see `adopted_document_ownership_remediation_plan.md` |
-| Minimum thin-v1 inbound-request and browser-ingress foundation | in_progress | thin v1 now needs persist-first inbound request intake, attachment references, queue-oriented AI processing, and review visibility for browser-based user testing without promoting full mobile-product depth; see `inbound_request_and_attachment_foundation_plan.md` |
+| Minimum thin-v1 inbound-request and browser-ingress foundation | done | persist-first inbound requests, request messages, PostgreSQL-backed attachments, transcription derivatives, queue claim and status transitions, AI run causation, and reporting-visible inbound-request and processed-proposal review now exist for thin-v1 browser testing; see `inbound_request_and_attachment_foundation_plan.md` |
 
 ## 2. Immediate next steps
 
-1. implement minimum persist-first inbound request intake, attachment references, queue-oriented AI processing, and browser-usable review visibility for thin-v1 user testing
-2. finish the remaining Milestone 5 reporting polish after the inbound-request foundation lands
+1. finish the remaining Milestone 5 reporting polish now that inbound-request and processed-proposal review foundations are in place
+2. keep verifying that new reporting or review additions stay read-oriented and do not widen into broad operational UI scope
 3. keep the codebase centered on the approved first-class modules while allowing support-depth records such as `parties` and `contacts` where the canonical module-boundary doc explicitly permits them
 4. add attachments only where they support approval evidence, document support flows, or persisted inbound request intake
 5. use `new_app_v1_gap_review_from_current_codebase.md` as the reference list of remaining missing foundation areas
@@ -43,14 +43,13 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 
 Recommended sequence:
 
-1. land persist-first inbound request and attachment foundations next
-2. finish the remaining reporting polish immediately after that foundation slice
+1. finish the remaining reporting polish on top of the now-landed persist-first inbound request and attachment foundations
 
 Reason:
 
 1. the adopted document-family ownership mismatch is now closed for work-order, invoice, and payment or receipt families
-2. inbound request intake and attachment support can now target the stabilized document-adoption model without forcing another schema retrofit later
-3. reporting polish should follow the inbound-request slice so those review surfaces can land on top of the persist-first interaction path rather than racing it
+2. inbound request intake, attachment support, queue claim semantics, and reporting-visible AI causation now sit on top of the stabilized document-adoption model
+3. the remaining thin-v1 work is now primarily reporting and review polish rather than missing control-boundary foundation
 
 ## 3. Scope guardrail
 

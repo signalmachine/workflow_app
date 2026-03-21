@@ -2,7 +2,7 @@
 
 `workflow_app` is an AI-agent-first, database-first business operating system centered on documents, ledgers, execution context, approvals, and reports.
 
-This repository has completed Milestone 0, Milestone 2, Milestone 3, and Milestone 4 from the canonical planning set in [`new_app_docs/`](./new_app_docs). Milestone 1 remains partially complete because the shared control boundary is in place but thin-v1 still lacks adopted document ownership for invoice and payment or receipt documents plus persist-first inbound request and attachment foundations. Work orders now adopt the shared document kernel through a one-to-one `work_orders.documents` bridge. The repository is now continuing through those remaining thin-v1 foundation gaps before any broader implementation proceeds:
+This repository has completed Milestone 0 through Milestone 4 from the canonical planning set in [`new_app_docs/`](./new_app_docs). The shared control boundary now includes adopted document ownership for work orders, invoices, and payment or receipt documents plus persist-first inbound request and attachment foundations. The repository is now finishing the remaining thin-v1 reporting polish before any broader implementation proceeds:
 
 1. bootstrap the Go module
 2. add a migration runner
@@ -12,6 +12,7 @@ This repository has completed Milestone 0, Milestone 2, Milestone 3, and Milesto
 6. add the first `inventory_ops` foundation with items, locations, append-only movements, stock derivation, source and destination semantics, inventory document payload ownership, and explicit accounting/execution handoff seams
 7. add the first `work_orders` foundation with work-order truth, append-only status history, transactional consumption of pending inventory execution links into work-order material usage, workflow-owned tasks with one accountable worker, workforce-owned labor capture with cost snapshots, and centralized accounting consumption of both labor and work-order-linked inventory handoffs
 8. add support-depth `parties` and `contacts` records needed by thin-v1 invoice, payment or receipt, trading inventory, and service execution flows without reviving a primary CRM module
+9. add persist-first inbound requests, request-message attachments, transcription derivatives, queue-oriented AI request processing seams, and reporting-visible request -> AI -> approval -> document review
 
 The planning documents in [`new_app_docs/`](./new_app_docs) remain the canonical source for scope, sequencing, and module boundaries.
 
@@ -59,9 +60,11 @@ Implemented:
 16. first-class `reporting` read surfaces for approval queue review, document review, accounting journal review, control-account balance review, GST/TDS tax summaries, inventory stock review, inventory movement review, inventory reconciliation review, work-order review, and audit lookup
 17. support-depth `parties` records plus tenant-safe `contacts` for thin-v1 trading and service document flows
 18. one-to-one work-order document ownership through `work_orders.documents`, with transactional creation of the shared document row plus work-order execution truth
+19. one-to-one invoice and payment or receipt document ownership through accounting-owned payload tables keyed by `document_id`
+20. persist-first inbound request drafts, messages, queue claim and status transitions, PostgreSQL-backed attachments, attachment transcription derivatives, and AI run causation linked back to the originating request
+21. `reporting` review surfaces for inbound requests, request attachments, linked AI runs, and processed proposals joined to approvals and documents
 
 Immediate next steps:
 
-1. complete adopted document-family ownership for invoice and payment or receipt payloads with one-to-one linkage back to the shared `documents` kernel, reusing shared support-record identities where applicable
-2. implement minimum persist-first inbound request intake, attachment references, queue-oriented AI processing, and browser-usable review visibility for thin-v1 user testing
-3. finish the remaining thin-v1 reporting polish after those foundation gaps land
+1. finish the remaining thin-v1 reporting polish on top of the now-landed inbound-request and processed-proposal review foundations
+2. keep later review additions read-oriented so thin v1 does not widen back into broad operational UI scope

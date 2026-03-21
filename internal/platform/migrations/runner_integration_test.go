@@ -278,7 +278,10 @@ RETURNING id;`).Scan(&userID); err != nil {
 	return orgID, userID
 }
 
-const testDatabaseLockKey int64 = 20260319
+const (
+	testDatabaseLockKey      int64         = 20260319
+	testDatabaseSetupTimeout time.Duration = 2 * time.Minute
+)
 
 func openTestDB(t *testing.T) *sql.DB {
 	t.Helper()
@@ -293,7 +296,7 @@ func openTestDB(t *testing.T) *sql.DB {
 		t.Fatalf("open test database: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), testDatabaseSetupTimeout)
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {

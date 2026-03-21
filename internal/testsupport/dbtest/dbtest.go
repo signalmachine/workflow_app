@@ -12,7 +12,10 @@ import (
 	"workflow_app/internal/platform/migrations"
 )
 
-const testDatabaseLockKey int64 = 20260319
+const (
+	testDatabaseLockKey      int64         = 20260319
+	testDatabaseSetupTimeout time.Duration = 2 * time.Minute
+)
 
 func Open(t *testing.T) *sql.DB {
 	t.Helper()
@@ -27,7 +30,7 @@ func Open(t *testing.T) *sql.DB {
 		t.Fatalf("open test database: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), testDatabaseSetupTimeout)
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {
@@ -72,6 +75,11 @@ TRUNCATE TABLE
 	ai.agent_tool_policies,
 	ai.agent_run_steps,
 	ai.agent_runs,
+	attachments.derived_texts,
+	attachments.request_message_links,
+	attachments.attachments,
+	ai.inbound_request_messages,
+	ai.inbound_requests,
 	ai.agent_tools,
 	workforce.labor_accounting_handoffs,
 	workforce.labor_entries,

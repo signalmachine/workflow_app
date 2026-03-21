@@ -53,9 +53,11 @@ Current implementation checkpoint:
 3. the shared document kernel now has central document identity, lifecycle state, and document-family registration
 4. approvals, approval queue entries, and approval decisions are implemented with transactional audit writes
 5. AI tool registry, tool policy, run history, artifacts, recommendations, approval linkage, and delegation traces are implemented for bounded coordinator-to-specialist routing
-6. persisted inbound-request intake, durable attachment handling, and queue-oriented AI request processing are not yet implemented in the active codebase
-7. remaining thin-v1 document-kernel completion is concentrated around adopted payload ownership for work-order, invoice, and payment or receipt document families, with shared party/contact support records reused where applicable rather than duplicated into document-local truth
-8. this milestone is complete in its first control-boundary slice, but thin-v1 still requires adopted payload ownership plus minimum inbound-request and attachment support before the overall interaction foundation can be considered complete
+6. persisted inbound requests now exist with durable draft, queued, processing, processed, completed, failed, and cancelled status handling plus explicit queue-claim seams
+7. PostgreSQL-backed attachment metadata, request-message linkage, and transcription-derived text records now exist with AI-run linkage preserved against the originating request
+8. AI runs can now link back to persisted inbound requests, and reporting can review that request -> run -> recommendation -> approval -> document chain without raw SQL
+9. adopted payload ownership is now implemented for work-order, invoice, and payment or receipt document families with shared party/contact support records reused where applicable rather than duplicated into document-local truth
+10. this milestone is now complete and provides the intended control-boundary foundation for the remaining reporting polish work
 
 Remediation planning note:
 
@@ -211,8 +213,9 @@ Current implementation checkpoint:
 9. work-order review now exposes task, labor, material-usage, and posted-cost rollups in one inspection surface
 10. audit lookup now exists as a coherent reporting read path scoped to tenant and entity filters
 11. minimum thin-v1 party and contact support depth now exists through tenant-safe `parties` support records and support-depth contacts
-12. remaining thin-v1 completion is now concentrated around two narrow foundation gaps: adopted-document ownership for work-order, invoice, and payment or receipt flows, plus minimum inbound-request and attachment support for browser-based user testing
-13. the next implementation target is to complete those remaining thin-v1 foundation gaps before any v2 breadth work begins
+12. inbound-request list and detail review plus processed-proposal review now expose the persist-first request -> AI -> approval -> document chain needed for thin-v1 browser testing
+13. remaining thin-v1 completion is now concentrated around final operator-facing reporting polish rather than missing inbound-request or adopted-document foundation coverage
+14. the next implementation target is to finish that remaining reporting polish before any v2 breadth work begins
 
 ## 7. Execution warning
 
