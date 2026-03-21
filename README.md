@@ -2,7 +2,7 @@
 
 `workflow_app` is an AI-agent-first, database-first business operating system centered on documents, ledgers, execution context, approvals, and reports.
 
-This repository has completed Milestone 0 through Milestone 4 from the canonical planning set in [`new_app_docs/`](./new_app_docs). The shared control boundary now includes adopted document ownership for work orders, invoices, and payment or receipt documents plus persist-first inbound request and attachment foundations with stable `REQ-...` inbound-request references for submission acknowledgments and review. Draft requests can now be edited or hard-deleted before queueing, while queued pre-processing requests can be soft-cancelled or returned to draft for amendment and resubmission. The repository is now finishing the remaining Milestone 5 reporting polish before moving into provider-backed AI execution and the promoted usable web application layer.
+This repository has completed Milestone 0 through Milestone 5 from the canonical planning set in [`new_app_docs/`](./new_app_docs). The shared control boundary now includes adopted document ownership for work orders, invoices, and payment or receipt documents plus persist-first inbound request and attachment foundations with stable `REQ-...` inbound-request references for submission acknowledgments and review. Draft requests can now be edited or hard-deleted before queueing, while queued pre-processing requests can be soft-cancelled or returned to draft for amendment and resubmission. Milestone 6 has now started with the first provider-backed AI slice: `internal/ai` can load and validate optional OpenAI configuration from `OPENAI_API_KEY` and `OPENAI_MODEL` without making the default build and test flow depend on external credentials.
 
 1. bootstrap the Go module
 2. add a migration runner
@@ -38,6 +38,13 @@ Run tests with the configured test database:
 set -a; source .env; set +a; go test -p 1 ./...
 ```
 
+Optional OpenAI configuration for the Milestone 6 live-provider path:
+
+```bash
+OPENAI_API_KEY=...
+OPENAI_MODEL=...
+```
+
 ## Current implementation status
 
 Implemented:
@@ -63,11 +70,11 @@ Implemented:
 19. one-to-one invoice and payment or receipt document ownership through accounting-owned payload tables keyed by `document_id`
 20. persist-first inbound request drafts, org-scoped `REQ-...` request references, draft editing and hard deletion, queued-request amend and cancel handling before pickup, messages, queue claim and status transitions, PostgreSQL-backed attachments, attachment transcription derivatives, and AI run causation linked back to the originating request
 21. `reporting` review surfaces for inbound requests, request attachments, linked AI runs, AI step traces, delegation traces, AI artifacts, recommendation payloads, and processed proposals joined to approvals and documents, with stable request references exposed for operator tracking and used directly for request-detail and processed-proposal lookup, persisted cancellation and failure reasons visible for operator troubleshooting, submitter, session, metadata, attachment provenance, and document-context fields surfaced for richer operator review, and queue-oriented status summary reads for inbound requests and processed proposals
+22. optional OpenAI provider configuration loading and validation in `internal/ai`, keeping live-provider setup explicit while default repository verification remains provider-independent
 
 Immediate next steps:
 
-1. continue the remaining thin-v1 reporting polish on top of the now-landed inbound-request, processed-proposal, and stable request-reference foundations
-2. after reporting polish, implement provider-backed AI execution through the OpenAI Go SDK
-3. after Milestone 6, implement the usable web application layer on backend contracts that a later v2 mobile client will also reuse
-4. keep later review additions centered on stable request references instead of raw UUIDs where operator-facing lookup is involved
-5. keep later review additions read-oriented so v1 web usability does not widen into a broad manual-entry ERP
+1. add the OpenAI Go SDK dependency and the first provider-backed adapter in `internal/ai`
+2. wire the first queued inbound-request to provider-backed coordinator execution path using the Responses API
+3. add opt-in provider verification coverage while keeping default tests provider-independent
+4. after Milestone 6, implement the usable web application layer on backend contracts that a later v2 mobile client will also reuse

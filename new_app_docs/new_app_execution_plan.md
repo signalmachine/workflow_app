@@ -253,10 +253,13 @@ Exit criteria:
 
 Planned implementation checkpoint:
 
-1. this milestone is not yet implemented
-2. detailed sequencing and constraints are captured in `ai_provider_execution_plan.md`
-3. this milestone should start after the remaining Milestone 5 reporting polish is complete
-4. this milestone should be executed as a sequence of narrow vertical slices rather than one monolithic delivery
+1. Milestone 6 is now active after review confirmed Milestone 5 reporting coverage is complete enough for thin-v1 review and browser-ready read seams
+2. `internal/ai` now loads and validates OpenAI provider configuration from `OPENAI_API_KEY` and `OPENAI_MODEL`
+3. provider configuration remains optional so the default local build and database-backed test flow does not require external credentials
+4. `.env.example` now documents the OpenAI variables needed for later live-provider slices
+5. detailed sequencing and constraints are captured in `ai_provider_execution_plan.md`
+6. remaining Milestone 6 work is the actual OpenAI Go SDK integration, Responses API execution loop, provider-backed coordinator and specialist flow, tool-policy enforcement, and opt-in live-provider verification
+7. this milestone should continue as a sequence of narrow vertical slices rather than one monolithic delivery
 
 ## 8. Milestone 7: Usable web application layer
 
