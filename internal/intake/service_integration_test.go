@@ -258,8 +258,8 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 	}
 
 	detail, err := reportingService.GetInboundRequestDetail(ctx, reporting.GetInboundRequestDetailInput{
-		RequestID: request.ID,
-		Actor:     operator,
+		RequestReference: request.RequestReference,
+		Actor:            operator,
 	})
 	if err != nil {
 		t.Fatalf("get inbound request detail: %v", err)
@@ -278,9 +278,10 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 	}
 
 	proposals, err := reportingService.ListProcessedProposals(ctx, reporting.ListProcessedProposalsInput{
-		Status: ai.RecommendationStatusApprovalRequested,
-		Limit:  10,
-		Actor:  operator,
+		Status:           ai.RecommendationStatusApprovalRequested,
+		RequestReference: request.RequestReference,
+		Limit:            10,
+		Actor:            operator,
 	})
 	if err != nil {
 		t.Fatalf("list processed proposals: %v", err)
@@ -288,7 +289,7 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 	if len(proposals) != 1 {
 		t.Fatalf("unexpected processed proposal count: %d", len(proposals))
 	}
-	if proposals[0].RequestID != request.ID || proposals[0].DocumentID.String != doc.ID {
+	if proposals[0].RequestID != request.ID || proposals[0].RequestReference != request.RequestReference || proposals[0].DocumentID.String != doc.ID {
 		t.Fatalf("unexpected processed proposal row: %+v", proposals[0])
 	}
 }

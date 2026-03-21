@@ -62,10 +62,10 @@ Implemented:
 18. one-to-one work-order document ownership through `work_orders.documents`, with transactional creation of the shared document row plus work-order execution truth
 19. one-to-one invoice and payment or receipt document ownership through accounting-owned payload tables keyed by `document_id`
 20. persist-first inbound request drafts, org-scoped `REQ-...` request references, draft editing and hard deletion, queued-request amend and cancel handling before pickup, messages, queue claim and status transitions, PostgreSQL-backed attachments, attachment transcription derivatives, and AI run causation linked back to the originating request
-21. `reporting` review surfaces for inbound requests, request attachments, linked AI runs, and processed proposals joined to approvals and documents, with stable request references exposed for operator tracking
+21. `reporting` review surfaces for inbound requests, request attachments, linked AI runs, and processed proposals joined to approvals and documents, with stable request references exposed for operator tracking and used directly for request-detail and processed-proposal lookup
 
 Immediate next steps:
 
-1. finish the remaining thin-v1 reporting polish on top of the now-landed inbound-request, processed-proposal, and stable request-reference foundations
+1. continue the remaining thin-v1 reporting polish on top of the now-landed inbound-request, processed-proposal, and stable request-reference foundations
 2. keep later review additions centered on stable request references instead of raw UUIDs where operator-facing lookup is involved
 3. keep later review additions read-oriented so thin v1 does not widen back into broad operational UI scope
