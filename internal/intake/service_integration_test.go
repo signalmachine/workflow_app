@@ -250,6 +250,15 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 	if requests[0].RequestReference != request.RequestReference {
 		t.Fatalf("unexpected request reference in review: got %q want %q", requests[0].RequestReference, request.RequestReference)
 	}
+	if !requests[0].ActorUserID.Valid || requests[0].ActorUserID.String != operator.UserID {
+		t.Fatalf("unexpected actor user in review: %+v want %s", requests[0].ActorUserID, operator.UserID)
+	}
+	if !requests[0].SessionID.Valid || requests[0].SessionID.String != operator.SessionID {
+		t.Fatalf("unexpected session in review: %+v want %s", requests[0].SessionID, operator.SessionID)
+	}
+	if !strings.Contains(string(requests[0].Metadata), "integration-test") {
+		t.Fatalf("expected request metadata in review, got %s", string(requests[0].Metadata))
+	}
 	if requests[0].AttachmentCount != 1 || requests[0].MessageCount != 1 {
 		t.Fatalf("unexpected request counts: attachments=%d messages=%d", requests[0].AttachmentCount, requests[0].MessageCount)
 	}
@@ -282,11 +291,35 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 	if detail.Request.RequestReference != request.RequestReference {
 		t.Fatalf("unexpected request reference in detail: got %q want %q", detail.Request.RequestReference, request.RequestReference)
 	}
+	if !detail.Request.ActorUserID.Valid || detail.Request.ActorUserID.String != operator.UserID {
+		t.Fatalf("unexpected actor user in detail: %+v want %s", detail.Request.ActorUserID, operator.UserID)
+	}
+	if !detail.Request.SessionID.Valid || detail.Request.SessionID.String != operator.SessionID {
+		t.Fatalf("unexpected session in detail: %+v want %s", detail.Request.SessionID, operator.SessionID)
+	}
+	if !strings.Contains(string(detail.Request.Metadata), "integration-test") {
+		t.Fatalf("expected request metadata in detail, got %s", string(detail.Request.Metadata))
+	}
+	if !detail.Messages[0].CreatedByUserID.Valid || detail.Messages[0].CreatedByUserID.String != operator.UserID {
+		t.Fatalf("unexpected message creator in detail: %+v want %s", detail.Messages[0].CreatedByUserID, operator.UserID)
+	}
+	if !detail.Attachments[0].UploadedByUserID.Valid || detail.Attachments[0].UploadedByUserID.String != operator.UserID {
+		t.Fatalf("unexpected attachment uploader in detail: %+v want %s", detail.Attachments[0].UploadedByUserID, operator.UserID)
+	}
 	if !detail.Attachments[0].LatestDerivedText.Valid || detail.Attachments[0].LatestDerivedText.String == "" {
 		t.Fatal("expected latest derived text in attachment review")
 	}
+	if !detail.Attachments[0].LatestDerivedByRunID.Valid || detail.Attachments[0].LatestDerivedByRunID.String != run.ID {
+		t.Fatalf("unexpected latest derived-text run in attachment review: %+v want %s", detail.Attachments[0].LatestDerivedByRunID, run.ID)
+	}
 	if detail.Proposals[0].ApprovalID.String != approval.ID || detail.Proposals[0].DocumentID.String != doc.ID {
 		t.Fatalf("unexpected proposal linkage: %+v", detail.Proposals[0])
+	}
+	if !detail.Proposals[0].ApprovalQueueCode.Valid || detail.Proposals[0].ApprovalQueueCode.String != "finance-review" {
+		t.Fatalf("unexpected proposal approval queue: %+v", detail.Proposals[0].ApprovalQueueCode)
+	}
+	if !detail.Proposals[0].DocumentTitle.Valid || detail.Proposals[0].DocumentTitle.String != "Inbound request invoice" {
+		t.Fatalf("unexpected proposal document title: %+v", detail.Proposals[0].DocumentTitle)
 	}
 
 	proposals, err := reportingService.ListProcessedProposals(ctx, reporting.ListProcessedProposalsInput{
@@ -303,6 +336,12 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 	}
 	if proposals[0].RequestID != request.ID || proposals[0].RequestReference != request.RequestReference || proposals[0].DocumentID.String != doc.ID {
 		t.Fatalf("unexpected processed proposal row: %+v", proposals[0])
+	}
+	if !proposals[0].ApprovalQueueCode.Valid || proposals[0].ApprovalQueueCode.String != "finance-review" {
+		t.Fatalf("unexpected processed proposal queue code: %+v", proposals[0].ApprovalQueueCode)
+	}
+	if !proposals[0].DocumentTitle.Valid || proposals[0].DocumentTitle.String != "Inbound request invoice" {
+		t.Fatalf("unexpected processed proposal document title: %+v", proposals[0].DocumentTitle)
 	}
 }
 

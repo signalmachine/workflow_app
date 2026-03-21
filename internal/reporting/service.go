@@ -312,9 +312,12 @@ type LookupAuditEventsInput struct {
 type InboundRequestReview struct {
 	RequestID                string
 	RequestReference         string
+	SessionID                sql.NullString
+	ActorUserID              sql.NullString
 	OriginType               string
 	Channel                  string
 	Status                   string
+	Metadata                 json.RawMessage
 	CancellationReason       string
 	FailureReason            string
 	ReceivedAt               time.Time
@@ -325,6 +328,8 @@ type InboundRequestReview struct {
 	CompletedAt              sql.NullTime
 	FailedAt                 sql.NullTime
 	CancelledAt              sql.NullTime
+	CreatedAt                time.Time
+	UpdatedAt                time.Time
 	MessageCount             int
 	AttachmentCount          int
 	LastRunID                sql.NullString
@@ -345,20 +350,23 @@ type InboundRequestMessageReview struct {
 	MessageIndex    int
 	MessageRole     string
 	TextContent     string
+	CreatedByUserID sql.NullString
 	AttachmentCount int
 	CreatedAt       time.Time
 }
 
 type RequestAttachmentReview struct {
-	AttachmentID      string
-	RequestMessageID  string
-	LinkRole          string
-	OriginalFileName  string
-	MediaType         string
-	SizeBytes         int64
-	LatestDerivedText sql.NullString
-	DerivedTextCount  int
-	CreatedAt         time.Time
+	AttachmentID         string
+	RequestMessageID     string
+	LinkRole             string
+	OriginalFileName     string
+	MediaType            string
+	SizeBytes            int64
+	UploadedByUserID     sql.NullString
+	LatestDerivedText    sql.NullString
+	LatestDerivedByRunID sql.NullString
+	DerivedTextCount     int
+	CreatedAt            time.Time
 }
 
 type AIRunReview struct {
@@ -382,8 +390,11 @@ type ProcessedProposalReview struct {
 	Summary              string
 	ApprovalID           sql.NullString
 	ApprovalStatus       sql.NullString
+	ApprovalQueueCode    sql.NullString
 	DocumentID           sql.NullString
 	DocumentTypeCode     sql.NullString
+	DocumentTitle        sql.NullString
+	DocumentNumber       sql.NullString
 	DocumentStatus       sql.NullString
 	CreatedAt            time.Time
 }
@@ -1520,9 +1531,12 @@ func (s *Service) ListInboundRequests(ctx context.Context, input ListInboundRequ
 SELECT
 	r.id,
 	r.request_reference,
+	r.session_id,
+	r.actor_user_id,
 	r.origin_type,
 	r.channel,
 	r.status,
+	r.metadata,
 	r.cancellation_reason,
 	r.failure_reason,
 	r.received_at,
@@ -1533,6 +1547,8 @@ SELECT
 	r.completed_at,
 	r.failed_at,
 	r.cancelled_at,
+	r.created_at,
+	r.updated_at,
 	COALESCE(msg.message_count, 0),
 	COALESCE(att.attachment_count, 0),
 	lr.run_id,
@@ -1588,13 +1604,19 @@ LIMIT $4;`
 
 	var reviews []InboundRequestReview
 	for rows.Next() {
-		var review InboundRequestReview
+		var (
+			review   InboundRequestReview
+			metadata []byte
+		)
 		if err := rows.Scan(
 			&review.RequestID,
 			&review.RequestReference,
+			&review.SessionID,
+			&review.ActorUserID,
 			&review.OriginType,
 			&review.Channel,
 			&review.Status,
+			&metadata,
 			&review.CancellationReason,
 			&review.FailureReason,
 			&review.ReceivedAt,
@@ -1605,6 +1627,8 @@ LIMIT $4;`
 			&review.CompletedAt,
 			&review.FailedAt,
 			&review.CancelledAt,
+			&review.CreatedAt,
+			&review.UpdatedAt,
 			&review.MessageCount,
 			&review.AttachmentCount,
 			&review.LastRunID,
@@ -1615,6 +1639,7 @@ LIMIT $4;`
 			_ = tx.Rollback()
 			return nil, fmt.Errorf("scan inbound request review: %w", err)
 		}
+		review.Metadata = append(review.Metadata[:0], metadata...)
 		reviews = append(reviews, review)
 	}
 	if err := rows.Err(); err != nil {
@@ -1663,6 +1688,7 @@ SELECT
 	m.message_index,
 	m.message_role,
 	m.text_content,
+	m.created_by_user_id,
 	COUNT(l.id) AS attachment_count,
 	m.created_at
 FROM ai.inbound_request_messages m
@@ -1686,6 +1712,7 @@ ORDER BY m.message_index ASC;`
 			&message.MessageIndex,
 			&message.MessageRole,
 			&message.TextContent,
+			&message.CreatedByUserID,
 			&message.AttachmentCount,
 			&message.CreatedAt,
 		); err != nil {
@@ -1710,7 +1737,9 @@ SELECT
 	a.original_file_name,
 	a.media_type,
 	a.size_bytes,
+	a.uploaded_by_user_id,
 	dt.latest_text,
+	dt.latest_created_by_run_id,
 	COALESCE(dt.derived_count, 0),
 	a.created_at
 FROM ai.inbound_request_messages m
@@ -1730,7 +1759,15 @@ LEFT JOIN LATERAL (
 			  AND dt2.source_attachment_id = a.id
 			ORDER BY dt2.created_at DESC, dt2.id DESC
 			LIMIT 1
-		) AS latest_text
+		) AS latest_text,
+		(
+			SELECT created_by_run_id
+			FROM attachments.derived_texts dt2
+			WHERE dt2.org_id = a.org_id
+			  AND dt2.source_attachment_id = a.id
+			ORDER BY dt2.created_at DESC, dt2.id DESC
+			LIMIT 1
+		) AS latest_created_by_run_id
 	FROM attachments.derived_texts dt
 	WHERE dt.org_id = a.org_id
 	  AND dt.source_attachment_id = a.id
@@ -1753,7 +1790,9 @@ ORDER BY a.created_at ASC, a.id ASC;`
 			&attachment.OriginalFileName,
 			&attachment.MediaType,
 			&attachment.SizeBytes,
+			&attachment.UploadedByUserID,
 			&attachment.LatestDerivedText,
+			&attachment.LatestDerivedByRunID,
 			&attachment.DerivedTextCount,
 			&attachment.CreatedAt,
 		); err != nil {
@@ -1864,9 +1903,12 @@ func (s *Service) listInboundRequestsTx(ctx context.Context, tx *sql.Tx, orgID, 
 SELECT
 	r.id,
 	r.request_reference,
+	r.session_id,
+	r.actor_user_id,
 	r.origin_type,
 	r.channel,
 	r.status,
+	r.metadata,
 	r.cancellation_reason,
 	r.failure_reason,
 	r.received_at,
@@ -1877,6 +1919,8 @@ SELECT
 	r.completed_at,
 	r.failed_at,
 	r.cancelled_at,
+	r.created_at,
+	r.updated_at,
 	COALESCE(msg.message_count, 0),
 	COALESCE(att.attachment_count, 0),
 	lr.run_id,
@@ -1928,13 +1972,19 @@ WHERE r.org_id = $1
 
 	var reviews []InboundRequestReview
 	for rows.Next() {
-		var review InboundRequestReview
+		var (
+			review   InboundRequestReview
+			metadata []byte
+		)
 		if err := rows.Scan(
 			&review.RequestID,
 			&review.RequestReference,
+			&review.SessionID,
+			&review.ActorUserID,
 			&review.OriginType,
 			&review.Channel,
 			&review.Status,
+			&metadata,
 			&review.CancellationReason,
 			&review.FailureReason,
 			&review.ReceivedAt,
@@ -1945,6 +1995,8 @@ WHERE r.org_id = $1
 			&review.CompletedAt,
 			&review.FailedAt,
 			&review.CancelledAt,
+			&review.CreatedAt,
+			&review.UpdatedAt,
 			&review.MessageCount,
 			&review.AttachmentCount,
 			&review.LastRunID,
@@ -1954,6 +2006,7 @@ WHERE r.org_id = $1
 		); err != nil {
 			return nil, fmt.Errorf("scan inbound request detail header: %w", err)
 		}
+		review.Metadata = append(review.Metadata[:0], metadata...)
 		reviews = append(reviews, review)
 	}
 	if err := rows.Err(); err != nil {
@@ -1975,8 +2028,11 @@ SELECT
 	rec.summary,
 	rec.approval_id,
 	ap.status,
+	ap.queue_code,
 	d.id,
 	d.type_code,
+	d.title,
+	d.number_value,
 	d.status,
 	rec.created_at
 FROM ai.inbound_requests r
@@ -2015,8 +2071,11 @@ LIMIT 200;`
 			&proposal.Summary,
 			&proposal.ApprovalID,
 			&proposal.ApprovalStatus,
+			&proposal.ApprovalQueueCode,
 			&proposal.DocumentID,
 			&proposal.DocumentTypeCode,
+			&proposal.DocumentTitle,
+			&proposal.DocumentNumber,
 			&proposal.DocumentStatus,
 			&proposal.CreatedAt,
 		); err != nil {
