@@ -121,6 +121,80 @@ type WorkOrderReview struct {
 	LastAccountingPostedAt   sql.NullTime
 }
 
+type JournalEntryReview struct {
+	EntryID           string
+	EntryNumber       int64
+	EntryKind         string
+	SourceDocumentID  sql.NullString
+	ReversalOfEntryID sql.NullString
+	CurrencyCode      string
+	TaxScopeCode      string
+	Summary           string
+	ReversalReason    sql.NullString
+	PostedByUserID    string
+	EffectiveOn       time.Time
+	PostedAt          time.Time
+	CreatedAt         time.Time
+	DocumentTypeCode  sql.NullString
+	DocumentNumber    sql.NullString
+	DocumentStatus    sql.NullString
+	LineCount         int
+	TotalDebitMinor   int64
+	TotalCreditMinor  int64
+	HasReversal       bool
+}
+
+type ListJournalEntriesInput struct {
+	StartOn time.Time
+	EndOn   time.Time
+	Limit   int
+	Actor   identityaccess.Actor
+}
+
+type ControlAccountBalance struct {
+	AccountID        string
+	AccountCode      string
+	AccountName      string
+	AccountClass     string
+	ControlType      string
+	TotalDebitMinor  int64
+	TotalCreditMinor int64
+	NetMinor         int64
+	LastEffectiveOn  sql.NullTime
+}
+
+type ListControlAccountBalancesInput struct {
+	AsOf  time.Time
+	Actor identityaccess.Actor
+}
+
+type TaxSummary struct {
+	TaxType               string
+	TaxCode               string
+	TaxName               string
+	RateBasisPoints       int
+	EntryCount            int
+	DocumentCount         int
+	TotalDebitMinor       int64
+	TotalCreditMinor      int64
+	NetMinor              int64
+	ReceivableAccountID   sql.NullString
+	ReceivableAccountCode sql.NullString
+	ReceivableAccountName sql.NullString
+	PayableAccountID      sql.NullString
+	PayableAccountCode    sql.NullString
+	PayableAccountName    sql.NullString
+	LastEffectiveOn       sql.NullTime
+}
+
+type ListTaxSummariesInput struct {
+	StartOn time.Time
+	EndOn   time.Time
+	TaxType string
+	Limit   int
+	Actor   identityaccess.Actor
+}
+
 type GetWorkOrderReviewInput struct {
 	WorkOrderID string
 	Actor       identityaccess.Actor
@@ -595,6 +669,298 @@ WHERE wo.org_id = $1
 	return review, nil
 }
 
+func (s *Service) ListJournalEntries(ctx context.Context, input ListJournalEntriesInput) ([]JournalEntryReview, error) {
+	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	startOn, startSet := normalizeOptionalDate(input.StartOn)
+	endOn, endSet := normalizeOptionalDate(input.EndOn)
+
+	rows, err := tx.QueryContext(ctx, `
+SELECT
+	e.id,
+	e.entry_number,
+	e.entry_kind,
+	e.source_document_id,
+	e.reversal_of_entry_id,
+	e.currency_code,
+	e.tax_scope_code,
+	e.summary,
+	e.reversal_reason,
+	e.posted_by_user_id,
+	e.effective_on,
+	e.posted_at,
+	e.created_at,
+	d.type_code,
+	d.number_value,
+	d.status,
+	COUNT(l.id) AS line_count,
+	COALESCE(SUM(l.debit_minor), 0) AS total_debit_minor,
+	COALESCE(SUM(l.credit_minor), 0) AS total_credit_minor,
+	EXISTS (
+		SELECT 1
+		FROM accounting.journal_entries reversals
+		WHERE reversals.org_id = e.org_id
+		  AND reversals.reversal_of_entry_id = e.id
+	) AS has_reversal
+FROM accounting.journal_entries e
+JOIN accounting.journal_lines l
+	ON l.entry_id = e.id
+LEFT JOIN documents.documents d
+	ON d.org_id = e.org_id
+   AND d.id = e.source_document_id
+WHERE e.org_id = $1
+  AND ($2::date IS NULL OR e.effective_on >= $2::date)
+  AND ($3::date IS NULL OR e.effective_on <= $3::date)
+GROUP BY
+	e.id,
+	e.entry_number,
+	e.entry_kind,
+	e.source_document_id,
+	e.reversal_of_entry_id,
+	e.currency_code,
+	e.tax_scope_code,
+	e.summary,
+	e.reversal_reason,
+	e.posted_by_user_id,
+	e.effective_on,
+	e.posted_at,
+	e.created_at,
+	d.type_code,
+	d.number_value,
+	d.status
+ORDER BY e.effective_on DESC, e.entry_number DESC
+LIMIT $4;`,
+		input.Actor.OrgID,
+		nullableDate(startOn, startSet),
+		nullableDate(endOn, endSet),
+		normalizeLimit(input.Limit),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query journal entry review: %w", err)
+	}
+	defer rows.Close()
+
+	var reviews []JournalEntryReview
+	for rows.Next() {
+		var review JournalEntryReview
+		if err := rows.Scan(
+			&review.EntryID,
+			&review.EntryNumber,
+			&review.EntryKind,
+			&review.SourceDocumentID,
+			&review.ReversalOfEntryID,
+			&review.CurrencyCode,
+			&review.TaxScopeCode,
+			&review.Summary,
+			&review.ReversalReason,
+			&review.PostedByUserID,
+			&review.EffectiveOn,
+			&review.PostedAt,
+			&review.CreatedAt,
+			&review.DocumentTypeCode,
+			&review.DocumentNumber,
+			&review.DocumentStatus,
+			&review.LineCount,
+			&review.TotalDebitMinor,
+			&review.TotalCreditMinor,
+			&review.HasReversal,
+		); err != nil {
+			return nil, fmt.Errorf("scan journal entry review: %w", err)
+		}
+		reviews = append(reviews, review)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate journal entry reviews: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit journal entry review read: %w", err)
+	}
+
+	return reviews, nil
+}
+
+func (s *Service) ListControlAccountBalances(ctx context.Context, input ListControlAccountBalancesInput) ([]ControlAccountBalance, error) {
+	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	asOf, asOfSet := normalizeOptionalDate(input.AsOf)
+
+	rows, err := tx.QueryContext(ctx, `
+SELECT
+	a.id,
+	a.code,
+	a.name,
+	a.account_class,
+	a.control_type,
+	COALESCE(SUM(l.debit_minor) FILTER (WHERE $2::date IS NULL OR e.effective_on <= $2::date), 0) AS total_debit_minor,
+	COALESCE(SUM(l.credit_minor) FILTER (WHERE $2::date IS NULL OR e.effective_on <= $2::date), 0) AS total_credit_minor,
+	MAX(e.effective_on) FILTER (WHERE $2::date IS NULL OR e.effective_on <= $2::date) AS last_effective_on
+FROM accounting.ledger_accounts a
+LEFT JOIN accounting.journal_lines l
+	ON l.account_id = a.id
+   AND l.org_id = a.org_id
+LEFT JOIN accounting.journal_entries e
+	ON e.id = l.entry_id
+   AND e.org_id = a.org_id
+WHERE a.org_id = $1
+  AND a.status = 'active'
+  AND a.control_type <> 'none'
+GROUP BY a.id, a.code, a.name, a.account_class, a.control_type
+ORDER BY a.code ASC;`,
+		input.Actor.OrgID,
+		nullableDate(asOf, asOfSet),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query control account balances: %w", err)
+	}
+	defer rows.Close()
+
+	var balances []ControlAccountBalance
+	for rows.Next() {
+		var balance ControlAccountBalance
+		if err := rows.Scan(
+			&balance.AccountID,
+			&balance.AccountCode,
+			&balance.AccountName,
+			&balance.AccountClass,
+			&balance.ControlType,
+			&balance.TotalDebitMinor,
+			&balance.TotalCreditMinor,
+			&balance.LastEffectiveOn,
+		); err != nil {
+			return nil, fmt.Errorf("scan control account balance: %w", err)
+		}
+		balance.NetMinor = balance.TotalDebitMinor - balance.TotalCreditMinor
+		balances = append(balances, balance)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate control account balances: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit control account balance read: %w", err)
+	}
+
+	return balances, nil
+}
+
+func (s *Service) ListTaxSummaries(ctx context.Context, input ListTaxSummariesInput) ([]TaxSummary, error) {
+	if input.TaxType != "" && input.TaxType != "gst" && input.TaxType != "tds" {
+		return nil, ErrInvalidReviewFilter
+	}
+
+	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	startOn, startSet := normalizeOptionalDate(input.StartOn)
+	endOn, endSet := normalizeOptionalDate(input.EndOn)
+
+	rows, err := tx.QueryContext(ctx, `
+SELECT
+	tc.tax_type,
+	tc.code,
+	tc.name,
+	tc.rate_basis_points,
+	COUNT(DISTINCT e.id) AS entry_count,
+	COUNT(DISTINCT e.source_document_id) FILTER (WHERE e.source_document_id IS NOT NULL) AS document_count,
+	COALESCE(SUM(l.debit_minor), 0) AS total_debit_minor,
+	COALESCE(SUM(l.credit_minor), 0) AS total_credit_minor,
+	ra.id,
+	ra.code,
+	ra.name,
+	pa.id,
+	pa.code,
+	pa.name,
+	MAX(e.effective_on) AS last_effective_on
+FROM accounting.tax_codes tc
+LEFT JOIN accounting.ledger_accounts ra
+	ON ra.id = tc.receivable_account_id
+   AND ra.org_id = tc.org_id
+LEFT JOIN accounting.ledger_accounts pa
+	ON pa.id = tc.payable_account_id
+   AND pa.org_id = tc.org_id
+LEFT JOIN accounting.journal_lines l
+	ON l.org_id = tc.org_id
+   AND l.tax_code = tc.code
+LEFT JOIN accounting.journal_entries e
+	ON e.id = l.entry_id
+   AND e.org_id = tc.org_id
+   AND ($2::date IS NULL OR e.effective_on >= $2::date)
+   AND ($3::date IS NULL OR e.effective_on <= $3::date)
+WHERE tc.org_id = $1
+  AND tc.status = 'active'
+  AND ($4 = '' OR tc.tax_type = $4)
+GROUP BY
+	tc.tax_type,
+	tc.code,
+	tc.name,
+	tc.rate_basis_points,
+	ra.id,
+	ra.code,
+	ra.name,
+	pa.id,
+	pa.code,
+	pa.name
+ORDER BY tc.tax_type ASC, tc.code ASC
+LIMIT $5;`,
+		input.Actor.OrgID,
+		nullableDate(startOn, startSet),
+		nullableDate(endOn, endSet),
+		input.TaxType,
+		normalizeLimit(input.Limit),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query tax summaries: %w", err)
+	}
+	defer rows.Close()
+
+	var summaries []TaxSummary
+	for rows.Next() {
+		var summary TaxSummary
+		if err := rows.Scan(
+			&summary.TaxType,
+			&summary.TaxCode,
+			&summary.TaxName,
+			&summary.RateBasisPoints,
+			&summary.EntryCount,
+			&summary.DocumentCount,
+			&summary.TotalDebitMinor,
+			&summary.TotalCreditMinor,
+			&summary.ReceivableAccountID,
+			&summary.ReceivableAccountCode,
+			&summary.ReceivableAccountName,
+			&summary.PayableAccountID,
+			&summary.PayableAccountCode,
+			&summary.PayableAccountName,
+			&summary.LastEffectiveOn,
+		); err != nil {
+			return nil, fmt.Errorf("scan tax summary: %w", err)
+		}
+		summary.NetMinor = summary.TotalDebitMinor - summary.TotalCreditMinor
+		summaries = append(summaries, summary)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate tax summaries: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit tax summary read: %w", err)
+	}
+
+	return summaries, nil
+}
+
 func (s *Service) LookupAuditEvents(ctx context.Context, input LookupAuditEventsInput) ([]AuditEvent, error) {
 	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
 	if err != nil {
@@ -679,6 +1045,20 @@ func normalizeLimit(limit int) int {
 		return 50
 	}
 	return limit
+}
+
+func normalizeOptionalDate(value time.Time) (time.Time, bool) {
+	if value.IsZero() {
+		return time.Time{}, false
+	}
+	return value.UTC().Truncate(24 * time.Hour), true
+}
+
+func nullableDate(value time.Time, set bool) any {
+	if !set {
+		return nil
+	}
+	return value.Format(time.DateOnly)
 }
 
 func isValidDocumentStatus(status string) bool {

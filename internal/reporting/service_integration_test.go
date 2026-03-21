@@ -177,6 +177,52 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 		AccountClass: accounting.AccountClassLiability,
 		Actor:        admin,
 	})
+	gstOutput := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:                "2105",
+		Name:                "GST Output",
+		AccountClass:        accounting.AccountClassLiability,
+		ControlType:         accounting.ControlTypeGSTOutput,
+		AllowsDirectPosting: false,
+		Actor:               admin,
+	})
+	tdsPayable := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:                "2206",
+		Name:                "TDS Payable",
+		AccountClass:        accounting.AccountClassLiability,
+		ControlType:         accounting.ControlTypeTDSPayable,
+		AllowsDirectPosting: false,
+		Actor:               admin,
+	})
+	receivable := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:                "1105",
+		Name:                "Tax Review Receivable",
+		AccountClass:        accounting.AccountClassAsset,
+		ControlType:         accounting.ControlTypeReceivable,
+		AllowsDirectPosting: false,
+		Actor:               admin,
+	})
+	revenue := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:         "4105",
+		Name:         "Tax Review Revenue",
+		AccountClass: accounting.AccountClassRevenue,
+		Actor:        admin,
+	})
+	gst18 := createTaxCode(t, ctx, accountingService, accounting.CreateTaxCodeInput{
+		Code:             "GST18-RPT",
+		Name:             "GST Output 18%",
+		TaxType:          accounting.TaxTypeGST,
+		RateBasisPoints:  1800,
+		PayableAccountID: gstOutput.ID,
+		Actor:            admin,
+	})
+	tds2 := createTaxCode(t, ctx, accountingService, accounting.CreateTaxCodeInput{
+		Code:             "TDS2-RPT",
+		Name:             "TDS 194C 2%",
+		TaxType:          accounting.TaxTypeTDS,
+		RateBasisPoints:  200,
+		PayableAccountID: tdsPayable.ID,
+		Actor:            admin,
+	})
 
 	laborJournalDoc := prepareApprovedDocumentOfType(t, ctx, documentService, workflowService, operator, approver, "journal", "Labor posting")
 	if _, err := accountingService.PostWorkOrderLabor(ctx, accounting.PostWorkOrderLaborInput{
@@ -202,6 +248,44 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 		Actor:            admin,
 	}); err != nil {
 		t.Fatalf("post material costs: %v", err)
+	}
+
+	gstInvoiceDoc := prepareApprovedDocumentOfType(t, ctx, documentService, workflowService, operator, approver, "invoice", "GST invoice")
+	gstPostedAt := time.Date(2026, 3, 22, 10, 0, 0, 0, time.UTC)
+	gstEntry, _, _, err := accountingService.PostDocument(ctx, accounting.PostDocumentInput{
+		DocumentID:   gstInvoiceDoc.ID,
+		Summary:      "Post GST invoice",
+		CurrencyCode: "INR",
+		TaxScopeCode: accounting.TaxScopeGST,
+		EffectiveOn:  gstPostedAt,
+		Lines: []accounting.PostingLineInput{
+			{AccountID: receivable.ID, Description: "Customer receivable", DebitMinor: 59000},
+			{AccountID: revenue.ID, Description: "Recognized revenue", CreditMinor: 50000},
+			{AccountID: gstOutput.ID, Description: "GST payable", CreditMinor: 9000, TaxCode: gst18.Code},
+		},
+		Actor: admin,
+	})
+	if err != nil {
+		t.Fatalf("post GST document: %v", err)
+	}
+
+	tdsBillDoc := prepareApprovedDocumentOfType(t, ctx, documentService, workflowService, operator, approver, "invoice", "TDS bill")
+	tdsPostedAt := gstPostedAt.Add(24 * time.Hour)
+	tdsEntry, _, _, err := accountingService.PostDocument(ctx, accounting.PostDocumentInput{
+		DocumentID:   tdsBillDoc.ID,
+		Summary:      "Post TDS bill",
+		CurrencyCode: "INR",
+		TaxScopeCode: accounting.TaxScopeTDS,
+		EffectiveOn:  tdsPostedAt,
+		Lines: []accounting.PostingLineInput{
+			{AccountID: receivable.ID, Description: "Customer receivable", DebitMinor: 49000},
+			{AccountID: revenue.ID, Description: "Recognized revenue", CreditMinor: 50000},
+			{AccountID: tdsPayable.ID, Description: "TDS payable", DebitMinor: 1000, TaxCode: tds2.Code},
+		},
+		Actor: admin,
+	})
+	if err != nil {
+		t.Fatalf("post TDS document: %v", err)
 	}
 
 	queueEntries, err := reportingService.ListApprovalQueue(ctx, reporting.ListApprovalQueueInput{
@@ -293,6 +377,72 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 		t.Fatal("expected last accounting posted timestamp")
 	}
 
+	journalReviews, err := reportingService.ListJournalEntries(ctx, reporting.ListJournalEntriesInput{
+		StartOn: startedAt,
+		EndOn:   tdsPostedAt,
+		Limit:   20,
+		Actor:   admin,
+	})
+	if err != nil {
+		t.Fatalf("list journal reviews: %v", err)
+	}
+	if len(journalReviews) < 4 {
+		t.Fatalf("expected journal reviews, got %d", len(journalReviews))
+	}
+	if journalReviews[0].EntryID != tdsEntry.ID || journalReviews[0].TaxScopeCode != accounting.TaxScopeTDS {
+		t.Fatalf("unexpected latest journal review: %+v", journalReviews[0])
+	}
+	if journalReviews[1].EntryID != gstEntry.ID || journalReviews[1].TaxScopeCode != accounting.TaxScopeGST {
+		t.Fatalf("unexpected GST journal review: %+v", journalReviews[1])
+	}
+	if !journalReviews[0].SourceDocumentID.Valid || journalReviews[0].DocumentTypeCode.String != "invoice" || journalReviews[0].DocumentStatus.String != "posted" {
+		t.Fatalf("expected document linkage in journal review: %+v", journalReviews[0])
+	}
+
+	controlBalances, err := reportingService.ListControlAccountBalances(ctx, reporting.ListControlAccountBalancesInput{
+		AsOf:  tdsPostedAt,
+		Actor: admin,
+	})
+	if err != nil {
+		t.Fatalf("list control account balances: %v", err)
+	}
+	if got := findControlAccountBalance(t, controlBalances, receivable.Code).NetMinor; got != 108000 {
+		t.Fatalf("unexpected receivable net balance: %d", got)
+	}
+	if got := findControlAccountBalance(t, controlBalances, gstOutput.Code).NetMinor; got != -9000 {
+		t.Fatalf("unexpected GST control balance: %d", got)
+	}
+	if got := findControlAccountBalance(t, controlBalances, tdsPayable.Code).NetMinor; got != 1000 {
+		t.Fatalf("unexpected TDS control balance: %d", got)
+	}
+
+	taxSummaries, err := reportingService.ListTaxSummaries(ctx, reporting.ListTaxSummariesInput{
+		StartOn: startedAt,
+		EndOn:   tdsPostedAt,
+		Limit:   20,
+		Actor:   admin,
+	})
+	if err != nil {
+		t.Fatalf("list tax summaries: %v", err)
+	}
+	if len(taxSummaries) != 2 {
+		t.Fatalf("unexpected tax summary count: %d", len(taxSummaries))
+	}
+	gstSummary := findTaxSummary(t, taxSummaries, gst18.Code)
+	if gstSummary.TaxType != accounting.TaxTypeGST || gstSummary.TotalCreditMinor != 9000 || gstSummary.NetMinor != -9000 {
+		t.Fatalf("unexpected GST summary: %+v", gstSummary)
+	}
+	if !gstSummary.PayableAccountCode.Valid || gstSummary.PayableAccountCode.String != gstOutput.Code {
+		t.Fatalf("unexpected GST payable account linkage: %+v", gstSummary)
+	}
+	tdsSummary := findTaxSummary(t, taxSummaries, tds2.Code)
+	if tdsSummary.TaxType != accounting.TaxTypeTDS || tdsSummary.TotalDebitMinor != 1000 || tdsSummary.NetMinor != 1000 {
+		t.Fatalf("unexpected TDS summary: %+v", tdsSummary)
+	}
+	if tdsSummary.DocumentCount != 1 || !tdsSummary.LastEffectiveOn.Valid || tdsSummary.LastEffectiveOn.Time.Format(time.DateOnly) != tdsPostedAt.Format(time.DateOnly) {
+		t.Fatalf("unexpected TDS summary timing: %+v", tdsSummary)
+	}
+
 	auditEvents, err := reportingService.LookupAuditEvents(ctx, reporting.LookupAuditEventsInput{
 		EntityType: "work_orders.work_order",
 		EntityID:   workOrderResult.WorkOrder.ID,
@@ -323,6 +473,37 @@ func createItem(t *testing.T, ctx context.Context, service *inventoryops.Service
 		t.Fatalf("create item: %v", err)
 	}
 	return item
+}
+
+func createTaxCode(t *testing.T, ctx context.Context, service *accounting.Service, input accounting.CreateTaxCodeInput) accounting.TaxCode {
+	t.Helper()
+	taxCode, err := service.CreateTaxCode(ctx, input)
+	if err != nil {
+		t.Fatalf("create tax code: %v", err)
+	}
+	return taxCode
+}
+
+func findControlAccountBalance(t *testing.T, balances []reporting.ControlAccountBalance, code string) reporting.ControlAccountBalance {
+	t.Helper()
+	for _, balance := range balances {
+		if balance.AccountCode == code {
+			return balance
+		}
+	}
+	t.Fatalf("control account balance not found for code %s", code)
+	return reporting.ControlAccountBalance{}
+}
+
+func findTaxSummary(t *testing.T, summaries []reporting.TaxSummary, taxCode string) reporting.TaxSummary {
+	t.Helper()
+	for _, summary := range summaries {
+		if summary.TaxCode == taxCode {
+			return summary
+		}
+	}
+	t.Fatalf("tax summary not found for tax code %s", taxCode)
+	return reporting.TaxSummary{}
 }
 
 func createLocation(t *testing.T, ctx context.Context, service *inventoryops.Service, input inventoryops.CreateLocationInput) inventoryops.Location {

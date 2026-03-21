@@ -2,7 +2,7 @@
 
 `workflow_app` is an AI-agent-first, database-first business operating system centered on documents, ledgers, execution context, approvals, and reports.
 
-This repository has completed Milestone 0, Milestone 1, Milestone 2, Milestone 3, and Milestone 4 from the canonical planning set in [`new_app_docs/`](./new_app_docs) and is moving into the first thin Milestone 5 review and reporting slice:
+This repository has completed Milestone 0, Milestone 1, Milestone 2, Milestone 3, and Milestone 4 from the canonical planning set in [`new_app_docs/`](./new_app_docs) and is continuing through the thin Milestone 5 review and reporting slice:
 
 1. bootstrap the Go module
 2. add a migration runner
@@ -55,9 +55,9 @@ Implemented:
 13. shared workflow tasks linked to work orders with one accountable worker plus workforce workers and append-only labor entries with captured cost snapshots
 14. pending labor-accounting handoffs from `workforce` plus centralized `accounting` consumption of approved journal documents for work-order labor costs
 15. centralized `accounting` consumption of costed inventory handoffs for work-order material usage through approved journal documents
-16. first-class `reporting` read surfaces for approval queue review, document review, inventory stock review, work-order review, and audit lookup
+16. first-class `reporting` read surfaces for approval queue review, document review, accounting journal review, control-account balance review, GST/TDS tax summaries, inventory stock review, work-order review, and audit lookup
 
 Next:
 
-1. extend the first reporting slice into broader accounting review and baseline GST/TDS summary views
+1. extend Milestone 5 beyond accounting and tax review into broader inventory review depth and reconciliation polish
 2. keep the thin-v1 module map narrow while reporting depth expands

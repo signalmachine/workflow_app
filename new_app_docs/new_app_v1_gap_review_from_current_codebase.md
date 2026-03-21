@@ -1,6 +1,6 @@
 # workflow_app v1 Gap Review From Current Codebase
 
-Date: 2026-03-20
+Date: 2026-03-21
 Status: Draft review note
 Purpose: compare the current repository implementation against the `workflow_app` thin-v1 foundation plan so the new codebase starts with a realistic gap view.
 
@@ -83,9 +83,9 @@ Partially addressed, but not yet complete enough:
 Partially addressed, but not yet complete enough:
 
 1. approval review, document review, inventory stock review, work-order review, and audit lookup now exist through the first `reporting` module slice
-2. broader accounting review depth still needs to move behind coherent reporting-oriented read surfaces rather than relying only on domain-local list methods
-3. GST and TDS summary views are still missing as explicit first-class reporting outputs
-4. remaining reporting depth is now concentrated around breadth and reconciliation polish rather than absence of a reporting module
+2. accounting journal review and control-account balance review now exist through coherent reporting-oriented read surfaces rather than only domain-local list methods
+3. GST and TDS summary views now exist as explicit first-class reporting outputs
+4. remaining reporting depth is now concentrated around broader inventory review breadth and reconciliation polish rather than absence of accounting or tax reporting surfaces
 
 ## 4. Main shape mismatch
 

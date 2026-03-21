@@ -1,6 +1,6 @@
 # workflow_app Execution Plan
 
-Date: 2026-03-20
+Date: 2026-03-21
 Status: Draft canonical execution plan
 Purpose: define the narrow implementation path for the `workflow_app` replacement codebase.
 
@@ -191,10 +191,12 @@ Current implementation checkpoint:
 1. `reporting` now exists as a first-class read-only module for operator-facing inspection surfaces
 2. approval queue review now joins queue, approval, document, and posting state in one reporting read path
 3. document review now exposes the document -> approval -> posting chain in one read model
-4. inventory stock review now exposes item and location labels on derived stock truth without requiring raw SQL
-5. work-order review now exposes task, labor, material-usage, and posted-cost rollups in one inspection surface
-6. audit lookup now exists as a coherent reporting read path scoped to tenant and entity filters
-7. the next implementation target is the remaining Milestone 5 reporting depth, starting with broader accounting review and baseline GST/TDS summary views
+4. accounting journal review and control-account balance review now sit behind `reporting` read surfaces rather than only domain-local queries
+5. baseline GST and TDS summary views now exist as first-class reporting outputs with tax-code and control-account linkage
+6. inventory stock review now exposes item and location labels on derived stock truth without requiring raw SQL
+7. work-order review now exposes task, labor, material-usage, and posted-cost rollups in one inspection surface
+8. audit lookup now exists as a coherent reporting read path scoped to tenant and entity filters
+9. the next implementation target is the remaining Milestone 5 reporting depth, starting with broader inventory review surfaces and reconciliation polish
 
 ## 7. Execution warning
 

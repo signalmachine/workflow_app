@@ -1,6 +1,6 @@
 # workflow_app Tracker
 
-Date: 2026-03-20
+Date: 2026-03-21
 Status: Draft reset tracker
 Purpose: track the `workflow_app` plan and guard against scope drift during bootstrap and implementation.
 
@@ -24,11 +24,11 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 | Milestone 2 accounting foundation | done | Ledger accounts, append-only journal entries and lines, document-linked centralized posting, reversal entries, GST/TDS tax foundation records, accounting periods, effective-date posting control, journal review queries, and control-account balance views are implemented and covered by integration tests |
 | Milestone 3 inventory foundation | done | The inventory foundation now includes `inventory_ops` items, locations, movement numbering, append-only movements, derived stock balances, inventory-owned document payload and line records, explicit execution and accounting handoffs, and costed inventory-accounting handoffs consumed through centralized journal posting covered by integration tests |
 | Milestone 4 execution foundation | done | `work_orders` now includes first-class work-order records, append-only execution status history, transactional consumption of pending inventory execution links into work-order material-usage truth, workflow-owned work-order tasks with one accountable worker, workforce-owned labor capture with cost snapshots, and centralized accounting consumption of both labor and work-order-linked inventory handoffs covered by integration tests |
-| Milestone 5 review and reporting surfaces | in_progress | `reporting` now exposes the first read-only review slice with approval queue review, document review, inventory stock review, work-order review, and audit lookup covered by integration tests |
+| Milestone 5 review and reporting surfaces | in_progress | `reporting` now exposes approval queue, document, accounting journal review, control-account balance review, GST/TDS tax summaries, inventory stock, work-order, and audit lookup surfaces covered by integration tests |
 
 ## 2. Immediate next steps
 
-1. extend Milestone 5 from the first reporting slice into accounting review, tax summary, and broader inventory review surfaces
+1. extend Milestone 5 from accounting review and tax summary into broader inventory review surfaces and reconciliation polish
 2. keep the codebase limited to the approved first-class modules while reporting depth expands
 3. add attachments only where they support approval evidence or document support flows
 4. use `new_app_v1_gap_review_from_current_codebase.md` as the reference list of remaining missing foundation areas after the first reporting slice
