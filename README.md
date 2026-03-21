@@ -2,7 +2,7 @@
 
 `workflow_app` is an AI-agent-first, database-first business operating system centered on documents, ledgers, execution context, approvals, and reports.
 
-This repository has completed Milestone 0, Milestone 1, Milestone 2, Milestone 3, and Milestone 4 from the canonical planning set in [`new_app_docs/`](./new_app_docs) and is continuing through the remaining thin-v1 foundation slice, including Milestone 5 review and reporting polish plus the still-missing adopted-document work:
+This repository has completed Milestone 0, Milestone 2, Milestone 3, and Milestone 4 from the canonical planning set in [`new_app_docs/`](./new_app_docs). Milestone 1 remains partially complete because the shared control boundary is in place but thin-v1 still lacks adopted document ownership for key document families plus persist-first inbound request and attachment foundations. The repository is now continuing through those remaining thin-v1 foundation gaps before any broader implementation proceeds:
 
 1. bootstrap the Go module
 2. add a migration runner
@@ -59,7 +59,8 @@ Implemented:
 16. first-class `reporting` read surfaces for approval queue review, document review, accounting journal review, control-account balance review, GST/TDS tax summaries, inventory stock review, inventory movement review, inventory reconciliation review, work-order review, and audit lookup
 17. support-depth `parties` records plus tenant-safe `contacts` for thin-v1 trading and service document flows
 
-Next:
+Immediate next steps:
 
 1. complete adopted document-family ownership for work-order, invoice, and payment or receipt payloads with one-to-one linkage back to the shared `documents` kernel, reusing shared support-record identities where applicable
-2. finish the remaining thin-v1 reporting polish after those foundation gaps land
+2. implement minimum persist-first inbound request intake, attachment references, queue-oriented AI processing, and browser-usable review visibility for thin-v1 user testing
+3. finish the remaining thin-v1 reporting polish after those foundation gaps land

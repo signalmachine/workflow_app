@@ -1,0 +1,162 @@
+# workflow_app Inbound Request And Attachment Foundation Plan
+
+Date: 2026-03-21
+Status: Draft targeted remediation plan
+Purpose: define the implementation slice that lands the revised persist-first interaction model for thin v1 after adopted document ownership is stabilized.
+
+## 1. Problem statement
+
+The revised thin-v1 direction now requires persisted inbound request intake, queue-oriented AI processing, attachment references, and browser-usable review visibility.
+
+Current state:
+
+1. AI run history, artifacts, recommendations, and delegation traces exist
+2. there is no persisted inbound request model
+3. there is no durable request lifecycle status for queued or processed handling
+4. there is no attachment persistence model beyond an empty schema
+5. reporting does not yet expose inbound-request or processed-proposal review paths
+
+## 2. Remediation objective
+
+Land the minimum persist-first interaction foundation so:
+
+1. inbound user or system requests persist durably before AI processing begins
+2. AI runs can link back to the request that caused them
+3. attachment references can be stored safely for approval evidence, document support flows, and inbound request intake
+4. humans can review request status, resulting proposals, and downstream document outcomes through minimal browser-usable review support
+
+## 3. Scope
+
+In scope:
+
+1. inbound request persistence
+2. durable request lifecycle status
+3. linkage from inbound requests to AI runs and downstream proposals or actions
+4. attachment metadata and bounded attachment-reference contracts
+5. minimal reporting surfaces for inbound-request and processed-proposal review
+6. queue-oriented processing seams even if the first implementation still uses a simple worker or synchronous trigger path internally
+
+Out of scope:
+
+1. broad web application product depth
+2. multimodal client breadth beyond the minimum attachment-reference and browser-testing seam
+3. consumer-style chat UX
+4. advanced autonomous agent behavior
+
+## 4. Recommended target model
+
+### 4.1 Inbound requests
+
+Recommended minimum fields:
+
+1. request id
+2. `org_id`
+3. active session or actor linkage where present
+4. request origin type such as human or system
+5. request channel such as browser or api
+6. original request text or payload
+7. lifecycle status
+8. queue timestamps for received, started, completed, failed, and acted-on states
+9. optional resulting proposal, recommendation, or document references
+10. created and updated timestamps
+
+Recommended status set:
+
+1. received
+2. queued
+3. processing
+4. processed
+5. acted_on
+6. completed
+7. failed
+
+### 4.2 Attachment support
+
+Recommended minimum fields:
+
+1. attachment id
+2. `org_id`
+3. storage locator or opaque blob reference
+4. original file name
+5. media type
+6. size metadata
+7. uploaded-by actor linkage where present
+8. created timestamp
+
+Recommended linkage model:
+
+1. use explicit join tables or typed reference rows rather than overloading attachments with many nullable foreign keys
+2. support at least inbound-request attachment references in the first slice
+3. allow later attachment references from approvals or documents without changing the core attachment metadata model
+
+### 4.3 AI linkage
+
+1. add explicit linkage from inbound requests to AI runs
+2. allow one request to produce one or more runs while preserving causation
+3. preserve current run, step, artifact, recommendation, and delegation observability
+4. keep approval truth in `workflow`, with AI only linking into it
+
+### 4.4 Reporting and review
+
+Minimum review outputs:
+
+1. inbound request list with status and timestamps
+2. inbound request detail with linked AI runs, recommendations, approvals, and resulting documents where present
+3. processed-proposal review sufficient to inspect what the system produced from a request
+4. attachment-reference visibility sufficient for operator review without broad file-management product depth
+
+## 5. Milestone breakdown
+
+### 5.1 Schema work
+
+1. add inbound-request tables with durable status support
+2. add attachment metadata and attachment-reference tables
+3. add foreign keys or reference rows linking inbound requests to attachments
+4. add explicit inbound-request linkage into AI runs or adjacent causation tables
+
+### 5.2 Service-layer work
+
+1. add persist-first intake service APIs
+2. separate request persistence from AI processing initiation
+3. ensure request status transitions are transactional and auditable where required
+4. keep queue semantics explicit even if the first execution engine is intentionally simple
+
+### 5.3 Reporting work
+
+1. add inbound-request list and detail read models
+2. add processed-proposal review models that join request, AI, approval, and document outcomes
+3. keep the browser-testing surface review-oriented, not operational-UI-heavy
+
+### 5.4 Test work
+
+1. integration tests for request persistence before AI processing
+2. tests for request status transitions
+3. tests for attachment reference linkage and tenant safety
+4. tests for inbound request to AI run causation and reporting joins
+
+## 6. Risks and technical challenges
+
+1. queue semantics can sprawl if request lifecycle states are added without a clear control model
+2. attachment design can become over-generalized unless the first slice stays limited to metadata plus explicit references
+3. AI causation joins can become ambiguous if inbound-request linkage is split across too many tables
+4. browser-testing support must stay narrowly review-oriented or it will pull the codebase back toward broad UI work
+
+## 7. Recommended sequencing
+
+This slice should land after adopted document ownership.
+
+Reason:
+
+1. request intake and processed-proposal review will sit on top of document and approval flows
+2. stabilizing adopted document ownership first reduces the chance that request review surfaces need a second major redesign
+3. the current biggest structural inconsistency is document-family adoption, not AI traceability
+
+## 8. Success criteria
+
+This remediation slice is complete only when:
+
+1. a request can persist durably before AI processing
+2. a request can carry durable status through queue-oriented handling
+3. attachment references exist for the allowed thin-v1 use cases
+4. AI runs and resulting proposals or documents can be traced back to the originating request
+5. reporting exposes inbound-request and processed-proposal review paths sufficient for thin-v1 browser testing

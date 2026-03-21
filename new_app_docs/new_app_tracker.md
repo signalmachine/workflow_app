@@ -26,19 +26,32 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 | Milestone 4 execution foundation | done | `work_orders` now includes first-class work-order records, append-only execution status history, transactional consumption of pending inventory execution links into work-order material-usage truth, workflow-owned work-order tasks with one accountable worker, workforce-owned labor capture with cost snapshots, and centralized accounting consumption of both labor and work-order-linked inventory handoffs covered by integration tests |
 | Milestone 5 review and reporting surfaces | in_progress | `reporting` now exposes approval queue, document, accounting journal review, control-account balance review, GST/TDS tax summaries, inventory stock, inventory movement review, inventory reconciliation review, work-order, and audit lookup surfaces covered by integration tests |
 | Minimum thin-v1 party and contact support depth | done | `parties` support records now cover external party identity plus support-depth contacts with tenant-safe service boundaries and integration tests |
-| Remaining thin-v1 adopted-document gaps | in_progress | thin v1 still requires owning payload completion for work-order, invoice, and payment or receipt document families before the foundation can be considered complete |
-| Minimum thin-v1 inbound-request and browser-ingress foundation | in_progress | thin v1 now needs persist-first inbound request intake, attachment references, queue-oriented AI processing, and review visibility for browser-based user testing without promoting full mobile-product depth |
+| Remaining thin-v1 adopted-document gaps | in_progress | thin v1 still requires owning payload completion for work-order, invoice, and payment or receipt document families before the foundation can be considered complete; see `adopted_document_ownership_remediation_plan.md` |
+| Minimum thin-v1 inbound-request and browser-ingress foundation | in_progress | thin v1 now needs persist-first inbound request intake, attachment references, queue-oriented AI processing, and review visibility for browser-based user testing without promoting full mobile-product depth; see `inbound_request_and_attachment_foundation_plan.md` |
 
 ## 2. Immediate next steps
 
 1. complete adopted document-family ownership for work-order, invoice, and payment or receipt payloads with one-to-one linkage back to the shared `documents` kernel, using shared support-record identities where applicable rather than module-local duplicates
 2. implement minimum persist-first inbound request intake, attachment references, queue-oriented AI processing, and browser-usable review visibility for thin-v1 user testing
 3. finish the remaining Milestone 5 reporting polish after those foundation gaps land
-4. keep the codebase limited to the approved first-class modules while thin-v1 foundation completion continues
+4. keep the codebase centered on the approved first-class modules while allowing support-depth records such as `parties` and `contacts` where the canonical module-boundary doc explicitly permits them
 5. add attachments only where they support approval evidence, document support flows, or persisted inbound request intake
 6. use `new_app_v1_gap_review_from_current_codebase.md` as the reference list of remaining missing foundation areas
 7. use `new_app_implementation_defaults.md` as the default-rules reference during implementation
 8. use `new_app_foundation_coverage.md` as the v1 completion checklist and foundation coverage control
+
+## 2.1 Planned next implementation order
+
+Recommended sequence:
+
+1. land adopted document-family ownership first
+2. land persist-first inbound request and attachment foundations second
+
+Reason:
+
+1. the current codebase still has a structural identity mismatch where inventory documents have one-to-one adopted payload ownership but work-order, invoice, and payment or receipt documents do not
+2. fixing document-family ownership first stabilizes the document kernel and cross-module payload boundaries before browser ingress starts creating more proposal and document flows on top of them
+3. inbound request intake and attachment support can then target the corrected document-adoption model rather than forcing another schema and reporting retrofit later
 
 ## 3. Scope guardrail
 

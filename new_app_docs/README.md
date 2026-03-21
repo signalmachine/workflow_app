@@ -34,8 +34,10 @@ Read these in order:
 5. `new_app_foundation_coverage.md`
 6. `new_app_execution_plan.md`
 7. `new_app_v1_gap_review_from_current_codebase.md`
-8. `new_app_tracker.md`
-9. `app_v2_plans/README.md`
+8. `adopted_document_ownership_remediation_plan.md`
+9. `inbound_request_and_attachment_foundation_plan.md`
+10. `new_app_tracker.md`
+11. `app_v2_plans/README.md`
 
 ## Reset decision
 

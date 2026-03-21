@@ -57,6 +57,12 @@ Current implementation checkpoint:
 7. remaining thin-v1 document-kernel completion is concentrated around adopted payload ownership for work-order, invoice, and payment or receipt document families, with shared party/contact support records reused where applicable rather than duplicated into document-local truth
 8. this milestone is complete in its first control-boundary slice, but thin-v1 still requires adopted payload ownership plus minimum inbound-request and attachment support before the overall interaction foundation can be considered complete
 
+Remediation planning note:
+
+1. detailed remediation for adopted document ownership is captured in `adopted_document_ownership_remediation_plan.md`
+2. detailed remediation for persist-first inbound request and attachment support is captured in `inbound_request_and_attachment_foundation_plan.md`
+3. the recommended implementation order is adopted document ownership first, then inbound request and attachment foundations
+
 ## 3. Milestone 2: Accounting and tax foundation
 
 Goal:
