@@ -255,11 +255,13 @@ Planned implementation checkpoint:
 
 1. Milestone 6 is now active after review confirmed Milestone 5 reporting coverage is complete enough for thin-v1 review and browser-ready read seams
 2. `internal/ai` now loads and validates OpenAI provider configuration from `OPENAI_API_KEY` and `OPENAI_MODEL`
-3. provider configuration remains optional so the default local build and database-backed test flow does not require external credentials
-4. `.env.example` now documents the OpenAI variables needed for later live-provider slices
-5. detailed sequencing and constraints are captured in `ai_provider_execution_plan.md`
-6. remaining Milestone 6 work is the actual OpenAI Go SDK integration, Responses API execution loop, provider-backed coordinator and specialist flow, tool-policy enforcement, and opt-in live-provider verification
-7. this milestone should continue as a sequence of narrow vertical slices rather than one monolithic delivery
+3. `internal/ai` now uses the official OpenAI Go SDK and the Responses API for the first real provider-backed path
+4. the first coordinator flow can now claim one queued inbound request, assemble request, attachment, and derived-text context, call the provider, persist the resulting coordinator run and step, write a provider brief artifact plus operator-review recommendation, and transition the request to `processed` or `failed`
+5. provider configuration remains optional so the default local build and database-backed test flow does not require external credentials
+6. `.env.example` now documents the OpenAI variables needed for later live-provider slices
+7. detailed sequencing and constraints are captured in `ai_provider_execution_plan.md`
+8. remaining Milestone 6 work is bounded tool-loop and policy enforcement, provider-backed specialist delegation, opt-in live-provider verification, and the minimum API and web-layer contracts that will exercise the live AI path
+9. this milestone should continue as a sequence of narrow vertical slices rather than one monolithic delivery
 
 ## 8. Milestone 7: Usable web application layer
 

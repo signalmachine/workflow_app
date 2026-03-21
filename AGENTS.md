@@ -19,6 +19,7 @@ For every Go coding session in this repository once the Go workspace exists:
 - use `gopls` for workspace summary, symbol search, package context, references, safe renames, and diagnostics whenever it materially fits the task
 - if a session includes Go code changes, run diagnostics on edited files before completion
 - use vulnerability checks when dependencies or security-sensitive code change
+- when implementing or verifying `internal/ai` against the OpenAI Go SDK, prefer official OpenAI docs and the official `openai/openai-go` repository via MCP or approved web lookup for exact SDK and API details rather than relying on memory or local skills alone
 
 For planning-only or Markdown-only sessions, do not force MCP usage when local document reads are sufficient.
 

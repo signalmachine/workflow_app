@@ -2,7 +2,7 @@
 
 `workflow_app` is an AI-agent-first, database-first business operating system centered on documents, ledgers, execution context, approvals, and reports.
 
-This repository has completed Milestone 0 through Milestone 5 from the canonical planning set in [`new_app_docs/`](./new_app_docs). The shared control boundary now includes adopted document ownership for work orders, invoices, and payment or receipt documents plus persist-first inbound request and attachment foundations with stable `REQ-...` inbound-request references for submission acknowledgments and review. Draft requests can now be edited or hard-deleted before queueing, while queued pre-processing requests can be soft-cancelled or returned to draft for amendment and resubmission. Milestone 6 has now started with the first provider-backed AI slice: `internal/ai` can load and validate optional OpenAI configuration from `OPENAI_API_KEY` and `OPENAI_MODEL` without making the default build and test flow depend on external credentials.
+This repository has completed Milestone 0 through Milestone 5 from the canonical planning set in [`new_app_docs/`](./new_app_docs). The shared control boundary now includes adopted document ownership for work orders, invoices, and payment or receipt documents plus persist-first inbound request and attachment foundations with stable `REQ-...` inbound-request references for submission acknowledgments and review. Draft requests can now be edited or hard-deleted before queueing, while queued pre-processing requests can be soft-cancelled or returned to draft for amendment and resubmission. Milestone 6 is in progress with the first real provider-backed AI path: `internal/ai` now includes optional OpenAI configuration loading, the official OpenAI Go SDK, a Responses-API-backed provider adapter, and a first coordinator flow that can claim one queued inbound request and persist the resulting run, step, artifact, and recommendation without making the default build and test flow depend on external credentials.
 
 1. bootstrap the Go module
 2. add a migration runner
@@ -71,10 +71,11 @@ Implemented:
 20. persist-first inbound request drafts, org-scoped `REQ-...` request references, draft editing and hard deletion, queued-request amend and cancel handling before pickup, messages, queue claim and status transitions, PostgreSQL-backed attachments, attachment transcription derivatives, and AI run causation linked back to the originating request
 21. `reporting` review surfaces for inbound requests, request attachments, linked AI runs, AI step traces, delegation traces, AI artifacts, recommendation payloads, and processed proposals joined to approvals and documents, with stable request references exposed for operator tracking and used directly for request-detail and processed-proposal lookup, persisted cancellation and failure reasons visible for operator troubleshooting, submitter, session, metadata, attachment provenance, and document-context fields surfaced for richer operator review, and queue-oriented status summary reads for inbound requests and processed proposals
 22. optional OpenAI provider configuration loading and validation in `internal/ai`, keeping live-provider setup explicit while default repository verification remains provider-independent
+23. the official OpenAI Go SDK plus a Responses-API-backed coordinator provider in `internal/ai`, with a first queued inbound-request execution path that claims one request, assembles request, attachment, and derived-text context, persists a coordinator run and step, writes a provider brief artifact and operator-review recommendation, and marks the request `processed` or `failed` according to the provider-backed outcome
 
 Immediate next steps:
 
-1. add the OpenAI Go SDK dependency and the first provider-backed adapter in `internal/ai`
-2. wire the first queued inbound-request to provider-backed coordinator execution path using the Responses API
-3. add opt-in provider verification coverage while keeping default tests provider-independent
+1. add bounded tool-loop and tool-policy enforcement on top of the new provider-backed coordinator path
+2. add bounded specialist delegation on the same durable run model rather than broadening autonomy
+3. add opt-in provider verification coverage and a focused verification command while keeping default tests provider-independent
 4. after Milestone 6, implement the usable web application layer on backend contracts that a later v2 mobile client will also reuse

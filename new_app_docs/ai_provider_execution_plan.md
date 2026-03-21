@@ -1,7 +1,7 @@
 # workflow_app AI Provider Execution Plan
 
 Date: 2026-03-21
-Status: Planned thin-v1 implementation slice
+Status: In-progress thin-v1 implementation slice
 Purpose: define the foundation-complete provider-backed AI execution layer required after Milestone 5 so `workflow_app` is usable as an AI-agent-first application in v1 rather than only having AI persistence and observability scaffolding.
 
 ## 1. Problem statement
@@ -15,13 +15,20 @@ The current thin-v1 codebase has durable AI control-boundary foundations:
 
 What is still missing:
 
-1. a real provider-backed execution path that can turn a queued inbound request into an actual model call
-2. OpenAI Go SDK wiring in the active codebase
-3. environment configuration for provider credentials and model selection
-4. a controlled tool loop that can drive real read and write-tool recommendations through the provider path
-5. integration tests that can exercise the provider-backed path when an OpenAI API key is configured
+1. a controlled tool loop that can drive real read and write-tool recommendations through the provider path
+2. provider-backed specialist delegation on top of the now-live coordinator execution path
+3. integration tests that can exercise the provider-backed path when an OpenAI API key is configured
+4. a focused provider-verification command and the promoted backend or web contracts needed to exercise the live path outside direct service calls
 
 This gap is now important for thin v1 because the application is intended to be AI-agent-first. Without a live provider-backed path, the current AI layer remains an observability and control scaffold rather than a usable operator interface.
+
+Current implementation checkpoint:
+
+1. `internal/ai` now loads optional OpenAI provider configuration from `OPENAI_API_KEY` and `OPENAI_MODEL`
+2. the official OpenAI Go SDK is now part of the active codebase
+3. the first provider-backed adapter now uses the Responses API with strict structured output for queued inbound-request review
+4. the first coordinator flow can claim one queued inbound request, assemble request, attachment, and derived-text context, create a coordinator run and step, persist a provider brief artifact and operator-review recommendation, and mark the request `processed` or `failed`
+5. provider-backed business writes still terminate at artifact and recommendation persistence rather than bypassing approvals, postings, or normal domain services
 
 ## 2. V1 objective
 
@@ -145,12 +152,11 @@ Expected verification shape:
 Recommended sequence after Milestone 5:
 
 1. add configuration and `.env.example` support for OpenAI credentials and model selection
-2. add the OpenAI Go SDK dependency and the first provider-backed adapter in `internal/ai`
-3. wire the first coordinator execution path to persisted inbound requests and existing run persistence
-4. add bounded specialist delegation and tool-loop handling on top of the provider path
-5. add the minimum API surface and attachment transport contracts needed to exercise that path outside direct service calls
-6. add provider-gated integration tests and the explicit verification command
-7. update reporting or operational docs only where needed to explain the now-live provider-backed path
+2. extend the landed OpenAI-backed coordinator slice with bounded tool-loop and tool-policy handling in `internal/ai`
+3. add bounded specialist delegation on top of the now-live coordinator execution path
+4. add the minimum API surface and attachment transport contracts needed to exercise that path outside direct service calls
+5. add provider-gated integration tests and the explicit verification command
+6. update reporting or operational docs only where needed to explain the now-live provider-backed path
 
 Execution rule:
 

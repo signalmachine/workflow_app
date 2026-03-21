@@ -144,6 +144,7 @@ Required rules:
 14. the preferred first live provider path for v1 is OpenAI through the Go SDK and Responses API
 15. `workflow_app` should use modern workflow AI agent architectures that are suitable for strictly controlled business workflows rather than autonomy-heavy general-agent patterns
 16. tool calling should be the primary AI execution pattern, and AI tool handlers should route into the existing domain services in the codebase rather than duplicating business logic inside the AI layer
+17. when implementing or verifying `internal/ai` against the OpenAI Go SDK, contributors should prefer official OpenAI documentation and the official `openai/openai-go` repository for exact SDK and API details rather than relying on memory alone
 
 The short-term AI objective is to observe, evaluate, and improve agent behavior on real bounded business tasks.
 
