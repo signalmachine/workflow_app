@@ -45,6 +45,25 @@ The application is shaped by three foundational layers:
 2. ledgers as truth
 3. execution context as operational reality
 
+The primary interaction model should be:
+
+1. persisted inbound request as intake truth
+2. AI processing as asynchronous proposal generation
+3. human review and controlled action through explicit queues and review surfaces
+
+Selective inspiration may be taken from systems such as OpenClaw where it strengthens the business-control architecture:
+
+1. durable persisted intake rather than transient prompt handling
+2. queue-oriented asynchronous processing
+3. modular tool or skill packaging with explicit capability boundaries
+4. browser-first control surfaces that can later support mobile clients on the same backend model
+
+Those patterns should be adapted, not copied blindly:
+
+1. `workflow_app` is stricter on approvals, posting boundaries, auditability, and database truth
+2. consumer-assistant style always-on autonomy is not the target operating model
+3. broad self-directed agent behavior remains out of scope unless a foundation need explicitly justifies it
+
 Implementation consequences:
 
 1. every important capability should map to a document, a ledger effect, an execution context, an approval path, and a review/report surface
@@ -52,6 +71,9 @@ Implementation consequences:
 3. ledgers explain what changed in measurable terms
 4. execution records explain what actually happened operationally
 5. reports are derived views, not truth owners
+6. inbound requests should be durable records rather than transient prompts
+7. the same intake model should be reusable for human and non-human upstream systems
+8. every meaningful workflow and control state should be durably reconstructible from database records rather than transient process state
 
 ## 4. Versioning stance and thin-v1 objective
 
@@ -72,6 +94,7 @@ The active thin v1 aims to deliver the minimum serious system that can:
 4. support foundational GST and TDS handling
 5. track operations through work orders and tasks
 6. expose approval, review, inspection, and reporting surfaces for humans
+7. persist inbound requests and process them through a review-oriented queue model rather than relying on immediate AI response as the default operating path
 
 Near-term success is defined more by safe and observable AI-assisted operation on strong foundations than by broad product breadth.
 
@@ -81,7 +104,7 @@ The highest thin-v1 priorities are:
 
 1. identity, org, roles, sessions, and tenant safety
 2. audit events, approvals, and idempotent write boundaries
-3. AI coordinator, specialist-agent routing, tool policy, and run observability
+3. persisted inbound request intake plus AI coordinator, specialist-agent routing, tool policy, and run observability
 4. party, contact-support, item, location, ledger-account, and tax-foundation records
 5. workforce foundation for assignment, labor capture, and labor costing
 6. accounting and posting foundations
@@ -106,6 +129,9 @@ Required rules:
 6. AI may never bypass posting, approval, audit, or schema constraints
 7. AI execution must be observable through durable run history, steps, artifacts, recommendations, approvals, and delegation traces
 8. the preferred architecture is multi-agent: one coordinator routes bounded work to specialist agents
+9. the preferred interaction model may persist inbound user requests first and process them asynchronously rather than relying on immediate AI response as the default path
+10. queue-oriented processing is preferred because it preserves durability, supports clearer human review, and extends cleanly to requests originating from external systems as well as humans
+11. modular tool or skill boundaries are preferred where they keep agent capabilities explicit, reviewable, and policy-gated rather than hidden inside prompt-only behavior
 
 The short-term AI objective is to observe, evaluate, and improve agent behavior on real bounded business tasks.
 
@@ -140,6 +166,7 @@ Implementation rules:
 6. one-time bootstrap must be database-safe
 7. invalid states, invalid transitions, and unsafe postings should be rejected by default
 8. sophisticated PostgreSQL-native modeling is preferred when it materially improves correctness, auditability, performance, or operability, provided it does not create unnecessary implementation or operational pain
+9. meaningful workflow and control-state transitions should persist durably enough that intake, processing, review, approval, posting, execution, and recoverable failure history can be reconstructed from database records
 
 ## 9. Module and ownership boundaries
 
@@ -261,11 +288,12 @@ Required execution rules:
 High-level master-data requirements:
 
 1. parties are unified external entities and should not be split into isolated customer/vendor truth models
-2. contacts exist as supporting identity detail, not as the center of product scope
-3. items are a shared foundation across service and light-trading scenarios
-4. behavior differences should come from attributes and classification rather than separate core item models
-5. inventory locations, ledger accounts, and tax-foundation records are required shared foundations
-6. internal identity, external party identity, and worker identity must remain separate concerns
+2. shared foundation entities should be referenced across modules through one canonical identity rather than duplicated into module-local truth models
+3. contacts exist as supporting identity detail, not as the center of product scope
+4. items are a shared foundation across service and light-trading scenarios
+5. behavior differences should come from attributes and classification rather than separate core item models
+6. inventory locations, ledger accounts, and tax-foundation records are required shared foundations
+7. internal identity, external party identity, and worker identity must remain separate concerns
 
 ## 17. Audit, approvals, and idempotency
 
@@ -296,6 +324,8 @@ Current high-level client rules:
 9. notification registration and delivery bookkeeping are backend responsibilities
 10. the current mobile stance is online-first unless a later canonical decision changes it
 11. the first planned mobile client may use Flutter, but backend decisions must remain client-agnostic
+12. if thin v1 needs real browser-based user testing, the minimum promoted client slice should be persist-first request ingest, queued AI processing, and review-oriented web support rather than broad operational UI
+13. the queued persisted-request model should also be usable by non-human upstream systems so integrations do not require a second intake architecture
 
 ## 19. Reporting objectives
 
@@ -348,8 +378,10 @@ Rules:
 
 At a high level, the intended system should let a business:
 
-1. ask the AI agent to create or prepare a bounded business action
-2. review the resulting draft or proposal
-3. approve and post through controlled services where policy allows
-4. inspect document, execution, inventory, accounting, tax, and audit outcomes through reports
-5. trust that correctness comes from constrained documents, ledgers, execution links, approvals, and database-enforced invariants rather than mutable convenience fields
+1. submit a bounded inbound request from a human or another system
+2. persist that request before AI processing begins
+3. let AI process the queued request into a draft, proposal, or recommended action
+4. review the resulting proposal through explicit review surfaces
+5. approve and post through controlled services where policy allows
+6. inspect document, execution, inventory, accounting, tax, and audit outcomes through reports
+7. trust that correctness comes from constrained documents, ledgers, execution links, approvals, queued request traceability, and database-enforced invariants rather than mutable convenience fields

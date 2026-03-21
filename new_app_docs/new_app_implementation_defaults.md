@@ -29,6 +29,8 @@ Purpose: record the active defaults that implementation should preserve unless t
 3. financially meaningful writes remain human-gated
 4. meaningful business writes and their audit trail must succeed or fail together
 5. AI traceability records supplement audit; they do not replace it
+6. inbound user requests should persist before AI processing begins so asynchronous execution does not depend on synchronous request-response handling
+7. the primary interaction model may be queue-first and review-oriented rather than immediate-response by default
 
 ### 2.3 Document identity and ownership
 
@@ -67,6 +69,7 @@ Purpose: record the active defaults that implementation should preserve unless t
 1. thin v1 includes minimum party and contact support depth for trading and service document flows
 2. party and contact support records do not justify a primary CRM module
 3. support-record depth should stay anchored to document, accounting, inventory, and execution correctness rather than commercial CRM breadth
+4. shared foundation entities should use one canonical identity across modules rather than separate module-local truth models
 
 ### 2.7 Workforce and identity
 
@@ -92,3 +95,5 @@ Purpose: record the active defaults that implementation should preserve unless t
 1. the intended product surfaces are AI plus minimal review, approval, inspection, and reporting surfaces
 2. broad human operational UI is not a thin-v1 priority
 3. CLI tooling may exist for developer or support work, but it is not a first-class product interface
+4. thin v1 may include minimal browser-usable API or review support where required for real user testing
+5. mobile-product depth, voice-capture UX, and richer multimodal client behavior remain v2 concerns unless a foundation dependency proves otherwise

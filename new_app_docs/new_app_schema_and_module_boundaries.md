@@ -129,6 +129,7 @@ Owns:
 11. inventory movements must preserve explicit source and destination semantics
 12. inventory usage records must distinguish trading/resale movement from service or project execution consumption
 13. internal login identity, external party identity, and worker identity remain distinct concerns
-14. `ai` may link to approvals, but must not become a second approval system
-15. each adopted supported document family should use one-to-one linkage between its owning payload row and the central `documents` row
-16. the preferred physical shape is a direct `document_id` link from the owning payload row to the central `documents` row, with one-to-one semantics enforced
+14. shared foundation entities should have one canonical identity reused across modules rather than duplicated into module-local truth models
+15. `ai` may link to approvals, but must not become a second approval system
+16. each adopted supported document family should use one-to-one linkage between its owning payload row and the central `documents` row
+17. the preferred physical shape is a direct `document_id` link from the owning payload row to the central `documents` row, with one-to-one semantics enforced

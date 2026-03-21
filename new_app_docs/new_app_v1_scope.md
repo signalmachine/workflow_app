@@ -33,6 +33,7 @@ Rules:
 5. shared approvals, approval queues, and approval decisioning
 6. AI runs, tool policy, recommendations, artifacts, and delegation traces
 7. coordinator-plus-specialist multi-agent routing at bounded foundation depth
+8. persisted inbound request intake for browser-driven user testing, with queueable AI processing and durable status tracking
 
 Tenant model rule:
 
@@ -42,6 +43,13 @@ Tenant model rule:
 4. role assignment belongs to the user membership in an org, not to the user globally
 5. one session or request operates in one active org context at a time
 6. switching org context should be explicit and should not weaken tenant-safety guarantees
+
+AI interaction rule:
+
+1. the primary interaction model should persist the inbound request before AI processing begins
+2. AI processing may be asynchronous and queue-driven rather than request-response by default
+3. thin v1 may include minimal browser-usable request submission and review support where required for real user testing
+4. mobile-product depth, voice-capture UX, and richer multimodal client behavior remain v2 concerns unless a foundation dependency proves otherwise
 
 ### 2.2 Master records
 
@@ -57,6 +65,7 @@ Master-record rule:
 
 1. thin v1 must include the minimum party and contact support depth required for invoice, payment or receipt, trading inventory, and service execution document flows
 2. party and contact support depth is required foundation even though it does not justify a primary CRM module
+3. shared foundation entities should use one canonical identity across modules rather than being duplicated into module-local truth models
 
 ### 2.3 Document foundation
 
@@ -135,6 +144,7 @@ Tax scope rule:
 5. work-order views
 6. audit lookup
 7. GST/TDS summary views at baseline depth
+8. inbound-request and processed-proposal review views sufficient for thin-v1 browser testing where that testing is required to validate the AI -> document -> approval -> posting or execution flow
 
 ## 3. Explicitly out of scope for v1
 

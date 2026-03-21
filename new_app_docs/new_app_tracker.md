@@ -27,16 +27,18 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 | Milestone 5 review and reporting surfaces | in_progress | `reporting` now exposes approval queue, document, accounting journal review, control-account balance review, GST/TDS tax summaries, inventory stock, inventory movement review, inventory reconciliation review, work-order, and audit lookup surfaces covered by integration tests |
 | Minimum thin-v1 party and contact support depth | done | `parties` support records now cover external party identity plus support-depth contacts with tenant-safe service boundaries and integration tests |
 | Remaining thin-v1 adopted-document gaps | in_progress | thin v1 still requires owning payload completion for work-order, invoice, and payment or receipt document families before the foundation can be considered complete |
+| Minimum thin-v1 inbound-request and browser-ingress foundation | in_progress | thin v1 now needs persist-first inbound request intake, attachment references, queue-oriented AI processing, and review visibility for browser-based user testing without promoting full mobile-product depth |
 
 ## 2. Immediate next steps
 
-1. complete adopted document-family ownership for work-order, invoice, and payment or receipt payloads with one-to-one linkage back to the shared `documents` kernel
-2. finish the remaining Milestone 5 reporting polish after those adopted-document foundations land
-3. keep the codebase limited to the approved first-class modules while thin-v1 foundation completion continues
-4. add attachments only where they support approval evidence or document support flows
-5. use `new_app_v1_gap_review_from_current_codebase.md` as the reference list of remaining missing foundation areas
-6. use `new_app_implementation_defaults.md` as the default-rules reference during implementation
-7. use `new_app_foundation_coverage.md` as the v1 completion checklist and foundation coverage control
+1. complete adopted document-family ownership for work-order, invoice, and payment or receipt payloads with one-to-one linkage back to the shared `documents` kernel, using shared support-record identities where applicable rather than module-local duplicates
+2. implement minimum persist-first inbound request intake, attachment references, queue-oriented AI processing, and browser-usable review visibility for thin-v1 user testing
+3. finish the remaining Milestone 5 reporting polish after those foundation gaps land
+4. keep the codebase limited to the approved first-class modules while thin-v1 foundation completion continues
+5. add attachments only where they support approval evidence, document support flows, or persisted inbound request intake
+6. use `new_app_v1_gap_review_from_current_codebase.md` as the reference list of remaining missing foundation areas
+7. use `new_app_implementation_defaults.md` as the default-rules reference during implementation
+8. use `new_app_foundation_coverage.md` as the v1 completion checklist and foundation coverage control
 
 ## 3. Scope guardrail
 

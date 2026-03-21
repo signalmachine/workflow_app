@@ -22,3 +22,4 @@ Nothing in `app_v2_plans/` is active v1 scope unless a canonical v1 document exp
 
 1. `v2_scope_overview.md`
 2. `v2_candidate_capabilities.md`
+3. `v2_client_and_multimodal_surfaces.md`

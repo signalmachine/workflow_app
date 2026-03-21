@@ -27,6 +27,8 @@ Required:
 6. explicit boundary that shared approval truth belongs to `workflow`, while `ai` stores only causation and recommendation linkage into that shared model
 7. explicit support for one user holding memberships in multiple orgs with role assignment scoped to membership
 8. one active org context per session or request so tenant-owned reads and writes stay unambiguous
+9. persisted inbound request intake so original user intent is durable before AI processing begins
+10. request lifecycle status suitable for queued, processing, processed, acted-on, completed, or failed handling
 
 ### 2.2 Core master data
 
@@ -44,6 +46,7 @@ Interpretation rule:
 
 1. the minimum party and contact foundation must be sufficient to support thin-v1 invoice, payment or receipt, trading inventory, and service execution document flows
 2. support depth is enough for v1, but total absence of party or contact support is not
+3. shared foundation entities should be referenced across modules through one canonical identity rather than duplicated into module-local records
 
 ### 2.3 Document foundation
 
@@ -127,6 +130,7 @@ Required:
 6. run history
 7. artifact, recommendation, and approval persistence
 8. delegation traces
+9. linkage from persisted inbound requests into AI runs and downstream proposals or actions
 
 ### 2.9 Reporting foundation
 
@@ -139,6 +143,7 @@ Required:
 5. execution views
 6. tax summary views
 7. audit lookup views
+8. inbound-request and processed-proposal review views sufficient for thin-v1 browser testing when that testing is required before v2 breadth
 
 ## 3. Missing-foundation test
 

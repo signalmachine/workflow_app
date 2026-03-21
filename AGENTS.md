@@ -55,6 +55,16 @@ Follow industry-standard best practices by default unless there is a concrete re
 
 `workflow_app` is intentionally AI-agent-first, database-first, and centered on documents, ledgers, and execution context. Do not let CRM, portal, or broad manual-entry UI concerns become the center of gravity again. If a capability can wait until v2 without weakening the foundation, put it under `new_app_docs/app_v2_plans/` instead of expanding v1. Thin v1 means narrow breadth, not weak modeling or low quality.
 
+Shared foundation entities should have one canonical identity reused across modules. Do not let accounting, inventory, execution, CRM-style support flows, or later features create duplicate module-local truth models when they should reference the same underlying record.
+
+The primary app working model is persist-first and queue-oriented. Inbound requests should be stored durably before AI processing begins, AI processing should usually run asynchronously from that queue, and humans should review the resulting proposals or actions from explicit review surfaces rather than depending on immediate AI response as the default path.
+
+The same persisted-request model should be suitable for both human-originated and system-originated requests so later integrations can use the same controlled intake path without inventing a second processing model.
+
+As a database-first application, every meaningful workflow and control state should be durably reconstructible from database records. Do not rely on transient process memory or client state for the authoritative record of request intake, AI processing, review, approval, document lifecycle, posting, execution, or failure states that matter to business control or recovery.
+
+It is acceptable to adopt selective OpenClaw-style patterns where they strengthen this architecture, especially durable intake, queue-oriented async processing, modular tool or skill boundaries, and browser-first control surfaces. Do not copy consumer-assistant or autonomy-heavy behavior where it would weaken approvals, posting boundaries, auditability, or database truth.
+
 ## Testing & Review Guidelines
 
 For planning-only work, validation is document-focused: check heading structure, cross-file consistency, scope alignment, and broken references. If scope, sequencing, or status changes, update the canonical planning file first and only then update summaries or companion docs. Do not mark tracker items done without concrete evidence in the same change. If you find an inconsistency, resolve it, call it out, or document it explicitly rather than leaving silent drift.

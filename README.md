@@ -61,5 +61,5 @@ Implemented:
 
 Next:
 
-1. complete adopted document-family ownership for work-order, invoice, and payment or receipt payloads with one-to-one linkage back to the shared `documents` kernel
+1. complete adopted document-family ownership for work-order, invoice, and payment or receipt payloads with one-to-one linkage back to the shared `documents` kernel, reusing shared support-record identities where applicable
 2. finish the remaining thin-v1 reporting polish after those foundation gaps land
