@@ -469,6 +469,37 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 	if !proposals[0].DocumentTitle.Valid || proposals[0].DocumentTitle.String != "Inbound request invoice" {
 		t.Fatalf("unexpected processed proposal document title: %+v", proposals[0].DocumentTitle)
 	}
+
+	requestSummaries, err := reportingService.ListInboundRequestStatusSummary(ctx, operator)
+	if err != nil {
+		t.Fatalf("list inbound request status summary: %v", err)
+	}
+	if len(requestSummaries) != 1 {
+		t.Fatalf("unexpected inbound request summary count: %d", len(requestSummaries))
+	}
+	if requestSummaries[0].Status != intake.StatusProcessed {
+		t.Fatalf("unexpected inbound request summary status: %s", requestSummaries[0].Status)
+	}
+	if requestSummaries[0].RequestCount != 1 || requestSummaries[0].MessageCount != 1 || requestSummaries[0].AttachmentCount != 1 {
+		t.Fatalf("unexpected inbound request summary counts: %+v", requestSummaries[0])
+	}
+	if !requestSummaries[0].LatestReceivedAt.Valid || !requestSummaries[0].LatestQueuedAt.Valid {
+		t.Fatalf("expected latest request timestamps in summary: %+v", requestSummaries[0])
+	}
+
+	proposalSummaries, err := reportingService.ListProcessedProposalStatusSummary(ctx, operator)
+	if err != nil {
+		t.Fatalf("list processed proposal status summary: %v", err)
+	}
+	if len(proposalSummaries) != 1 {
+		t.Fatalf("unexpected processed proposal summary count: %d", len(proposalSummaries))
+	}
+	if proposalSummaries[0].RecommendationStatus != ai.RecommendationStatusApprovalRequested {
+		t.Fatalf("unexpected processed proposal summary status: %s", proposalSummaries[0].RecommendationStatus)
+	}
+	if proposalSummaries[0].ProposalCount != 1 || proposalSummaries[0].RequestCount != 1 || proposalSummaries[0].DocumentCount != 1 {
+		t.Fatalf("unexpected processed proposal summary counts: %+v", proposalSummaries[0])
+	}
 }
 
 func TestInboundRequestReportingAuthorizesBeforeReferenceLookupIntegration(t *testing.T) {
@@ -660,6 +691,17 @@ func TestFailedRequestReportingIncludesFailureReasonIntegration(t *testing.T) {
 	}
 	if !detail.Request.FailedAt.Valid {
 		t.Fatal("expected failed_at in detail")
+	}
+
+	summaries, err := reportingService.ListInboundRequestStatusSummary(ctx, operator)
+	if err != nil {
+		t.Fatalf("list failed-request status summary: %v", err)
+	}
+	if len(summaries) != 1 {
+		t.Fatalf("unexpected failed-request summary count: %d", len(summaries))
+	}
+	if summaries[0].Status != intake.StatusFailed || summaries[0].RequestCount != 1 {
+		t.Fatalf("unexpected failed-request summary row: %+v", summaries[0])
 	}
 }
 

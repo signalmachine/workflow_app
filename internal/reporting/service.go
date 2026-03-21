@@ -345,6 +345,16 @@ type ListInboundRequestsInput struct {
 	Actor            identityaccess.Actor
 }
 
+type InboundRequestStatusSummary struct {
+	Status           string
+	RequestCount     int
+	MessageCount     int
+	AttachmentCount  int
+	LatestReceivedAt sql.NullTime
+	LatestQueuedAt   sql.NullTime
+	LatestUpdatedAt  time.Time
+}
+
 type InboundRequestMessageReview struct {
 	MessageID       string
 	MessageIndex    int
@@ -455,6 +465,14 @@ type ListProcessedProposalsInput struct {
 	RequestReference string
 	Limit            int
 	Actor            identityaccess.Actor
+}
+
+type ProcessedProposalStatusSummary struct {
+	RecommendationStatus string
+	ProposalCount        int
+	RequestCount         int
+	DocumentCount        int
+	LatestCreatedAt      time.Time
 }
 
 type GetInboundRequestDetailInput struct {
@@ -2136,6 +2154,77 @@ ORDER BY rec.created_at ASC, rec.id ASC;`
 	return detail, nil
 }
 
+func (s *Service) ListInboundRequestStatusSummary(ctx context.Context, actor identityaccess.Actor) ([]InboundRequestStatusSummary, error) {
+	tx, err := s.beginAuthorizedRead(ctx, actor)
+	if err != nil {
+		return nil, err
+	}
+
+	const query = `
+SELECT
+	r.status,
+	COUNT(*) AS request_count,
+	COALESCE(SUM(msg.message_count), 0) AS message_count,
+	COALESCE(SUM(att.attachment_count), 0) AS attachment_count,
+	MAX(r.received_at) AS latest_received_at,
+	MAX(r.queued_at) AS latest_queued_at,
+	MAX(r.updated_at) AS latest_updated_at
+FROM ai.inbound_requests r
+LEFT JOIN LATERAL (
+	SELECT COUNT(*) AS message_count
+	FROM ai.inbound_request_messages m
+	WHERE m.org_id = r.org_id
+	  AND m.request_id = r.id
+) msg ON TRUE
+LEFT JOIN LATERAL (
+	SELECT COUNT(*) AS attachment_count
+	FROM ai.inbound_request_messages m
+	JOIN attachments.request_message_links l
+	  ON l.org_id = m.org_id
+	 AND l.request_message_id = m.id
+	WHERE m.org_id = r.org_id
+	  AND m.request_id = r.id
+) att ON TRUE
+WHERE r.org_id = $1
+GROUP BY r.status
+ORDER BY MAX(COALESCE(r.queued_at, r.received_at)) DESC, r.status ASC;`
+
+	rows, err := tx.QueryContext(ctx, query, actor.OrgID)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, fmt.Errorf("list inbound request status summary: %w", err)
+	}
+	defer rows.Close()
+
+	var summaries []InboundRequestStatusSummary
+	for rows.Next() {
+		var summary InboundRequestStatusSummary
+		if err := rows.Scan(
+			&summary.Status,
+			&summary.RequestCount,
+			&summary.MessageCount,
+			&summary.AttachmentCount,
+			&summary.LatestReceivedAt,
+			&summary.LatestQueuedAt,
+			&summary.LatestUpdatedAt,
+		); err != nil {
+			_ = tx.Rollback()
+			return nil, fmt.Errorf("scan inbound request status summary: %w", err)
+		}
+		summaries = append(summaries, summary)
+	}
+	if err := rows.Err(); err != nil {
+		_ = tx.Rollback()
+		return nil, fmt.Errorf("iterate inbound request status summary: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit inbound request status summary read: %w", err)
+	}
+
+	return summaries, nil
+}
+
 func (s *Service) ListProcessedProposals(ctx context.Context, input ListProcessedProposalsInput) ([]ProcessedProposalReview, error) {
 	if input.Status != "" && !isValidRecommendationStatus(input.Status) {
 		return nil, ErrInvalidReviewFilter
@@ -2166,6 +2255,65 @@ func (s *Service) ListProcessedProposals(ctx context.Context, input ListProcesse
 	}
 
 	return proposals, nil
+}
+
+func (s *Service) ListProcessedProposalStatusSummary(ctx context.Context, actor identityaccess.Actor) ([]ProcessedProposalStatusSummary, error) {
+	tx, err := s.beginAuthorizedRead(ctx, actor)
+	if err != nil {
+		return nil, err
+	}
+
+	const query = `
+SELECT
+	rec.status,
+	COUNT(*) AS proposal_count,
+	COUNT(DISTINCT r.id) AS request_count,
+	COUNT(DISTINCT ap.document_id) AS document_count,
+	MAX(rec.created_at) AS latest_created_at
+FROM ai.inbound_requests r
+JOIN ai.agent_runs ar
+	ON ar.org_id = r.org_id
+ AND ar.inbound_request_id = r.id
+JOIN ai.agent_recommendations rec
+	ON rec.run_id = ar.id
+LEFT JOIN workflow.approvals ap
+	ON ap.id = rec.approval_id
+WHERE r.org_id = $1
+GROUP BY rec.status
+ORDER BY MAX(rec.created_at) DESC, rec.status ASC;`
+
+	rows, err := tx.QueryContext(ctx, query, actor.OrgID)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, fmt.Errorf("list processed proposal status summary: %w", err)
+	}
+	defer rows.Close()
+
+	var summaries []ProcessedProposalStatusSummary
+	for rows.Next() {
+		var summary ProcessedProposalStatusSummary
+		if err := rows.Scan(
+			&summary.RecommendationStatus,
+			&summary.ProposalCount,
+			&summary.RequestCount,
+			&summary.DocumentCount,
+			&summary.LatestCreatedAt,
+		); err != nil {
+			_ = tx.Rollback()
+			return nil, fmt.Errorf("scan processed proposal status summary: %w", err)
+		}
+		summaries = append(summaries, summary)
+	}
+	if err := rows.Err(); err != nil {
+		_ = tx.Rollback()
+		return nil, fmt.Errorf("iterate processed proposal status summary: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit processed proposal status summary read: %w", err)
+	}
+
+	return summaries, nil
 }
 
 func (s *Service) listInboundRequestsTx(ctx context.Context, tx *sql.Tx, orgID, requestID string) ([]InboundRequestReview, error) {
