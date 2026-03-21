@@ -62,7 +62,7 @@ Implemented:
 18. one-to-one work-order document ownership through `work_orders.documents`, with transactional creation of the shared document row plus work-order execution truth
 19. one-to-one invoice and payment or receipt document ownership through accounting-owned payload tables keyed by `document_id`
 20. persist-first inbound request drafts, org-scoped `REQ-...` request references, draft editing and hard deletion, queued-request amend and cancel handling before pickup, messages, queue claim and status transitions, PostgreSQL-backed attachments, attachment transcription derivatives, and AI run causation linked back to the originating request
-21. `reporting` review surfaces for inbound requests, request attachments, linked AI runs, AI artifacts, recommendation payloads, and processed proposals joined to approvals and documents, with stable request references exposed for operator tracking and used directly for request-detail and processed-proposal lookup, persisted cancellation and failure reasons visible for operator troubleshooting, and submitter, session, metadata, attachment provenance, and document-context fields surfaced for richer operator review
+21. `reporting` review surfaces for inbound requests, request attachments, linked AI runs, AI step traces, delegation traces, AI artifacts, recommendation payloads, and processed proposals joined to approvals and documents, with stable request references exposed for operator tracking and used directly for request-detail and processed-proposal lookup, persisted cancellation and failure reasons visible for operator troubleshooting, and submitter, session, metadata, attachment provenance, and document-context fields surfaced for richer operator review
 
 Immediate next steps:
 

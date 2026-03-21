@@ -379,6 +379,31 @@ type AIRunReview struct {
 	CompletedAt    sql.NullTime
 }
 
+type AIStepReview struct {
+	StepID        string
+	RunID         string
+	StepIndex     int
+	StepType      string
+	StepTitle     string
+	Status        string
+	InputPayload  json.RawMessage
+	OutputPayload json.RawMessage
+	CreatedAt     time.Time
+}
+
+type AIDelegationReview struct {
+	DelegationID        string
+	ParentRunID         string
+	ChildRunID          string
+	RequestedByStepID   sql.NullString
+	CapabilityCode      string
+	Reason              string
+	ChildAgentRole      string
+	ChildCapabilityCode string
+	ChildRunStatus      string
+	CreatedAt           time.Time
+}
+
 type AIArtifactReview struct {
 	ArtifactID      string
 	RunID           string
@@ -443,6 +468,8 @@ type InboundRequestDetail struct {
 	Messages        []InboundRequestMessageReview
 	Attachments     []RequestAttachmentReview
 	Runs            []AIRunReview
+	Steps           []AIStepReview
+	Delegations     []AIDelegationReview
 	Artifacts       []AIArtifactReview
 	Recommendations []AIRecommendationReview
 	Proposals       []ProcessedProposalReview
@@ -1878,6 +1905,114 @@ ORDER BY started_at ASC, id ASC;`
 		return InboundRequestDetail{}, fmt.Errorf("iterate inbound request runs: %w", err)
 	}
 	runRows.Close()
+
+	const stepsQuery = `
+SELECT
+	st.id,
+	st.run_id,
+	st.step_index,
+	st.step_type,
+	st.step_title,
+	st.status,
+	st.input_payload,
+	st.output_payload,
+	st.created_at
+FROM ai.agent_runs ar
+JOIN ai.agent_run_steps st
+	ON st.run_id = ar.id
+WHERE ar.org_id = $1
+  AND ar.inbound_request_id = $2
+ORDER BY st.created_at ASC, st.run_id ASC, st.step_index ASC;`
+
+	stepRows, err := tx.QueryContext(ctx, stepsQuery, input.Actor.OrgID, requestID)
+	if err != nil {
+		_ = tx.Rollback()
+		return InboundRequestDetail{}, fmt.Errorf("query inbound request steps: %w", err)
+	}
+	for stepRows.Next() {
+		var (
+			step          AIStepReview
+			inputPayload  []byte
+			outputPayload []byte
+		)
+		if err := stepRows.Scan(
+			&step.StepID,
+			&step.RunID,
+			&step.StepIndex,
+			&step.StepType,
+			&step.StepTitle,
+			&step.Status,
+			&inputPayload,
+			&outputPayload,
+			&step.CreatedAt,
+		); err != nil {
+			stepRows.Close()
+			_ = tx.Rollback()
+			return InboundRequestDetail{}, fmt.Errorf("scan inbound request step review: %w", err)
+		}
+		step.InputPayload = append(step.InputPayload[:0], inputPayload...)
+		step.OutputPayload = append(step.OutputPayload[:0], outputPayload...)
+		detail.Steps = append(detail.Steps, step)
+	}
+	if err := stepRows.Err(); err != nil {
+		stepRows.Close()
+		_ = tx.Rollback()
+		return InboundRequestDetail{}, fmt.Errorf("iterate inbound request steps: %w", err)
+	}
+	stepRows.Close()
+
+	const delegationsQuery = `
+SELECT
+	d.id,
+	d.parent_run_id,
+	d.child_run_id,
+	d.requested_by_step_id,
+	d.capability_code,
+	d.reason,
+	child.agent_role,
+	child.capability_code,
+	child.status,
+	d.created_at
+FROM ai.agent_runs parent
+JOIN ai.agent_delegations d
+	ON d.parent_run_id = parent.id
+JOIN ai.agent_runs child
+	ON child.id = d.child_run_id
+WHERE parent.org_id = $1
+  AND parent.inbound_request_id = $2
+ORDER BY d.created_at ASC, d.id ASC;`
+
+	delegationRows, err := tx.QueryContext(ctx, delegationsQuery, input.Actor.OrgID, requestID)
+	if err != nil {
+		_ = tx.Rollback()
+		return InboundRequestDetail{}, fmt.Errorf("query inbound request delegations: %w", err)
+	}
+	for delegationRows.Next() {
+		var delegation AIDelegationReview
+		if err := delegationRows.Scan(
+			&delegation.DelegationID,
+			&delegation.ParentRunID,
+			&delegation.ChildRunID,
+			&delegation.RequestedByStepID,
+			&delegation.CapabilityCode,
+			&delegation.Reason,
+			&delegation.ChildAgentRole,
+			&delegation.ChildCapabilityCode,
+			&delegation.ChildRunStatus,
+			&delegation.CreatedAt,
+		); err != nil {
+			delegationRows.Close()
+			_ = tx.Rollback()
+			return InboundRequestDetail{}, fmt.Errorf("scan inbound request delegation review: %w", err)
+		}
+		detail.Delegations = append(detail.Delegations, delegation)
+	}
+	if err := delegationRows.Err(); err != nil {
+		delegationRows.Close()
+		_ = tx.Rollback()
+		return InboundRequestDetail{}, fmt.Errorf("iterate inbound request delegations: %w", err)
+	}
+	delegationRows.Close()
 
 	const artifactsQuery = `
 SELECT

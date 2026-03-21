@@ -218,7 +218,7 @@ Current implementation checkpoint:
 10. audit lookup now exists as a coherent reporting read path scoped to tenant and entity filters
 11. minimum thin-v1 party and contact support depth now exists through tenant-safe `parties` support records and support-depth contacts
 12. inbound-request list and detail review plus processed-proposal review now expose the persist-first request -> AI -> approval -> document chain needed for the promoted v1 application layer through service and reporting-read-model seams
-13. inbound-request reporting now includes persisted cancellation and failure reasons with their timestamps plus submitter, session, metadata, attachment provenance, AI artifact detail, recommendation payloads, and processed-proposal document context so operator troubleshooting does not require raw table reads
+13. inbound-request reporting now includes persisted cancellation and failure reasons with their timestamps plus submitter, session, metadata, attachment provenance, AI step and delegation detail, AI artifact detail, recommendation payloads, and processed-proposal document context so operator troubleshooting does not require raw table reads
 14. remaining thin-v1 completion is now concentrated around final operator-facing reporting polish rather than missing inbound-request, request-reference, or adopted-document foundation coverage
 15. the next implementation target is to finish the remaining reporting polish before any v2 breadth work begins
 

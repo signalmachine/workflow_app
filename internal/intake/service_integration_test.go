@@ -134,6 +134,50 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 		t.Fatalf("unexpected inbound request link on run: %+v", run.InboundRequestID)
 	}
 
+	coordinatorStep, err := aiService.AppendStep(ctx, ai.AppendStepInput{
+		RunID:     run.ID,
+		StepType:  "tool_plan",
+		StepTitle: "Choose approval specialist",
+		Status:    ai.StepStatusCompleted,
+		InputPayload: map[string]any{
+			"request_reference": request.RequestReference,
+		},
+		OutputPayload: map[string]any{
+			"capability": "workflow.approvals",
+		},
+		Actor: operator,
+	})
+	if err != nil {
+		t.Fatalf("append coordinator step: %v", err)
+	}
+
+	specialistRun, err := aiService.StartRun(ctx, ai.StartRunInput{
+		AgentRole:        ai.RunRoleSpecialist,
+		CapabilityCode:   "workflow.approvals",
+		InboundRequestID: request.ID,
+		RequestText:      "request approval for inbound invoice proposal",
+		ParentRunID:      run.ID,
+		Metadata: map[string]any{
+			"request_reference": request.RequestReference,
+		},
+		Actor: operator,
+	})
+	if err != nil {
+		t.Fatalf("start specialist run: %v", err)
+	}
+
+	delegation, err := aiService.RecordDelegation(ctx, ai.RecordDelegationInput{
+		ParentRunID:       run.ID,
+		ChildRunID:        specialistRun.ID,
+		RequestedByStepID: coordinatorStep.ID,
+		CapabilityCode:    "workflow.approvals",
+		Reason:            "submitted invoice proposals route through the approval specialist",
+		Actor:             operator,
+	})
+	if err != nil {
+		t.Fatalf("record delegation: %v", err)
+	}
+
 	derivedText, err := attachmentService.RecordDerivedText(ctx, attachments.RecordDerivedTextInput{
 		SourceAttachmentID: attachment.ID,
 		RequestMessageID:   message.ID,
@@ -165,8 +209,26 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 		t.Fatalf("submit document: %v", err)
 	}
 
+	specialistStep, err := aiService.AppendStep(ctx, ai.AppendStepInput{
+		RunID:     specialistRun.ID,
+		StepType:  "analysis",
+		StepTitle: "Assemble approval package",
+		Status:    ai.StepStatusCompleted,
+		InputPayload: map[string]any{
+			"document_id": doc.ID,
+		},
+		OutputPayload: map[string]any{
+			"queue_code": "finance-review",
+		},
+		Actor: operator,
+	})
+	if err != nil {
+		t.Fatalf("append specialist step: %v", err)
+	}
+
 	artifact, err := aiService.CreateArtifact(ctx, ai.CreateArtifactInput{
-		RunID:        run.ID,
+		RunID:        specialistRun.ID,
+		StepID:       specialistStep.ID,
 		ArtifactType: "transcription",
 		Title:        "Voice transcription",
 		Payload: map[string]any{
@@ -179,7 +241,7 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 	}
 
 	recommendation, err := aiService.CreateRecommendation(ctx, ai.CreateRecommendationInput{
-		RunID:              run.ID,
+		RunID:              specialistRun.ID,
 		ArtifactID:         artifact.ID,
 		RecommendationType: "request_approval",
 		Summary:            "Request finance approval for the submitted invoice",
@@ -222,6 +284,18 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 		Actor: operator,
 	}); err != nil {
 		t.Fatalf("complete run: %v", err)
+	}
+	if _, err := aiService.CompleteRun(ctx, ai.CompleteRunInput{
+		RunID:   specialistRun.ID,
+		Status:  ai.RunStatusCompleted,
+		Summary: "assembled the approval package and linked it to workflow approval",
+		Metadata: map[string]any{
+			"approval_id": approval.ID,
+			"artifact_id": artifact.ID,
+		},
+		Actor: operator,
+	}); err != nil {
+		t.Fatalf("complete specialist run: %v", err)
 	}
 
 	request, err = intakeService.AdvanceRequest(ctx, intake.AdvanceRequestInput{
@@ -285,12 +359,14 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get inbound request detail: %v", err)
 	}
-	if len(detail.Messages) != 1 || len(detail.Attachments) != 1 || len(detail.Runs) != 1 || len(detail.Artifacts) != 1 || len(detail.Recommendations) != 1 || len(detail.Proposals) != 1 {
+	if len(detail.Messages) != 1 || len(detail.Attachments) != 1 || len(detail.Runs) != 2 || len(detail.Steps) != 2 || len(detail.Delegations) != 1 || len(detail.Artifacts) != 1 || len(detail.Recommendations) != 1 || len(detail.Proposals) != 1 {
 		t.Fatalf(
-			"unexpected detail sizes: messages=%d attachments=%d runs=%d artifacts=%d recommendations=%d proposals=%d",
+			"unexpected detail sizes: messages=%d attachments=%d runs=%d steps=%d delegations=%d artifacts=%d recommendations=%d proposals=%d",
 			len(detail.Messages),
 			len(detail.Attachments),
 			len(detail.Runs),
+			len(detail.Steps),
+			len(detail.Delegations),
 			len(detail.Artifacts),
 			len(detail.Recommendations),
 			len(detail.Proposals),
@@ -320,7 +396,25 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 	if !detail.Attachments[0].LatestDerivedByRunID.Valid || detail.Attachments[0].LatestDerivedByRunID.String != run.ID {
 		t.Fatalf("unexpected latest derived-text run in attachment review: %+v want %s", detail.Attachments[0].LatestDerivedByRunID, run.ID)
 	}
-	if detail.Artifacts[0].ArtifactID != artifact.ID || detail.Artifacts[0].RunID != run.ID {
+	if detail.Steps[0].StepID != coordinatorStep.ID || detail.Steps[0].RunID != run.ID {
+		t.Fatalf("unexpected coordinator step review linkage: %+v", detail.Steps[0])
+	}
+	if !strings.Contains(string(detail.Steps[0].OutputPayload), "workflow.approvals") {
+		t.Fatalf("expected specialist capability in coordinator step output, got %s", string(detail.Steps[0].OutputPayload))
+	}
+	if detail.Steps[1].StepID != specialistStep.ID || detail.Steps[1].RunID != specialistRun.ID {
+		t.Fatalf("unexpected specialist step review linkage: %+v", detail.Steps[1])
+	}
+	if detail.Delegations[0].DelegationID != delegation.ID || detail.Delegations[0].ChildRunID != specialistRun.ID {
+		t.Fatalf("unexpected delegation review linkage: %+v", detail.Delegations[0])
+	}
+	if !detail.Delegations[0].RequestedByStepID.Valid || detail.Delegations[0].RequestedByStepID.String != coordinatorStep.ID {
+		t.Fatalf("unexpected delegation requested-by step: %+v want %s", detail.Delegations[0].RequestedByStepID, coordinatorStep.ID)
+	}
+	if detail.Delegations[0].ChildCapabilityCode != "workflow.approvals" {
+		t.Fatalf("unexpected delegation child capability: %s", detail.Delegations[0].ChildCapabilityCode)
+	}
+	if detail.Artifacts[0].ArtifactID != artifact.ID || detail.Artifacts[0].RunID != specialistRun.ID {
 		t.Fatalf("unexpected artifact review linkage: %+v", detail.Artifacts[0])
 	}
 	if detail.Artifacts[0].CreatedByUserID != operator.UserID {
@@ -329,7 +423,7 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 	if !strings.Contains(string(detail.Artifacts[0].Payload), derivedText.ID) {
 		t.Fatalf("expected derived-text payload in artifact review, got %s", string(detail.Artifacts[0].Payload))
 	}
-	if detail.Recommendations[0].RecommendationID != recommendation.ID || detail.Recommendations[0].RunID != run.ID {
+	if detail.Recommendations[0].RecommendationID != recommendation.ID || detail.Recommendations[0].RunID != specialistRun.ID {
 		t.Fatalf("unexpected recommendation review linkage: %+v", detail.Recommendations[0])
 	}
 	if !detail.Recommendations[0].ArtifactID.Valid || detail.Recommendations[0].ArtifactID.String != artifact.ID {
