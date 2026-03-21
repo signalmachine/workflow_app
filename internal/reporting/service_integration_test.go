@@ -41,7 +41,7 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 	workflowService := workflow.NewService(db, documentService)
 	accountingService := accounting.NewService(db, documentService)
 	inventoryService := inventoryops.NewService(db)
-	workOrderService := workorders.NewService(db)
+	workOrderService := workorders.NewService(db, documentService)
 	workforceService := workforce.NewService(db)
 	reportingService := reporting.NewService(db)
 
@@ -476,6 +476,9 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("get work order review: %v", err)
+	}
+	if workOrderReview.DocumentID != workOrderResult.WorkOrder.DocumentID || workOrderReview.DocumentStatus != "draft" {
+		t.Fatalf("unexpected work-order document review linkage: %+v", workOrderReview)
 	}
 	if workOrderReview.CompletedTaskCount != 1 || workOrderReview.OpenTaskCount != 0 {
 		t.Fatalf("unexpected task counts: %+v", workOrderReview)

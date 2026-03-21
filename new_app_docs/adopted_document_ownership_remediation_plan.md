@@ -1,7 +1,7 @@
 # workflow_app Adopted Document Ownership Remediation Plan
 
 Date: 2026-03-21
-Status: Draft targeted remediation plan
+Status: In-progress targeted remediation plan
 Purpose: define the implementation slice that closes the remaining thin-v1 adopted document-family ownership gaps before later interaction foundations land on top of an unstable document model.
 
 ## 1. Problem statement
@@ -11,7 +11,7 @@ The canonical thin-v1 plan now requires one-to-one payload ownership for adopted
 Current state:
 
 1. inventory document families already have inventory-owned payload rows keyed one-to-one by `document_id`
-2. `work_orders` currently uses a standalone work-order identity without a one-to-one document payload row
+2. `work_orders` now uses a thin work-order document payload bridge keyed by `document_id` with a unique link into execution truth
 3. `invoice` and `payment_receipt` are registered document types but do not yet have owning payload tables
 4. tests and posting flows still treat invoices as bare central documents rather than module-owned payload truth
 
@@ -28,9 +28,9 @@ Land one consistent thin-v1 document-adoption model across all adopted document 
 
 In scope:
 
-1. work-order document ownership completion
-2. invoice document ownership implementation
-3. payment or receipt document ownership implementation
+1. invoice document ownership implementation
+2. payment or receipt document ownership implementation
+3. any follow-up tightening needed after the landed work-order ownership bridge
 4. reporting and posting read-path adjustments required by the new payload tables
 5. migration and service updates needed to preserve current document lifecycle and approval/posting semantics
 6. integration tests proving one-to-one payload ownership and existing posting behavior
@@ -64,6 +64,12 @@ Preferred direction:
 1. use `document_id` as the canonical work-order identity if the migration impact stays manageable
 2. if migration risk is materially higher, use a thin work-order document header keyed by `document_id` plus a unique link into the existing execution truth row, then collapse identities later only if still justified
 
+Implemented direction:
+
+1. the current codebase now uses the thin work-order document header approach through `work_orders.documents`
+2. work-order creation creates the shared `documents` row and the work-order payload bridge transactionally
+3. work-order review now surfaces the linked document identity and status while execution-facing foreign keys remain stable on `work_orders.work_orders`
+
 ### 4.3 Invoice adoption shape
 
 Recommended minimum payload:
@@ -96,14 +102,14 @@ Recommended minimum payload:
 
 ### 5.1 Schema work
 
-1. add module-owned payload tables for work-order, invoice, and payment or receipt documents
+1. add module-owned payload tables for invoice and payment or receipt documents, with the work-order payload bridge already landed
 2. enforce one-to-one linkage back to `documents.documents`
 3. enforce tenant-safe foreign keys to shared support records and other referenced rows
-4. backfill or bridge existing work-order records into the adopted model without breaking current review and posting paths
+4. backfill or bridge any remaining legacy work-order records into the adopted model without breaking current review and posting paths
 
 ### 5.2 Service-layer work
 
-1. add explicit create and load flows for adopted payload rows
+1. add explicit create and load flows for adopted payload rows, extending the landed work-order pattern where it still fits
 2. ensure document creation and payload creation happen transactionally together
 3. preserve current approval and posting flows while switching downstream reads to payload-aware joins
 4. reject attempts to post or review document families that are still missing required payload truth
@@ -118,21 +124,19 @@ Recommended minimum payload:
 
 1. migration coverage for one-to-one ownership constraints
 2. integration tests for create -> submit -> approve -> post using adopted invoice payloads
-3. integration tests for work-order document adoption and execution review compatibility
-4. integration tests for payment or receipt payload ownership and approval compatibility
+3. integration tests for payment or receipt payload ownership and approval compatibility
 
 ## 6. Risks and technical challenges
 
-1. work-order adoption is the hardest part because current execution truth already has its own identity and cross-module references
-2. invoice and payment or receipt payload design can easily sprawl if convenience fields are added before strict v1 scope discipline is enforced
-3. reporting queries may need careful refactoring so they do not accidentally duplicate truth between `documents` and the new payload tables
-4. if work-order identity is migrated directly to `document_id`, existing foreign keys and tests will need coordinated updates
+1. invoice and payment or receipt payload design can easily sprawl if convenience fields are added before strict v1 scope discipline is enforced
+2. reporting queries may need careful refactoring so they do not accidentally duplicate truth between `documents` and the new payload tables
+3. the landed work-order bridge intentionally avoids a direct `document_id` primary-key migration, so later collapse should be reconsidered only if it delivers clear value
 
 ## 7. Success criteria
 
 This remediation slice is complete only when:
 
-1. adopted `work_order`, `invoice`, and `payment_receipt` families each have one owning payload path with one-to-one `document_id` linkage
+1. adopted `invoice` and `payment_receipt` families each have one owning payload path with one-to-one `document_id` linkage, with `work_order` already using that pattern through `work_orders.documents`
 2. current reporting and posting flows still work against the adopted model
 3. shared support identities are reused rather than copied into module-local truth
 4. integration tests prove the new ownership model and guard against regression back to bare-document usage

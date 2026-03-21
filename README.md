@@ -2,7 +2,7 @@
 
 `workflow_app` is an AI-agent-first, database-first business operating system centered on documents, ledgers, execution context, approvals, and reports.
 
-This repository has completed Milestone 0, Milestone 2, Milestone 3, and Milestone 4 from the canonical planning set in [`new_app_docs/`](./new_app_docs). Milestone 1 remains partially complete because the shared control boundary is in place but thin-v1 still lacks adopted document ownership for key document families plus persist-first inbound request and attachment foundations. The repository is now continuing through those remaining thin-v1 foundation gaps before any broader implementation proceeds:
+This repository has completed Milestone 0, Milestone 2, Milestone 3, and Milestone 4 from the canonical planning set in [`new_app_docs/`](./new_app_docs). Milestone 1 remains partially complete because the shared control boundary is in place but thin-v1 still lacks adopted document ownership for invoice and payment or receipt documents plus persist-first inbound request and attachment foundations. Work orders now adopt the shared document kernel through a one-to-one `work_orders.documents` bridge. The repository is now continuing through those remaining thin-v1 foundation gaps before any broader implementation proceeds:
 
 1. bootstrap the Go module
 2. add a migration runner
@@ -34,7 +34,7 @@ go build ./...
 Run tests with the configured test database:
 
 ```bash
-set -a; source .env; set +a; go test ./...
+set -a; source .env; set +a; go test -p 1 ./...
 ```
 
 ## Current implementation status
@@ -58,9 +58,10 @@ Implemented:
 15. centralized `accounting` consumption of costed inventory handoffs for work-order material usage through approved journal documents
 16. first-class `reporting` read surfaces for approval queue review, document review, accounting journal review, control-account balance review, GST/TDS tax summaries, inventory stock review, inventory movement review, inventory reconciliation review, work-order review, and audit lookup
 17. support-depth `parties` records plus tenant-safe `contacts` for thin-v1 trading and service document flows
+18. one-to-one work-order document ownership through `work_orders.documents`, with transactional creation of the shared document row plus work-order execution truth
 
 Immediate next steps:
 
-1. complete adopted document-family ownership for work-order, invoice, and payment or receipt payloads with one-to-one linkage back to the shared `documents` kernel, reusing shared support-record identities where applicable
+1. complete adopted document-family ownership for invoice and payment or receipt payloads with one-to-one linkage back to the shared `documents` kernel, reusing shared support-record identities where applicable
 2. implement minimum persist-first inbound request intake, attachment references, queue-oriented AI processing, and browser-usable review visibility for thin-v1 user testing
 3. finish the remaining thin-v1 reporting polish after those foundation gaps land

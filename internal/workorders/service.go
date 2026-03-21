@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"workflow_app/internal/documents"
 	"workflow_app/internal/identityaccess"
 	"workflow_app/internal/platform/audit"
 )
@@ -28,6 +29,7 @@ const (
 
 type WorkOrder struct {
 	ID              string
+	DocumentID      string
 	OrgID           string
 	WorkOrderCode   string
 	Title           string
@@ -97,11 +99,12 @@ type ListMaterialUsagesInput struct {
 }
 
 type Service struct {
-	db *sql.DB
+	db        *sql.DB
+	documents *documents.Service
 }
 
-func NewService(db *sql.DB) *Service {
-	return &Service{db: db}
+func NewService(db *sql.DB, documentService *documents.Service) *Service {
+	return &Service{db: db, documents: documentService}
 }
 
 func (s *Service) CreateWorkOrder(ctx context.Context, input CreateWorkOrderInput) (CreateWorkOrderResult, error) {
@@ -122,6 +125,16 @@ func (s *Service) CreateWorkOrder(ctx context.Context, input CreateWorkOrderInpu
 		return CreateWorkOrderResult{}, err
 	}
 
+	document, err := s.documents.CreateDraftTx(ctx, tx, documents.CreateDraftInput{
+		TypeCode: "work_order",
+		Title:    strings.TrimSpace(input.Title),
+		Actor:    input.Actor,
+	})
+	if err != nil {
+		_ = tx.Rollback()
+		return CreateWorkOrderResult{}, fmt.Errorf("create work order document: %w", err)
+	}
+
 	workOrder, err := scanWorkOrder(tx.QueryRowContext(ctx, `
 INSERT INTO work_orders.work_orders (
 	org_id,
@@ -132,6 +145,7 @@ INSERT INTO work_orders.work_orders (
 ) VALUES ($1, $2, $3, $4, $5)
 RETURNING
 	id,
+	$6 AS document_id,
 	org_id,
 	work_order_code,
 	title,
@@ -146,10 +160,25 @@ RETURNING
 		strings.TrimSpace(input.Title),
 		strings.TrimSpace(input.Summary),
 		input.Actor.UserID,
+		document.ID,
 	))
 	if err != nil {
 		_ = tx.Rollback()
 		return CreateWorkOrderResult{}, fmt.Errorf("insert work order: %w", err)
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+INSERT INTO work_orders.documents (
+	document_id,
+	org_id,
+	work_order_id
+) VALUES ($1, $2, $3);`,
+		document.ID,
+		input.Actor.OrgID,
+		workOrder.ID,
+	); err != nil {
+		_ = tx.Rollback()
+		return CreateWorkOrderResult{}, fmt.Errorf("insert work order document payload: %w", err)
 	}
 
 	history, err := insertStatusHistoryTx(ctx, tx, input.Actor.OrgID, workOrder.ID, sql.NullString{}, StatusOpen, "", input.Actor.UserID)
@@ -167,10 +196,26 @@ RETURNING
 	if err := audit.WriteTx(ctx, tx, audit.Event{
 		OrgID:       input.Actor.OrgID,
 		ActorUserID: input.Actor.UserID,
+		EventType:   "documents.document_created",
+		EntityType:  "documents.document",
+		EntityID:    document.ID,
+		Payload: map[string]any{
+			"type_code": document.TypeCode,
+			"status":    document.Status,
+		},
+	}); err != nil {
+		_ = tx.Rollback()
+		return CreateWorkOrderResult{}, err
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
 		EventType:   "work_orders.work_order_created",
 		EntityType:  "work_orders.work_order",
 		EntityID:    workOrder.ID,
 		Payload: map[string]any{
+			"document_id":        workOrder.DocumentID,
 			"work_order_code":    workOrder.WorkOrderCode,
 			"status":             workOrder.Status,
 			"material_usage_cnt": len(materialUsages),
@@ -229,6 +274,7 @@ WHERE org_id = $1
   AND id = $2
 RETURNING
 	id,
+	$4 AS document_id,
 	org_id,
 	work_order_code,
 	title,
@@ -241,6 +287,7 @@ RETURNING
 		input.Actor.OrgID,
 		input.WorkOrderID,
 		input.Status,
+		workOrder.DocumentID,
 	))
 	if err != nil {
 		_ = tx.Rollback()
@@ -396,19 +443,23 @@ func getWorkOrder(ctx context.Context, tx *sql.Tx, orgID, workOrderID string) (W
 func getWorkOrderWithLockClause(ctx context.Context, tx *sql.Tx, orgID, workOrderID, lockClause string) (WorkOrder, error) {
 	query := `
 SELECT
-	id,
-	org_id,
-	work_order_code,
-	title,
-	summary,
-	status,
-	created_by_user_id,
-	closed_at,
-	created_at,
-	updated_at
-FROM work_orders.work_orders
-WHERE org_id = $1
-  AND id = $2`
+	wo.id,
+	wd.document_id,
+	wo.org_id,
+	wo.work_order_code,
+	wo.title,
+	wo.summary,
+	wo.status,
+	wo.created_by_user_id,
+	wo.closed_at,
+	wo.created_at,
+	wo.updated_at
+FROM work_orders.work_orders wo
+JOIN work_orders.documents wd
+	ON wd.work_order_id = wo.id
+   AND wd.org_id = wo.org_id
+WHERE wo.org_id = $1
+  AND wo.id = $2`
 	if lockClause != "" {
 		query += "\n" + lockClause
 	}
@@ -583,6 +634,7 @@ func scanWorkOrder(row rowScanner) (WorkOrder, error) {
 	var workOrder WorkOrder
 	if err := row.Scan(
 		&workOrder.ID,
+		&workOrder.DocumentID,
 		&workOrder.OrgID,
 		&workOrder.WorkOrderCode,
 		&workOrder.Title,

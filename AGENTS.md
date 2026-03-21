@@ -40,7 +40,7 @@ Current useful commands:
 - `sed -n '1,160p' new_app_docs/README.md` to check the canonical reading order
 - `go run ./cmd/migrate` to apply embedded PostgreSQL migrations
 - `go build ./...` to verify the current workspace builds
-- `set -a; source .env; set +a; go test ./...` to run the current automated test suite against the configured test database
+- `set -a; source .env; set +a; go test -p 1 ./...` to run the current automated test suite against the configured test database without package-level advisory-lock contention
 - `git diff --check` to catch whitespace and Markdown formatting issues
 
 ## Writing Style & Naming Conventions
@@ -73,7 +73,7 @@ For implementation work:
 
 - every behavior change should include tests appropriate to the change
 - run `go build ./...` before closing out the task
-- run `set -a; source .env; set +a; go test ./...` before closing out the task when code or persistence behavior changed
+- run `set -a; source .env; set +a; go test -p 1 ./...` before closing out the task when code or persistence behavior changed
 - if migrations or persistence behavior change, verify against the configured development and test databases unless an explicit blocker is documented
 
 ## Commit & Pull Request Guidelines

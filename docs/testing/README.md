@@ -172,7 +172,7 @@ For implementation work in this repository, the normal verification path is:
 1. run `gopls` diagnostics on edited Go files
 2. run `go build ./...`
 3. run targeted package tests when developing a slice
-4. run `set -a; source .env; set +a; go test ./...` when code or persistence behavior changed
+4. run `set -a; source .env; set +a; go test -p 1 ./...` when code or persistence behavior changed because the shared test database uses an advisory lock and package-parallel full-suite runs can contend on it
 5. if migrations changed, verify that `go run ./cmd/migrate` applies cleanly against the configured development database
 6. document any blocker explicitly if full verification cannot run
 

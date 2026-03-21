@@ -187,6 +187,9 @@ type ListInventoryReconciliationInput struct {
 
 type WorkOrderReview struct {
 	WorkOrderID              string
+	DocumentID               string
+	DocumentStatus           string
+	DocumentNumber           sql.NullString
 	WorkOrderCode            string
 	Title                    string
 	Summary                  string
@@ -907,6 +910,9 @@ func (s *Service) GetWorkOrderReview(ctx context.Context, input GetWorkOrderRevi
 	err = tx.QueryRowContext(ctx, `
 SELECT
 	wo.id,
+	d.id,
+	d.status,
+	d.number_value,
 	wo.work_order_code,
 	wo.title,
 	wo.summary,
@@ -928,6 +934,12 @@ SELECT
 	COALESCE(material_posted.posted_cost_minor, 0),
 	GREATEST(COALESCE(labor_posted.last_posted_at, '-infinity'::timestamptz), COALESCE(material_posted.last_posted_at, '-infinity'::timestamptz))
 FROM work_orders.work_orders wo
+JOIN work_orders.documents wd
+	ON wd.work_order_id = wo.id
+   AND wd.org_id = wo.org_id
+JOIN documents.documents d
+	ON d.id = wd.document_id
+   AND d.org_id = wd.org_id
 JOIN LATERAL (
 	SELECT changed_at
 	FROM work_orders.status_history
@@ -994,6 +1006,9 @@ WHERE wo.org_id = $1
 		input.WorkOrderID,
 	).Scan(
 		&review.WorkOrderID,
+		&review.DocumentID,
+		&review.DocumentStatus,
+		&review.DocumentNumber,
 		&review.WorkOrderCode,
 		&review.Title,
 		&review.Summary,

@@ -79,6 +79,7 @@ TRUNCATE TABLE
 	workforce.workers,
 	work_orders.material_usages,
 	work_orders.status_history,
+	work_orders.documents,
 	work_orders.work_orders,
 	inventory_ops.execution_links,
 	inventory_ops.accounting_handoffs,

@@ -232,7 +232,7 @@ func TestPostWorkOrderLaborIntegration(t *testing.T) {
 
 	documentService := documents.NewService(db)
 	workflowService := workflow.NewService(db, documentService)
-	workOrderService := workorders.NewService(db)
+	workOrderService := workorders.NewService(db, documentService)
 	workforceService := workforce.NewService(db)
 	accountingService := accounting.NewService(db, documentService)
 
@@ -391,7 +391,7 @@ func TestPostWorkOrderInventoryIntegration(t *testing.T) {
 	workflowService := workflow.NewService(db, documentService)
 	accountingService := accounting.NewService(db, documentService)
 	inventoryService := inventoryops.NewService(db)
-	workOrderService := workorders.NewService(db)
+	workOrderService := workorders.NewService(db, documentService)
 
 	workOrderResult, err := workOrderService.CreateWorkOrder(ctx, workorders.CreateWorkOrderInput{
 		WorkOrderCode: "WO-INV-1001",

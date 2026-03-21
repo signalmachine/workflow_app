@@ -119,6 +119,10 @@ func (s *Service) CreateDraft(ctx context.Context, input CreateDraftInput) (Docu
 	return doc, nil
 }
 
+func (s *Service) CreateDraftTx(ctx context.Context, tx *sql.Tx, input CreateDraftInput) (Document, error) {
+	return createDraftTx(ctx, tx, input)
+}
+
 func (s *Service) Submit(ctx context.Context, input SubmitInput) (Document, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {

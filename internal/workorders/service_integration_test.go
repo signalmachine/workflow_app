@@ -30,7 +30,7 @@ func TestCreateWorkOrderConsumesPendingInventoryLinksIntegration(t *testing.T) {
 
 	documentService := documents.NewService(db)
 	inventoryService := inventoryops.NewService(db)
-	workOrderService := workorders.NewService(db)
+	workOrderService := workorders.NewService(db, documentService)
 
 	item := createItem(t, ctx, inventoryService, inventoryops.CreateItemInput{
 		SKU:          "CABLE-001",
@@ -99,8 +99,31 @@ func TestCreateWorkOrderConsumesPendingInventoryLinksIntegration(t *testing.T) {
 	if len(result.MaterialUsages) != 1 {
 		t.Fatalf("unexpected material usage count: %d", len(result.MaterialUsages))
 	}
+	if result.WorkOrder.DocumentID == "" {
+		t.Fatal("expected work order document linkage")
+	}
 	if result.MaterialUsages[0].InventoryExecutionLinkID != captured.ExecutionLinks[0].ID {
 		t.Fatalf("unexpected execution link linkage: %s", result.MaterialUsages[0].InventoryExecutionLinkID)
+	}
+
+	var (
+		payloadDocumentID string
+		documentTypeCode  string
+		documentStatus    string
+	)
+	if err := db.QueryRowContext(ctx, `
+SELECT wd.document_id, d.type_code, d.status
+FROM work_orders.documents wd
+JOIN documents.documents d
+	ON d.id = wd.document_id
+WHERE wd.work_order_id = $1;`, result.WorkOrder.ID).Scan(&payloadDocumentID, &documentTypeCode, &documentStatus); err != nil {
+		t.Fatalf("load work order document payload: %v", err)
+	}
+	if payloadDocumentID != result.WorkOrder.DocumentID {
+		t.Fatalf("unexpected work order document id: %s", payloadDocumentID)
+	}
+	if documentTypeCode != "work_order" || documentStatus != "draft" {
+		t.Fatalf("unexpected work order document state: %s/%s", documentTypeCode, documentStatus)
 	}
 
 	var linkageStatus string
@@ -126,7 +149,7 @@ func TestSyncInventoryUsageConsumesLinksCreatedAfterWorkOrderIntegration(t *test
 
 	documentService := documents.NewService(db)
 	inventoryService := inventoryops.NewService(db)
-	workOrderService := workorders.NewService(db)
+	workOrderService := workorders.NewService(db, documentService)
 
 	workOrderResult, err := workOrderService.CreateWorkOrder(ctx, workorders.CreateWorkOrderInput{
 		WorkOrderCode: "WO-2001",
@@ -224,7 +247,8 @@ func TestUpdateWorkOrderStatusRecordsHistoryAndRejectsInvalidTransitionIntegrati
 	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
 	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
 
-	workOrderService := workorders.NewService(db)
+	documentService := documents.NewService(db)
+	workOrderService := workorders.NewService(db, documentService)
 
 	result, err := workOrderService.CreateWorkOrder(ctx, workorders.CreateWorkOrderInput{
 		WorkOrderCode: "WO-3001",
@@ -300,7 +324,7 @@ func TestWorkOrderTasksAndLaborCaptureIntegration(t *testing.T) {
 	documentService := documents.NewService(db)
 	workflowService := workflow.NewService(db, documentService)
 	workforceService := workforce.NewService(db)
-	workOrderService := workorders.NewService(db)
+	workOrderService := workorders.NewService(db, documentService)
 
 	result, err := workOrderService.CreateWorkOrder(ctx, workorders.CreateWorkOrderInput{
 		WorkOrderCode: "WO-4001",
@@ -439,7 +463,7 @@ func TestRecordLaborRejectsTaskOwnershipMismatchIntegration(t *testing.T) {
 	documentService := documents.NewService(db)
 	workflowService := workflow.NewService(db, documentService)
 	workforceService := workforce.NewService(db)
-	workOrderService := workorders.NewService(db)
+	workOrderService := workorders.NewService(db, documentService)
 
 	result, err := workOrderService.CreateWorkOrder(ctx, workorders.CreateWorkOrderInput{
 		WorkOrderCode: "WO-4002",
