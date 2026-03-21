@@ -194,9 +194,11 @@ Current implementation checkpoint:
 4. accounting journal review and control-account balance review now sit behind `reporting` read surfaces rather than only domain-local queries
 5. baseline GST and TDS summary views now exist as first-class reporting outputs with tax-code and control-account linkage
 6. inventory stock review now exposes item and location labels on derived stock truth without requiring raw SQL
-7. work-order review now exposes task, labor, material-usage, and posted-cost rollups in one inspection surface
-8. audit lookup now exists as a coherent reporting read path scoped to tenant and entity filters
-9. the next implementation target is the remaining Milestone 5 reporting depth, starting with broader inventory review surfaces and reconciliation polish
+7. inventory movement review now exposes movement history with source and destination context plus linked document metadata in one reporting read path
+8. inventory reconciliation review now exposes document-line accounting and execution handoff state, linked work-order context, and posted journal linkage for inventory review without raw SQL
+9. work-order review now exposes task, labor, material-usage, and posted-cost rollups in one inspection surface
+10. audit lookup now exists as a coherent reporting read path scoped to tenant and entity filters
+11. the next implementation target is the remaining Milestone 5 reporting polish after the broader inventory review slice
 
 ## 7. Execution warning
 

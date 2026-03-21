@@ -85,7 +85,8 @@ Partially addressed, but not yet complete enough:
 1. approval review, document review, inventory stock review, work-order review, and audit lookup now exist through the first `reporting` module slice
 2. accounting journal review and control-account balance review now exist through coherent reporting-oriented read surfaces rather than only domain-local list methods
 3. GST and TDS summary views now exist as explicit first-class reporting outputs
-4. remaining reporting depth is now concentrated around broader inventory review breadth and reconciliation polish rather than absence of accounting or tax reporting surfaces
+4. inventory movement review and document-line inventory reconciliation now exist for inventory execution and accounting handoff inspection
+5. remaining reporting depth is now narrower and concentrated around final operator-facing polish rather than absence of core accounting, tax, or inventory review surfaces
 
 ## 4. Main shape mismatch
 

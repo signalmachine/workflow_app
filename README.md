@@ -55,9 +55,9 @@ Implemented:
 13. shared workflow tasks linked to work orders with one accountable worker plus workforce workers and append-only labor entries with captured cost snapshots
 14. pending labor-accounting handoffs from `workforce` plus centralized `accounting` consumption of approved journal documents for work-order labor costs
 15. centralized `accounting` consumption of costed inventory handoffs for work-order material usage through approved journal documents
-16. first-class `reporting` read surfaces for approval queue review, document review, accounting journal review, control-account balance review, GST/TDS tax summaries, inventory stock review, work-order review, and audit lookup
+16. first-class `reporting` read surfaces for approval queue review, document review, accounting journal review, control-account balance review, GST/TDS tax summaries, inventory stock review, inventory movement review, inventory reconciliation review, work-order review, and audit lookup
 
 Next:
 
-1. extend Milestone 5 beyond accounting and tax review into broader inventory review depth and reconciliation polish
+1. continue Milestone 5 from the new inventory movement and reconciliation slice into the remaining thin-v1 reporting polish
 2. keep the thin-v1 module map narrow while reporting depth expands

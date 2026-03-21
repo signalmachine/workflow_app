@@ -97,6 +97,94 @@ type ListInventoryStockInput struct {
 	Actor       identityaccess.Actor
 }
 
+type InventoryMovementReview struct {
+	MovementID              string
+	MovementNumber          int64
+	DocumentID              sql.NullString
+	DocumentTypeCode        sql.NullString
+	DocumentTitle           sql.NullString
+	DocumentNumber          sql.NullString
+	DocumentStatus          sql.NullString
+	ItemID                  string
+	ItemSKU                 string
+	ItemName                string
+	ItemRole                string
+	MovementType            string
+	MovementPurpose         string
+	UsageClassification     string
+	SourceLocationID        sql.NullString
+	SourceLocationCode      sql.NullString
+	SourceLocationName      sql.NullString
+	SourceLocationRole      sql.NullString
+	DestinationLocationID   sql.NullString
+	DestinationLocationCode sql.NullString
+	DestinationLocationName sql.NullString
+	DestinationLocationRole sql.NullString
+	QuantityMilli           int64
+	ReferenceNote           string
+	CreatedByUserID         string
+	CreatedAt               time.Time
+}
+
+type ListInventoryMovementsInput struct {
+	ItemID       string
+	LocationID   string
+	DocumentID   string
+	MovementType string
+	Limit        int
+	Actor        identityaccess.Actor
+}
+
+type InventoryReconciliationItem struct {
+	DocumentID              string
+	DocumentTypeCode        string
+	DocumentTitle           string
+	DocumentNumber          sql.NullString
+	DocumentStatus          string
+	DocumentLineID          string
+	LineNumber              int
+	MovementID              string
+	MovementNumber          int64
+	MovementType            string
+	MovementPurpose         string
+	UsageClassification     string
+	ItemID                  string
+	ItemSKU                 string
+	ItemName                string
+	ItemRole                string
+	SourceLocationID        sql.NullString
+	SourceLocationCode      sql.NullString
+	SourceLocationName      sql.NullString
+	DestinationLocationID   sql.NullString
+	DestinationLocationCode sql.NullString
+	DestinationLocationName sql.NullString
+	QuantityMilli           int64
+	ExecutionLinkID         sql.NullString
+	ExecutionContextType    sql.NullString
+	ExecutionContextID      sql.NullString
+	ExecutionLinkStatus     sql.NullString
+	WorkOrderID             sql.NullString
+	WorkOrderCode           sql.NullString
+	WorkOrderStatus         sql.NullString
+	AccountingHandoffID     sql.NullString
+	AccountingHandoffStatus sql.NullString
+	CostMinor               sql.NullInt64
+	CostCurrencyCode        sql.NullString
+	JournalEntryID          sql.NullString
+	JournalEntryNumber      sql.NullInt64
+	AccountingPostedAt      sql.NullTime
+	MovementCreatedAt       time.Time
+}
+
+type ListInventoryReconciliationInput struct {
+	ItemID                string
+	DocumentID            string
+	OnlyPendingAccounting bool
+	OnlyPendingExecution  bool
+	Limit                 int
+	Actor                 identityaccess.Actor
+}
+
 type WorkOrderReview struct {
 	WorkOrderID              string
 	WorkOrderCode            string
@@ -523,6 +611,282 @@ LIMIT $5;`,
 
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit inventory stock review read: %w", err)
+	}
+
+	return items, nil
+}
+
+func (s *Service) ListInventoryMovements(ctx context.Context, input ListInventoryMovementsInput) ([]InventoryMovementReview, error) {
+	if input.MovementType != "" && input.MovementType != "receipt" && input.MovementType != "issue" && input.MovementType != "adjustment" {
+		return nil, ErrInvalidReviewFilter
+	}
+
+	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	rows, err := tx.QueryContext(ctx, `
+SELECT
+	m.id,
+	m.movement_number,
+	m.document_id,
+	d.type_code,
+	d.title,
+	d.number_value,
+	d.status,
+	i.id,
+	i.sku,
+	i.name,
+	i.item_role,
+	m.movement_type,
+	m.movement_purpose,
+	m.usage_classification,
+	sl.id,
+	sl.code,
+	sl.name,
+	sl.location_role,
+	dl.id,
+	dl.code,
+	dl.name,
+	dl.location_role,
+	m.quantity_milli,
+	m.reference_note,
+	m.created_by_user_id,
+	m.created_at
+FROM inventory_ops.movements m
+JOIN inventory_ops.items i
+	ON i.id = m.item_id
+   AND i.org_id = m.org_id
+LEFT JOIN documents.documents d
+	ON d.id = m.document_id
+   AND d.org_id = m.org_id
+LEFT JOIN inventory_ops.locations sl
+	ON sl.id = m.source_location_id
+   AND sl.org_id = m.org_id
+LEFT JOIN inventory_ops.locations dl
+	ON dl.id = m.destination_location_id
+   AND dl.org_id = m.org_id
+WHERE m.org_id = $1
+  AND ($2 = '' OR m.item_id = $2::uuid)
+  AND ($3 = '' OR m.document_id = $3::uuid)
+  AND ($4 = '' OR m.movement_type = $4)
+  AND (
+	$5 = ''
+	OR m.source_location_id = $5::uuid
+	OR m.destination_location_id = $5::uuid
+  )
+ORDER BY m.created_at DESC, m.movement_number DESC
+LIMIT $6;`,
+		input.Actor.OrgID,
+		strings.TrimSpace(input.ItemID),
+		strings.TrimSpace(input.DocumentID),
+		strings.TrimSpace(input.MovementType),
+		strings.TrimSpace(input.LocationID),
+		normalizeLimit(input.Limit),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query inventory movement review: %w", err)
+	}
+	defer rows.Close()
+
+	var reviews []InventoryMovementReview
+	for rows.Next() {
+		var review InventoryMovementReview
+		if err := rows.Scan(
+			&review.MovementID,
+			&review.MovementNumber,
+			&review.DocumentID,
+			&review.DocumentTypeCode,
+			&review.DocumentTitle,
+			&review.DocumentNumber,
+			&review.DocumentStatus,
+			&review.ItemID,
+			&review.ItemSKU,
+			&review.ItemName,
+			&review.ItemRole,
+			&review.MovementType,
+			&review.MovementPurpose,
+			&review.UsageClassification,
+			&review.SourceLocationID,
+			&review.SourceLocationCode,
+			&review.SourceLocationName,
+			&review.SourceLocationRole,
+			&review.DestinationLocationID,
+			&review.DestinationLocationCode,
+			&review.DestinationLocationName,
+			&review.DestinationLocationRole,
+			&review.QuantityMilli,
+			&review.ReferenceNote,
+			&review.CreatedByUserID,
+			&review.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan inventory movement review: %w", err)
+		}
+		reviews = append(reviews, review)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate inventory movement reviews: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit inventory movement review read: %w", err)
+	}
+
+	return reviews, nil
+}
+
+func (s *Service) ListInventoryReconciliation(ctx context.Context, input ListInventoryReconciliationInput) ([]InventoryReconciliationItem, error) {
+	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	rows, err := tx.QueryContext(ctx, `
+SELECT
+	d.id,
+	d.type_code,
+	d.title,
+	d.number_value,
+	d.status,
+	dl.id,
+	dl.line_number,
+	m.id,
+	m.movement_number,
+	m.movement_type,
+	m.movement_purpose,
+	m.usage_classification,
+	i.id,
+	i.sku,
+	i.name,
+	i.item_role,
+	sl.id,
+	sl.code,
+	sl.name,
+	dst.id,
+	dst.code,
+	dst.name,
+	m.quantity_milli,
+	el.id,
+	el.execution_context_type,
+	el.execution_context_id,
+	el.linkage_status,
+	wo.id,
+	wo.work_order_code,
+	wo.status,
+	ah.id,
+	ah.handoff_status,
+	ah.cost_minor,
+	ah.cost_currency_code,
+	ah.journal_entry_id,
+	je.entry_number,
+	ah.posted_at,
+	m.created_at
+FROM inventory_ops.document_lines dl
+JOIN inventory_ops.movements m
+	ON m.id = dl.movement_id
+   AND m.org_id = dl.org_id
+JOIN documents.documents d
+	ON d.id = dl.document_id
+   AND d.org_id = dl.org_id
+JOIN inventory_ops.items i
+	ON i.id = dl.item_id
+   AND i.org_id = dl.org_id
+LEFT JOIN inventory_ops.locations sl
+	ON sl.id = dl.source_location_id
+   AND sl.org_id = dl.org_id
+LEFT JOIN inventory_ops.locations dst
+	ON dst.id = dl.destination_location_id
+   AND dst.org_id = dl.org_id
+LEFT JOIN inventory_ops.execution_links el
+	ON el.document_line_id = dl.id
+   AND el.org_id = dl.org_id
+LEFT JOIN work_orders.material_usages mu
+	ON mu.inventory_execution_link_id = el.id
+   AND mu.org_id = dl.org_id
+LEFT JOIN work_orders.work_orders wo
+	ON wo.id = mu.work_order_id
+   AND wo.org_id = dl.org_id
+LEFT JOIN inventory_ops.accounting_handoffs ah
+	ON ah.document_line_id = dl.id
+   AND ah.org_id = dl.org_id
+LEFT JOIN accounting.journal_entries je
+	ON je.id = ah.journal_entry_id
+   AND je.org_id = dl.org_id
+WHERE dl.org_id = $1
+  AND ($2 = '' OR dl.item_id = $2::uuid)
+  AND ($3 = '' OR dl.document_id = $3::uuid)
+  AND (NOT $4 OR ah.handoff_status = 'pending')
+  AND (NOT $5 OR el.linkage_status = 'pending')
+ORDER BY m.created_at DESC, m.movement_number DESC, dl.line_number ASC
+LIMIT $6;`,
+		input.Actor.OrgID,
+		strings.TrimSpace(input.ItemID),
+		strings.TrimSpace(input.DocumentID),
+		input.OnlyPendingAccounting,
+		input.OnlyPendingExecution,
+		normalizeLimit(input.Limit),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query inventory reconciliation review: %w", err)
+	}
+	defer rows.Close()
+
+	var items []InventoryReconciliationItem
+	for rows.Next() {
+		var item InventoryReconciliationItem
+		if err := rows.Scan(
+			&item.DocumentID,
+			&item.DocumentTypeCode,
+			&item.DocumentTitle,
+			&item.DocumentNumber,
+			&item.DocumentStatus,
+			&item.DocumentLineID,
+			&item.LineNumber,
+			&item.MovementID,
+			&item.MovementNumber,
+			&item.MovementType,
+			&item.MovementPurpose,
+			&item.UsageClassification,
+			&item.ItemID,
+			&item.ItemSKU,
+			&item.ItemName,
+			&item.ItemRole,
+			&item.SourceLocationID,
+			&item.SourceLocationCode,
+			&item.SourceLocationName,
+			&item.DestinationLocationID,
+			&item.DestinationLocationCode,
+			&item.DestinationLocationName,
+			&item.QuantityMilli,
+			&item.ExecutionLinkID,
+			&item.ExecutionContextType,
+			&item.ExecutionContextID,
+			&item.ExecutionLinkStatus,
+			&item.WorkOrderID,
+			&item.WorkOrderCode,
+			&item.WorkOrderStatus,
+			&item.AccountingHandoffID,
+			&item.AccountingHandoffStatus,
+			&item.CostMinor,
+			&item.CostCurrencyCode,
+			&item.JournalEntryID,
+			&item.JournalEntryNumber,
+			&item.AccountingPostedAt,
+			&item.MovementCreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan inventory reconciliation review: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate inventory reconciliation review: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit inventory reconciliation review read: %w", err)
 	}
 
 	return items, nil

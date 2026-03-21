@@ -351,6 +351,125 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 		t.Fatalf("unexpected on-hand stock: %d", stock[0].OnHandMilli)
 	}
 
+	movements, err := reportingService.ListInventoryMovements(ctx, reporting.ListInventoryMovementsInput{
+		ItemID: item.ID,
+		Limit:  20,
+		Actor:  operator,
+	})
+	if err != nil {
+		t.Fatalf("list inventory movements: %v", err)
+	}
+	if len(movements) != 2 {
+		t.Fatalf("unexpected movement review count: %d", len(movements))
+	}
+	if movements[0].DocumentID.String != issueDoc.ID || movements[0].MovementType != inventoryops.MovementTypeIssue {
+		t.Fatalf("unexpected latest movement review: %+v", movements[0])
+	}
+	if !movements[0].SourceLocationCode.Valid || movements[0].SourceLocationCode.String != warehouse.Code {
+		t.Fatalf("expected source location context in movement review: %+v", movements[0])
+	}
+	if movements[1].DocumentID.String != receiptDoc.ID || movements[1].MovementType != inventoryops.MovementTypeReceipt {
+		t.Fatalf("unexpected receipt movement review: %+v", movements[1])
+	}
+	if !movements[1].DestinationLocationCode.Valid || movements[1].DestinationLocationCode.String != warehouse.Code {
+		t.Fatalf("expected destination location context in movement review: %+v", movements[1])
+	}
+
+	reconciliation, err := reportingService.ListInventoryReconciliation(ctx, reporting.ListInventoryReconciliationInput{
+		ItemID: item.ID,
+		Limit:  20,
+		Actor:  admin,
+	})
+	if err != nil {
+		t.Fatalf("list inventory reconciliation: %v", err)
+	}
+	if len(reconciliation) != 2 {
+		t.Fatalf("unexpected reconciliation row count: %d", len(reconciliation))
+	}
+	issueReconciliation := findInventoryReconciliationByDocument(t, reconciliation, issueDoc.ID)
+	if !issueReconciliation.ExecutionLinkStatus.Valid || issueReconciliation.ExecutionLinkStatus.String != inventoryops.ExecutionLinkStatusLinked {
+		t.Fatalf("expected linked execution status: %+v", issueReconciliation)
+	}
+	if !issueReconciliation.AccountingHandoffStatus.Valid || issueReconciliation.AccountingHandoffStatus.String != inventoryops.AccountingHandoffStatusPosted {
+		t.Fatalf("expected posted accounting status: %+v", issueReconciliation)
+	}
+	if !issueReconciliation.WorkOrderCode.Valid || issueReconciliation.WorkOrderCode.String != workOrderResult.WorkOrder.WorkOrderCode {
+		t.Fatalf("expected work-order linkage in reconciliation review: %+v", issueReconciliation)
+	}
+	if !issueReconciliation.JournalEntryID.Valid {
+		t.Fatalf("expected posted journal linkage in reconciliation review: %+v", issueReconciliation)
+	}
+
+	pendingAdjustmentDoc := prepareApprovedDocumentOfType(t, ctx, documentService, workflowService, operator, approver, "inventory_adjustment", "Pending adjustment")
+	pendingAdjustment, err := inventoryService.CaptureDocument(ctx, inventoryops.CaptureDocumentInput{
+		DocumentID: pendingAdjustmentDoc.ID,
+		Lines: []inventoryops.CaptureDocumentLineInput{{
+			ItemID:                item.ID,
+			MovementPurpose:       inventoryops.MovementPurposeServiceConsumption,
+			UsageClassification:   inventoryops.UsageNonBillable,
+			DestinationLocationID: warehouse.ID,
+			QuantityMilli:         500,
+			ReferenceNote:         "counted return pending review",
+		}, {
+			ItemID:               item.ID,
+			MovementPurpose:      inventoryops.MovementPurposeServiceConsumption,
+			UsageClassification:  inventoryops.UsageNonBillable,
+			SourceLocationID:     warehouse.ID,
+			QuantityMilli:        250,
+			ReferenceNote:        "pending service consumption issue",
+			AccountingHandoff:    true,
+			CostMinor:            700,
+			CostCurrencyCode:     "INR",
+			ExecutionContextType: inventoryops.ExecutionContextProject,
+			ExecutionContextID:   "PROJECT-RPT-1",
+		}},
+		Actor: operator,
+	})
+	if err != nil {
+		t.Fatalf("capture pending adjustment: %v", err)
+	}
+	if len(pendingAdjustment.ExecutionLinks) != 1 || len(pendingAdjustment.AccountingHandoffs) != 1 {
+		t.Fatalf("unexpected pending adjustment bridge counts: %+v", pendingAdjustment)
+	}
+
+	pendingAccounting, err := reportingService.ListInventoryReconciliation(ctx, reporting.ListInventoryReconciliationInput{
+		DocumentID:            pendingAdjustmentDoc.ID,
+		OnlyPendingAccounting: true,
+		Limit:                 20,
+		Actor:                 approver,
+	})
+	if err != nil {
+		t.Fatalf("list pending accounting reconciliation: %v", err)
+	}
+	if len(pendingAccounting) != 1 {
+		t.Fatalf("unexpected pending accounting reconciliation count: %d", len(pendingAccounting))
+	}
+	if !pendingAccounting[0].AccountingHandoffStatus.Valid || pendingAccounting[0].AccountingHandoffStatus.String != inventoryops.AccountingHandoffStatusPending {
+		t.Fatalf("expected pending accounting handoff: %+v", pendingAccounting[0])
+	}
+	if pendingAccounting[0].JournalEntryID.Valid {
+		t.Fatalf("did not expect posted journal on pending accounting row: %+v", pendingAccounting[0])
+	}
+
+	pendingExecution, err := reportingService.ListInventoryReconciliation(ctx, reporting.ListInventoryReconciliationInput{
+		DocumentID:           pendingAdjustmentDoc.ID,
+		OnlyPendingExecution: true,
+		Limit:                20,
+		Actor:                operator,
+	})
+	if err != nil {
+		t.Fatalf("list pending execution reconciliation: %v", err)
+	}
+	if len(pendingExecution) != 1 {
+		t.Fatalf("unexpected pending execution reconciliation count: %d", len(pendingExecution))
+	}
+	if !pendingExecution[0].ExecutionLinkStatus.Valid || pendingExecution[0].ExecutionLinkStatus.String != inventoryops.ExecutionLinkStatusPending {
+		t.Fatalf("expected pending execution link: %+v", pendingExecution[0])
+	}
+	if pendingExecution[0].WorkOrderID.Valid {
+		t.Fatalf("did not expect work-order linkage on pending project row: %+v", pendingExecution[0])
+	}
+
 	workOrderReview, err := reportingService.GetWorkOrderReview(ctx, reporting.GetWorkOrderReviewInput{
 		WorkOrderID: workOrderResult.WorkOrder.ID,
 		Actor:       operator,
@@ -504,6 +623,17 @@ func findTaxSummary(t *testing.T, summaries []reporting.TaxSummary, taxCode stri
 	}
 	t.Fatalf("tax summary not found for tax code %s", taxCode)
 	return reporting.TaxSummary{}
+}
+
+func findInventoryReconciliationByDocument(t *testing.T, rows []reporting.InventoryReconciliationItem, documentID string) reporting.InventoryReconciliationItem {
+	t.Helper()
+	for _, row := range rows {
+		if row.DocumentID == documentID {
+			return row
+		}
+	}
+	t.Fatalf("inventory reconciliation row not found for document %s", documentID)
+	return reporting.InventoryReconciliationItem{}
 }
 
 func createLocation(t *testing.T, ctx context.Context, service *inventoryops.Service, input inventoryops.CreateLocationInput) inventoryops.Location {
