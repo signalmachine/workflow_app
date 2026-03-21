@@ -56,9 +56,15 @@ Rules:
 2. AI may execute bounded writes only through explicit tools and normal domain services
 3. AI may never write ledger truth directly
 4. meaningful writes must remain auditable
-5. financially meaningful writes must remain human-gated
+5. financially meaningful writes must remain policy-gated, human-gated by default in thin v1, and must not bypass approval, posting, audit, or role controls
 6. v1 still uses a multi-agent architecture, but only with bounded coordinator-to-specialist routing and durable observability
 7. advanced agent autonomy, speculative delegation depth, and broad self-directed workflow expansion belong in v2 unless required by a foundation invariant
+
+Posting-control rule:
+
+1. lifecycle control remains explicit as draft -> submitted -> approved -> posted where applicable
+2. approval and posting are distinct control boundaries even when the same authorized actor may perform both actions
+3. separation of duties between approver and poster should be policy-configurable rather than a hard global invariant
 
 ## 5. Human-interface rule
 

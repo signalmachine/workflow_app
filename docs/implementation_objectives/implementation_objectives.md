@@ -124,7 +124,7 @@ Required rules:
 1. AI acts through explicit tools over normal domain services.
 2. AI may read, summarize, draft, recommend, and request approval.
 3. AI may execute only bounded writes allowed by policy.
-4. financially meaningful writes remain human-gated
+4. financially meaningful writes remain policy-gated, with human gating as the default control posture in thin v1
 5. AI may never write ledger rows directly
 6. AI may never bypass posting, approval, audit, or schema constraints
 7. AI execution must be observable through durable run history, steps, artifacts, recommendations, approvals, and delegation traces
@@ -239,7 +239,9 @@ Requirements:
 4. reversal and correction flows must be explicit
 5. accounting-period and numbering controls should remain possible on the shared core
 6. receivable and payable control-account treatment belongs in accounting
-7. proposer, submitter, poster, and timestamps should remain reconstructible for audit and approval review
+7. the normal control lifecycle should remain draft -> submitted -> approved -> posted where posting applies
+8. proposer, submitter, approver, poster, and timestamps should remain reconstructible for audit and approval review
+9. separation of duties between approver and poster should be policy-configurable rather than imposed as one hard rule for every org and document class
 
 ## 13. Tax objectives
 

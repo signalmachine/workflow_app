@@ -80,7 +80,8 @@ Exit criteria:
 2. posted truth is append-only
 3. posting is explicit and idempotent
 4. accounting posting occurs only through centralized posting paths from supported documents
-5. proposer, submitter, poster, and timestamps remain reconstructible for audit review
+5. proposer, submitter, approver, poster, and timestamps remain reconstructible for audit review
+6. approval and posting remain distinct control boundaries, with approver-versus-poster separation left policy-configurable rather than hard-coded globally
 
 Current implementation checkpoint:
 

@@ -26,7 +26,7 @@ Purpose: record the active defaults that implementation should preserve unless t
 
 1. AI may read, summarize, draft, recommend, and request approval
 2. AI may execute bounded writes only through approved tools and normal domain services
-3. financially meaningful writes remain human-gated
+3. financially meaningful writes remain policy-gated, with human gating as the thin-v1 default
 4. meaningful business writes and their audit trail must succeed or fail together
 5. AI traceability records supplement audit; they do not replace it
 6. inbound user requests should persist before AI processing begins so asynchronous execution does not depend on synchronous request-response handling
@@ -51,7 +51,10 @@ Purpose: record the active defaults that implementation should preserve unless t
 1. `accounting` owns the posting boundary and ledger truth
 2. operational modules may prepare posting inputs but may not write posted ledger state directly
 3. posting must be explicit, idempotent, balanced, and correction-safe
-4. AI may propose and, where policy allows, submit; AI may never perform final human-controlled posting
+4. the normal lifecycle remains draft -> submitted -> approved -> posted where posting applies
+5. AI may propose and, where policy allows, submit
+6. final posting remains human-controlled by default in thin v1, but the architecture should preserve room for tightly policy-governed AI posting on selected document or entry classes later
+7. separation of duties between approver and poster should be policy-configurable so some orgs may require different actors while small operators may allow the same actor to approve and post
 
 ### 2.5 Inventory and execution flow
 
