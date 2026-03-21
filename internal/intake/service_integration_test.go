@@ -399,6 +399,103 @@ func TestCancelQueuedRequestPreventsClaimIntegration(t *testing.T) {
 	if len(cancelledRows) != 1 || cancelledRows[0].RequestID != cancelled.ID {
 		t.Fatalf("unexpected cancelled request review rows: %+v", cancelledRows)
 	}
+	if cancelledRows[0].CancellationReason != "operator withdrew request before processing" {
+		t.Fatalf("unexpected cancellation reason in review: %q", cancelledRows[0].CancellationReason)
+	}
+	if !cancelledRows[0].CancelledAt.Valid {
+		t.Fatal("expected cancelled_at in review")
+	}
+	if cancelledRows[0].FailureReason != "" {
+		t.Fatalf("expected empty failure reason for cancelled request, got %q", cancelledRows[0].FailureReason)
+	}
+
+	detail, err := reportingService.GetInboundRequestDetail(ctx, reporting.GetInboundRequestDetailInput{
+		RequestReference: cancelled.RequestReference,
+		Actor:            operator,
+	})
+	if err != nil {
+		t.Fatalf("get cancelled request detail: %v", err)
+	}
+	if detail.Request.CancellationReason != "operator withdrew request before processing" {
+		t.Fatalf("unexpected cancellation reason in detail: %q", detail.Request.CancellationReason)
+	}
+	if !detail.Request.CancelledAt.Valid {
+		t.Fatal("expected cancelled_at in detail")
+	}
+}
+
+func TestFailedRequestReportingIncludesFailureReasonIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	session := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: session.ID}
+
+	intakeService := intake.NewService(db)
+	reportingService := reporting.NewService(db)
+
+	request := createQueuedRequest(t, ctx, intakeService, operator, "request that will fail")
+
+	request, err := intakeService.ClaimNextQueued(ctx, intake.ClaimNextQueuedInput{
+		Channel: "browser",
+		Actor:   operator,
+	})
+	if err != nil {
+		t.Fatalf("claim request: %v", err)
+	}
+
+	request, err = intakeService.AdvanceRequest(ctx, intake.AdvanceRequestInput{
+		RequestID:     request.ID,
+		Status:        intake.StatusFailed,
+		FailureReason: "tool execution policy blocked downstream action",
+		Actor:         operator,
+	})
+	if err != nil {
+		t.Fatalf("mark request failed: %v", err)
+	}
+	if request.Status != intake.StatusFailed {
+		t.Fatalf("unexpected failed status: %s", request.Status)
+	}
+
+	rows, err := reportingService.ListInboundRequests(ctx, reporting.ListInboundRequestsInput{
+		Status: intake.StatusFailed,
+		Limit:  10,
+		Actor:  operator,
+	})
+	if err != nil {
+		t.Fatalf("list failed requests: %v", err)
+	}
+	if len(rows) != 1 || rows[0].RequestID != request.ID {
+		t.Fatalf("unexpected failed request rows: %+v", rows)
+	}
+	if rows[0].FailureReason != "tool execution policy blocked downstream action" {
+		t.Fatalf("unexpected failure reason in review: %q", rows[0].FailureReason)
+	}
+	if !rows[0].FailedAt.Valid {
+		t.Fatal("expected failed_at in review")
+	}
+	if rows[0].CancellationReason != "" {
+		t.Fatalf("expected empty cancellation reason for failed request, got %q", rows[0].CancellationReason)
+	}
+
+	detail, err := reportingService.GetInboundRequestDetail(ctx, reporting.GetInboundRequestDetailInput{
+		RequestReference: request.RequestReference,
+		Actor:            operator,
+	})
+	if err != nil {
+		t.Fatalf("get failed request detail: %v", err)
+	}
+	if detail.Request.FailureReason != "tool execution policy blocked downstream action" {
+		t.Fatalf("unexpected failure reason in detail: %q", detail.Request.FailureReason)
+	}
+	if !detail.Request.FailedAt.Valid {
+		t.Fatal("expected failed_at in detail")
+	}
 }
 
 func TestDraftRequestCanBeEditedDeletedAndRemovedCompletelyIntegration(t *testing.T) {

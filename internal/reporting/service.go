@@ -315,11 +315,15 @@ type InboundRequestReview struct {
 	OriginType               string
 	Channel                  string
 	Status                   string
+	CancellationReason       string
+	FailureReason            string
 	ReceivedAt               time.Time
 	QueuedAt                 sql.NullTime
 	ProcessingStartedAt      sql.NullTime
 	ProcessedAt              sql.NullTime
+	ActedOnAt                sql.NullTime
 	CompletedAt              sql.NullTime
+	FailedAt                 sql.NullTime
 	CancelledAt              sql.NullTime
 	MessageCount             int
 	AttachmentCount          int
@@ -1519,11 +1523,15 @@ SELECT
 	r.origin_type,
 	r.channel,
 	r.status,
+	r.cancellation_reason,
+	r.failure_reason,
 	r.received_at,
 	r.queued_at,
 	r.processing_started_at,
 	r.processed_at,
+	r.acted_on_at,
 	r.completed_at,
+	r.failed_at,
 	r.cancelled_at,
 	COALESCE(msg.message_count, 0),
 	COALESCE(att.attachment_count, 0),
@@ -1587,11 +1595,15 @@ LIMIT $4;`
 			&review.OriginType,
 			&review.Channel,
 			&review.Status,
+			&review.CancellationReason,
+			&review.FailureReason,
 			&review.ReceivedAt,
 			&review.QueuedAt,
 			&review.ProcessingStartedAt,
 			&review.ProcessedAt,
+			&review.ActedOnAt,
 			&review.CompletedAt,
+			&review.FailedAt,
 			&review.CancelledAt,
 			&review.MessageCount,
 			&review.AttachmentCount,
@@ -1855,11 +1867,15 @@ SELECT
 	r.origin_type,
 	r.channel,
 	r.status,
+	r.cancellation_reason,
+	r.failure_reason,
 	r.received_at,
 	r.queued_at,
 	r.processing_started_at,
 	r.processed_at,
+	r.acted_on_at,
 	r.completed_at,
+	r.failed_at,
 	r.cancelled_at,
 	COALESCE(msg.message_count, 0),
 	COALESCE(att.attachment_count, 0),
@@ -1919,11 +1935,15 @@ WHERE r.org_id = $1
 			&review.OriginType,
 			&review.Channel,
 			&review.Status,
+			&review.CancellationReason,
+			&review.FailureReason,
 			&review.ReceivedAt,
 			&review.QueuedAt,
 			&review.ProcessingStartedAt,
 			&review.ProcessedAt,
+			&review.ActedOnAt,
 			&review.CompletedAt,
+			&review.FailedAt,
 			&review.CancelledAt,
 			&review.MessageCount,
 			&review.AttachmentCount,
