@@ -59,16 +59,17 @@ Out of scope:
 Recommended minimum fields:
 
 1. request id
-2. `org_id`
-3. active session or actor linkage where present
-4. request origin type such as human or system
-5. request channel such as browser or api
-6. original request text or payload
-7. lifecycle status
-8. queue timestamps for received, started, completed, failed, and acted-on states
-9. optional resulting proposal, recommendation, or document references
-10. created and updated timestamps
-11. cancellation or soft-delete metadata where applicable
+2. stable user-visible request reference or request number
+3. `org_id`
+4. active session or actor linkage where present
+5. request origin type such as human or system
+6. request channel such as browser or api
+7. original request text or payload
+8. lifecycle status
+9. queue timestamps for received, started, completed, failed, and acted-on states
+10. optional resulting proposal, recommendation, or document references
+11. created and updated timestamps
+12. cancellation or soft-delete metadata where applicable
 
 Recommended status set:
 
@@ -89,12 +90,19 @@ Recommended control rules:
 4. a user may cancel a request while it is `draft` or `queued`
 5. once processing starts, normal user behavior should not hard-delete the request
 6. hidden or cancelled requests must not be eligible for worker pickup
+7. the system should return the stable request reference immediately when a request is submitted or queued so the user can track it without depending on raw UUIDs
+8. the preferred design is to allocate that reference at request creation time rather than waiting until queueing so draft, audit, support, and recovery flows all refer to one stable identifier
 
 Recommended message model:
 
 1. a request may contain one or more persisted messages
 2. each message may include text, voice, pictures, or document attachments
 3. request eligibility for queueing should be explicit rather than inferred from partial message state
+
+Recommended user-facing submission response:
+
+1. when a request is submitted into the queue, the system should return a response equivalent to `request submitted for processing with reference REQ-000123`
+2. raw database ids may still exist internally, but the default user-facing acknowledgment should prefer the stable request reference or number
 
 ### 4.2 Attachment support
 
@@ -149,11 +157,12 @@ Minimum review outputs:
 ### 5.1 Schema work
 
 1. add inbound-request tables with durable status support
-2. add attachment metadata and attachment-reference tables
-3. add foreign keys or reference rows linking inbound requests to attachments
-4. add explicit inbound-request linkage into AI runs or adjacent causation tables
-5. add explicit draft, cancellation, and worker-claim support so queue pickup rules stay database-visible
-6. add derivative-artifact support for transcriptions or equivalent extracted text
+2. add stable user-visible request reference or numbering support
+3. add attachment metadata and attachment-reference tables
+4. add foreign keys or reference rows linking inbound requests to attachments
+5. add explicit inbound-request linkage into AI runs or adjacent causation tables
+6. add explicit draft, cancellation, and worker-claim support so queue pickup rules stay database-visible
+7. add derivative-artifact support for transcriptions or equivalent extracted text
 
 ### 5.2 Service-layer work
 
@@ -163,6 +172,7 @@ Minimum review outputs:
 4. keep queue semantics explicit even if the first execution engine is intentionally simple
 5. implement soft cancel or soft delete for parked requests instead of unrestricted hard delete
 6. prevent workers from claiming cancelled, hidden, or incomplete draft requests
+7. return the stable request reference to the caller when a request is submitted or queued
 
 ### 5.3 Reporting work
 
@@ -179,6 +189,7 @@ Minimum review outputs:
 5. tests for draft requests remaining unprocessed until explicitly queued
 6. tests for pre-processing cancellation preventing worker pickup while preserving reviewability
 7. tests for voice attachment plus transcription linkage
+8. tests for stable request-reference allocation and submission acknowledgment behavior
 
 ## 6. Risks and technical challenges
 
@@ -189,6 +200,7 @@ Minimum review outputs:
 5. storing attachment content in PostgreSQL can increase database size, backup cost, and query-operability risk unless bounds stay explicit
 6. soft cancel semantics need careful worker-claim logic so cancelled or hidden requests cannot race into processing
 7. transcription introduces a second asynchronous lifecycle that must not leave queue eligibility ambiguous
+8. assigning a user-visible reference only at queue time can create audit and support confusion if drafts already exist without the later stable reference
 
 ## 7. Recommended sequencing
 
@@ -212,3 +224,4 @@ This remediation slice is complete only when:
 6. draft requests are not processed until explicitly queued
 7. pre-processing cancellation is supported through soft delete or cancel semantics rather than hard deletion
 8. original voice or file attachments remain auditable even when derivative records such as transcriptions are created
+9. a stable user-visible request reference exists and is returned to the caller when the request is submitted for processing

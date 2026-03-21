@@ -31,25 +31,28 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 
 ## 2. Immediate next steps
 
-1. finish the remaining Milestone 5 reporting polish now that inbound-request and processed-proposal review foundations are in place
-2. keep verifying that new reporting or review additions stay read-oriented and do not widen into broad operational UI scope
-3. keep the codebase centered on the approved first-class modules while allowing support-depth records such as `parties` and `contacts` where the canonical module-boundary doc explicitly permits them
-4. add attachments only where they support approval evidence, document support flows, or persisted inbound request intake
-5. use `new_app_v1_gap_review_from_current_codebase.md` as the reference list of remaining missing foundation areas
-6. use `new_app_implementation_defaults.md` as the default-rules reference during implementation
-7. use `new_app_foundation_coverage.md` as the v1 completion checklist and foundation coverage control
+1. add stable user-visible inbound-request references or numbering plus submission acknowledgments that return that reference immediately when requests are queued
+2. finish the remaining Milestone 5 reporting polish now that inbound-request and processed-proposal review foundations are in place
+3. keep verifying that new reporting or review additions stay read-oriented and do not widen into broad operational UI scope
+4. keep the codebase centered on the approved first-class modules while allowing support-depth records such as `parties` and `contacts` where the canonical module-boundary doc explicitly permits them
+5. add attachments only where they support approval evidence, document support flows, or persisted inbound request intake
+6. use `new_app_v1_gap_review_from_current_codebase.md` as the reference list of remaining missing foundation areas
+7. use `new_app_implementation_defaults.md` as the default-rules reference during implementation
+8. use `new_app_foundation_coverage.md` as the v1 completion checklist and foundation coverage control
 
 ## 2.1 Planned next implementation order
 
 Recommended sequence:
 
-1. finish the remaining reporting polish on top of the now-landed persist-first inbound request and attachment foundations
+1. add stable user-visible inbound-request references or numbering and return that reference in submission acknowledgments
+2. finish the remaining reporting polish on top of the now-landed persist-first inbound request and attachment foundations
 
 Reason:
 
 1. the adopted document-family ownership mismatch is now closed for work-order, invoice, and payment or receipt families
 2. inbound request intake, attachment support, queue claim semantics, and reporting-visible AI causation now sit on top of the stabilized document-adoption model
-3. the remaining thin-v1 work is now primarily reporting and review polish rather than missing control-boundary foundation
+3. user-facing request tracking is materially weaker if queue submission returns only internal ids rather than a stable request reference
+4. reporting polish should land on top of that stable request-reference model rather than forcing later retrofit of user-visible request lookup and acknowledgments
 
 ## 3. Scope guardrail
 

@@ -67,4 +67,5 @@ Implemented:
 Immediate next steps:
 
 1. finish the remaining thin-v1 reporting polish on top of the now-landed inbound-request and processed-proposal review foundations
-2. keep later review additions read-oriented so thin v1 does not widen back into broad operational UI scope
+2. add stable user-visible inbound-request references or numbering and return that reference immediately in request-submission acknowledgments
+3. keep later review additions read-oriented so thin v1 does not widen back into broad operational UI scope

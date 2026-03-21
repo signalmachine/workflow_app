@@ -29,6 +29,7 @@ Required:
 8. one active org context per session or request so tenant-owned reads and writes stay unambiguous
 9. persisted inbound request intake so original user intent is durable before AI processing begins
 10. request lifecycle status suitable for queued, processing, processed, acted-on, completed, or failed handling
+11. stable user-visible request references suitable for submission acknowledgments and later support or review lookup
 
 ### 2.2 Core master data
 

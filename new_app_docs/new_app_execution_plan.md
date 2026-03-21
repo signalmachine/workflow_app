@@ -57,7 +57,8 @@ Current implementation checkpoint:
 7. PostgreSQL-backed attachment metadata, request-message linkage, and transcription-derived text records now exist with AI-run linkage preserved against the originating request
 8. AI runs can now link back to persisted inbound requests, and reporting can review that request -> run -> recommendation -> approval -> document chain without raw SQL
 9. adopted payload ownership is now implemented for work-order, invoice, and payment or receipt document families with shared party/contact support records reused where applicable rather than duplicated into document-local truth
-10. this milestone is now complete and provides the intended control-boundary foundation for the remaining reporting polish work
+10. the current intake slice does not yet assign a durable user-visible inbound-request reference or return that reference in submission acknowledgments
+11. this milestone is now complete in its main control-boundary foundation, but the next thin-v1 slice should close the remaining request-reference and reporting-polish work
 
 Remediation planning note:
 
@@ -214,8 +215,8 @@ Current implementation checkpoint:
 10. audit lookup now exists as a coherent reporting read path scoped to tenant and entity filters
 11. minimum thin-v1 party and contact support depth now exists through tenant-safe `parties` support records and support-depth contacts
 12. inbound-request list and detail review plus processed-proposal review now expose the persist-first request -> AI -> approval -> document chain needed for thin-v1 browser testing
-13. remaining thin-v1 completion is now concentrated around final operator-facing reporting polish rather than missing inbound-request or adopted-document foundation coverage
-14. the next implementation target is to finish that remaining reporting polish before any v2 breadth work begins
+13. remaining thin-v1 completion is now concentrated around stable user-visible inbound-request references plus final operator-facing reporting polish rather than missing inbound-request or adopted-document foundation coverage
+14. the next implementation target is to add inbound-request references and submission acknowledgments, then finish the remaining reporting polish before any v2 breadth work begins
 
 ## 7. Execution warning
 

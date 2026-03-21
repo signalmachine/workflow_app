@@ -43,6 +43,11 @@ Now implemented at the required first slice:
 2. queue-oriented AI processing can now claim queued requests and link AI runs back to the originating persisted request
 3. browser-usable reporting review now exists for inbound requests, processed proposals, linked approvals, and downstream documents without broad client-product breadth
 
+Still missing or not complete enough in the current reset implementation:
+
+4. a stable user-visible inbound-request reference or request number is not yet part of the request model
+5. queue-submission acknowledgments do not yet have a canonical requirement to return that stable request reference to the caller
+
 ### 3.2 Document foundation gaps
 
 Still missing or not complete enough:

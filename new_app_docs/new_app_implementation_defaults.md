@@ -111,3 +111,6 @@ Purpose: record the active defaults that implementation should preserve unless t
 3. user-visible request removal before processing should default to soft cancel semantics so auditability and recovery remain intact
 4. original uploaded artifacts, including voice recordings, should remain durably available even when derived text or other extracted artifacts are created
 5. for thin-v1 development and early testing, attachment binary content may live in PostgreSQL, but the storage contract should preserve a later move to external object storage
+6. persisted inbound requests should have a stable user-visible reference or request number suitable for operator and customer communication rather than relying on raw UUIDs
+7. when a request is submitted or queued, the caller should receive that reference immediately in the acknowledgment response
+8. if drafts exist, the preferred default is to allocate the stable request reference when the draft is created so later queueing, cancellation, audit, and support flows all keep one identifier
