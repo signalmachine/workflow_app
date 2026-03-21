@@ -74,6 +74,8 @@ Implementation consequences:
 6. inbound requests should be durable records rather than transient prompts
 7. the same intake model should be reusable for human and non-human upstream systems
 8. every meaningful workflow and control state should be durably reconstructible from database records rather than transient process state
+9. parked inbound requests should support draft and queued states explicitly rather than depending on implicit message completeness
+10. user-visible request removal before processing should normally be soft cancel rather than hard deletion so auditability and recovery remain intact
 
 ## 4. Versioning stance and thin-v1 objective
 
@@ -132,6 +134,7 @@ Required rules:
 9. the preferred interaction model may persist inbound user requests first and process them asynchronously rather than relying on immediate AI response as the default path
 10. queue-oriented processing is preferred because it preserves durability, supports clearer human review, and extends cleanly to requests originating from external systems as well as humans
 11. modular tool or skill boundaries are preferred where they keep agent capabilities explicit, reviewable, and policy-gated rather than hidden inside prompt-only behavior
+12. AI workers should not process requests that remain in draft or have been cancelled before pickup
 
 The short-term AI objective is to observe, evaluate, and improve agent behavior on real bounded business tasks.
 
@@ -167,6 +170,8 @@ Implementation rules:
 7. invalid states, invalid transitions, and unsafe postings should be rejected by default
 8. sophisticated PostgreSQL-native modeling is preferred when it materially improves correctness, auditability, performance, or operability, provided it does not create unnecessary implementation or operational pain
 9. meaningful workflow and control-state transitions should persist durably enough that intake, processing, review, approval, posting, execution, and recoverable failure history can be reconstructed from database records
+10. during thin-v1 development and testing, storing inbound-request attachments in PostgreSQL is acceptable if the design preserves a later move to external object storage
+11. original uploaded artifacts such as voice recordings should remain durably available even when derived records such as transcriptions are created
 
 ## 9. Module and ownership boundaries
 

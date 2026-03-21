@@ -61,6 +61,10 @@ The primary app working model is persist-first and queue-oriented. Inbound reque
 
 The same persisted-request model should be suitable for both human-originated and system-originated requests so later integrations can use the same controlled intake path without inventing a second processing model.
 
+Persisted inbound requests may remain in `draft` until explicitly queued, and draft requests must not be processed by AI. User-visible removal of parked requests should normally be implemented as soft cancel or soft delete rather than unrestricted hard deletion so auditability and recovery remain intact.
+
+For thin-v1 development and testing, attachment content for inbound requests may be stored in PostgreSQL first, provided the design keeps a clean path to move binary storage to external object storage later. Original uploaded artifacts, including voice recordings, should remain durably available even when derivative records such as transcriptions are created.
+
 As a database-first application, every meaningful workflow and control state should be durably reconstructible from database records. Do not rely on transient process memory or client state for the authoritative record of request intake, AI processing, review, approval, document lifecycle, posting, execution, or failure states that matter to business control or recovery.
 
 It is acceptable to adopt selective OpenClaw-style patterns where they strengthen this architecture, especially durable intake, queue-oriented async processing, modular tool or skill boundaries, and browser-first control surfaces. Do not copy consumer-assistant or autonomy-heavy behavior where it would weaken approvals, posting boundaries, auditability, or database truth.
@@ -76,6 +80,7 @@ For implementation work:
 - run `set -a; source .env; set +a; go test -p 1 ./...` before closing out the task when code or persistence behavior changed
 - if migrations or persistence behavior change, verify against the configured development and test databases unless an explicit blocker is documented
 - while the application remains pre-production, it is acceptable to drop and recreate the configured test database to recover from schema drift, failed migration experiments, or other disposable development-state issues
+- the disposable database-reset rule applies only to the configured test database, not to the application or development database
 
 ## Commit & Pull Request Guidelines
 

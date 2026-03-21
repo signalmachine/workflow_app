@@ -16,6 +16,14 @@ Current state:
 4. there is no attachment persistence model beyond an empty schema
 5. reporting does not yet expose inbound-request or processed-proposal review paths
 
+Agreed operating constraints for this slice:
+
+1. inbound requests may start as drafts and must not be processed by AI until explicitly submitted or queued
+2. user-facing request deletion before processing should be implemented as soft cancel or soft delete rather than unrestricted hard delete
+3. strong auditability should be preserved even when users cancel parked requests before AI picks them up
+4. for thin-v1 development and testing, attachment binary content may be stored in PostgreSQL first, with the design leaving room to move blobs to external storage later
+5. voice input should preserve the original audio attachment and store transcription as a derived record rather than replacing the original artifact
+
 ## 2. Remediation objective
 
 Land the minimum persist-first interaction foundation so:
@@ -24,6 +32,7 @@ Land the minimum persist-first interaction foundation so:
 2. AI runs can link back to the request that caused them
 3. attachment references can be stored safely for approval evidence, document support flows, and inbound request intake
 4. humans can review request status, resulting proposals, and downstream document outcomes through minimal browser-usable review support
+5. parked requests can be drafted, queued, cancelled, and reviewed without weakening auditability or queue correctness
 
 ## 3. Scope
 
@@ -59,16 +68,33 @@ Recommended minimum fields:
 8. queue timestamps for received, started, completed, failed, and acted-on states
 9. optional resulting proposal, recommendation, or document references
 10. created and updated timestamps
+11. cancellation or soft-delete metadata where applicable
 
 Recommended status set:
 
-1. received
+1. draft
 2. queued
 3. processing
 4. processed
 5. acted_on
 6. completed
 7. failed
+8. cancelled
+
+Recommended control rules:
+
+1. a request may remain editable while in `draft`
+2. AI workers may only claim requests in `queued`
+3. submitting a completed draft transitions it into `queued`
+4. a user may cancel a request while it is `draft` or `queued`
+5. once processing starts, normal user behavior should not hard-delete the request
+6. hidden or cancelled requests must not be eligible for worker pickup
+
+Recommended message model:
+
+1. a request may contain one or more persisted messages
+2. each message may include text, voice, pictures, or document attachments
+3. request eligibility for queueing should be explicit rather than inferred from partial message state
 
 ### 4.2 Attachment support
 
@@ -76,18 +102,31 @@ Recommended minimum fields:
 
 1. attachment id
 2. `org_id`
-3. storage locator or opaque blob reference
+3. PostgreSQL-backed blob content or an abstracted storage locator contract that can later point to external storage
 4. original file name
 5. media type
 6. size metadata
 7. uploaded-by actor linkage where present
 8. created timestamp
 
+Recommended thin-v1 attachment rule:
+
+1. store attachment content in PostgreSQL during development and early thin-v1 testing
+2. keep attachment metadata and attachment-content addressing explicit so the storage backend can move later without changing request semantics
+3. enforce bounded size and media-type validation so database growth remains controlled during thin-v1
+
 Recommended linkage model:
 
 1. use explicit join tables or typed reference rows rather than overloading attachments with many nullable foreign keys
 2. support at least inbound-request attachment references in the first slice
 3. allow later attachment references from approvals or documents without changing the core attachment metadata model
+4. preserve the original uploaded artifact even when derivative artifacts such as transcriptions are generated
+
+Recommended voice handling:
+
+1. keep the original audio attachment as an auditable artifact
+2. store transcription output as a derived record linked back to the original request message or attachment
+3. explicitly decide whether queue eligibility waits for transcription completion or allows a later enrichment step, rather than leaving that behavior implicit
 
 ### 4.3 AI linkage
 
@@ -113,6 +152,8 @@ Minimum review outputs:
 2. add attachment metadata and attachment-reference tables
 3. add foreign keys or reference rows linking inbound requests to attachments
 4. add explicit inbound-request linkage into AI runs or adjacent causation tables
+5. add explicit draft, cancellation, and worker-claim support so queue pickup rules stay database-visible
+6. add derivative-artifact support for transcriptions or equivalent extracted text
 
 ### 5.2 Service-layer work
 
@@ -120,6 +161,8 @@ Minimum review outputs:
 2. separate request persistence from AI processing initiation
 3. ensure request status transitions are transactional and auditable where required
 4. keep queue semantics explicit even if the first execution engine is intentionally simple
+5. implement soft cancel or soft delete for parked requests instead of unrestricted hard delete
+6. prevent workers from claiming cancelled, hidden, or incomplete draft requests
 
 ### 5.3 Reporting work
 
@@ -133,6 +176,9 @@ Minimum review outputs:
 2. tests for request status transitions
 3. tests for attachment reference linkage and tenant safety
 4. tests for inbound request to AI run causation and reporting joins
+5. tests for draft requests remaining unprocessed until explicitly queued
+6. tests for pre-processing cancellation preventing worker pickup while preserving reviewability
+7. tests for voice attachment plus transcription linkage
 
 ## 6. Risks and technical challenges
 
@@ -140,6 +186,9 @@ Minimum review outputs:
 2. attachment design can become over-generalized unless the first slice stays limited to metadata plus explicit references
 3. AI causation joins can become ambiguous if inbound-request linkage is split across too many tables
 4. browser-testing support must stay narrowly review-oriented or it will pull the codebase back toward broad UI work
+5. storing attachment content in PostgreSQL can increase database size, backup cost, and query-operability risk unless bounds stay explicit
+6. soft cancel semantics need careful worker-claim logic so cancelled or hidden requests cannot race into processing
+7. transcription introduces a second asynchronous lifecycle that must not leave queue eligibility ambiguous
 
 ## 7. Recommended sequencing
 
@@ -160,3 +209,6 @@ This remediation slice is complete only when:
 3. attachment references exist for the allowed thin-v1 use cases
 4. AI runs and resulting proposals or documents can be traced back to the originating request
 5. reporting exposes inbound-request and processed-proposal review paths sufficient for thin-v1 browser testing
+6. draft requests are not processed until explicitly queued
+7. pre-processing cancellation is supported through soft delete or cancel semantics rather than hard deletion
+8. original voice or file attachments remain auditable even when derivative records such as transcriptions are created

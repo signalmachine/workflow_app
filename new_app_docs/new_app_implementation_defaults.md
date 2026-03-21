@@ -31,6 +31,9 @@ Purpose: record the active defaults that implementation should preserve unless t
 5. AI traceability records supplement audit; they do not replace it
 6. inbound user requests should persist before AI processing begins so asynchronous execution does not depend on synchronous request-response handling
 7. the primary interaction model may be queue-first and review-oriented rather than immediate-response by default
+8. draft inbound requests must not be processed by AI until explicitly queued or submitted
+9. cancellation of parked requests should normally be soft cancel or soft delete rather than unrestricted hard deletion
+10. AI workers must not claim cancelled, hidden, or incomplete draft requests
 
 ### 2.3 Document identity and ownership
 
@@ -100,3 +103,11 @@ Purpose: record the active defaults that implementation should preserve unless t
 3. CLI tooling may exist for developer or support work, but it is not a first-class product interface
 4. thin v1 may include minimal browser-usable API or review support where required for real user testing
 5. mobile-product depth, voice-capture UX, and richer multimodal client behavior remain v2 concerns unless a foundation dependency proves otherwise
+
+### 2.10 Inbound request and attachment handling
+
+1. a persisted inbound request may contain one or more messages and attachments
+2. draft requests remain editable until explicitly submitted into the processing queue
+3. user-visible request removal before processing should default to soft cancel semantics so auditability and recovery remain intact
+4. original uploaded artifacts, including voice recordings, should remain durably available even when derived text or other extracted artifacts are created
+5. for thin-v1 development and early testing, attachment binary content may live in PostgreSQL, but the storage contract should preserve a later move to external object storage
