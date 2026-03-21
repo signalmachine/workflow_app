@@ -53,6 +53,8 @@ Follow industry-standard best practices by default unless there is a concrete re
 
 Contributors should push back on weaker architectural or implementation choices, guide the user toward best-practice system design by default, and not proceed with a materially weaker path until the downsides and tradeoffs have been made explicit to the user and the user has clearly confirmed that deviation.
 
+During implementation, if a codebase review surfaces drift, an issue, an inconsistency, or a conflict, contributors should report it and either fix it in the same change when appropriate or document it in the canonical implementation plan docs for a future session rather than leaving it as silent drift.
+
 ## Architecture & Scope Guardrails
 
 `workflow_app` is intentionally AI-agent-first, database-first, and centered on documents, ledgers, and execution context. Do not let CRM, portal, or broad manual-entry UI concerns become the center of gravity again. If a capability can wait until v2 without weakening the foundation, put it under `new_app_docs/app_v2_plans/` instead of expanding v1. Thin v1 means narrow breadth, not weak modeling or low quality.
