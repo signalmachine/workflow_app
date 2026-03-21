@@ -347,6 +347,191 @@ func TestCancelQueuedRequestPreventsClaimIntegration(t *testing.T) {
 	}
 }
 
+func TestDraftRequestCanBeEditedDeletedAndRemovedCompletelyIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	session := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: session.ID}
+
+	intakeService := intake.NewService(db)
+	attachmentService := attachments.NewService(db)
+
+	request, err := intakeService.CreateDraft(ctx, intake.CreateDraftInput{
+		OriginType: intake.OriginHuman,
+		Channel:    "browser",
+		Actor:      operator,
+	})
+	if err != nil {
+		t.Fatalf("create draft request: %v", err)
+	}
+
+	message, err := intakeService.AddMessage(ctx, intake.AddMessageInput{
+		RequestID:   request.ID,
+		MessageRole: intake.MessageRoleRequest,
+		TextContent: "initial request details",
+		Actor:       operator,
+	})
+	if err != nil {
+		t.Fatalf("add draft message: %v", err)
+	}
+
+	updatedMessage, err := intakeService.UpdateMessage(ctx, intake.UpdateMessageInput{
+		MessageID:   message.ID,
+		TextContent: "amended request details before submit",
+		Actor:       operator,
+	})
+	if err != nil {
+		t.Fatalf("update draft message: %v", err)
+	}
+	if updatedMessage.TextContent != "amended request details before submit" {
+		t.Fatalf("unexpected updated message text: %q", updatedMessage.TextContent)
+	}
+
+	attachment, err := attachmentService.CreateAttachment(ctx, attachments.CreateAttachmentInput{
+		OriginalFileName: "draft.txt",
+		MediaType:        "text/plain",
+		Content:          []byte("draft attachment"),
+		Actor:            operator,
+	})
+	if err != nil {
+		t.Fatalf("create draft attachment: %v", err)
+	}
+	if _, err := attachmentService.LinkRequestMessage(ctx, attachments.LinkRequestMessageInput{
+		RequestMessageID: message.ID,
+		AttachmentID:     attachment.ID,
+		Actor:            operator,
+	}); err != nil {
+		t.Fatalf("link draft attachment: %v", err)
+	}
+
+	if err := intakeService.DeleteDraft(ctx, intake.DeleteDraftInput{
+		RequestID: request.ID,
+		Actor:     operator,
+	}); err != nil {
+		t.Fatalf("delete draft request: %v", err)
+	}
+
+	var count int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM ai.inbound_requests WHERE id = $1`, request.ID).Scan(&count); err != nil {
+		t.Fatalf("count deleted request: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("expected deleted request row to be removed, got %d", count)
+	}
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM ai.inbound_request_messages WHERE request_id = $1`, request.ID).Scan(&count); err != nil {
+		t.Fatalf("count deleted request messages: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("expected deleted request messages to be removed, got %d", count)
+	}
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM attachments.attachments WHERE id = $1`, attachment.ID).Scan(&count); err != nil {
+		t.Fatalf("count deleted attachment: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("expected draft-only attachment to be removed, got %d", count)
+	}
+}
+
+func TestQueuedRequestCanReturnToDraftForAmendmentBeforeProcessingIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	session := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: session.ID}
+
+	intakeService := intake.NewService(db)
+
+	request, err := intakeService.CreateDraft(ctx, intake.CreateDraftInput{
+		OriginType: intake.OriginHuman,
+		Channel:    "browser",
+		Actor:      operator,
+	})
+	if err != nil {
+		t.Fatalf("create draft request: %v", err)
+	}
+
+	message, err := intakeService.AddMessage(ctx, intake.AddMessageInput{
+		RequestID:   request.ID,
+		MessageRole: intake.MessageRoleRequest,
+		TextContent: "first version",
+		Actor:       operator,
+	})
+	if err != nil {
+		t.Fatalf("add draft message: %v", err)
+	}
+
+	request, err = intakeService.QueueRequest(ctx, intake.QueueRequestInput{
+		RequestID: request.ID,
+		Actor:     operator,
+	})
+	if err != nil {
+		t.Fatalf("queue request: %v", err)
+	}
+
+	amended, err := intakeService.AmendRequest(ctx, intake.AmendRequestInput{
+		RequestID: request.ID,
+		Actor:     operator,
+	})
+	if err != nil {
+		t.Fatalf("amend queued request: %v", err)
+	}
+	if amended.Status != intake.StatusDraft {
+		t.Fatalf("expected amended request to return to draft, got %s", amended.Status)
+	}
+	if amended.RequestReference != request.RequestReference {
+		t.Fatalf("expected stable request reference across amend cycle: got %q want %q", amended.RequestReference, request.RequestReference)
+	}
+	if amended.QueuedAt.Valid || amended.CancelledAt.Valid {
+		t.Fatalf("expected amend reset queue/cancel timestamps: queued=%v cancelled=%v", amended.QueuedAt.Valid, amended.CancelledAt.Valid)
+	}
+
+	updatedMessage, err := intakeService.UpdateMessage(ctx, intake.UpdateMessageInput{
+		MessageID:   message.ID,
+		TextContent: "second version after amendment",
+		Actor:       operator,
+	})
+	if err != nil {
+		t.Fatalf("update amended request message: %v", err)
+	}
+	if updatedMessage.TextContent != "second version after amendment" {
+		t.Fatalf("unexpected amended message text: %q", updatedMessage.TextContent)
+	}
+
+	if _, err := intakeService.AddMessage(ctx, intake.AddMessageInput{
+		RequestID:   request.ID,
+		MessageRole: intake.MessageRoleRequest,
+		TextContent: "additional detail after amendment",
+		Actor:       operator,
+	}); err != nil {
+		t.Fatalf("add follow-up message after amendment: %v", err)
+	}
+
+	request, err = intakeService.QueueRequest(ctx, intake.QueueRequestInput{
+		RequestID: request.ID,
+		Actor:     operator,
+	})
+	if err != nil {
+		t.Fatalf("requeue amended request: %v", err)
+	}
+	if request.Status != intake.StatusQueued {
+		t.Fatalf("unexpected requeued status: %s", request.Status)
+	}
+	if request.RequestReference != amended.RequestReference {
+		t.Fatalf("expected request reference to remain stable after requeue: got %q want %q", request.RequestReference, amended.RequestReference)
+	}
+}
+
 func createQueuedRequest(t *testing.T, ctx context.Context, service *intake.Service, actor identityaccess.Actor, text string) intake.InboundRequest {
 	t.Helper()
 

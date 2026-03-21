@@ -102,15 +102,18 @@ Purpose: record the active defaults that implementation should preserve unless t
 2. broad human operational UI is not a thin-v1 priority
 3. CLI tooling may exist for developer or support work, but it is not a first-class product interface
 4. thin v1 may include minimal browser-usable API or review support where required for real user testing
-5. mobile-product depth, voice-capture UX, and richer multimodal client behavior remain v2 concerns unless a foundation dependency proves otherwise
+5. those browser-usable seams may exist as service or API contracts and reporting read models before any shipped browser UI exists
+6. mobile-product depth, voice-capture UX, and richer multimodal client behavior remain v2 concerns unless a foundation dependency proves otherwise
 
 ### 2.10 Inbound request and attachment handling
 
 1. a persisted inbound request may contain one or more messages and attachments
 2. draft requests remain editable until explicitly submitted into the processing queue
-3. user-visible request removal before processing should default to soft cancel semantics so auditability and recovery remain intact
-4. original uploaded artifacts, including voice recordings, should remain durably available even when derived text or other extracted artifacts are created
-5. for thin-v1 development and early testing, attachment binary content may live in PostgreSQL, but the storage contract should preserve a later move to external object storage
-6. persisted inbound requests should have a stable user-visible reference or request number suitable for operator and customer communication rather than relying on raw UUIDs
-7. when a request is submitted or queued, the caller should receive that reference immediately in the acknowledgment response
-8. if drafts exist, the preferred default is to allocate the stable request reference when the draft is created so later queueing, cancellation, audit, and support flows all keep one identifier
+3. draft requests may be hard-deleted completely while they remain unprocessed drafts
+4. queued or otherwise parked pre-processing requests should default to soft cancel semantics so auditability and recovery remain intact
+5. a queued or cancelled pre-processing request may return to `draft` for amendment and later resubmission, but requests that have already started AI processing must not use that amend path
+6. original uploaded artifacts, including voice recordings, should remain durably available even when derived text or other extracted artifacts are created
+7. for thin-v1 development and early testing, attachment binary content may live in PostgreSQL, but the storage contract should preserve a later move to external object storage
+8. persisted inbound requests should have a stable user-visible reference or request number suitable for operator and customer communication rather than relying on raw UUIDs
+9. when a request is submitted or queued, the caller should receive that reference immediately in the acknowledgment response
+10. if drafts exist, the preferred default is to allocate the stable request reference when the draft is created so later queueing, cancellation, amendment, audit, and support flows all keep one identifier

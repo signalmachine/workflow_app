@@ -1,25 +1,25 @@
 # workflow_app Inbound Request And Attachment Foundation Plan
 
 Date: 2026-03-21
-Status: Draft targeted remediation plan
-Purpose: define the implementation slice that lands the revised persist-first interaction model for thin v1 after adopted document ownership is stabilized.
+Status: Completed implementation slice with follow-up guidance
+Purpose: record the implemented persist-first interaction foundation for thin v1 and capture the remaining follow-up guidance for later reporting polish.
 
 ## 1. Problem statement
 
-The revised thin-v1 direction now requires persisted inbound request intake, queue-oriented AI processing, attachment references, and browser-usable review visibility.
+The revised thin-v1 direction required persisted inbound request intake, queue-oriented AI processing, attachment references, and browser-usable review visibility.
 
-Current state:
+State before the slice:
 
-1. AI run history, artifacts, recommendations, and delegation traces exist
-2. there is no persisted inbound request model
-3. there is no durable request lifecycle status for queued or processed handling
-4. there is no attachment persistence model beyond an empty schema
-5. reporting does not yet expose inbound-request or processed-proposal review paths
+1. AI run history, artifacts, recommendations, and delegation traces existed
+2. there was no persisted inbound request model
+3. there was no durable request lifecycle status for queued or processed handling
+4. there was no attachment persistence model beyond an empty schema
+5. reporting did not yet expose inbound-request or processed-proposal review paths
 
 Agreed operating constraints for this slice:
 
 1. inbound requests may start as drafts and must not be processed by AI until explicitly submitted or queued
-2. user-facing request deletion before processing should be implemented as soft cancel or soft delete rather than unrestricted hard delete
+2. queued or otherwise submitted-but-unprocessed request deletion should be implemented as soft cancel rather than unrestricted hard delete
 3. strong auditability should be preserved even when users cancel parked requests before AI picks them up
 4. for thin-v1 development and testing, attachment binary content may be stored in PostgreSQL first, with the design leaving room to move blobs to external storage later
 5. voice input should preserve the original audio attachment and store transcription as a derived record rather than replacing the original artifact
@@ -44,6 +44,7 @@ In scope:
 4. attachment metadata and bounded attachment-reference contracts
 5. minimal reporting surfaces for inbound-request and processed-proposal review
 6. queue-oriented processing seams even if the first implementation still uses a simple worker or synchronous trigger path internally
+7. draft editing, draft hard deletion, and pre-processing amend-back-to-draft behavior
 
 Out of scope:
 
@@ -92,6 +93,9 @@ Recommended control rules:
 6. hidden or cancelled requests must not be eligible for worker pickup
 7. the system should return the stable request reference immediately when a request is submitted or queued so the user can track it without depending on raw UUIDs
 8. the preferred design is to allocate that reference at request creation time rather than waiting until queueing so draft, audit, support, and recovery flows all refer to one stable identifier
+9. while a request is still `draft`, a user may add detail or edit existing detail before queueing
+10. a `draft` request may be hard-deleted completely because it has not yet entered the AI processing queue
+11. a `queued` or cancelled pre-processing request may return to `draft` for amendment and later resubmission, but that amend path must be blocked once AI processing has started
 
 Recommended message model:
 
@@ -103,6 +107,7 @@ Recommended user-facing submission response:
 
 1. when a request is submitted into the queue, the system should return a response equivalent to `request submitted for processing with reference REQ-000123`
 2. raw database ids may still exist internally, but the default user-facing acknowledgment should prefer the stable request reference or number
+3. in the current codebase, this acknowledgment is implemented as service and API semantics, not as proof that a full browser UI is already shipped
 
 ### 4.2 Attachment support
 
@@ -151,6 +156,7 @@ Minimum review outputs:
 2. inbound request detail with linked AI runs, recommendations, approvals, and resulting documents where present
 3. processed-proposal review sufficient to inspect what the system produced from a request
 4. attachment-reference visibility sufficient for operator review without broad file-management product depth
+5. these outputs may exist first as reporting read models and API-ready service seams before a browser surface is shipped
 
 ## 5. Milestone breakdown
 
@@ -170,9 +176,10 @@ Minimum review outputs:
 2. separate request persistence from AI processing initiation
 3. ensure request status transitions are transactional and auditable where required
 4. keep queue semantics explicit even if the first execution engine is intentionally simple
-5. implement soft cancel or soft delete for parked requests instead of unrestricted hard delete
+5. implement soft cancel for queued or otherwise parked requests instead of unrestricted hard delete
 6. prevent workers from claiming cancelled, hidden, or incomplete draft requests
 7. return the stable request reference to the caller when a request is submitted or queued
+8. keep draft requests editable before queueing, allow draft hard deletion, and allow queued or cancelled pre-processing requests to return to `draft` for amendment
 
 ### 5.3 Reporting work
 
@@ -190,6 +197,8 @@ Minimum review outputs:
 6. tests for pre-processing cancellation preventing worker pickup while preserving reviewability
 7. tests for voice attachment plus transcription linkage
 8. tests for stable request-reference allocation and submission acknowledgment behavior
+9. tests for draft hard deletion and draft-only artifact cleanup
+10. tests for queued-request amend-back-to-draft behavior before AI pickup
 
 ## 6. Risks and technical challenges
 
@@ -213,6 +222,16 @@ Reason:
 3. the current biggest structural inconsistency is document-family adoption, not AI traceability
 
 ## 8. Success criteria
+
+Landed implementation:
+
+1. `ai.inbound_requests` and `ai.inbound_request_messages` now persist request intake before AI processing
+2. stable `REQ-...` request references are now allocated at draft creation time and preserved through queueing, cancellation, and amendment
+3. queued requests can be claimed into processing, and AI runs now link back to the originating request
+4. `attachments` now stores PostgreSQL-backed attachments, request-message links, and transcription-derived text records
+5. `reporting` now exposes inbound-request list and detail review plus processed-proposal review through service-level read models
+6. drafts remain editable, drafts may be hard-deleted completely, queued requests may be soft-cancelled before pickup, and queued or cancelled pre-processing requests may return to `draft` for amendment and later resubmission
+7. the current browser-ready foundation is implemented as intake and reporting service semantics rather than a shipped browser UI
 
 This remediation slice is complete only when:
 

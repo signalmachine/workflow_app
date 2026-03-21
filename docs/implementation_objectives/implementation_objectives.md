@@ -72,10 +72,13 @@ Implementation consequences:
 4. execution records explain what actually happened operationally
 5. reports are derived views, not truth owners
 6. inbound requests should be durable records rather than transient prompts
-7. the same intake model should be reusable for human and non-human upstream systems
-8. every meaningful workflow and control state should be durably reconstructible from database records rather than transient process state
-9. parked inbound requests should support draft and queued states explicitly rather than depending on implicit message completeness
-10. user-visible request removal before processing should normally be soft cancel rather than hard deletion so auditability and recovery remain intact
+7. inbound requests are not business documents and should not consume the `documents` numbering or lifecycle model merely because they may later cause document creation
+8. the same intake model should be reusable for human and non-human upstream systems
+9. every meaningful workflow and control state should be durably reconstructible from database records rather than transient process state
+10. parked inbound requests should support draft and queued states explicitly rather than depending on implicit message completeness
+11. queued or otherwise submitted-but-unprocessed request removal should normally be soft cancel rather than hard deletion so auditability and recovery remain intact
+12. draft requests may still be hard-deleted completely because they have not yet entered the AI processing queue
+13. queued or cancelled pre-processing requests may return to `draft` for amendment and later resubmission while preserving the same intake identity
 
 ## 4. Versioning stance and thin-v1 objective
 
@@ -154,6 +157,7 @@ Not intended as core thin-v1 behavior:
 1. broad manual operational data entry
 2. direct human ledger editing
 3. broad human operational UI replacing agent-driven workflows
+4. service-level browser-ready intake or review semantics should not be described as a shipped browser UI until that surface actually exists
 
 ## 8. Data and database principles
 
@@ -210,6 +214,7 @@ Document handling should preserve:
 4. source-document linkage into downstream postings
 5. durable numbering where accounting, tax, or operational correctness requires it
 6. one canonical shared document model for identity, lifecycle, numbering, and posting linkage even when payload ownership stays with domain modules
+7. inbound request references should remain outside the document-numbering model because they identify intake records rather than downstream business documents
 
 High-level document families expected in thin v1:
 

@@ -2,7 +2,7 @@
 
 `workflow_app` is an AI-agent-first, database-first business operating system centered on documents, ledgers, execution context, approvals, and reports.
 
-This repository has completed Milestone 0 through Milestone 4 from the canonical planning set in [`new_app_docs/`](./new_app_docs). The shared control boundary now includes adopted document ownership for work orders, invoices, and payment or receipt documents plus persist-first inbound request and attachment foundations with stable `REQ-...` inbound-request references for submission acknowledgments and review. The repository is now finishing the remaining thin-v1 reporting polish before any broader implementation proceeds:
+This repository has completed Milestone 0 through Milestone 4 from the canonical planning set in [`new_app_docs/`](./new_app_docs). The shared control boundary now includes adopted document ownership for work orders, invoices, and payment or receipt documents plus persist-first inbound request and attachment foundations with stable `REQ-...` inbound-request references for submission acknowledgments and review. Draft requests can now be edited or hard-deleted before queueing, while queued pre-processing requests can be soft-cancelled or returned to draft for amendment and resubmission. The current browser-ready intake slice exists at the service and reporting-read-model level rather than as a shipped browser UI. The repository is now finishing the remaining thin-v1 reporting polish before any broader implementation proceeds:
 
 1. bootstrap the Go module
 2. add a migration runner
@@ -61,7 +61,7 @@ Implemented:
 17. support-depth `parties` records plus tenant-safe `contacts` for thin-v1 trading and service document flows
 18. one-to-one work-order document ownership through `work_orders.documents`, with transactional creation of the shared document row plus work-order execution truth
 19. one-to-one invoice and payment or receipt document ownership through accounting-owned payload tables keyed by `document_id`
-20. persist-first inbound request drafts, org-scoped `REQ-...` request references, messages, queue claim and status transitions, PostgreSQL-backed attachments, attachment transcription derivatives, and AI run causation linked back to the originating request
+20. persist-first inbound request drafts, org-scoped `REQ-...` request references, draft editing and hard deletion, queued-request amend and cancel handling before pickup, messages, queue claim and status transitions, PostgreSQL-backed attachments, attachment transcription derivatives, and AI run causation linked back to the originating request
 21. `reporting` review surfaces for inbound requests, request attachments, linked AI runs, and processed proposals joined to approvals and documents, with stable request references exposed for operator tracking
 
 Immediate next steps:

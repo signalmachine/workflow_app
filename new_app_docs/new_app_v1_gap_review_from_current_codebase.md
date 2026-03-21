@@ -1,8 +1,8 @@
 # workflow_app v1 Gap Review From Current Codebase
 
 Date: 2026-03-21
-Status: Draft review note
-Purpose: compare the current repository implementation against the `workflow_app` thin-v1 foundation plan so the new codebase starts with a realistic gap view.
+Status: Historical review note
+Purpose: preserve the earlier current-codebase gap review as historical context; the tracker and execution plan are the live status source for the reset implementation.
 
 ## 1. Review conclusion
 
@@ -43,19 +43,18 @@ Now implemented at the required first slice:
 2. queue-oriented AI processing can now claim queued requests and link AI runs back to the originating persisted request
 3. browser-usable reporting review now exists for inbound requests, processed proposals, linked approvals, and downstream documents without broad client-product breadth
 
-Still missing or not complete enough in the current reset implementation:
+Now also implemented after the original gap review:
 
-4. a stable user-visible inbound-request reference or request number is not yet part of the request model
-5. queue-submission acknowledgments do not yet have a canonical requirement to return that stable request reference to the caller
+4. a stable user-visible inbound-request reference and request number now exist in the request model
+5. queue-submission acknowledgments now have a canonical stable request-reference requirement in the active planning set
+6. pre-processing requests now support draft editing, draft hard deletion, queued or cancelled amend-back-to-draft handling, and queued cancellation before AI pickup
 
 ### 3.2 Document foundation gaps
 
 Still missing or not complete enough:
 
-1. broader supported document-family adoption beyond the current accounting-linked kernel
-2. owning payload completion for adopted work-order, invoice, and payment or receipt document families so the one-to-one document ownership rule is actually satisfied
-3. stronger shared lifecycle participation for later invoice, payment, inventory, and work-order document families
-4. fuller shared numbering strategy for all supported foundation document families
+1. stronger shared lifecycle participation for later invoice, payment, inventory, and work-order document families
+2. fuller shared numbering strategy for all supported foundation document families
 
 ### 3.3 Support-record gaps
 
@@ -121,7 +120,7 @@ That mismatch is:
 
 1. stronger first migrations
 2. stronger document kernel with adopted payload ownership completed
-3. minimum persist-first request intake, attachment-reference handling, queued AI processing, and browser-testing ingress
+3. minimum persist-first request intake, attachment-reference handling, queued AI processing, and browser-testing ingress semantics
 4. stronger accounting, inventory, execution, labor, and reporting foundations where the remaining work is now mostly adoption wiring and final polish rather than missing kernels
 
 `workflow_app` should not spend early sophistication budget on CRM breadth.

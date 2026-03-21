@@ -48,8 +48,9 @@ AI interaction rule:
 
 1. the primary interaction model should persist the inbound request before AI processing begins
 2. AI processing may be asynchronous and queue-driven rather than request-response by default
-3. thin v1 may include minimal browser-usable request submission and review support where required for real user testing
-4. mobile-product depth, voice-capture UX, and richer multimodal client behavior remain v2 concerns unless a foundation dependency proves otherwise
+3. thin v1 may include minimal browser-usable request-submission and review semantics where required for real user testing
+4. those browser-usable semantics may land first as service and API contracts plus review read models rather than a shipped browser UI
+5. mobile-product depth, voice-capture UX, and richer multimodal client behavior remain v2 concerns unless a foundation dependency proves otherwise
 
 ### 2.2 Master records
 

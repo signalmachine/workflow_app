@@ -58,7 +58,9 @@ Current implementation checkpoint:
 8. AI runs can now link back to persisted inbound requests, and reporting can review that request -> run -> recommendation -> approval -> document chain without raw SQL
 9. adopted payload ownership is now implemented for work-order, invoice, and payment or receipt document families with shared party/contact support records reused where applicable rather than duplicated into document-local truth
 10. persisted inbound requests now allocate a durable user-visible `REQ-...` reference at draft creation time and preserve it through queue submission so acknowledgments and review surfaces do not depend on raw UUIDs
-11. this milestone is now complete in its main control-boundary foundation, and the next thin-v1 slice should focus on remaining reporting polish on top of that stable request-reference model
+11. draft inbound requests now support editing and hard deletion, while queued or cancelled pre-processing requests can return to `draft` for amendment and later resubmission without changing the stable request reference
+12. the current browser-ready intake slice is implemented at the service and reporting-read-model level rather than as a shipped browser UI
+13. this milestone is now complete in its main control-boundary foundation, and the next thin-v1 slice should focus on remaining reporting polish on top of that stable request-reference model
 
 Remediation planning note:
 
@@ -214,7 +216,7 @@ Current implementation checkpoint:
 9. work-order review now exposes task, labor, material-usage, and posted-cost rollups in one inspection surface
 10. audit lookup now exists as a coherent reporting read path scoped to tenant and entity filters
 11. minimum thin-v1 party and contact support depth now exists through tenant-safe `parties` support records and support-depth contacts
-12. inbound-request list and detail review plus processed-proposal review now expose the persist-first request -> AI -> approval -> document chain needed for thin-v1 browser testing
+12. inbound-request list and detail review plus processed-proposal review now expose the persist-first request -> AI -> approval -> document chain needed for thin-v1 browser testing through service and reporting-read-model seams
 13. remaining thin-v1 completion is now concentrated around final operator-facing reporting polish rather than missing inbound-request, request-reference, or adopted-document foundation coverage
 14. the next implementation target is to finish the remaining reporting polish before any v2 breadth work begins
 
