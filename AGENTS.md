@@ -51,6 +51,8 @@ Write concise Markdown with clear headings and short paragraphs or numbered rule
 
 Follow industry-standard best practices by default unless there is a concrete repository-specific, product-specific, or technical reason to deviate. When deviating, make the reason explicit in code, docs, or review notes as appropriate.
 
+Contributors should push back on weaker architectural or implementation choices, guide the user toward best-practice system design by default, and not proceed with a materially weaker path until the downsides and tradeoffs have been made explicit to the user and the user has clearly confirmed that deviation.
+
 ## Architecture & Scope Guardrails
 
 `workflow_app` is intentionally AI-agent-first, database-first, and centered on documents, ledgers, and execution context. Do not let CRM, portal, or broad manual-entry UI concerns become the center of gravity again. If a capability can wait until v2 without weakening the foundation, put it under `new_app_docs/app_v2_plans/` instead of expanding v1. Thin v1 means narrow breadth, not weak modeling or low quality.
@@ -60,6 +62,8 @@ Shared foundation entities should have one canonical identity reused across modu
 The primary app working model is persist-first and queue-oriented. Inbound requests should be stored durably before AI processing begins, AI processing should usually run asynchronously from that queue, and humans should review the resulting proposals or actions from explicit review surfaces rather than depending on immediate AI response as the default path.
 
 The same persisted-request model should be suitable for both human-originated and system-originated requests so later integrations can use the same controlled intake path without inventing a second processing model.
+
+Persisted inbound requests are request records, not `documents` rows. Their stable `REQ-...` references are request-tracking identifiers, not business-document numbers. When processing produces a draft, approval candidate, or posting candidate, that downstream business record should remain a separate document with its own document lifecycle, approval path, and numbering rules while the original inbound request remains the same request record with its own intake-processing status history.
 
 Persisted inbound requests may remain in `draft` until explicitly queued, and draft requests must not be processed by AI. User-visible removal of parked requests should normally be implemented as soft cancel or soft delete rather than unrestricted hard deletion so auditability and recovery remain intact.
 
