@@ -379,6 +379,31 @@ type AIRunReview struct {
 	CompletedAt    sql.NullTime
 }
 
+type AIArtifactReview struct {
+	ArtifactID      string
+	RunID           string
+	StepID          sql.NullString
+	ArtifactType    string
+	Title           string
+	Payload         json.RawMessage
+	CreatedByUserID string
+	CreatedAt       time.Time
+}
+
+type AIRecommendationReview struct {
+	RecommendationID   string
+	RunID              string
+	ArtifactID         sql.NullString
+	ApprovalID         sql.NullString
+	RecommendationType string
+	Status             string
+	Summary            string
+	Payload            json.RawMessage
+	CreatedByUserID    string
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
 type ProcessedProposalReview struct {
 	RequestID            string
 	RequestReference     string
@@ -414,11 +439,13 @@ type GetInboundRequestDetailInput struct {
 }
 
 type InboundRequestDetail struct {
-	Request     InboundRequestReview
-	Messages    []InboundRequestMessageReview
-	Attachments []RequestAttachmentReview
-	Runs        []AIRunReview
-	Proposals   []ProcessedProposalReview
+	Request         InboundRequestReview
+	Messages        []InboundRequestMessageReview
+	Attachments     []RequestAttachmentReview
+	Runs            []AIRunReview
+	Artifacts       []AIArtifactReview
+	Recommendations []AIRecommendationReview
+	Proposals       []ProcessedProposalReview
 }
 
 type Service struct {
@@ -1851,6 +1878,114 @@ ORDER BY started_at ASC, id ASC;`
 		return InboundRequestDetail{}, fmt.Errorf("iterate inbound request runs: %w", err)
 	}
 	runRows.Close()
+
+	const artifactsQuery = `
+SELECT
+	art.id,
+	art.run_id,
+	art.step_id,
+	art.artifact_type,
+	art.title,
+	art.payload,
+	art.created_by_user_id,
+	art.created_at
+FROM ai.agent_runs ar
+JOIN ai.agent_artifacts art
+	ON art.run_id = ar.id
+WHERE ar.org_id = $1
+  AND ar.inbound_request_id = $2
+ORDER BY art.created_at ASC, art.id ASC;`
+
+	artifactRows, err := tx.QueryContext(ctx, artifactsQuery, input.Actor.OrgID, requestID)
+	if err != nil {
+		_ = tx.Rollback()
+		return InboundRequestDetail{}, fmt.Errorf("query inbound request artifacts: %w", err)
+	}
+	for artifactRows.Next() {
+		var (
+			artifact AIArtifactReview
+			payload  []byte
+		)
+		if err := artifactRows.Scan(
+			&artifact.ArtifactID,
+			&artifact.RunID,
+			&artifact.StepID,
+			&artifact.ArtifactType,
+			&artifact.Title,
+			&payload,
+			&artifact.CreatedByUserID,
+			&artifact.CreatedAt,
+		); err != nil {
+			artifactRows.Close()
+			_ = tx.Rollback()
+			return InboundRequestDetail{}, fmt.Errorf("scan inbound request artifact review: %w", err)
+		}
+		artifact.Payload = append(artifact.Payload[:0], payload...)
+		detail.Artifacts = append(detail.Artifacts, artifact)
+	}
+	if err := artifactRows.Err(); err != nil {
+		artifactRows.Close()
+		_ = tx.Rollback()
+		return InboundRequestDetail{}, fmt.Errorf("iterate inbound request artifacts: %w", err)
+	}
+	artifactRows.Close()
+
+	const recommendationsQuery = `
+SELECT
+	rec.id,
+	rec.run_id,
+	rec.artifact_id,
+	rec.approval_id,
+	rec.recommendation_type,
+	rec.status,
+	rec.summary,
+	rec.payload,
+	rec.created_by_user_id,
+	rec.created_at,
+	rec.updated_at
+FROM ai.agent_runs ar
+JOIN ai.agent_recommendations rec
+	ON rec.run_id = ar.id
+WHERE ar.org_id = $1
+  AND ar.inbound_request_id = $2
+ORDER BY rec.created_at ASC, rec.id ASC;`
+
+	recommendationRows, err := tx.QueryContext(ctx, recommendationsQuery, input.Actor.OrgID, requestID)
+	if err != nil {
+		_ = tx.Rollback()
+		return InboundRequestDetail{}, fmt.Errorf("query inbound request recommendations: %w", err)
+	}
+	for recommendationRows.Next() {
+		var (
+			recommendation AIRecommendationReview
+			payload        []byte
+		)
+		if err := recommendationRows.Scan(
+			&recommendation.RecommendationID,
+			&recommendation.RunID,
+			&recommendation.ArtifactID,
+			&recommendation.ApprovalID,
+			&recommendation.RecommendationType,
+			&recommendation.Status,
+			&recommendation.Summary,
+			&payload,
+			&recommendation.CreatedByUserID,
+			&recommendation.CreatedAt,
+			&recommendation.UpdatedAt,
+		); err != nil {
+			recommendationRows.Close()
+			_ = tx.Rollback()
+			return InboundRequestDetail{}, fmt.Errorf("scan inbound request recommendation review: %w", err)
+		}
+		recommendation.Payload = append(recommendation.Payload[:0], payload...)
+		detail.Recommendations = append(detail.Recommendations, recommendation)
+	}
+	if err := recommendationRows.Err(); err != nil {
+		recommendationRows.Close()
+		_ = tx.Rollback()
+		return InboundRequestDetail{}, fmt.Errorf("iterate inbound request recommendations: %w", err)
+	}
+	recommendationRows.Close()
 
 	proposals, err := s.listProcessedProposalsTx(ctx, tx, input.Actor.OrgID, requestID, "")
 	if err != nil {

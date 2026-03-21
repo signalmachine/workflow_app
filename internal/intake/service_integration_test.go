@@ -285,8 +285,16 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get inbound request detail: %v", err)
 	}
-	if len(detail.Messages) != 1 || len(detail.Attachments) != 1 || len(detail.Runs) != 1 || len(detail.Proposals) != 1 {
-		t.Fatalf("unexpected detail sizes: messages=%d attachments=%d runs=%d proposals=%d", len(detail.Messages), len(detail.Attachments), len(detail.Runs), len(detail.Proposals))
+	if len(detail.Messages) != 1 || len(detail.Attachments) != 1 || len(detail.Runs) != 1 || len(detail.Artifacts) != 1 || len(detail.Recommendations) != 1 || len(detail.Proposals) != 1 {
+		t.Fatalf(
+			"unexpected detail sizes: messages=%d attachments=%d runs=%d artifacts=%d recommendations=%d proposals=%d",
+			len(detail.Messages),
+			len(detail.Attachments),
+			len(detail.Runs),
+			len(detail.Artifacts),
+			len(detail.Recommendations),
+			len(detail.Proposals),
+		)
 	}
 	if detail.Request.RequestReference != request.RequestReference {
 		t.Fatalf("unexpected request reference in detail: got %q want %q", detail.Request.RequestReference, request.RequestReference)
@@ -311,6 +319,30 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 	}
 	if !detail.Attachments[0].LatestDerivedByRunID.Valid || detail.Attachments[0].LatestDerivedByRunID.String != run.ID {
 		t.Fatalf("unexpected latest derived-text run in attachment review: %+v want %s", detail.Attachments[0].LatestDerivedByRunID, run.ID)
+	}
+	if detail.Artifacts[0].ArtifactID != artifact.ID || detail.Artifacts[0].RunID != run.ID {
+		t.Fatalf("unexpected artifact review linkage: %+v", detail.Artifacts[0])
+	}
+	if detail.Artifacts[0].CreatedByUserID != operator.UserID {
+		t.Fatalf("unexpected artifact creator in detail: got %s want %s", detail.Artifacts[0].CreatedByUserID, operator.UserID)
+	}
+	if !strings.Contains(string(detail.Artifacts[0].Payload), derivedText.ID) {
+		t.Fatalf("expected derived-text payload in artifact review, got %s", string(detail.Artifacts[0].Payload))
+	}
+	if detail.Recommendations[0].RecommendationID != recommendation.ID || detail.Recommendations[0].RunID != run.ID {
+		t.Fatalf("unexpected recommendation review linkage: %+v", detail.Recommendations[0])
+	}
+	if !detail.Recommendations[0].ArtifactID.Valid || detail.Recommendations[0].ArtifactID.String != artifact.ID {
+		t.Fatalf("unexpected recommendation artifact link: %+v want %s", detail.Recommendations[0].ArtifactID, artifact.ID)
+	}
+	if !detail.Recommendations[0].ApprovalID.Valid || detail.Recommendations[0].ApprovalID.String != approval.ID {
+		t.Fatalf("unexpected recommendation approval link: %+v want %s", detail.Recommendations[0].ApprovalID, approval.ID)
+	}
+	if detail.Recommendations[0].CreatedByUserID != operator.UserID {
+		t.Fatalf("unexpected recommendation creator in detail: got %s want %s", detail.Recommendations[0].CreatedByUserID, operator.UserID)
+	}
+	if !strings.Contains(string(detail.Recommendations[0].Payload), doc.ID) {
+		t.Fatalf("expected document payload in recommendation review, got %s", string(detail.Recommendations[0].Payload))
 	}
 	if detail.Proposals[0].ApprovalID.String != approval.ID || detail.Proposals[0].DocumentID.String != doc.ID {
 		t.Fatalf("unexpected proposal linkage: %+v", detail.Proposals[0])
