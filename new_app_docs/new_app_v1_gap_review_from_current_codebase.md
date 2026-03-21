@@ -13,7 +13,7 @@ The biggest issue is not lack of sophistication. The biggest issue is uneven sop
 1. identity, auth, audit, idempotency, AI traceability, and parts of workflow are already credible
 2. accounting, documents, and the first inventory movement foundation now have serious kernels
 3. workforce, work-order execution, and the inventory-to-accounting bridge now have credible foundation slices
-4. support-record and adopted-document completion still lag the intended thin-v1 foundation shape
+4. adopted-document completion still lags the intended thin-v1 foundation shape, while support-record depth now has its first required slice
 5. CRM depth is much heavier than the remaining missing foundation layers
 
 This confirms that `workflow_app` should start new rather than trying to trim the current codebase into shape.
@@ -52,11 +52,11 @@ Still missing or not complete enough:
 
 ### 3.3 Support-record gaps
 
-Still missing or not complete enough:
+Now implemented at the required first slice:
 
-1. minimum party support required by invoice, payment or receipt, trading inventory, and service execution flows is not yet implemented
-2. contact support depth remains missing even though thin v1 treats it as required support detail rather than optional CRM breadth
-3. these records must land as support depth, not as a revived primary CRM module
+1. minimum party support required by invoice, payment or receipt, trading inventory, and service execution flows now exists through tenant-safe `parties` records
+2. contact support depth now exists as support detail on top of those party records rather than as revived CRM breadth
+3. remaining support-record work is now downstream wiring into adopted document payload ownership rather than absence of the support records themselves
 
 ### 3.4 Accounting and tax gaps
 
@@ -105,7 +105,7 @@ The current repository is most advanced where the replacement thin-v1 plan wants
 That mismatch is:
 
 1. too much CRM depth
-2. not enough support-record depth for parties and contacts
+2. adopted document-family ownership is still incomplete even though support-record depth has improved
 3. inventory depth is improving but still incomplete at the document-handoff and review layers
 4. not enough workforce depth
 5. not enough work-order depth
@@ -116,10 +116,9 @@ That mismatch is:
 `workflow_app` should preserve quality and sophistication, but redirect that sophistication into the correct layers first:
 
 1. stronger first migrations
-2. stronger support-record foundation for parties and contacts
-3. stronger document kernel with adopted payload ownership completed
-4. stronger accounting and inventory foundations
-5. stronger execution and labor foundations
-6. stronger reporting and review surfaces
+2. stronger document kernel with adopted payload ownership completed
+3. stronger accounting and inventory foundations
+4. stronger execution and labor foundations
+5. stronger reporting and review surfaces
 
 `workflow_app` should not spend early sophistication budget on CRM breadth.

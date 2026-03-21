@@ -97,6 +97,8 @@ TRUNCATE TABLE
 	workflow.approval_decisions,
 	workflow.approval_queue_entries,
 	workflow.approvals,
+	parties.contacts,
+	parties.parties,
 	documents.documents,
 	documents.numbering_series,
 	identityaccess.sessions,

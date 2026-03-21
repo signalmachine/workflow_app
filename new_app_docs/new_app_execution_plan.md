@@ -51,7 +51,7 @@ Current implementation checkpoint:
 3. the shared document kernel now has central document identity, lifecycle state, and document-family registration
 4. approvals, approval queue entries, and approval decisions are implemented with transactional audit writes
 5. AI tool registry, tool policy, run history, artifacts, recommendations, approval linkage, and delegation traces are implemented for bounded coordinator-to-specialist routing
-6. remaining thin-v1 document-kernel completion is concentrated around adopted payload ownership for work-order, invoice, and payment or receipt document families plus the support records they depend on
+6. remaining thin-v1 document-kernel completion is concentrated around adopted payload ownership for work-order, invoice, and payment or receipt document families
 7. this milestone is complete, but thin-v1 still requires adopted payload ownership completion for supported document families before the overall document foundation can be considered complete
 
 ## 3. Milestone 2: Accounting and tax foundation
@@ -200,8 +200,9 @@ Current implementation checkpoint:
 8. inventory reconciliation review now exposes document-line accounting and execution handoff state, linked work-order context, and posted journal linkage for inventory review without raw SQL
 9. work-order review now exposes task, labor, material-usage, and posted-cost rollups in one inspection surface
 10. audit lookup now exists as a coherent reporting read path scoped to tenant and entity filters
-11. remaining thin-v1 completion is now concentrated around support-record and adopted-document gaps: minimum party and contact support depth plus owning payload completion for work-order, invoice, and payment or receipt flows
-12. the next implementation target is to complete those remaining thin-v1 foundation gaps before any v2 breadth work begins
+11. minimum thin-v1 party and contact support depth now exists through tenant-safe `parties` support records and support-depth contacts
+12. remaining thin-v1 completion is now concentrated around adopted-document gaps: owning payload completion for work-order, invoice, and payment or receipt flows
+13. the next implementation target is to complete those remaining thin-v1 foundation gaps before any v2 breadth work begins
 
 ## 7. Execution warning
 

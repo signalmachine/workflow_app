@@ -2,7 +2,7 @@
 
 `workflow_app` is an AI-agent-first, database-first business operating system centered on documents, ledgers, execution context, approvals, and reports.
 
-This repository has completed Milestone 0, Milestone 1, Milestone 2, Milestone 3, and Milestone 4 from the canonical planning set in [`new_app_docs/`](./new_app_docs) and is continuing through the remaining thin-v1 foundation slice, including Milestone 5 review and reporting polish plus the still-missing support-record and adopted-document work:
+This repository has completed Milestone 0, Milestone 1, Milestone 2, Milestone 3, and Milestone 4 from the canonical planning set in [`new_app_docs/`](./new_app_docs) and is continuing through the remaining thin-v1 foundation slice, including Milestone 5 review and reporting polish plus the still-missing adopted-document work:
 
 1. bootstrap the Go module
 2. add a migration runner
@@ -11,6 +11,7 @@ This repository has completed Milestone 0, Milestone 1, Milestone 2, Milestone 3
 5. complete the accounting foundation with ledger accounts, append-only journals, centralized document posting, reversals, tax seams, accounting periods, and review queries
 6. add the first `inventory_ops` foundation with items, locations, append-only movements, stock derivation, source and destination semantics, inventory document payload ownership, and explicit accounting/execution handoff seams
 7. add the first `work_orders` foundation with work-order truth, append-only status history, transactional consumption of pending inventory execution links into work-order material usage, workflow-owned tasks with one accountable worker, workforce-owned labor capture with cost snapshots, and centralized accounting consumption of both labor and work-order-linked inventory handoffs
+8. add support-depth `parties` and `contacts` records needed by thin-v1 invoice, payment or receipt, trading inventory, and service execution flows without reviving a primary CRM module
 
 The planning documents in [`new_app_docs/`](./new_app_docs) remain the canonical source for scope, sequencing, and module boundaries.
 
@@ -56,9 +57,9 @@ Implemented:
 14. pending labor-accounting handoffs from `workforce` plus centralized `accounting` consumption of approved journal documents for work-order labor costs
 15. centralized `accounting` consumption of costed inventory handoffs for work-order material usage through approved journal documents
 16. first-class `reporting` read surfaces for approval queue review, document review, accounting journal review, control-account balance review, GST/TDS tax summaries, inventory stock review, inventory movement review, inventory reconciliation review, work-order review, and audit lookup
+17. support-depth `parties` records plus tenant-safe `contacts` for thin-v1 trading and service document flows
 
 Next:
 
-1. implement minimum party and contact support depth needed by thin-v1 invoice, payment or receipt, trading inventory, and service execution flows
-2. complete adopted document-family ownership for work-order, invoice, and payment or receipt payloads with one-to-one linkage back to the shared `documents` kernel
-3. finish the remaining thin-v1 reporting polish after those foundation gaps land
+1. complete adopted document-family ownership for work-order, invoice, and payment or receipt payloads with one-to-one linkage back to the shared `documents` kernel
+2. finish the remaining thin-v1 reporting polish after those foundation gaps land
