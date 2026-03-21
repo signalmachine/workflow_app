@@ -186,6 +186,16 @@ Exit criteria:
 3. thin v1 is operationally reviewable
 4. humans can review the document -> approval -> posting chain without reconstructing it manually
 
+Current implementation checkpoint:
+
+1. `reporting` now exists as a first-class read-only module for operator-facing inspection surfaces
+2. approval queue review now joins queue, approval, document, and posting state in one reporting read path
+3. document review now exposes the document -> approval -> posting chain in one read model
+4. inventory stock review now exposes item and location labels on derived stock truth without requiring raw SQL
+5. work-order review now exposes task, labor, material-usage, and posted-cost rollups in one inspection surface
+6. audit lookup now exists as a coherent reporting read path scoped to tenant and entity filters
+7. the next implementation target is the remaining Milestone 5 reporting depth, starting with broader accounting review and baseline GST/TDS summary views
+
 ## 7. Execution warning
 
 Do not add CRM breadth, advanced projects, portal work, payroll, broad UI work, or advanced agent-autonomy features during milestones 0 through 5.

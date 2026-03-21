@@ -55,8 +55,9 @@ Implemented:
 13. shared workflow tasks linked to work orders with one accountable worker plus workforce workers and append-only labor entries with captured cost snapshots
 14. pending labor-accounting handoffs from `workforce` plus centralized `accounting` consumption of approved journal documents for work-order labor costs
 15. centralized `accounting` consumption of costed inventory handoffs for work-order material usage through approved journal documents
+16. first-class `reporting` read surfaces for approval queue review, document review, inventory stock review, work-order review, and audit lookup
 
 Next:
 
-1. start the first thin review and reporting surfaces now that inventory and execution both reach explicit accounting outcomes
+1. extend the first reporting slice into broader accounting review and baseline GST/TDS summary views
 2. keep the thin-v1 module map narrow while reporting depth expands
