@@ -38,8 +38,9 @@ These ideas should inform the new codebase, but the implementation should not be
 
 Still missing or not complete enough:
 
-1. broader approval orchestration depth beyond the current queue and decision baseline
-2. stronger review-oriented approval surface planning from the start of the new repo
+1. persisted inbound request intake with durable request-status handling and attachment references
+2. queue-oriented AI processing linked from persisted inbound requests into downstream proposals or actions
+3. minimum browser-usable ingress and review support needed for real thin-v1 user testing without promoting broad client-product breadth
 
 ### 3.2 Document foundation gaps
 
@@ -62,9 +63,8 @@ Now implemented at the required first slice:
 
 Still missing or not complete enough:
 
-1. broader accounting truth beyond the current journal shell
-2. fuller posting flows from operational documents into accounting truth
-3. explicit GST and TDS baseline implementation at the intended foundation depth
+1. adopted invoice and payment or receipt payload ownership still needs to connect more operational document flows into the already-implemented accounting foundation through the intended one-to-one document-ownership path
+2. remaining accounting work is now concentrated around consuming those remaining adopted document families rather than absence of journal, tax, period, or review foundations
 
 ### 3.5 Inventory gaps
 
@@ -75,7 +75,7 @@ Partially addressed, but not yet complete enough:
 3. stock truth is now derived from movements rather than stored mutably
 4. service-material versus resale-stock separation now exists, and inventory document payload ownership plus execution handoff seams and costed accounting handoffs now exist on top of the shared movement ledger
 5. pending work-order-linked inventory handoffs can now be consumed through centralized accounting posting without crossing ownership boundaries
-6. remaining inventory depth is now concentrated around future traceable-unit detail and review/reporting surfaces rather than basic document ownership
+6. remaining inventory depth is now concentrated around future traceable-unit detail and downstream adoption wiring rather than absence of core review/reporting surfaces or basic document ownership
 
 ### 3.6 Workforce and execution gaps
 
@@ -86,7 +86,7 @@ Partially addressed, but not yet complete enough:
 3. task and accountable-owner depth now exists through shared `workflow.tasks` linked to work orders with one accountable worker
 4. execution linkage now reaches accounting outcomes for both labor and the first work-order material-usage slice
 5. work-order execution truth still needs canonical one-to-one document ownership completion rather than document-type support alone
-6. remaining execution depth is now concentrated around broader costing breadth, non-work-order execution linkage, and review/reporting surfaces
+6. remaining execution depth is now concentrated around adopted work-order document ownership completion plus later broader costing breadth and non-work-order execution linkage rather than absence of the first review/reporting slice
 
 ### 3.7 Reporting gaps
 
@@ -96,7 +96,7 @@ Partially addressed, but not yet complete enough:
 2. accounting journal review and control-account balance review now exist through coherent reporting-oriented read surfaces rather than only domain-local list methods
 3. GST and TDS summary views now exist as explicit first-class reporting outputs
 4. inventory movement review and document-line inventory reconciliation now exist for inventory execution and accounting handoff inspection
-5. remaining reporting depth is now narrower and concentrated around final operator-facing polish rather than absence of core accounting, tax, or inventory review surfaces
+5. remaining reporting depth is now narrower and concentrated around final operator-facing polish plus the inbound-request and processed-proposal review surfaces needed for thin-v1 browser testing
 
 ## 4. Main shape mismatch
 
@@ -106,10 +106,8 @@ That mismatch is:
 
 1. too much CRM depth
 2. adopted document-family ownership is still incomplete even though support-record depth has improved
-3. inventory depth is improving but still incomplete at the document-handoff and review layers
-4. not enough workforce depth
-5. not enough work-order depth
-6. not enough reporting depth
+3. minimum inbound-request, attachment-reference, and browser-ingress foundations still lag the now-stronger domain core
+4. the remaining gaps are now narrower and concentrated around adopted document ownership plus interaction-ingress completion, not broad absence of accounting, inventory, execution, or reporting foundations
 
 ## 5. Replacement-codebase implication
 
@@ -117,8 +115,7 @@ That mismatch is:
 
 1. stronger first migrations
 2. stronger document kernel with adopted payload ownership completed
-3. stronger accounting and inventory foundations
-4. stronger execution and labor foundations
-5. stronger reporting and review surfaces
+3. minimum persist-first request intake, attachment-reference handling, queued AI processing, and browser-testing ingress
+4. stronger accounting, inventory, execution, labor, and reporting foundations where the remaining work is now mostly adoption wiring and final polish rather than missing kernels
 
 `workflow_app` should not spend early sophistication budget on CRM breadth.

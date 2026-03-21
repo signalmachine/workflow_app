@@ -2,7 +2,7 @@
 
 Date: 2026-03-21
 Status: Draft v2 client-surface note
-Purpose: capture the planned mobile, web, and multimodal client breadth that should land after thin-v1 foundations are complete, while making explicit which minimal client capabilities may need promotion into thin v1 for real user testing.
+Purpose: capture the planned mobile, web, and multimodal client breadth that should land after thin-v1 foundations are complete, while separating that v2 breadth from the minimum thin-v1 client-ingress foundation required for real user testing.
 
 ## 1. Review conclusion
 
@@ -50,11 +50,11 @@ That means:
 2. thin v1 is not yet complete in client-ingress and multimodal platform foundations
 3. v2 can safely deepen client breadth only if thin v1 first lands the minimum queued request and browser-testing seams needed to validate real user workflows
 
-## 4. Possible thin-v1 promotion rule
+## 4. Thin-v1 foundation boundary
 
-If the team needs real user testing before broad v2 work begins, a small client-ingress slice may need promotion into thin v1.
+The minimal client-ingress slice is now part of thin-v1 foundation rather than an optional promotion.
 
-That promoted slice should stay narrow:
+That thin-v1 slice should stay narrow:
 
 1. one stable backend API shape suitable for web first and mobile later
 2. session-auth flows usable by browser clients
@@ -63,7 +63,7 @@ That promoted slice should stay narrow:
 5. queued AI processing with durable request status rather than immediate-response as the primary interaction model
 6. one minimal web review surface or API path sufficient to test the inbound request -> AI proposal -> document -> approval -> posting or execution loop
 
-That promoted slice should not become:
+That thin-v1 slice should not become:
 
 1. a broad operational web UI
 2. full mobile-product work
@@ -72,8 +72,8 @@ That promoted slice should not become:
 
 ## 5. Recommended decision rule
 
-Use this rule before keeping all client work in v2:
+Use this rule for client-surface scope:
 
-1. if internal validation can happen through service-level tests and operator-only review surfaces, keep client breadth in v2
-2. if real user testing requires browser-driven request submission before v1 can be trusted, promote only the minimum queued web-ingress slice into thin v1
-3. do not promote mobile-product depth into thin v1 unless a foundation dependency proves it necessary
+1. keep the minimum persist-first web-ingress, attachment, queued-AI, and review path in thin v1 because it is important, foundation-level, and feasible without broad product-surface expansion
+2. keep richer multimodal capture, polished conversation UX, full mobile-product depth, and broader operational web surfaces in v2
+3. do not let thin-v1 client foundation expand into a broad chat product or a broad operational UI
