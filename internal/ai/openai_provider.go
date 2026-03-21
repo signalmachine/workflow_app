@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,23 +12,48 @@ import (
 	openai "github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
 	"github.com/openai/openai-go/v3/responses"
+
+	"workflow_app/internal/reporting"
 )
 
-const openAIProviderTimeout = 45 * time.Second
+const (
+	openAIProviderTimeout            = 45 * time.Second
+	openAIMaxCoordinatorToolLoops    = 3
+	openAICoordinatorSummaryToolName = "reporting.list_inbound_request_status_summary"
+)
 
-type OpenAIProvider struct {
-	client openai.Client
-	model  string
+type openAIResponsesAPI interface {
+	New(ctx context.Context, body responses.ResponseNewParams, opts ...option.RequestOption) (*responses.Response, error)
 }
 
-func NewOpenAIProvider(config ProviderConfig) (*OpenAIProvider, error) {
+type coordinatorToolDefinition struct {
+	ToolName     string
+	Description  string
+	MutatesState bool
+	Parameters   map[string]any
+	Execute      func(ctx context.Context, input CoordinatorProviderInput) (string, string, error)
+}
+
+type OpenAIProvider struct {
+	responsesAPI      openAIResponsesAPI
+	aiService         *Service
+	reportingService  *reporting.Service
+	model             string
+	maxToolIterations int
+}
+
+func NewOpenAIProvider(db *sql.DB, config ProviderConfig) (*OpenAIProvider, error) {
 	if !config.Enabled() {
 		return nil, ErrInvalidProviderConfig
 	}
 
+	client := openai.NewClient(option.WithAPIKey(config.OpenAIAPIKey))
 	return &OpenAIProvider{
-		client: openai.NewClient(option.WithAPIKey(config.OpenAIAPIKey)),
-		model:  config.OpenAIModel,
+		responsesAPI:      &client.Responses,
+		aiService:         NewService(db),
+		reportingService:  reporting.NewService(db),
+		model:             config.OpenAIModel,
+		maxToolIterations: openAIMaxCoordinatorToolLoops,
 	}, nil
 }
 
@@ -35,51 +61,360 @@ func (p *OpenAIProvider) ExecuteInboundRequest(ctx context.Context, input Coordi
 	requestCtx, cancel := context.WithTimeout(ctx, openAIProviderTimeout)
 	defer cancel()
 
-	params := responses.ResponseNewParams{
-		Model:           p.model,
-		Store:           openai.Bool(false),
-		Temperature:     openai.Float(0.1),
-		MaxOutputTokens: openai.Int(900),
-		Instructions: openai.String(strings.TrimSpace(`You are the workflow_app inbound-request coordinator.
-Review the persisted request context and produce a structured operator-review brief.
-Do not propose direct writes, approval decisions, postings, or autonomous follow-up actions.
-Focus on a safe summary, priority, rationale, and next actions for a human operator.`)),
-		Input: responses.ResponseNewParamsInputUnion{
-			OfString: openai.String(buildProviderPrompt(input)),
-		},
-		Text: responses.ResponseTextConfigParam{
-			Format: coordinatorResponseFormat(),
-		},
-	}
+	toolDefs := p.coordinatorToolDefinitions()
+	params := p.newCoordinatorResponseParams(input, toolDefs)
+	pendingInput := params.Input
+	var previousResponseID string
 
-	resp, err := p.client.Responses.New(requestCtx, params)
-	if err != nil {
-		var apiErr *openai.Error
-		if errors.As(err, &apiErr) {
-			return CoordinatorProviderOutput{}, fmt.Errorf("openai responses api error (status %d): %w", apiErr.StatusCode, err)
+	var (
+		toolExecutions []CoordinatorToolExecution
+		totalUsage     coordinatorTokenUsage
+	)
+
+	for iteration := 1; iteration <= p.normalizedMaxToolIterations(); iteration++ {
+		params.Input = pendingInput
+		if previousResponseID != "" {
+			params.PreviousResponseID = openai.String(previousResponseID)
 		}
-		return CoordinatorProviderOutput{}, fmt.Errorf("openai responses api request failed: %w", err)
+
+		resp, err := p.responsesAPI.New(requestCtx, params)
+		if err != nil {
+			var apiErr *openai.Error
+			if errors.As(err, &apiErr) {
+				return CoordinatorProviderOutput{}, fmt.Errorf("openai responses api error (status %d): %w", apiErr.StatusCode, err)
+			}
+			return CoordinatorProviderOutput{}, fmt.Errorf("openai responses api request failed: %w", err)
+		}
+
+		totalUsage.add(resp.Usage)
+		if strings.TrimSpace(resp.ID) != "" {
+			previousResponseID = resp.ID
+		}
+		if err := validateOpenAIResponse(resp); err != nil {
+			return CoordinatorProviderOutput{}, err
+		}
+
+		functionCalls := extractFunctionCalls(resp)
+		if len(functionCalls) == 0 {
+			var parsed openAICoordinatorPayload
+			if err := json.Unmarshal([]byte(resp.OutputText()), &parsed); err != nil {
+				return CoordinatorProviderOutput{}, fmt.Errorf("decode openai coordinator output: %w", err)
+			}
+
+			return CoordinatorProviderOutput{
+				ProviderResponseID: previousResponseID,
+				ProviderName:       "openai",
+				Model:              string(resp.Model),
+				Summary:            strings.TrimSpace(parsed.Summary),
+				Priority:           normalizePriority(parsed.Priority),
+				ArtifactTitle:      strings.TrimSpace(parsed.ArtifactTitle),
+				ArtifactBody:       strings.TrimSpace(parsed.ArtifactBody),
+				Rationale:          trimList(parsed.Rationale),
+				NextActions:        trimList(parsed.NextActions),
+				InputTokens:        totalUsage.InputTokens,
+				OutputTokens:       totalUsage.OutputTokens,
+				TotalTokens:        totalUsage.TotalTokens,
+				ToolLoopIterations: iteration,
+				ToolExecutions:     toolExecutions,
+			}, nil
+		}
+
+		if iteration == p.normalizedMaxToolIterations() {
+			return CoordinatorProviderOutput{}, fmt.Errorf("openai coordinator tool loop exceeded %d iterations", p.normalizedMaxToolIterations())
+		}
+
+		toolOutputs := make([]responses.ResponseInputItemUnionParam, 0, len(functionCalls))
+		for _, call := range functionCalls {
+			output, execution := p.executeCoordinatorTool(requestCtx, input, toolDefs, iteration, call)
+			toolExecutions = append(toolExecutions, execution)
+			toolOutputs = append(toolOutputs, responses.ResponseInputItemUnionParam{
+				OfFunctionCallOutput: &responses.ResponseInputItemFunctionCallOutputParam{
+					CallID: call.CallID,
+					Output: responses.ResponseInputItemFunctionCallOutputOutputUnionParam{
+						OfString: openai.String(output),
+					},
+				},
+			})
+		}
+		pendingInput = responses.ResponseNewParamsInputUnion{OfInputItemList: toolOutputs}
 	}
 
-	var parsed openAICoordinatorPayload
-	if err := json.Unmarshal([]byte(resp.OutputText()), &parsed); err != nil {
-		return CoordinatorProviderOutput{}, fmt.Errorf("decode openai coordinator output: %w", err)
+	return CoordinatorProviderOutput{}, fmt.Errorf("openai coordinator tool loop terminated without final output")
+}
+
+func (p *OpenAIProvider) newCoordinatorResponseParams(input CoordinatorProviderInput, toolDefs map[string]coordinatorToolDefinition) responses.ResponseNewParams {
+	return responses.ResponseNewParams{
+		Model:             p.model,
+		Store:             openai.Bool(false),
+		Temperature:       openai.Float(0.1),
+		MaxOutputTokens:   openai.Int(900),
+		MaxToolCalls:      openai.Int(1),
+		ParallelToolCalls: openai.Bool(false),
+		Instructions:      openai.String(strings.TrimSpace(p.coordinatorInstructions())),
+		Input:             responses.ResponseNewParamsInputUnion{OfString: openai.String(buildProviderPrompt(input))},
+		Text:              responses.ResponseTextConfigParam{Format: coordinatorResponseFormat()},
+		Tools:             coordinatorResponseTools(toolDefs),
+	}
+}
+
+func (p *OpenAIProvider) coordinatorInstructions() string {
+	return `You are the workflow_app inbound-request coordinator.
+Review the persisted request context and produce a structured operator-review brief.
+You may use the available read tools when they improve prioritization context.
+Do not propose direct writes, approval decisions, postings, or autonomous follow-up actions.
+If a tool call is denied or unavailable, continue without it and produce the best safe review possible.
+Focus on a safe summary, priority, rationale, and next actions for a human operator.`
+}
+
+func (p *OpenAIProvider) coordinatorToolDefinitions() map[string]coordinatorToolDefinition {
+	return map[string]coordinatorToolDefinition{
+		openAICoordinatorSummaryToolName: {
+			ToolName:     openAICoordinatorSummaryToolName,
+			Description:  "Return org-scoped inbound-request queue summary counts grouped by request status for operator prioritization context.",
+			MutatesState: false,
+			Parameters: map[string]any{
+				"type":                 "object",
+				"additionalProperties": false,
+				"properties":           map[string]any{},
+				"required":             []string{},
+			},
+			Execute: p.executeInboundRequestStatusSummaryTool,
+		},
+	}
+}
+
+func coordinatorResponseTools(toolDefs map[string]coordinatorToolDefinition) []responses.ToolUnionParam {
+	tools := make([]responses.ToolUnionParam, 0, len(toolDefs))
+	for _, tool := range toolDefs {
+		tool := tool
+		tools = append(tools, responses.ToolUnionParam{
+			OfFunction: &responses.FunctionToolParam{
+				Name:        tool.ToolName,
+				Description: openai.String(tool.Description),
+				Parameters:  tool.Parameters,
+				Strict:      openai.Bool(true),
+			},
+		})
+	}
+	return tools
+}
+
+func (p *OpenAIProvider) executeInboundRequestStatusSummaryTool(ctx context.Context, input CoordinatorProviderInput) (string, string, error) {
+	summaries, err := p.reportingService.ListInboundRequestStatusSummary(ctx, input.Actor)
+	if err != nil {
+		return "", "", fmt.Errorf("list inbound request status summary: %w", err)
 	}
 
-	return CoordinatorProviderOutput{
-		ProviderResponseID: resp.ID,
-		ProviderName:       "openai",
-		Model:              string(resp.Model),
-		Summary:            strings.TrimSpace(parsed.Summary),
-		Priority:           normalizePriority(parsed.Priority),
-		ArtifactTitle:      strings.TrimSpace(parsed.ArtifactTitle),
-		ArtifactBody:       strings.TrimSpace(parsed.ArtifactBody),
-		Rationale:          trimList(parsed.Rationale),
-		NextActions:        trimList(parsed.NextActions),
-		InputTokens:        resp.Usage.InputTokens,
-		OutputTokens:       resp.Usage.OutputTokens,
-		TotalTokens:        resp.Usage.TotalTokens,
-	}, nil
+	type summaryItem struct {
+		Status           string  `json:"status"`
+		RequestCount     int     `json:"request_count"`
+		MessageCount     int     `json:"message_count"`
+		AttachmentCount  int     `json:"attachment_count"`
+		LatestReceivedAt *string `json:"latest_received_at"`
+		LatestQueuedAt   *string `json:"latest_queued_at"`
+		LatestUpdatedAt  string  `json:"latest_updated_at"`
+	}
+
+	payload := make([]summaryItem, 0, len(summaries))
+	for _, summary := range summaries {
+		item := summaryItem{
+			Status:          summary.Status,
+			RequestCount:    summary.RequestCount,
+			MessageCount:    summary.MessageCount,
+			AttachmentCount: summary.AttachmentCount,
+			LatestUpdatedAt: summary.LatestUpdatedAt.UTC().Format(time.RFC3339),
+		}
+		if summary.LatestReceivedAt.Valid {
+			value := summary.LatestReceivedAt.Time.UTC().Format(time.RFC3339)
+			item.LatestReceivedAt = &value
+		}
+		if summary.LatestQueuedAt.Valid {
+			value := summary.LatestQueuedAt.Time.UTC().Format(time.RFC3339)
+			item.LatestQueuedAt = &value
+		}
+		payload = append(payload, item)
+	}
+
+	body, err := json.Marshal(map[string]any{
+		"request_reference": input.RequestReference,
+		"status_summaries":  payload,
+	})
+	if err != nil {
+		return "", "", fmt.Errorf("marshal inbound request status summary: %w", err)
+	}
+
+	preview := fmt.Sprintf("returned %d status groups", len(payload))
+	if len(payload) > 0 {
+		preview = fmt.Sprintf("returned %d status groups; top status=%s", len(payload), payload[0].Status)
+	}
+	return string(body), preview, nil
+}
+
+func (p *OpenAIProvider) executeCoordinatorTool(ctx context.Context, input CoordinatorProviderInput, toolDefs map[string]coordinatorToolDefinition, iteration int, call responses.ResponseFunctionToolCall) (string, CoordinatorToolExecution) {
+	execution := CoordinatorToolExecution{
+		Iteration:     iteration,
+		ToolName:      call.Name,
+		CallID:        call.CallID,
+		ArgumentsJSON: strings.TrimSpace(call.Arguments),
+	}
+
+	toolDef, ok := toolDefs[call.Name]
+	if !ok {
+		execution.Policy = PolicyDeny
+		execution.Outcome = "unknown_tool"
+		execution.ResultPreview = "requested tool is not registered in the coordinator runtime"
+		return marshalToolOutput(map[string]any{
+			"status":  "error",
+			"tool":    call.Name,
+			"message": "requested tool is not available",
+		}), execution
+	}
+
+	defaultPolicy := PolicyAllow
+	if toolDef.MutatesState {
+		defaultPolicy = PolicyApprovalRequired
+	}
+	resolvedPolicy, err := p.aiService.ResolveToolPolicy(ctx, ResolveToolPolicyInput{
+		CapabilityCode: input.CapabilityCode,
+		ToolName:       toolDef.ToolName,
+		DefaultPolicy:  defaultPolicy,
+		Actor:          input.Actor,
+	})
+	if err != nil {
+		execution.Policy = PolicyDeny
+		execution.Outcome = "policy_lookup_failed"
+		execution.ResultPreview = sanitizeToolPreview(err.Error())
+		return marshalToolOutput(map[string]any{
+			"status":  "error",
+			"tool":    toolDef.ToolName,
+			"message": "tool policy lookup failed",
+			"error":   sanitizeToolPreview(err.Error()),
+		}), execution
+	}
+	execution.Policy = resolvedPolicy.Policy
+
+	if resolvedPolicy.Policy != PolicyAllow {
+		execution.Outcome = "blocked_by_policy"
+		execution.ResultPreview = fmt.Sprintf("execution blocked by %s policy", resolvedPolicy.Policy)
+		return marshalToolOutput(map[string]any{
+			"status":        "blocked",
+			"tool":          toolDef.ToolName,
+			"policy":        resolvedPolicy.Policy,
+			"policy_source": resolvedPolicy.Source,
+			"message":       "tool execution blocked by policy",
+		}), execution
+	}
+
+	output, preview, err := toolDef.Execute(ctx, input)
+	if err != nil {
+		execution.Outcome = "execution_failed"
+		execution.ResultPreview = sanitizeToolPreview(err.Error())
+		return marshalToolOutput(map[string]any{
+			"status":  "error",
+			"tool":    toolDef.ToolName,
+			"message": "tool execution failed",
+			"error":   sanitizeToolPreview(err.Error()),
+		}), execution
+	}
+
+	execution.Outcome = "executed"
+	execution.ResultPreview = sanitizeToolPreview(preview)
+	return output, execution
+}
+
+func validateOpenAIResponse(resp *responses.Response) error {
+	if resp == nil {
+		return errors.New("openai responses api returned nil response")
+	}
+	switch resp.Status {
+	case responses.ResponseStatusCompleted:
+	case responses.ResponseStatusIncomplete:
+		reason := strings.TrimSpace(resp.IncompleteDetails.Reason)
+		if reason == "" {
+			reason = "unknown"
+		}
+		return fmt.Errorf("openai response incomplete: %s", reason)
+	case responses.ResponseStatusFailed:
+		return fmt.Errorf("openai response failed")
+	default:
+		return fmt.Errorf("openai response ended with status %s", resp.Status)
+	}
+
+	if hasResponseRefusal(resp) {
+		return fmt.Errorf("openai response refused to complete the coordinator task")
+	}
+
+	if len(extractFunctionCalls(resp)) == 0 && strings.TrimSpace(resp.OutputText()) == "" {
+		return fmt.Errorf("openai response did not return structured output text")
+	}
+
+	return nil
+}
+
+func extractFunctionCalls(resp *responses.Response) []responses.ResponseFunctionToolCall {
+	if resp == nil {
+		return nil
+	}
+	functionCalls := make([]responses.ResponseFunctionToolCall, 0)
+	for _, item := range resp.Output {
+		if item.Type != "function_call" {
+			continue
+		}
+		functionCalls = append(functionCalls, item.AsFunctionCall())
+	}
+	return functionCalls
+}
+
+func hasResponseRefusal(resp *responses.Response) bool {
+	if resp == nil {
+		return false
+	}
+	for _, item := range resp.Output {
+		for _, content := range item.Content {
+			if content.Type == "refusal" && strings.TrimSpace(content.Refusal) != "" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func marshalToolOutput(value any) string {
+	body, err := json.Marshal(value)
+	if err != nil {
+		return `{"status":"error","message":"failed to marshal tool output"}`
+	}
+	return string(body)
+}
+
+func sanitizeToolPreview(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	if len(value) > 200 {
+		return value[:200]
+	}
+	return value
+}
+
+func (p *OpenAIProvider) normalizedMaxToolIterations() int {
+	if p.maxToolIterations <= 0 {
+		return openAIMaxCoordinatorToolLoops
+	}
+	return p.maxToolIterations
+}
+
+type coordinatorTokenUsage struct {
+	InputTokens  int64
+	OutputTokens int64
+	TotalTokens  int64
+}
+
+func (u *coordinatorTokenUsage) add(usage responses.ResponseUsage) {
+	u.InputTokens += usage.InputTokens
+	u.OutputTokens += usage.OutputTokens
+	u.TotalTokens += usage.TotalTokens
 }
 
 type openAICoordinatorPayload struct {

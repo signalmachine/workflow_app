@@ -186,6 +186,19 @@ type SetToolPolicyInput struct {
 	Actor          identityaccess.Actor
 }
 
+type ResolveToolPolicyInput struct {
+	CapabilityCode string
+	ToolName       string
+	DefaultPolicy  string
+	Actor          identityaccess.Actor
+}
+
+type ResolvedToolPolicy struct {
+	ToolName string
+	Policy   string
+	Source   string
+}
+
 type CreateArtifactInput struct {
 	RunID        string
 	StepID       string
@@ -408,6 +421,36 @@ func (s *Service) SetToolPolicy(ctx context.Context, input SetToolPolicyInput) (
 	}
 
 	return policy, nil
+}
+
+func (s *Service) ResolveToolPolicy(ctx context.Context, input ResolveToolPolicyInput) (ResolvedToolPolicy, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return ResolvedToolPolicy{}, fmt.Errorf("begin resolve tool policy: %w", err)
+	}
+
+	if err := authorizeWriteTx(ctx, tx, input.Actor); err != nil {
+		_ = tx.Rollback()
+		return ResolvedToolPolicy{}, err
+	}
+
+	policy, found, err := resolveToolPolicyTx(ctx, tx, input.Actor.OrgID, input)
+	if err != nil {
+		_ = tx.Rollback()
+		return ResolvedToolPolicy{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return ResolvedToolPolicy{}, fmt.Errorf("commit resolve tool policy: %w", err)
+	}
+
+	if found {
+		return policy, nil
+	}
+	return ResolvedToolPolicy{
+		ToolName: normalizeRequired(input.ToolName),
+		Policy:   normalizeDefaultToolPolicy(input.DefaultPolicy),
+		Source:   "default",
+	}, nil
 }
 
 func (s *Service) CreateArtifact(ctx context.Context, input CreateArtifactInput) (Artifact, error) {
@@ -829,6 +872,33 @@ RETURNING id;`
 	}
 
 	return getToolPolicy(ctx, tx, input.Actor.OrgID, policyID)
+}
+
+func resolveToolPolicyTx(ctx context.Context, tx *sql.Tx, orgID string, input ResolveToolPolicyInput) (ResolvedToolPolicy, bool, error) {
+	capabilityCode := normalizeRequired(input.CapabilityCode)
+	toolName := normalizeRequired(input.ToolName)
+	if capabilityCode == "" || toolName == "" {
+		return ResolvedToolPolicy{}, false, ErrInvalidPolicy
+	}
+
+	const query = `
+SELECT t.tool_name, p.policy
+FROM ai.agent_tool_policies p
+JOIN ai.agent_tools t
+  ON t.id = p.tool_id
+WHERE p.org_id = $1
+  AND p.capability_code = $2
+  AND t.tool_name = $3;`
+
+	var resolved ResolvedToolPolicy
+	if err := tx.QueryRowContext(ctx, query, orgID, capabilityCode, toolName).Scan(&resolved.ToolName, &resolved.Policy); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ResolvedToolPolicy{}, false, nil
+		}
+		return ResolvedToolPolicy{}, false, fmt.Errorf("load resolved tool policy: %w", err)
+	}
+	resolved.Source = "explicit"
+	return resolved, true, nil
 }
 
 func createArtifactTx(ctx context.Context, tx *sql.Tx, orgID string, input CreateArtifactInput) (Artifact, error) {
@@ -1422,6 +1492,16 @@ func marshalJSON(value any) ([]byte, error) {
 
 func normalizeRequired(value string) string {
 	return strings.ToLower(strings.TrimSpace(value))
+}
+
+func normalizeDefaultToolPolicy(value string) string {
+	value = normalizeRequired(value)
+	switch value {
+	case PolicyAllow, PolicyApprovalRequired, PolicyDeny:
+		return value
+	default:
+		return PolicyDeny
+	}
 }
 
 func nullIfEmpty(value string) any {

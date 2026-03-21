@@ -29,6 +29,8 @@ type CoordinatorProvider interface {
 }
 
 type CoordinatorProviderInput struct {
+	CapabilityCode   string
+	Actor            identityaccess.Actor
 	RequestReference string
 	Channel          string
 	OriginType       string
@@ -73,6 +75,18 @@ type CoordinatorProviderOutput struct {
 	InputTokens        int64
 	OutputTokens       int64
 	TotalTokens        int64
+	ToolLoopIterations int
+	ToolExecutions     []CoordinatorToolExecution
+}
+
+type CoordinatorToolExecution struct {
+	Iteration     int    `json:"iteration"`
+	ToolName      string `json:"tool_name"`
+	Policy        string `json:"policy"`
+	Outcome       string `json:"outcome"`
+	CallID        string `json:"call_id"`
+	ArgumentsJSON string `json:"arguments_json"`
+	ResultPreview string `json:"result_preview"`
 }
 
 type ProcessNextQueuedInput struct {
@@ -138,7 +152,7 @@ func (c *Coordinator) ProcessNextQueued(ctx context.Context, input ProcessNextQu
 	}
 	result.Run = run
 
-	requestContext, err := c.loadRequestContext(ctx, input.Actor.OrgID, request.ID)
+	requestContext, err := c.loadRequestContext(ctx, input.Actor, request.ID)
 	if err != nil {
 		c.failRunAndRequest(ctx, run, "failed to load inbound request context", input.Actor)
 		return result, fmt.Errorf("load inbound request context: %w", err)
@@ -210,6 +224,8 @@ func (c *Coordinator) ProcessNextQueued(ctx context.Context, input ProcessNextQu
 			"input_tokens":         providerOutput.InputTokens,
 			"output_tokens":        providerOutput.OutputTokens,
 			"total_tokens":         providerOutput.TotalTokens,
+			"tool_loop_iterations": providerOutput.ToolLoopIterations,
+			"tool_executions":      providerOutput.ToolExecutions,
 		},
 		Actor: input.Actor,
 	})
@@ -234,6 +250,8 @@ func (c *Coordinator) ProcessNextQueued(ctx context.Context, input ProcessNextQu
 			"body":                 providerOutput.ArtifactBody,
 			"rationale":            providerOutput.Rationale,
 			"next_actions":         providerOutput.NextActions,
+			"tool_loop_iterations": providerOutput.ToolLoopIterations,
+			"tool_executions":      providerOutput.ToolExecutions,
 		},
 		Actor: input.Actor,
 	})
@@ -249,12 +267,14 @@ func (c *Coordinator) ProcessNextQueued(ctx context.Context, input ProcessNextQu
 		RecommendationType: coordinatorRecommendationType,
 		Summary:            providerOutput.Summary,
 		Payload: map[string]any{
-			"provider":          providerOutput.ProviderName,
-			"model":             providerOutput.Model,
-			"request_reference": request.RequestReference,
-			"priority":          providerOutput.Priority,
-			"next_actions":      providerOutput.NextActions,
-			"rationale":         providerOutput.Rationale,
+			"provider":             providerOutput.ProviderName,
+			"model":                providerOutput.Model,
+			"request_reference":    request.RequestReference,
+			"priority":             providerOutput.Priority,
+			"next_actions":         providerOutput.NextActions,
+			"rationale":            providerOutput.Rationale,
+			"tool_loop_iterations": providerOutput.ToolLoopIterations,
+			"tool_executions":      providerOutput.ToolExecutions,
 		},
 		Actor: input.Actor,
 	})
@@ -296,28 +316,30 @@ func (c *Coordinator) ProcessNextQueued(ctx context.Context, input ProcessNextQu
 	return result, nil
 }
 
-func (c *Coordinator) loadRequestContext(ctx context.Context, orgID, requestID string) (CoordinatorProviderInput, error) {
-	request, err := c.loadRequestRow(ctx, orgID, requestID)
+func (c *Coordinator) loadRequestContext(ctx context.Context, actor identityaccess.Actor, requestID string) (CoordinatorProviderInput, error) {
+	request, err := c.loadRequestRow(ctx, actor.OrgID, requestID)
 	if err != nil {
 		return CoordinatorProviderInput{}, err
 	}
 
-	messages, err := c.loadRequestMessages(ctx, orgID, requestID)
+	messages, err := c.loadRequestMessages(ctx, actor.OrgID, requestID)
 	if err != nil {
 		return CoordinatorProviderInput{}, err
 	}
 
-	attachments, err := c.loadRequestAttachments(ctx, orgID, requestID)
+	attachments, err := c.loadRequestAttachments(ctx, actor.OrgID, requestID)
 	if err != nil {
 		return CoordinatorProviderInput{}, err
 	}
 
-	derivedTexts, err := c.loadRequestDerivedTexts(ctx, orgID, requestID)
+	derivedTexts, err := c.loadRequestDerivedTexts(ctx, actor.OrgID, requestID)
 	if err != nil {
 		return CoordinatorProviderInput{}, err
 	}
 
 	return CoordinatorProviderInput{
+		CapabilityCode:   c.capabilityCode,
+		Actor:            actor,
 		RequestReference: request.RequestReference,
 		Channel:          request.Channel,
 		OriginType:       request.OriginType,
@@ -536,6 +558,9 @@ func validateCoordinatorProviderOutput(output CoordinatorProviderOutput) error {
 	}
 	if strings.TrimSpace(output.ArtifactBody) == "" {
 		return fmt.Errorf("%w: artifact body is required", ErrInvalidCoordinatorOutput)
+	}
+	if output.ToolLoopIterations < 0 {
+		return fmt.Errorf("%w: tool loop iterations cannot be negative", ErrInvalidCoordinatorOutput)
 	}
 
 	priority := normalizePriority(output.Priority)
