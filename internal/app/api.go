@@ -22,6 +22,9 @@ import (
 )
 
 const (
+	sessionLoginPath           = "/api/session/login"
+	sessionCurrentPath         = "/api/session"
+	sessionLogoutPath          = "/api/session/logout"
 	agentProcessNextQueuedPath = "/api/agent/process-next-queued-inbound-request"
 	submitInboundRequestPath   = "/api/inbound-requests"
 	attachmentContentPrefix    = "/api/attachments/"
@@ -34,9 +37,13 @@ const (
 	headerOrgID                = "X-Workflow-Org-ID"
 	headerUserID               = "X-Workflow-User-ID"
 	headerSessionID            = "X-Workflow-Session-ID"
+	sessionIDCookieName        = "workflow_session_id"
+	refreshTokenCookieName     = "workflow_refresh_token"
 )
 
 var uuidPattern = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
+
+const browserSessionDuration = 24 * time.Hour
 
 type ProcessNextQueuedInboundRequester interface {
 	ProcessNextQueuedInboundRequest(ctx context.Context, input ProcessNextQueuedInboundRequestInput) (ProcessNextQueuedInboundRequestResult, error)
@@ -60,6 +67,12 @@ type operatorReviewReader interface {
 
 type approvalDecisionService interface {
 	DecideApproval(ctx context.Context, input workflow.DecideApprovalInput) (workflow.Approval, documents.Document, error)
+}
+
+type browserSessionService interface {
+	StartBrowserSession(ctx context.Context, input identityaccess.StartBrowserSessionInput) (identityaccess.BrowserSession, error)
+	AuthenticateSession(ctx context.Context, sessionID, refreshToken string) (identityaccess.SessionContext, error)
+	RevokeAuthenticatedSession(ctx context.Context, sessionID, refreshToken string) error
 }
 
 type processNextQueuedRequest struct {
@@ -114,36 +127,48 @@ type decideApprovalRequest struct {
 	DecisionNote string `json:"decision_note"`
 }
 
+type sessionLoginRequest struct {
+	OrgSlug     string `json:"org_slug"`
+	Email       string `json:"email"`
+	DeviceLabel string `json:"device_label"`
+}
+
 type AgentAPIHandler struct {
 	loadProcessor     queuedInboundRequestProcessorLoader
 	submissionService inboundRequestSubmitter
 	reviewService     operatorReviewReader
 	approvalService   approvalDecisionService
+	authService       browserSessionService
 }
 
 func NewAgentAPIHandler(db *sql.DB) http.Handler {
 	documentService := documents.NewService(db)
+	authService := identityaccess.NewService(db)
 	return NewAgentAPIHandlerWithDependencies(func() (ProcessNextQueuedInboundRequester, error) {
 		return NewOpenAIAgentProcessorFromEnv(db)
-	}, NewSubmissionService(db), reporting.NewService(db), workflow.NewService(db, documentService))
+	}, NewSubmissionService(db), reporting.NewService(db), workflow.NewService(db, documentService), authService)
 }
 
 func NewAgentAPIHandlerWithProcessorLoader(loader queuedInboundRequestProcessorLoader) http.Handler {
-	return NewAgentAPIHandlerWithDependencies(loader, nil, nil, nil)
+	return NewAgentAPIHandlerWithDependencies(loader, nil, nil, nil, nil)
 }
 
 func NewAgentAPIHandlerWithServices(loader queuedInboundRequestProcessorLoader, submissionService inboundRequestSubmitter) http.Handler {
-	return NewAgentAPIHandlerWithDependencies(loader, submissionService, nil, nil)
+	return NewAgentAPIHandlerWithDependencies(loader, submissionService, nil, nil, nil)
 }
 
-func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoader, submissionService inboundRequestSubmitter, reviewService operatorReviewReader, approvalService approvalDecisionService) http.Handler {
+func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoader, submissionService inboundRequestSubmitter, reviewService operatorReviewReader, approvalService approvalDecisionService, authService browserSessionService) http.Handler {
 	handler := &AgentAPIHandler{
 		loadProcessor:     loader,
 		submissionService: submissionService,
 		reviewService:     reviewService,
 		approvalService:   approvalService,
+		authService:       authService,
 	}
 	mux := http.NewServeMux()
+	mux.HandleFunc(sessionLoginPath, handler.handleSessionLogin)
+	mux.HandleFunc(sessionCurrentPath, handler.handleCurrentSession)
+	mux.HandleFunc(sessionLogoutPath, handler.handleSessionLogout)
 	mux.HandleFunc(agentProcessNextQueuedPath, handler.handleProcessNextQueuedInboundRequest)
 	mux.HandleFunc(submitInboundRequestPath, handler.handleSubmitInboundRequest)
 	mux.HandleFunc(attachmentContentPrefix, handler.handleDownloadAttachment)
@@ -157,13 +182,136 @@ func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	return mux
 }
 
+func (h *AgentAPIHandler) handleSessionLogin(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != sessionLoginPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+		return
+	}
+	if h.authService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "auth service unavailable"})
+		return
+	}
+	if r.Body == nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "request body is required"})
+		return
+	}
+	defer r.Body.Close()
+
+	var req sessionLoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid JSON request body"})
+		return
+	}
+
+	deviceLabel := strings.TrimSpace(req.DeviceLabel)
+	if deviceLabel == "" {
+		deviceLabel = "browser"
+	}
+
+	session, err := h.authService.StartBrowserSession(r.Context(), identityaccess.StartBrowserSessionInput{
+		OrgSlug:     req.OrgSlug,
+		Email:       req.Email,
+		DeviceLabel: deviceLabel,
+		ExpiresAt:   time.Now().UTC().Add(browserSessionDuration),
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, identityaccess.ErrUnauthorized), errors.Is(err, identityaccess.ErrMembershipMissing):
+			writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "invalid session credentials"})
+		default:
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to start session"})
+		}
+		return
+	}
+
+	setSessionCookies(w, session.Session.ID, session.RefreshToken, session.Session.ExpiresAt)
+	writeJSON(w, http.StatusCreated, mapSessionContext(identityaccess.SessionContext{
+		Actor:           identityaccess.Actor{OrgID: session.Session.OrgID, UserID: session.Session.UserID, SessionID: session.Session.ID},
+		Session:         session.Session,
+		RoleCode:        session.RoleCode,
+		OrgSlug:         session.OrgSlug,
+		OrgName:         session.OrgName,
+		UserEmail:       session.UserEmail,
+		UserDisplayName: session.UserDisplayName,
+	}))
+}
+
+func (h *AgentAPIHandler) handleCurrentSession(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != sessionCurrentPath {
+		http.NotFound(w, r)
+		return
+	}
+	if h.authService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "auth service unavailable"})
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		context, err := h.sessionContextFromRequest(r)
+		if err != nil {
+			if errors.Is(err, identityaccess.ErrUnauthorized) {
+				writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
+				return
+			}
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+			return
+		}
+		if refreshToken := cookieValue(r, refreshTokenCookieName); refreshToken != "" {
+			setSessionCookies(w, context.Session.ID, refreshToken, context.Session.ExpiresAt)
+		}
+		writeJSON(w, http.StatusOK, mapSessionContext(context))
+	default:
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+	}
+}
+
+func (h *AgentAPIHandler) handleSessionLogout(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != sessionLogoutPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+		return
+	}
+	if h.authService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "auth service unavailable"})
+		return
+	}
+
+	sessionID, refreshToken, ok := sessionCookiesFromRequest(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
+		return
+	}
+
+	if err := h.authService.RevokeAuthenticatedSession(r.Context(), sessionID, refreshToken); err != nil {
+		if errors.Is(err, identityaccess.ErrUnauthorized) || errors.Is(err, identityaccess.ErrSessionNotActive) {
+			writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to revoke session"})
+		return
+	}
+
+	clearSessionCookies(w)
+	writeJSON(w, http.StatusOK, struct {
+		Revoked bool `json:"revoked"`
+	}{Revoked: true})
+}
+
 func (h *AgentAPIHandler) handleProcessNextQueuedInboundRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
 		return
 	}
 
-	actor, err := actorFromHeaders(r)
+	actor, err := h.actorFromRequest(r)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
@@ -230,7 +378,7 @@ func (h *AgentAPIHandler) handleSubmitInboundRequest(w http.ResponseWriter, r *h
 		return
 	}
 
-	actor, err := actorFromHeaders(r)
+	actor, err := h.actorFromRequest(r)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
@@ -308,7 +456,7 @@ func (h *AgentAPIHandler) handleDownloadAttachment(w http.ResponseWriter, r *htt
 		return
 	}
 
-	actor, err := actorFromHeaders(r)
+	actor, err := h.actorFromRequest(r)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
@@ -355,7 +503,7 @@ func (h *AgentAPIHandler) handleListInboundRequests(w http.ResponseWriter, r *ht
 		return
 	}
 
-	actor, err := actorFromHeaders(r)
+	actor, err := h.actorFromRequest(r)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
@@ -397,7 +545,7 @@ func (h *AgentAPIHandler) handleGetInboundRequestDetail(w http.ResponseWriter, r
 		return
 	}
 
-	actor, err := actorFromHeaders(r)
+	actor, err := h.actorFromRequest(r)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
@@ -433,7 +581,7 @@ func (h *AgentAPIHandler) handleListInboundRequestStatusSummary(w http.ResponseW
 		return
 	}
 
-	actor, err := actorFromHeaders(r)
+	actor, err := h.actorFromRequest(r)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
@@ -476,7 +624,7 @@ func (h *AgentAPIHandler) handleListProcessedProposals(w http.ResponseWriter, r 
 		return
 	}
 
-	actor, err := actorFromHeaders(r)
+	actor, err := h.actorFromRequest(r)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
@@ -517,7 +665,7 @@ func (h *AgentAPIHandler) handleListProcessedProposalStatusSummary(w http.Respon
 		return
 	}
 
-	actor, err := actorFromHeaders(r)
+	actor, err := h.actorFromRequest(r)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
@@ -654,6 +802,21 @@ func (h *AgentAPIHandler) handleDecideApproval(w http.ResponseWriter, r *http.Re
 	})
 }
 
+func (h *AgentAPIHandler) actorFromRequest(r *http.Request) (identityaccess.Actor, error) {
+	if actor, err := actorFromHeaders(r); err == nil {
+		return actor, nil
+	}
+	if h.authService == nil {
+		return identityaccess.Actor{}, fmt.Errorf("missing required authentication headers")
+	}
+
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		return identityaccess.Actor{}, err
+	}
+	return sessionContext.Actor, nil
+}
+
 func actorFromHeaders(r *http.Request) (identityaccess.Actor, error) {
 	orgID := strings.TrimSpace(r.Header.Get(headerOrgID))
 	userID := strings.TrimSpace(r.Header.Get(headerUserID))
@@ -672,10 +835,80 @@ func actorFromHeaders(r *http.Request) (identityaccess.Actor, error) {
 	}, nil
 }
 
+func (h *AgentAPIHandler) sessionContextFromRequest(r *http.Request) (identityaccess.SessionContext, error) {
+	sessionID, refreshToken, ok := sessionCookiesFromRequest(r)
+	if !ok {
+		if _, err := actorFromHeaders(r); err != nil {
+			return identityaccess.SessionContext{}, identityaccess.ErrUnauthorized
+		}
+		return identityaccess.SessionContext{}, identityaccess.ErrUnauthorized
+	}
+	return h.authService.AuthenticateSession(r.Context(), sessionID, refreshToken)
+}
+
 func writeJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func setSessionCookies(w http.ResponseWriter, sessionID, refreshToken string, expiresAt time.Time) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionIDCookieName,
+		Value:    sessionID,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Expires:  expiresAt,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     refreshTokenCookieName,
+		Value:    refreshToken,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Expires:  expiresAt,
+	})
+}
+
+func clearSessionCookies(w http.ResponseWriter) {
+	for _, name := range []string{sessionIDCookieName, refreshTokenCookieName} {
+		http.SetCookie(w, &http.Cookie{
+			Name:     name,
+			Value:    "",
+			Path:     "/",
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   -1,
+			Expires:  time.Unix(0, 0).UTC(),
+		})
+	}
+}
+
+func sessionCookiesFromRequest(r *http.Request) (string, string, bool) {
+	sessionIDCookie, err := r.Cookie(sessionIDCookieName)
+	if err != nil {
+		return "", "", false
+	}
+	refreshTokenCookie, err := r.Cookie(refreshTokenCookieName)
+	if err != nil {
+		return "", "", false
+	}
+
+	sessionID := strings.TrimSpace(sessionIDCookie.Value)
+	refreshToken := strings.TrimSpace(refreshTokenCookie.Value)
+	if !uuidPattern.MatchString(sessionID) || refreshToken == "" {
+		return "", "", false
+	}
+	return sessionID, refreshToken, true
+}
+
+func cookieValue(r *http.Request, name string) string {
+	cookie, err := r.Cookie(name)
+	if err != nil {
+		return ""
+	}
+	return cookie.Value
 }
 
 func parseAttachmentContentPath(path string) (string, bool) {
@@ -755,6 +988,38 @@ type approvalQueueEntryResponse struct {
 	JournalEntryID       *string    `json:"journal_entry_id,omitempty"`
 	JournalEntryNumber   *int64     `json:"journal_entry_number,omitempty"`
 	JournalEntryPostedAt *time.Time `json:"journal_entry_posted_at,omitempty"`
+}
+
+type sessionContextResponse struct {
+	SessionID       string    `json:"session_id"`
+	OrgID           string    `json:"org_id"`
+	OrgSlug         string    `json:"org_slug"`
+	OrgName         string    `json:"org_name"`
+	UserID          string    `json:"user_id"`
+	UserEmail       string    `json:"user_email"`
+	UserDisplayName string    `json:"user_display_name"`
+	RoleCode        string    `json:"role_code"`
+	DeviceLabel     string    `json:"device_label"`
+	ExpiresAt       time.Time `json:"expires_at"`
+	IssuedAt        time.Time `json:"issued_at"`
+	LastSeenAt      time.Time `json:"last_seen_at"`
+}
+
+func mapSessionContext(context identityaccess.SessionContext) sessionContextResponse {
+	return sessionContextResponse{
+		SessionID:       context.Session.ID,
+		OrgID:           context.Actor.OrgID,
+		OrgSlug:         context.OrgSlug,
+		OrgName:         context.OrgName,
+		UserID:          context.Actor.UserID,
+		UserEmail:       context.UserEmail,
+		UserDisplayName: context.UserDisplayName,
+		RoleCode:        context.RoleCode,
+		DeviceLabel:     context.Session.DeviceLabel,
+		ExpiresAt:       context.Session.ExpiresAt,
+		IssuedAt:        context.Session.IssuedAt,
+		LastSeenAt:      context.Session.LastSeenAt,
+	}
 }
 
 type inboundRequestReviewResponse struct {

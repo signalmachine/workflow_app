@@ -2,9 +2,14 @@ package identityaccess
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -12,6 +17,7 @@ var (
 	ErrUnauthorized      = errors.New("unauthorized")
 	ErrSessionNotActive  = errors.New("session not active")
 	ErrMembershipMissing = errors.New("membership not found")
+	ErrSessionInvalid    = errors.New("session invalid")
 )
 
 const (
@@ -46,6 +52,33 @@ type StartSessionInput struct {
 	DeviceLabel      string
 	RefreshTokenHash string
 	ExpiresAt        time.Time
+}
+
+type StartBrowserSessionInput struct {
+	OrgSlug     string
+	Email       string
+	DeviceLabel string
+	ExpiresAt   time.Time
+}
+
+type BrowserSession struct {
+	Session         Session
+	RefreshToken    string
+	RoleCode        string
+	OrgSlug         string
+	OrgName         string
+	UserEmail       string
+	UserDisplayName string
+}
+
+type SessionContext struct {
+	Actor           Actor
+	Session         Session
+	RoleCode        string
+	OrgSlug         string
+	OrgName         string
+	UserEmail       string
+	UserDisplayName string
 }
 
 type Service struct {
@@ -113,6 +146,112 @@ WHERE id = $1
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit revoke session: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Service) StartBrowserSession(ctx context.Context, input StartBrowserSessionInput) (BrowserSession, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return BrowserSession{}, fmt.Errorf("begin start browser session: %w", err)
+	}
+
+	profile, err := loadBrowserProfileTx(ctx, tx, input.OrgSlug, input.Email)
+	if err != nil {
+		_ = tx.Rollback()
+		return BrowserSession{}, err
+	}
+
+	refreshToken, refreshTokenHash, err := newRefreshToken()
+	if err != nil {
+		_ = tx.Rollback()
+		return BrowserSession{}, err
+	}
+
+	session, err := startSessionTx(ctx, tx, StartSessionInput{
+		OrgID:            profile.OrgID,
+		UserID:           profile.UserID,
+		DeviceLabel:      strings.TrimSpace(input.DeviceLabel),
+		RefreshTokenHash: refreshTokenHash,
+		ExpiresAt:        input.ExpiresAt,
+	})
+	if err != nil {
+		_ = tx.Rollback()
+		return BrowserSession{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return BrowserSession{}, fmt.Errorf("commit start browser session: %w", err)
+	}
+
+	return BrowserSession{
+		Session:         session,
+		RefreshToken:    refreshToken,
+		RoleCode:        profile.RoleCode,
+		OrgSlug:         profile.OrgSlug,
+		OrgName:         profile.OrgName,
+		UserEmail:       profile.UserEmail,
+		UserDisplayName: profile.UserDisplayName,
+	}, nil
+}
+
+func (s *Service) AuthenticateSession(ctx context.Context, sessionID, refreshToken string) (SessionContext, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return SessionContext{}, fmt.Errorf("begin authenticate session: %w", err)
+	}
+
+	session, err := authenticateSessionTx(ctx, tx, sessionID, refreshToken, true)
+	if err != nil {
+		_ = tx.Rollback()
+		return SessionContext{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return SessionContext{}, fmt.Errorf("commit authenticate session: %w", err)
+	}
+
+	return session, nil
+}
+
+func (s *Service) RevokeAuthenticatedSession(ctx context.Context, sessionID, refreshToken string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin revoke authenticated session: %w", err)
+	}
+
+	session, err := authenticateSessionTx(ctx, tx, sessionID, refreshToken, false)
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	const statement = `
+UPDATE identityaccess.sessions
+SET status = 'revoked',
+	last_seen_at = NOW()
+WHERE id = $1
+  AND status = 'active';`
+
+	result, err := tx.ExecContext(ctx, statement, session.Session.ID)
+	if err != nil {
+		_ = tx.Rollback()
+		return fmt.Errorf("revoke authenticated session: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		_ = tx.Rollback()
+		return fmt.Errorf("revoke authenticated session rows affected: %w", err)
+	}
+	if rows == 0 {
+		_ = tx.Rollback()
+		return ErrSessionNotActive
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit revoke authenticated session: %w", err)
 	}
 
 	return nil
@@ -199,6 +338,173 @@ RETURNING
 		input.RefreshTokenHash,
 		input.ExpiresAt,
 	))
+}
+
+type browserProfile struct {
+	OrgID           string
+	UserID          string
+	RoleCode        string
+	OrgSlug         string
+	OrgName         string
+	UserEmail       string
+	UserDisplayName string
+}
+
+func loadBrowserProfileTx(ctx context.Context, tx *sql.Tx, orgSlug, email string) (browserProfile, error) {
+	const query = `
+SELECT
+	o.id,
+	u.id,
+	m.role_code,
+	o.slug,
+	o.name,
+	u.email,
+	u.display_name
+FROM identityaccess.memberships m
+JOIN identityaccess.orgs o
+  ON o.id = m.org_id
+JOIN identityaccess.users u
+  ON u.id = m.user_id
+WHERE lower(o.slug) = lower($1)
+  AND lower(u.email) = lower($2)
+  AND o.status = 'active'
+  AND u.status = 'active'
+  AND m.status = 'active'
+FOR UPDATE OF m;`
+
+	var profile browserProfile
+	if err := tx.QueryRowContext(ctx, query, strings.TrimSpace(orgSlug), strings.TrimSpace(email)).Scan(
+		&profile.OrgID,
+		&profile.UserID,
+		&profile.RoleCode,
+		&profile.OrgSlug,
+		&profile.OrgName,
+		&profile.UserEmail,
+		&profile.UserDisplayName,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return browserProfile{}, ErrUnauthorized
+		}
+		return browserProfile{}, fmt.Errorf("load browser profile: %w", err)
+	}
+
+	return profile, nil
+}
+
+func authenticateSessionTx(ctx context.Context, tx *sql.Tx, sessionID, refreshToken string, updateLastSeen bool) (SessionContext, error) {
+	const query = `
+SELECT
+	s.id,
+	s.org_id,
+	s.user_id,
+	s.membership_id,
+	s.device_label,
+	s.refresh_token_hash,
+	s.status,
+	s.expires_at,
+	s.replaced_by_session_id,
+	s.issued_at,
+	s.last_seen_at,
+	m.role_code,
+	o.slug,
+	o.name,
+	u.email,
+	u.display_name
+FROM identityaccess.sessions s
+JOIN identityaccess.memberships m
+  ON m.id = s.membership_id
+JOIN identityaccess.orgs o
+  ON o.id = s.org_id
+JOIN identityaccess.users u
+  ON u.id = s.user_id
+WHERE s.id = $1
+  AND s.status = 'active'
+  AND s.expires_at > NOW()
+  AND m.status = 'active'
+  AND o.status = 'active'
+  AND u.status = 'active'
+FOR UPDATE OF s;`
+
+	var (
+		session Session
+		context SessionContext
+	)
+	err := tx.QueryRowContext(ctx, query, strings.TrimSpace(sessionID)).Scan(
+		&session.ID,
+		&session.OrgID,
+		&session.UserID,
+		&session.MembershipID,
+		&session.DeviceLabel,
+		&session.RefreshTokenHash,
+		&session.Status,
+		&session.ExpiresAt,
+		&session.ReplacedBySessionID,
+		&session.IssuedAt,
+		&session.LastSeenAt,
+		&context.RoleCode,
+		&context.OrgSlug,
+		&context.OrgName,
+		&context.UserEmail,
+		&context.UserDisplayName,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return SessionContext{}, ErrUnauthorized
+		}
+		return SessionContext{}, fmt.Errorf("load authenticated session: %w", err)
+	}
+
+	if !refreshTokenMatches(strings.TrimSpace(refreshToken), session.RefreshTokenHash) {
+		return SessionContext{}, ErrUnauthorized
+	}
+
+	if updateLastSeen {
+		const update = `
+UPDATE identityaccess.sessions
+SET last_seen_at = NOW()
+WHERE id = $1
+RETURNING last_seen_at;`
+		if err := tx.QueryRowContext(ctx, update, session.ID).Scan(&session.LastSeenAt); err != nil {
+			return SessionContext{}, fmt.Errorf("update session last seen: %w", err)
+		}
+	}
+
+	return SessionContext{
+		Actor: Actor{
+			OrgID:     session.OrgID,
+			UserID:    session.UserID,
+			SessionID: session.ID,
+		},
+		Session:         session,
+		RoleCode:        context.RoleCode,
+		OrgSlug:         context.OrgSlug,
+		OrgName:         context.OrgName,
+		UserEmail:       context.UserEmail,
+		UserDisplayName: context.UserDisplayName,
+	}, nil
+}
+
+func newRefreshToken() (string, string, error) {
+	var raw [32]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		return "", "", fmt.Errorf("generate refresh token: %w", err)
+	}
+
+	token := hex.EncodeToString(raw[:])
+	return token, hashRefreshToken(token), nil
+}
+
+func hashRefreshToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}
+
+func refreshTokenMatches(rawToken, expectedHash string) bool {
+	if strings.TrimSpace(rawToken) == "" || strings.TrimSpace(expectedHash) == "" {
+		return false
+	}
+	actual := hashRefreshToken(rawToken)
+	return subtle.ConstantTimeCompare([]byte(actual), []byte(expectedHash)) == 1
 }
 
 type rowScanner interface {

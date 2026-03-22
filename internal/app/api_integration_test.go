@@ -20,6 +20,175 @@ import (
 	"workflow_app/internal/workflow"
 )
 
+func TestAgentAPISessionLoginCurrentSessionAndLogoutIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	orgSlug, userEmail := loadOrgSlugAndUserEmail(t, ctx, db, orgID, operatorUserID)
+
+	handler := app.NewAgentAPIHandler(db)
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/session/login", bytes.NewBufferString(`{
+		"org_slug":"`+orgSlug+`",
+		"email":"`+userEmail+`",
+		"device_label":"browser-integration"
+	}`))
+	loginReq.Header.Set("Content-Type", "application/json")
+	loginRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(loginRecorder, loginReq)
+
+	if loginRecorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected login status: got %d body=%s", loginRecorder.Code, loginRecorder.Body.String())
+	}
+
+	var loginResponse struct {
+		SessionID       string `json:"session_id"`
+		OrgID           string `json:"org_id"`
+		OrgSlug         string `json:"org_slug"`
+		UserID          string `json:"user_id"`
+		UserEmail       string `json:"user_email"`
+		UserDisplayName string `json:"user_display_name"`
+		RoleCode        string `json:"role_code"`
+		DeviceLabel     string `json:"device_label"`
+	}
+	if err := json.Unmarshal(loginRecorder.Body.Bytes(), &loginResponse); err != nil {
+		t.Fatalf("decode login response: %v", err)
+	}
+	if loginResponse.OrgID != orgID || loginResponse.UserID != operatorUserID {
+		t.Fatalf("unexpected login identity: %+v", loginResponse)
+	}
+	if loginResponse.OrgSlug != orgSlug || loginResponse.UserEmail != userEmail {
+		t.Fatalf("unexpected login profile: %+v", loginResponse)
+	}
+	if loginResponse.RoleCode != identityaccess.RoleOperator || loginResponse.DeviceLabel != "browser-integration" {
+		t.Fatalf("unexpected login session metadata: %+v", loginResponse)
+	}
+
+	currentReq := httptest.NewRequest(http.MethodGet, "/api/session", nil)
+	applyResponseCookies(currentReq, loginRecorder.Result().Cookies())
+	currentRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(currentRecorder, currentReq)
+
+	if currentRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected current-session status: got %d body=%s", currentRecorder.Code, currentRecorder.Body.String())
+	}
+
+	var currentResponse struct {
+		SessionID string `json:"session_id"`
+		OrgID     string `json:"org_id"`
+		UserID    string `json:"user_id"`
+	}
+	if err := json.Unmarshal(currentRecorder.Body.Bytes(), &currentResponse); err != nil {
+		t.Fatalf("decode current-session response: %v", err)
+	}
+	if currentResponse.SessionID != loginResponse.SessionID || currentResponse.OrgID != orgID || currentResponse.UserID != operatorUserID {
+		t.Fatalf("unexpected current session payload: %+v", currentResponse)
+	}
+
+	logoutReq := httptest.NewRequest(http.MethodPost, "/api/session/logout", nil)
+	applyResponseCookies(logoutReq, loginRecorder.Result().Cookies())
+	logoutRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(logoutRecorder, logoutReq)
+
+	if logoutRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected logout status: got %d body=%s", logoutRecorder.Code, logoutRecorder.Body.String())
+	}
+
+	postLogoutReq := httptest.NewRequest(http.MethodGet, "/api/session", nil)
+	applyResponseCookies(postLogoutReq, loginRecorder.Result().Cookies())
+	postLogoutRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(postLogoutRecorder, postLogoutReq)
+	if postLogoutRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("unexpected post-logout current-session status: got %d body=%s", postLogoutRecorder.Code, postLogoutRecorder.Body.String())
+	}
+}
+
+func TestAgentAPISubmitInboundRequestWithBrowserSessionCookies(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	orgSlug, userEmail := loadOrgSlugAndUserEmail(t, ctx, db, orgID, operatorUserID)
+
+	handler := app.NewAgentAPIHandler(db)
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/session/login", bytes.NewBufferString(`{
+		"org_slug":"`+orgSlug+`",
+		"email":"`+userEmail+`"
+	}`))
+	loginReq.Header.Set("Content-Type", "application/json")
+	loginRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(loginRecorder, loginReq)
+	if loginRecorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected login status: got %d body=%s", loginRecorder.Code, loginRecorder.Body.String())
+	}
+
+	body := bytes.NewBufferString(`{
+		"origin_type":"human",
+		"channel":"browser",
+		"metadata":{"submitter_label":"front desk"},
+		"message":{"message_role":"request","text_content":"Submit this request with cookie auth."}
+	}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/inbound-requests", body)
+	req.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(req, loginRecorder.Result().Cookies())
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	var response struct {
+		RequestID string `json:"request_id"`
+		Status    string `json:"status"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode submit response: %v", err)
+	}
+	if response.RequestID == "" || response.Status != "queued" {
+		t.Fatalf("unexpected submit response: %+v", response)
+	}
+
+	var storedSessionID sql.NullString
+	if err := db.QueryRowContext(ctx, `SELECT session_id FROM ai.inbound_requests WHERE id = $1`, response.RequestID).Scan(&storedSessionID); err != nil {
+		t.Fatalf("load submitted request session: %v", err)
+	}
+	if !storedSessionID.Valid {
+		t.Fatal("expected persisted browser session linkage")
+	}
+}
+
+func TestAgentAPISessionLoginRejectsUnknownMembership(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	handler := app.NewAgentAPIHandler(db)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/session/login", bytes.NewBufferString(`{
+		"org_slug":"missing-org",
+		"email":"missing@example.com"
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("unexpected login failure status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
 func TestAgentAPIProcessNextQueuedInboundRequestIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()
@@ -682,6 +851,28 @@ func seedOrgAndUserInOrg(t *testing.T, ctx context.Context, db *sql.DB, roleCode
 	}
 
 	return orgID, userID
+}
+
+func loadOrgSlugAndUserEmail(t *testing.T, ctx context.Context, db *sql.DB, orgID, userID string) (string, string) {
+	t.Helper()
+
+	var orgSlug string
+	if err := db.QueryRowContext(ctx, `SELECT slug FROM identityaccess.orgs WHERE id = $1`, orgID).Scan(&orgSlug); err != nil {
+		t.Fatalf("load org slug: %v", err)
+	}
+
+	var userEmail string
+	if err := db.QueryRowContext(ctx, `SELECT email FROM identityaccess.users WHERE id = $1`, userID).Scan(&userEmail); err != nil {
+		t.Fatalf("load user email: %v", err)
+	}
+
+	return orgSlug, userEmail
+}
+
+func applyResponseCookies(req *http.Request, cookies []*http.Cookie) {
+	for _, cookie := range cookies {
+		req.AddCookie(cookie)
+	}
 }
 
 func createPendingApproval(t *testing.T, ctx context.Context, documentService *documents.Service, workflowService *workflow.Service, actor identityaccess.Actor) (workflow.Approval, documents.Document) {
