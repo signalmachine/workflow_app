@@ -63,6 +63,7 @@ type webAccountingData struct {
 	StartOn         string
 	EndOn           string
 	AsOf            string
+	DocumentID      string
 	JournalEntries  []reporting.JournalEntryReview
 	ControlBalances []reporting.ControlAccountBalance
 	TaxSummaries    []reporting.TaxSummary
@@ -263,19 +264,21 @@ func (h *AgentAPIHandler) handleWebAccounting(w http.ResponseWriter, r *http.Req
 	endOn := parseOptionalDate(r.URL.Query().Get("end_on"))
 	asOf := parseOptionalDate(r.URL.Query().Get("as_of"))
 	data := webAccountingData{
-		Session: sessionContext,
-		Notice:  strings.TrimSpace(r.URL.Query().Get("notice")),
-		Error:   strings.TrimSpace(r.URL.Query().Get("error")),
-		StartOn: formatDateInput(startOn),
-		EndOn:   formatDateInput(endOn),
-		AsOf:    formatDateInput(asOf),
+		Session:    sessionContext,
+		Notice:     strings.TrimSpace(r.URL.Query().Get("notice")),
+		Error:      strings.TrimSpace(r.URL.Query().Get("error")),
+		StartOn:    formatDateInput(startOn),
+		EndOn:      formatDateInput(endOn),
+		AsOf:       formatDateInput(asOf),
+		DocumentID: strings.TrimSpace(r.URL.Query().Get("document_id")),
 	}
 
 	data.JournalEntries, err = h.reviewService.ListJournalEntries(r.Context(), reporting.ListJournalEntriesInput{
-		StartOn: startOn,
-		EndOn:   endOn,
-		Limit:   50,
-		Actor:   sessionContext.Actor,
+		StartOn:    startOn,
+		EndOn:      endOn,
+		DocumentID: data.DocumentID,
+		Limit:      50,
+		Actor:      sessionContext.Actor,
 	})
 	if err != nil {
 		data.Error = "failed to load journal entries"
@@ -1457,7 +1460,7 @@ const webAppHTML = `<!DOCTYPE html>
               </td>
               <td><span class="status-pill {{statusClass .Status}}">{{.Status}}</span></td>
               <td>{{.ApprovalStatus.String}}</td>
-              <td>{{if .JournalEntryNumber.Valid}}Entry #{{.JournalEntryNumber.Int64}}{{else}}-{{end}}</td>
+              <td>{{if .JournalEntryNumber.Valid}}<a href="/app/review/accounting?document_id={{.DocumentID}}">Entry #{{.JournalEntryNumber.Int64}}</a>{{else}}-{{end}}</td>
             </tr>
             {{else}}
             <tr><td colspan="5">No documents available for the selected filters.</td></tr>
@@ -1478,6 +1481,7 @@ const webAppHTML = `<!DOCTYPE html>
           <input type="date" name="start_on" value="{{.StartOn}}">
           <input type="date" name="end_on" value="{{.EndOn}}">
           <input type="date" name="as_of" value="{{.AsOf}}">
+          <input type="text" name="document_id" value="{{.DocumentID}}" placeholder="source document id">
           <button type="submit">Apply filters</button>
         </form>
       </section>
@@ -1496,9 +1500,21 @@ const webAppHTML = `<!DOCTYPE html>
             <tbody>
               {{range .JournalEntries}}
               <tr>
-                <td>#{{.EntryNumber}}</td>
+                <td>
+                  #{{.EntryNumber}}
+                  <div class="meta">{{.EntryKind}} | {{formatTime .PostedAt}}</div>
+                </td>
                 <td>{{.TaxScopeCode}}</td>
-                <td>{{.Summary}}</td>
+                <td>
+                  {{.Summary}}
+                  {{if .SourceDocumentID.Valid}}
+                  <div class="meta">
+                    <a href="/app/review/documents?document_id={{.SourceDocumentID.String}}">Source document</a>
+                    {{if .DocumentStatus.Valid}} | <span class="status-pill {{statusClass .DocumentStatus.String}}">{{.DocumentStatus.String}}</span>{{end}}
+                  </div>
+                  <div class="meta"><a href="/app/review/audit?entity_type=documents.document&amp;entity_id={{.SourceDocumentID.String}}">Document audit</a></div>
+                  {{end}}
+                </td>
                 <td>Dr {{.TotalDebitMinor}} / Cr {{.TotalCreditMinor}}</td>
               </tr>
               {{else}}
@@ -1654,7 +1670,7 @@ const webAppHTML = `<!DOCTYPE html>
               </td>
               <td>{{.ItemSKU}} | {{.ItemName}}</td>
               <td>{{if .WorkOrderID.Valid}}<a href="/app/review/work-orders/{{.WorkOrderID.String}}">{{.WorkOrderCode.String}}</a>{{else}}-{{end}} / {{if .ExecutionLinkStatus.Valid}}{{.ExecutionLinkStatus.String}}{{else}}-{{end}}</td>
-              <td>{{if .JournalEntryNumber.Valid}}Entry #{{.JournalEntryNumber.Int64}}{{else}}-{{end}} / {{if .AccountingHandoffStatus.Valid}}{{.AccountingHandoffStatus.String}}{{else}}-{{end}}</td>
+              <td>{{if .JournalEntryNumber.Valid}}<a href="/app/review/accounting?document_id={{.DocumentID}}">Entry #{{.JournalEntryNumber.Int64}}</a>{{else}}-{{end}} / {{if .AccountingHandoffStatus.Valid}}{{.AccountingHandoffStatus.String}}{{else}}-{{end}}</td>
             </tr>
             {{else}}
             <tr><td colspan="4">No reconciliation rows available.</td></tr>
@@ -1741,7 +1757,7 @@ const webAppHTML = `<!DOCTYPE html>
           <div class="detail-block">Document status: {{.Review.DocumentStatus}}</div>
           <div class="detail-block">Posted labor entries: {{.Review.PostedLaborEntryCount}} / {{.Review.PostedLaborCostMinor}}</div>
           <div class="detail-block">Posted material usages: {{.Review.PostedMaterialUsageCount}}</div>
-          <div class="detail-block">Last accounting post: {{if .Review.LastAccountingPostedAt.Valid}}{{formatTime .Review.LastAccountingPostedAt.Time}}{{else}}-{{end}}</div>
+          <div class="detail-block">Last accounting post: {{if .Review.LastAccountingPostedAt.Valid}}<a href="/app/review/accounting?document_id={{.Review.DocumentID}}">{{formatTime .Review.LastAccountingPostedAt.Time}}</a>{{else}}-{{end}}</div>
         </section>
       </div>
     </div>

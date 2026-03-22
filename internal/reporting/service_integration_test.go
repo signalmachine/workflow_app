@@ -545,6 +545,21 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 		t.Fatalf("expected document linkage in journal review: %+v", journalReviews[0])
 	}
 
+	filteredJournalReviews, err := reportingService.ListJournalEntries(ctx, reporting.ListJournalEntriesInput{
+		DocumentID: gstInvoiceDoc.ID,
+		Limit:      20,
+		Actor:      admin,
+	})
+	if err != nil {
+		t.Fatalf("list filtered journal reviews: %v", err)
+	}
+	if len(filteredJournalReviews) != 1 {
+		t.Fatalf("expected one filtered journal review, got %d", len(filteredJournalReviews))
+	}
+	if filteredJournalReviews[0].EntryID != gstEntry.ID || !filteredJournalReviews[0].SourceDocumentID.Valid || filteredJournalReviews[0].SourceDocumentID.String != gstInvoiceDoc.ID {
+		t.Fatalf("unexpected filtered journal review: %+v", filteredJournalReviews[0])
+	}
+
 	controlBalances, err := reportingService.ListControlAccountBalances(ctx, reporting.ListControlAccountBalancesInput{
 		AsOf:  tdsPostedAt,
 		Actor: admin,

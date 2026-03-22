@@ -851,10 +851,11 @@ func (h *AgentAPIHandler) handleListJournalEntries(w http.ResponseWriter, r *htt
 	}
 
 	items, err := h.reviewService.ListJournalEntries(r.Context(), reporting.ListJournalEntriesInput{
-		StartOn: parseOptionalDate(r.URL.Query().Get("start_on")),
-		EndOn:   parseOptionalDate(r.URL.Query().Get("end_on")),
-		Limit:   parseLimit(r.URL.Query().Get("limit")),
-		Actor:   actor,
+		StartOn:    parseOptionalDate(r.URL.Query().Get("start_on")),
+		EndOn:      parseOptionalDate(r.URL.Query().Get("end_on")),
+		DocumentID: strings.TrimSpace(r.URL.Query().Get("document_id")),
+		Limit:      parseLimit(r.URL.Query().Get("limit")),
+		Actor:      actor,
 	})
 	if err != nil {
 		handleReviewError(w, err, "failed to list journal entries")

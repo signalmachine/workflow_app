@@ -244,10 +244,11 @@ type JournalEntryReview struct {
 }
 
 type ListJournalEntriesInput struct {
-	StartOn time.Time
-	EndOn   time.Time
-	Limit   int
-	Actor   identityaccess.Actor
+	StartOn    time.Time
+	EndOn      time.Time
+	DocumentID string
+	Limit      int
+	Actor      identityaccess.Actor
 }
 
 type ControlAccountBalance struct {
@@ -1454,6 +1455,7 @@ LEFT JOIN documents.documents d
 WHERE e.org_id = $1
   AND ($2::date IS NULL OR e.effective_on >= $2::date)
   AND ($3::date IS NULL OR e.effective_on <= $3::date)
+  AND ($4 = '' OR e.source_document_id = $4::uuid)
 GROUP BY
 	e.id,
 	e.entry_number,
@@ -1472,10 +1474,11 @@ GROUP BY
 	d.number_value,
 	d.status
 ORDER BY e.effective_on DESC, e.entry_number DESC
-LIMIT $4;`,
+LIMIT $5;`,
 		input.Actor.OrgID,
 		nullableDate(startOn, startSet),
 		nullableDate(endOn, endSet),
+		strings.TrimSpace(input.DocumentID),
 		normalizeLimit(input.Limit),
 	)
 	if err != nil {
