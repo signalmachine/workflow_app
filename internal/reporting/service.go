@@ -128,6 +128,7 @@ type InventoryMovementReview struct {
 }
 
 type ListInventoryMovementsInput struct {
+	MovementID   string
 	ItemID       string
 	LocationID   string
 	DocumentID   string
@@ -178,6 +179,7 @@ type InventoryReconciliationItem struct {
 }
 
 type ListInventoryReconciliationInput struct {
+	MovementID            string
 	ItemID                string
 	DocumentID            string
 	OnlyPendingAccounting bool
@@ -867,17 +869,22 @@ LEFT JOIN inventory_ops.locations dl
 	ON dl.id = m.destination_location_id
    AND dl.org_id = m.org_id
 WHERE m.org_id = $1
-  AND ($2 = '' OR m.item_id = $2::uuid)
-  AND ($3 = '' OR m.document_id = $3::uuid)
-  AND ($4 = '' OR m.movement_type = $4)
+  AND ($2 = '' OR m.id = $2::uuid)
+  AND ($3 = '' OR m.item_id = $3::uuid)
+  AND ($4 = '' OR m.document_id = $4::uuid)
   AND (
 	$5 = ''
-	OR m.source_location_id = $5::uuid
-	OR m.destination_location_id = $5::uuid
+	OR m.movement_type = $5
+  )
+  AND (
+	$6 = ''
+	OR m.source_location_id = $6::uuid
+	OR m.destination_location_id = $6::uuid
   )
 ORDER BY m.created_at DESC, m.movement_number DESC
-LIMIT $6;`,
+LIMIT $7;`,
 		input.Actor.OrgID,
+		strings.TrimSpace(input.MovementID),
 		strings.TrimSpace(input.ItemID),
 		strings.TrimSpace(input.DocumentID),
 		strings.TrimSpace(input.MovementType),
@@ -1014,13 +1021,15 @@ LEFT JOIN accounting.journal_entries je
 	ON je.id = ah.journal_entry_id
    AND je.org_id = dl.org_id
 WHERE dl.org_id = $1
-  AND ($2 = '' OR dl.item_id = $2::uuid)
-  AND ($3 = '' OR dl.document_id = $3::uuid)
-  AND (NOT $4 OR ah.handoff_status = 'pending')
-  AND (NOT $5 OR el.linkage_status = 'pending')
+  AND ($2 = '' OR m.id = $2::uuid)
+  AND ($3 = '' OR dl.item_id = $3::uuid)
+  AND ($4 = '' OR dl.document_id = $4::uuid)
+  AND (NOT $5 OR ah.handoff_status = 'pending')
+  AND (NOT $6 OR el.linkage_status = 'pending')
 ORDER BY m.created_at DESC, m.movement_number DESC, dl.line_number ASC
-LIMIT $6;`,
+LIMIT $7;`,
 		input.Actor.OrgID,
+		strings.TrimSpace(input.MovementID),
 		strings.TrimSpace(input.ItemID),
 		strings.TrimSpace(input.DocumentID),
 		input.OnlyPendingAccounting,

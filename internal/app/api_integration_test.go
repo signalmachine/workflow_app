@@ -380,6 +380,22 @@ func TestAgentBrowserReportingIntegration(t *testing.T) {
 	if err := db.QueryRowContext(ctx, `SELECT id FROM documents.documents WHERE org_id = $1 AND title = $2`, orgID, "Posted GST invoice").Scan(&gstInvoiceDocumentID); err != nil {
 		t.Fatalf("load gst invoice document id: %v", err)
 	}
+	var issueMovementID string
+	if err := db.QueryRowContext(ctx, `
+SELECT m.id
+FROM inventory_ops.movements m
+JOIN documents.documents d
+	ON d.id = m.document_id
+   AND d.org_id = m.org_id
+WHERE m.org_id = $1
+  AND d.title = $2
+ORDER BY m.created_at DESC
+LIMIT 1`,
+		orgID,
+		"Inventory issue",
+	).Scan(&issueMovementID); err != nil {
+		t.Fatalf("load inventory issue movement id: %v", err)
+	}
 
 	handler := app.NewAgentAPIHandler(db)
 
@@ -456,6 +472,17 @@ func TestAgentBrowserReportingIntegration(t *testing.T) {
 	requireContains(t, inventoryRecorder.Body.String(), "/app/review/audit?entity_type=inventory_ops.movement&amp;entity_id=")
 	requireContains(t, inventoryRecorder.Body.String(), "/app/review/accounting?document_id=")
 
+	exactInventoryReq := httptest.NewRequest(http.MethodGet, "/app/review/inventory?movement_id="+issueMovementID, nil)
+	applyResponseCookies(exactInventoryReq, loginRecorder.Result().Cookies())
+	exactInventoryRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(exactInventoryRecorder, exactInventoryReq)
+	if exactInventoryRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected exact inventory page status: got %d body=%s", exactInventoryRecorder.Code, exactInventoryRecorder.Body.String())
+	}
+	requireContains(t, exactInventoryRecorder.Body.String(), issueMovementID)
+	requireContains(t, exactInventoryRecorder.Body.String(), "Inventory issue")
+	requireNotContains(t, exactInventoryRecorder.Body.String(), "Inventory receipt")
+
 	workOrdersReq := httptest.NewRequest(http.MethodGet, "/app/review/work-orders", nil)
 	applyResponseCookies(workOrdersReq, loginRecorder.Result().Cookies())
 	workOrdersRecorder := httptest.NewRecorder()
@@ -499,6 +526,15 @@ func TestAgentBrowserReportingIntegration(t *testing.T) {
 	requireContains(t, auditRecorder.Body.String(), "Audit lookup")
 	requireContains(t, auditRecorder.Body.String(), "work_orders.work_order_created")
 	requireContains(t, auditRecorder.Body.String(), "/app/review/work-orders/"+workOrder.ID)
+
+	movementAuditReq := httptest.NewRequest(http.MethodGet, "/app/review/audit?entity_type=inventory_ops.movement&entity_id="+issueMovementID, nil)
+	applyResponseCookies(movementAuditReq, loginRecorder.Result().Cookies())
+	movementAuditRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(movementAuditRecorder, movementAuditReq)
+	if movementAuditRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected movement audit page status: got %d body=%s", movementAuditRecorder.Code, movementAuditRecorder.Body.String())
+	}
+	requireContains(t, movementAuditRecorder.Body.String(), "/app/review/inventory?movement_id="+issueMovementID)
 
 	apiDocumentsReq := httptest.NewRequest(http.MethodGet, "/api/review/documents", nil)
 	applyResponseCookies(apiDocumentsReq, loginRecorder.Result().Cookies())
@@ -573,6 +609,17 @@ func TestAgentBrowserReportingIntegration(t *testing.T) {
 		t.Fatalf("unexpected inventory movement api status: got %d body=%s", apiInventoryMovesRecorder.Code, apiInventoryMovesRecorder.Body.String())
 	}
 	requireContains(t, apiInventoryMovesRecorder.Body.String(), "\"movement_type\":\"issue\"")
+
+	apiExactInventoryMovesReq := httptest.NewRequest(http.MethodGet, "/api/review/inventory/movements?movement_id="+issueMovementID, nil)
+	applyResponseCookies(apiExactInventoryMovesReq, loginRecorder.Result().Cookies())
+	apiExactInventoryMovesRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(apiExactInventoryMovesRecorder, apiExactInventoryMovesReq)
+	if apiExactInventoryMovesRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected exact inventory movement api status: got %d body=%s", apiExactInventoryMovesRecorder.Code, apiExactInventoryMovesRecorder.Body.String())
+	}
+	requireContains(t, apiExactInventoryMovesRecorder.Body.String(), "\"movement_id\":\""+issueMovementID+"\"")
+	requireContains(t, apiExactInventoryMovesRecorder.Body.String(), "\"movement_type\":\"issue\"")
+	requireNotContains(t, apiExactInventoryMovesRecorder.Body.String(), "\"movement_type\":\"receipt\"")
 
 	apiInventoryReconReq := httptest.NewRequest(http.MethodGet, "/api/review/inventory/reconciliation", nil)
 	applyResponseCookies(apiInventoryReconReq, loginRecorder.Result().Cookies())

@@ -1012,6 +1012,7 @@ func (h *AgentAPIHandler) handleListInventoryMovements(w http.ResponseWriter, r 
 	}
 
 	items, err := h.reviewService.ListInventoryMovements(r.Context(), reporting.ListInventoryMovementsInput{
+		MovementID:   strings.TrimSpace(r.URL.Query().Get("movement_id")),
 		ItemID:       strings.TrimSpace(r.URL.Query().Get("item_id")),
 		LocationID:   strings.TrimSpace(r.URL.Query().Get("location_id")),
 		DocumentID:   strings.TrimSpace(r.URL.Query().Get("document_id")),
@@ -1054,6 +1055,7 @@ func (h *AgentAPIHandler) handleListInventoryReconciliation(w http.ResponseWrite
 	}
 
 	items, err := h.reviewService.ListInventoryReconciliation(r.Context(), reporting.ListInventoryReconciliationInput{
+		MovementID:            strings.TrimSpace(r.URL.Query().Get("movement_id")),
 		ItemID:                strings.TrimSpace(r.URL.Query().Get("item_id")),
 		DocumentID:            strings.TrimSpace(r.URL.Query().Get("document_id")),
 		OnlyPendingAccounting: strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("only_pending_accounting")), "true"),

@@ -83,6 +83,7 @@ type webInventoryData struct {
 	Session               identityaccess.SessionContext
 	Notice                string
 	Error                 string
+	MovementID            string
 	ItemID                string
 	LocationID            string
 	DocumentID            string
@@ -379,6 +380,7 @@ func (h *AgentAPIHandler) handleWebInventory(w http.ResponseWriter, r *http.Requ
 		Session:               sessionContext,
 		Notice:                strings.TrimSpace(r.URL.Query().Get("notice")),
 		Error:                 strings.TrimSpace(r.URL.Query().Get("error")),
+		MovementID:            strings.TrimSpace(r.URL.Query().Get("movement_id")),
 		ItemID:                strings.TrimSpace(r.URL.Query().Get("item_id")),
 		LocationID:            strings.TrimSpace(r.URL.Query().Get("location_id")),
 		DocumentID:            strings.TrimSpace(r.URL.Query().Get("document_id")),
@@ -397,6 +399,7 @@ func (h *AgentAPIHandler) handleWebInventory(w http.ResponseWriter, r *http.Requ
 		data.Error = "failed to load inventory stock"
 	}
 	if data.Movements, err = h.reviewService.ListInventoryMovements(r.Context(), reporting.ListInventoryMovementsInput{
+		MovementID:   data.MovementID,
 		ItemID:       data.ItemID,
 		LocationID:   data.LocationID,
 		DocumentID:   data.DocumentID,
@@ -407,6 +410,7 @@ func (h *AgentAPIHandler) handleWebInventory(w http.ResponseWriter, r *http.Requ
 		data.Error = "failed to load inventory movements"
 	}
 	if data.Reconciliation, err = h.reviewService.ListInventoryReconciliation(r.Context(), reporting.ListInventoryReconciliationInput{
+		MovementID:            data.MovementID,
 		ItemID:                data.ItemID,
 		DocumentID:            data.DocumentID,
 		OnlyPendingAccounting: data.OnlyPendingAccounting,
@@ -946,7 +950,7 @@ func templateAuditEntityHref(entityType, entityID string) string {
 	case "inventory_ops.location":
 		return webInventoryPath + "?location_id=" + url.QueryEscape(entityID)
 	case "inventory_ops.movement":
-		return webAuditPath + "?entity_type=" + url.QueryEscape(entityType) + "&entity_id=" + url.QueryEscape(entityID)
+		return webInventoryPath + "?movement_id=" + url.QueryEscape(entityID)
 	default:
 		return ""
 	}
@@ -963,7 +967,7 @@ func templateAuditEntityLabel(entityType string) string {
 	case "inventory_ops.location":
 		return "Filter inventory by location"
 	case "inventory_ops.movement":
-		return "Stay on audit detail"
+		return "Open movement review"
 	default:
 		return ""
 	}
@@ -1582,6 +1586,7 @@ const webAppHTML = `<!DOCTYPE html>
       <section class="panel">
         <h2>Inventory review</h2>
         <form method="get" action="/app/review/inventory" class="inline-form">
+          <input type="text" name="movement_id" value="{{.MovementID}}" placeholder="movement id">
           <input type="text" name="item_id" value="{{.ItemID}}" placeholder="item id">
           <input type="text" name="location_id" value="{{.LocationID}}" placeholder="location id">
           <input type="text" name="document_id" value="{{.DocumentID}}" placeholder="document id">
