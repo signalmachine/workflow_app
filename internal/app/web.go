@@ -44,12 +44,13 @@ type webInboundDetailData struct {
 }
 
 type webDocumentsData struct {
-	Session   identityaccess.SessionContext
-	Notice    string
-	Error     string
-	TypeCode  string
-	Status    string
-	Documents []reporting.DocumentReview
+	Session    identityaccess.SessionContext
+	Notice     string
+	Error      string
+	DocumentID string
+	TypeCode   string
+	Status     string
+	Documents  []reporting.DocumentReview
 }
 
 type webAccountingData struct {
@@ -198,17 +199,19 @@ func (h *AgentAPIHandler) handleWebDocuments(w http.ResponseWriter, r *http.Requ
 	}
 
 	data := webDocumentsData{
-		Session:  sessionContext,
-		Notice:   strings.TrimSpace(r.URL.Query().Get("notice")),
-		Error:    strings.TrimSpace(r.URL.Query().Get("error")),
-		TypeCode: strings.TrimSpace(r.URL.Query().Get("type_code")),
-		Status:   strings.TrimSpace(r.URL.Query().Get("status")),
+		Session:    sessionContext,
+		Notice:     strings.TrimSpace(r.URL.Query().Get("notice")),
+		Error:      strings.TrimSpace(r.URL.Query().Get("error")),
+		DocumentID: strings.TrimSpace(r.URL.Query().Get("document_id")),
+		TypeCode:   strings.TrimSpace(r.URL.Query().Get("type_code")),
+		Status:     strings.TrimSpace(r.URL.Query().Get("status")),
 	}
 	data.Documents, err = h.reviewService.ListDocuments(r.Context(), reporting.ListDocumentsInput{
-		TypeCode: data.TypeCode,
-		Status:   data.Status,
-		Limit:    50,
-		Actor:    sessionContext.Actor,
+		DocumentID: data.DocumentID,
+		TypeCode:   data.TypeCode,
+		Status:     data.Status,
+		Limit:      50,
+		Actor:      sessionContext.Actor,
 	})
 	if err != nil {
 		data.Error = "failed to load documents"
@@ -1172,7 +1175,7 @@ const webAppHTML = `<!DOCTYPE html>
               {{range .Approvals}}
               <tr>
                 <td>{{.QueueCode}}</td>
-                <td>{{.DocumentTitle}}</td>
+                <td><a href="/app/review/documents?document_id={{.DocumentID}}">{{.DocumentTitle}}</a></td>
                 <td>
                   <div class="status-pill {{statusClass .ApprovalStatus}}">{{.ApprovalStatus}}</div>
                   <form method="post" action="/app/approvals/{{.ApprovalID}}/decision" style="margin-top:8px;">
@@ -1213,7 +1216,7 @@ const webAppHTML = `<!DOCTYPE html>
                 <div>{{.Summary}}</div>
               </td>
               <td>{{.ApprovalStatus.String}}</td>
-              <td>{{if .DocumentTitle.Valid}}<a href="/app/review/documents">{{.DocumentTitle.String}}</a>{{else}}-{{end}}</td>
+              <td>{{if .DocumentID.Valid}}<a href="/app/review/documents?document_id={{.DocumentID.String}}">{{.DocumentTitle.String}}</a>{{else}}-{{end}}</td>
             </tr>
             {{else}}
             <tr><td colspan="4">No processed proposals available.</td></tr>
@@ -1231,6 +1234,7 @@ const webAppHTML = `<!DOCTYPE html>
       <section class="panel">
         <h2>Document review</h2>
         <form method="get" action="/app/review/documents" class="inline-form">
+          <input type="text" name="document_id" value="{{.DocumentID}}" placeholder="document id">
           <input type="text" name="type_code" value="{{.TypeCode}}" placeholder="type code">
           <input type="text" name="status" value="{{.Status}}" placeholder="status">
           <button type="submit">Filter documents</button>
@@ -1251,7 +1255,11 @@ const webAppHTML = `<!DOCTYPE html>
             {{range .Documents}}
             <tr>
               <td>{{.TypeCode}}</td>
-              <td>{{.Title}}</td>
+              <td>
+                <strong>{{.Title}}</strong>
+                <div class="meta">{{.DocumentID}}</div>
+                <div class="meta"><a href="/app/review/audit?entity_type=documents.document&amp;entity_id={{.DocumentID}}">Audit trail</a></div>
+              </td>
               <td><span class="status-pill {{statusClass .Status}}">{{.Status}}</span></td>
               <td>{{.ApprovalStatus.String}}</td>
               <td>{{if .JournalEntryNumber.Valid}}Entry #{{.JournalEntryNumber.Int64}}{{else}}-{{end}}</td>
@@ -1436,9 +1444,12 @@ const webAppHTML = `<!DOCTYPE html>
           <tbody>
             {{range .Reconciliation}}
             <tr>
-              <td>{{.DocumentTitle}} line {{.LineNumber}}</td>
+              <td>
+                <a href="/app/review/documents?document_id={{.DocumentID}}">{{.DocumentTitle}}</a> line {{.LineNumber}}
+                <div class="meta"><a href="/app/review/audit?entity_type=documents.document&amp;entity_id={{.DocumentID}}">Audit trail</a></div>
+              </td>
               <td>{{.ItemSKU}} | {{.ItemName}}</td>
-              <td>{{if .WorkOrderCode.Valid}}{{.WorkOrderCode.String}}{{else}}-{{end}} / {{if .ExecutionLinkStatus.Valid}}{{.ExecutionLinkStatus.String}}{{else}}-{{end}}</td>
+              <td>{{if .WorkOrderID.Valid}}<a href="/app/review/work-orders/{{.WorkOrderID.String}}">{{.WorkOrderCode.String}}</a>{{else}}-{{end}} / {{if .ExecutionLinkStatus.Valid}}{{.ExecutionLinkStatus.String}}{{else}}-{{end}}</td>
               <td>{{if .JournalEntryNumber.Valid}}Entry #{{.JournalEntryNumber.Int64}}{{else}}-{{end}} / {{if .AccountingHandoffStatus.Valid}}{{.AccountingHandoffStatus.String}}{{else}}-{{end}}</td>
             </tr>
             {{else}}
@@ -1500,6 +1511,10 @@ const webAppHTML = `<!DOCTYPE html>
           <span class="status-pill {{statusClass .Review.Status}}">{{.Review.Status}}</span>
           <p>{{.Review.Title}}</p>
           <p class="meta">{{.Review.Summary}}</p>
+          <p class="meta">
+            <a href="/app/review/documents?document_id={{.Review.DocumentID}}">Source document</a> |
+            <a href="/app/review/audit?entity_type=work_orders.work_order&amp;entity_id={{.Review.WorkOrderID}}">Audit trail</a>
+          </p>
         </div>
       </section>
       <div class="grid">
@@ -1654,7 +1669,7 @@ const webAppHTML = `<!DOCTYPE html>
           <div class="detail-block">
             <strong>{{.Summary}}</strong>
             <div class="meta">Recommendation: {{.RecommendationStatus}} | Approval: {{.ApprovalStatus.String}}</div>
-            <div class="meta">Document: {{.DocumentTitle.String}}</div>
+            <div class="meta">Document: {{if .DocumentID.Valid}}<a href="/app/review/documents?document_id={{.DocumentID.String}}">{{.DocumentTitle.String}}</a>{{else}}{{.DocumentTitle.String}}{{end}}</div>
             {{if .ApprovalID.Valid}}
             <form method="post" action="/app/approvals/{{.ApprovalID.String}}/decision">
               <input type="hidden" name="return_to" value="/app/inbound-requests/{{$.Detail.Request.RequestReference}}">

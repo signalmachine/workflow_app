@@ -336,6 +336,18 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 		t.Fatal("expected labor journal document in document review")
 	}
 
+	exactDocumentReview, err := reportingService.ListDocuments(ctx, reporting.ListDocumentsInput{
+		DocumentID: laborJournalDoc.ID,
+		Limit:      20,
+		Actor:      approver,
+	})
+	if err != nil {
+		t.Fatalf("list documents by exact id: %v", err)
+	}
+	if len(exactDocumentReview) != 1 || exactDocumentReview[0].DocumentID != laborJournalDoc.ID {
+		t.Fatalf("unexpected exact document review result: %+v", exactDocumentReview)
+	}
+
 	stock, err := reportingService.ListInventoryStock(ctx, reporting.ListInventoryStockInput{
 		IncludeZero: false,
 		Limit:       20,

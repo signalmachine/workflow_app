@@ -71,10 +71,11 @@ type DocumentReview struct {
 }
 
 type ListDocumentsInput struct {
-	TypeCode string
-	Status   string
-	Limit    int
-	Actor    identityaccess.Actor
+	DocumentID string
+	TypeCode   string
+	Status     string
+	Limit      int
+	Actor      identityaccess.Actor
 }
 
 type InventoryStockItem struct {
@@ -657,11 +658,13 @@ LEFT JOIN accounting.journal_entries je
    AND je.source_document_id = d.id
    AND je.entry_kind = 'posting'
 WHERE d.org_id = $1
-  AND ($2 = '' OR d.type_code = $2)
-  AND ($3 = '' OR d.status = $3)
+  AND ($2 = '' OR d.id::text = $2)
+  AND ($3 = '' OR d.type_code = $3)
+  AND ($4 = '' OR d.status = $4)
 ORDER BY d.created_at DESC, d.id DESC
-LIMIT $4;`,
+LIMIT $5;`,
 		input.Actor.OrgID,
+		strings.TrimSpace(input.DocumentID),
 		strings.TrimSpace(input.TypeCode),
 		input.Status,
 		normalizeLimit(input.Limit),

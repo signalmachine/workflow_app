@@ -808,10 +808,11 @@ func (h *AgentAPIHandler) handleListDocuments(w http.ResponseWriter, r *http.Req
 	}
 
 	items, err := h.reviewService.ListDocuments(r.Context(), reporting.ListDocumentsInput{
-		TypeCode: strings.TrimSpace(r.URL.Query().Get("type_code")),
-		Status:   strings.TrimSpace(r.URL.Query().Get("status")),
-		Limit:    parseLimit(r.URL.Query().Get("limit")),
-		Actor:    actor,
+		DocumentID: strings.TrimSpace(r.URL.Query().Get("document_id")),
+		TypeCode:   strings.TrimSpace(r.URL.Query().Get("type_code")),
+		Status:     strings.TrimSpace(r.URL.Query().Get("status")),
+		Limit:      parseLimit(r.URL.Query().Get("limit")),
+		Actor:      actor,
 	})
 	if err != nil {
 		handleReviewError(w, err, "failed to list documents")
