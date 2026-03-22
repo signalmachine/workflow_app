@@ -2,7 +2,7 @@
 
 `workflow_app` is an AI-agent-first, database-first business operating system centered on documents, ledgers, execution context, approvals, and reports.
 
-This repository has completed Milestone 0 through Milestone 5 from the canonical planning set in [`new_app_docs/`](./new_app_docs). The shared control boundary now includes adopted document ownership for work orders, invoices, and payment or receipt documents plus persist-first inbound request and attachment foundations with stable `REQ-...` inbound-request references for submission acknowledgments and review. Draft requests can now be edited or hard-deleted before queueing, while queued pre-processing requests can be soft-cancelled or returned to draft for amendment and resubmission. Milestone 6 is in progress with the first real provider-backed AI path: `internal/ai` now includes optional OpenAI configuration loading, the official OpenAI Go SDK, a Responses-API-backed provider adapter, and a coordinator flow that can claim one queued inbound request, execute a hard-capped tool loop with per-capability tool-policy enforcement, auto-run the first reporting read tool when policy allows, optionally route the result through one allowlisted specialist capability with a durable child run and delegation record, and persist the resulting run, step, artifact, and recommendation without making the default build and test flow depend on external credentials. `internal/app` now provides a shared backend-facing contract for that queue-processing path, and `cmd/verify-agent` uses the same contract for opt-in live-provider verification.
+This repository has completed Milestone 0 through Milestone 5 from the canonical planning set in [`new_app_docs/`](./new_app_docs). The shared control boundary now includes adopted document ownership for work orders, invoices, and payment or receipt documents plus persist-first inbound request and attachment foundations with stable `REQ-...` inbound-request references for submission acknowledgments and review. Draft requests can now be edited or hard-deleted before queueing, while queued pre-processing requests can be soft-cancelled or returned to draft for amendment and resubmission. Milestone 6 is in progress with the first real provider-backed AI path: `internal/ai` now includes optional OpenAI configuration loading, the official OpenAI Go SDK, a Responses-API-backed provider adapter, and a coordinator flow that can claim one queued inbound request, execute a hard-capped tool loop with per-capability tool-policy enforcement, auto-run the first reporting read tool when policy allows, optionally route the result through one allowlisted specialist capability with a durable child run and delegation record, and persist the resulting run, step, artifact, and recommendation without making the default build and test flow depend on external credentials. `internal/app` now provides both a shared backend-facing contract for that queue-processing path and the first HTTP API handler over it, while `cmd/verify-agent` and `cmd/app` expose the live path through focused verification and the first runnable application server.
 
 1. bootstrap the Go module
 2. add a migration runner
@@ -45,6 +45,23 @@ OPENAI_API_KEY=...
 OPENAI_MODEL=...
 ```
 
+Run the first application API surface:
+
+```bash
+set -a; source .env; set +a; go run ./cmd/app
+```
+
+Trigger the queued-request AI processor through HTTP:
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/agent/process-next-queued-inbound-request \
+  -H "Content-Type: application/json" \
+  -H "X-Workflow-Org-ID: <org-uuid>" \
+  -H "X-Workflow-User-ID: <user-uuid>" \
+  -H "X-Workflow-Session-ID: <session-uuid>" \
+  -d '{"channel":"browser"}'
+```
+
 Run the focused live-provider verification command:
 
 ```bash
@@ -79,9 +96,10 @@ Implemented:
 22. optional OpenAI provider configuration loading and validation in `internal/ai`, keeping live-provider setup explicit while default repository verification remains provider-independent
 23. the official OpenAI Go SDK plus a Responses-API-backed coordinator provider in `internal/ai`, with a queued inbound-request execution path that claims one request, assembles request, attachment, and derived-text context, runs a hard-capped tool loop, enforces per-capability tool policy, auto-executes the first reporting read tool when allowed, can optionally persist one allowlisted specialist child run plus delegation record, persists coordinator or specialist step, artifact, and recommendation tool-execution metadata, and marks the request `processed` or `failed` according to the provider-backed outcome
 24. a shared backend-facing `internal/app` agent-processing contract that drives the queued coordinator path outside direct package wiring, plus an opt-in `cmd/verify-agent` live-provider verification command and integration coverage built on that shared seam
+25. the first HTTP API contract over that seam at `POST /api/agent/process-next-queued-inbound-request`, including UUID-based request-actor header validation, queue-empty and provider-not-configured responses, and a minimal `cmd/app` server entrypoint for browser or API-driven testing
 
 Immediate next steps:
 
-1. add the first narrow HTTP or API contract on top of the shared backend agent-processing seam so the live AI path is reachable without developer-only commands
-2. widen backend contracts for request submission, attachment transport, and operator review on the same shared foundation
+1. widen backend contracts for request submission, attachment transport, and operator review on the same shared foundation now that the first API surface exists
+2. promote session-auth and active-org handling from header-carried test seams to browser-usable flows on top of the same backend foundation
 3. after Milestone 6, implement the usable web application layer on backend contracts that a later v2 mobile client will also reuse

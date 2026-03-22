@@ -15,8 +15,7 @@ The current thin-v1 codebase has durable AI control-boundary foundations:
 
 What is still missing:
 
-1. the first HTTP or API contract on top of the shared backend seam so the live path is reachable without developer-only tooling
-2. wider backend and web promotion beyond the new shared processing seam and verification command
+1. wider backend contracts and web promotion beyond the now-landed first shared processing API seam and verification command
 
 This gap is now important for thin v1 because the application is intended to be AI-agent-first. Without a live provider-backed path, the current AI layer remains an observability and control scaffold rather than a usable operator interface.
 
@@ -31,6 +30,7 @@ Current implementation checkpoint:
 7. provider-backed business writes still terminate at artifact and recommendation persistence rather than bypassing approvals, postings, or normal domain services
 8. `internal/app` now exposes a shared backend-facing agent-processing contract that loads the configured OpenAI provider and drives the queued coordinator path without direct package-level wiring in each caller
 9. `cmd/verify-agent` now provides a focused opt-in live-provider verification command on top of that shared contract, and provider-gated integration coverage now exists behind the `integration` build tag
+10. `internal/app` now also exposes the first HTTP API handler for that seam at `POST /api/agent/process-next-queued-inbound-request`, validating actor headers, surfacing queue-empty and provider-not-configured outcomes cleanly, and `cmd/app` now serves that first runnable API surface
 
 ## 2. V1 objective
 
@@ -54,7 +54,7 @@ In scope:
 6. explicit tool-registration, tool-policy enforcement, and approval-aware tool-loop handling in the provider-backed execution path
 7. structured-output and validation boundaries where provider output drives domain proposals or recommendations
 8. provider timeout, retry, and error handling rules that preserve business-state safety
-9. one minimal HTTP or API surface for session-auth, request submission, attachment upload and download, and review-oriented reads around the live AI path
+9. one minimal HTTP or API surface for session-auth, request submission, attachment upload and download, and review-oriented reads around the live AI path, with the first agent-processing endpoint now landed
 10. real integration tests gated on configured OpenAI credentials
 11. a repository-level verification command for provider-backed AI behavior when credentials are present
 
@@ -156,7 +156,7 @@ Recommended sequence after Milestone 5:
 1. add configuration and `.env.example` support for OpenAI credentials and model selection
 2. add bounded specialist delegation on top of the now-live coordinator and tool-loop execution path
 3. add the shared backend processing seam, live-provider integration tests, and the explicit verification command
-4. add the minimum API surface and attachment transport contracts on top of that shared backend seam
+4. extend the now-landed first API surface with attachment transport and request-submission contracts on top of that shared backend seam
 5. update reporting or operational docs only where needed to explain the now-live provider-backed path
 
 Execution rule:
