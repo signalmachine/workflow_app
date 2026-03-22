@@ -262,8 +262,9 @@ Planned implementation checkpoint:
 6. provider configuration remains optional so the default local build and database-backed test flow does not require external credentials
 6. `.env.example` now documents the OpenAI variables needed for later live-provider slices
 7. detailed sequencing and constraints are captured in `ai_provider_execution_plan.md`
-8. remaining Milestone 6 work is bounded tool-loop and policy enforcement, provider-backed specialist delegation, opt-in live-provider verification, and the minimum API and web-layer contracts that will exercise the live AI path
-9. this milestone should continue as a sequence of narrow vertical slices rather than one monolithic delivery
+8. `internal/app` now provides a shared backend agent-processing seam over the provider-backed coordinator path, and `cmd/verify-agent` now exercises that seam for opt-in live-provider verification
+9. remaining Milestone 6 work is now the minimum HTTP or API and later web-layer contracts that will exercise the live AI path on top of that shared seam
+10. this milestone should continue as a sequence of narrow vertical slices rather than one monolithic delivery
 
 ## 8. Milestone 7: Usable web application layer
 

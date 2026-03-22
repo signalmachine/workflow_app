@@ -173,8 +173,9 @@ For implementation work in this repository, the normal verification path is:
 2. run `go build ./...`
 3. run targeted package tests when developing a slice
 4. run `set -a; source .env; set +a; go test -p 1 ./...` when code or persistence behavior changed because the shared test database uses an advisory lock and package-parallel full-suite runs can contend on it
-5. if migrations changed, verify that `go run ./cmd/migrate` applies cleanly against the configured development database
-6. document any blocker explicitly if full verification cannot run
+5. when provider-backed AI execution changes and live credentials are available, run `set -a; source .env; set +a; go run ./cmd/verify-agent` as the focused opt-in verification path on top of the shared backend contract
+6. if migrations changed, verify that `go run ./cmd/migrate` applies cleanly against the configured development database
+7. document any blocker explicitly if full verification cannot run
 
 ## 13. Bottom line
 
