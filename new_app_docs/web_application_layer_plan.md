@@ -87,3 +87,17 @@ This slice is complete only when:
 2. it supports the live AI path and approval flow end to end
 3. it remains aligned with the database-first and approval-first control model
 4. the application is materially usable by operators in v1
+
+## 8. Current implementation checkpoint
+
+The first Milestone 7 browser slice is now landed.
+
+Current checkpoint:
+
+1. `/app` now provides a real server-rendered browser surface on top of the shared backend seam rather than only API contracts
+2. operators can sign in with browser-session auth, submit inbound requests with file attachments, process the next queued request, review recent requests and pending approvals, inspect inbound-request detail, and act on approval decisions from that browser surface
+3. inbound-request detail now exposes the request message trail, attachment downloads and derived text, AI runs, artifacts, recommendations, and downstream proposals in one page flow
+4. the next browser slice now widens that same surface into downstream document and accounting review through `/app/review/documents` and `/app/review/accounting`, so operators can continue from proposal and approval work into document review plus journal-entry, control-account, and tax-summary review without dropping back to scripts
+5. the shared backend seam now also exposes `GET /api/review/documents`, `GET /api/review/accounting/journal-entries`, `GET /api/review/accounting/control-account-balances`, and `GET /api/review/accounting/tax-summaries` through the same session-cookie auth path as the rest of the browser flow
+6. approval queue reads and approval decisions now accept the same browser session-cookie auth path as the rest of the browser flow, closing the previous browser-versus-API inconsistency
+7. the remaining Milestone 7 work is to widen that browser layer across the remaining review and reporting surfaces on the same backend contracts without creating a second backend or reviving broad manual-entry UI scope

@@ -25,6 +25,15 @@ const (
 	sessionLoginPath           = "/api/session/login"
 	sessionCurrentPath         = "/api/session"
 	sessionLogoutPath          = "/api/session/logout"
+	webAppPath                 = "/app"
+	webLoginPath               = "/app/login"
+	webLogoutPath              = "/app/logout"
+	webSubmitInboundPath       = "/app/inbound-requests"
+	webProcessNextQueuedPath   = "/app/agent/process-next-queued-inbound-request"
+	webInboundDetailPrefix     = "/app/inbound-requests/"
+	webApprovalDecisionPrefix  = "/app/approvals/"
+	webDocumentsPath           = "/app/review/documents"
+	webAccountingPath          = "/app/review/accounting"
 	agentProcessNextQueuedPath = "/api/agent/process-next-queued-inbound-request"
 	submitInboundRequestPath   = "/api/inbound-requests"
 	attachmentContentPrefix    = "/api/attachments/"
@@ -33,6 +42,10 @@ const (
 	reviewProposalListPath     = "/api/review/processed-proposals"
 	reviewProposalSummaryPath  = "/api/review/processed-proposal-status-summary"
 	reviewApprovalQueuePath    = "/api/review/approval-queue"
+	reviewDocumentsPath        = "/api/review/documents"
+	reviewJournalEntriesPath   = "/api/review/accounting/journal-entries"
+	reviewControlBalancesPath  = "/api/review/accounting/control-account-balances"
+	reviewTaxSummariesPath     = "/api/review/accounting/tax-summaries"
 	approvalDecisionPrefix     = "/api/approvals/"
 	headerOrgID                = "X-Workflow-Org-ID"
 	headerUserID               = "X-Workflow-User-ID"
@@ -58,6 +71,10 @@ type inboundRequestSubmitter interface {
 
 type operatorReviewReader interface {
 	ListApprovalQueue(ctx context.Context, input reporting.ListApprovalQueueInput) ([]reporting.ApprovalQueueEntry, error)
+	ListDocuments(ctx context.Context, input reporting.ListDocumentsInput) ([]reporting.DocumentReview, error)
+	ListJournalEntries(ctx context.Context, input reporting.ListJournalEntriesInput) ([]reporting.JournalEntryReview, error)
+	ListControlAccountBalances(ctx context.Context, input reporting.ListControlAccountBalancesInput) ([]reporting.ControlAccountBalance, error)
+	ListTaxSummaries(ctx context.Context, input reporting.ListTaxSummariesInput) ([]reporting.TaxSummary, error)
 	ListInboundRequests(ctx context.Context, input reporting.ListInboundRequestsInput) ([]reporting.InboundRequestReview, error)
 	GetInboundRequestDetail(ctx context.Context, input reporting.GetInboundRequestDetailInput) (reporting.InboundRequestDetail, error)
 	ListInboundRequestStatusSummary(ctx context.Context, actor identityaccess.Actor) ([]reporting.InboundRequestStatusSummary, error)
@@ -166,6 +183,16 @@ func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 		authService:       authService,
 	}
 	mux := http.NewServeMux()
+	mux.HandleFunc("/", handler.handleRoot)
+	mux.HandleFunc(webAppPath, handler.handleWebAppDashboard)
+	mux.HandleFunc(webLoginPath, handler.handleWebLogin)
+	mux.HandleFunc(webLogoutPath, handler.handleWebLogout)
+	mux.HandleFunc(webSubmitInboundPath, handler.handleWebSubmitInboundRequest)
+	mux.HandleFunc(webProcessNextQueuedPath, handler.handleWebProcessNextQueuedInboundRequest)
+	mux.HandleFunc(webInboundDetailPrefix, handler.handleWebInboundRequestDetail)
+	mux.HandleFunc(webApprovalDecisionPrefix, handler.handleWebApprovalDecision)
+	mux.HandleFunc(webDocumentsPath, handler.handleWebDocuments)
+	mux.HandleFunc(webAccountingPath, handler.handleWebAccounting)
 	mux.HandleFunc(sessionLoginPath, handler.handleSessionLogin)
 	mux.HandleFunc(sessionCurrentPath, handler.handleCurrentSession)
 	mux.HandleFunc(sessionLogoutPath, handler.handleSessionLogout)
@@ -178,6 +205,10 @@ func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(reviewProposalListPath, handler.handleListProcessedProposals)
 	mux.HandleFunc(reviewProposalSummaryPath, handler.handleListProcessedProposalStatusSummary)
 	mux.HandleFunc(reviewApprovalQueuePath, handler.handleListApprovalQueue)
+	mux.HandleFunc(reviewDocumentsPath, handler.handleListDocuments)
+	mux.HandleFunc(reviewJournalEntriesPath, handler.handleListJournalEntries)
+	mux.HandleFunc(reviewControlBalancesPath, handler.handleListControlAccountBalances)
+	mux.HandleFunc(reviewTaxSummariesPath, handler.handleListTaxSummaries)
 	mux.HandleFunc(approvalDecisionPrefix, handler.handleDecideApproval)
 	return mux
 }
@@ -706,7 +737,7 @@ func (h *AgentAPIHandler) handleListApprovalQueue(w http.ResponseWriter, r *http
 		return
 	}
 
-	actor, err := actorFromHeaders(r)
+	actor, err := h.actorFromRequest(r)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
@@ -732,6 +763,165 @@ func (h *AgentAPIHandler) handleListApprovalQueue(w http.ResponseWriter, r *http
 	writeJSON(w, http.StatusOK, response)
 }
 
+func (h *AgentAPIHandler) handleListDocuments(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != reviewDocumentsPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+		return
+	}
+	if h.reviewService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "review service unavailable"})
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	items, err := h.reviewService.ListDocuments(r.Context(), reporting.ListDocumentsInput{
+		TypeCode: strings.TrimSpace(r.URL.Query().Get("type_code")),
+		Status:   strings.TrimSpace(r.URL.Query().Get("status")),
+		Limit:    parseLimit(r.URL.Query().Get("limit")),
+		Actor:    actor,
+	})
+	if err != nil {
+		handleReviewError(w, err, "failed to list documents")
+		return
+	}
+
+	response := struct {
+		Items []documentReviewResponse `json:"items"`
+	}{Items: make([]documentReviewResponse, 0, len(items))}
+	for _, item := range items {
+		response.Items = append(response.Items, mapDocumentReview(item))
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func (h *AgentAPIHandler) handleListJournalEntries(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != reviewJournalEntriesPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+		return
+	}
+	if h.reviewService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "review service unavailable"})
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	items, err := h.reviewService.ListJournalEntries(r.Context(), reporting.ListJournalEntriesInput{
+		StartOn: parseOptionalDate(r.URL.Query().Get("start_on")),
+		EndOn:   parseOptionalDate(r.URL.Query().Get("end_on")),
+		Limit:   parseLimit(r.URL.Query().Get("limit")),
+		Actor:   actor,
+	})
+	if err != nil {
+		handleReviewError(w, err, "failed to list journal entries")
+		return
+	}
+
+	response := struct {
+		Items []journalEntryReviewResponse `json:"items"`
+	}{Items: make([]journalEntryReviewResponse, 0, len(items))}
+	for _, item := range items {
+		response.Items = append(response.Items, mapJournalEntryReview(item))
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func (h *AgentAPIHandler) handleListControlAccountBalances(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != reviewControlBalancesPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+		return
+	}
+	if h.reviewService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "review service unavailable"})
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	items, err := h.reviewService.ListControlAccountBalances(r.Context(), reporting.ListControlAccountBalancesInput{
+		AsOf:  parseOptionalDate(r.URL.Query().Get("as_of")),
+		Actor: actor,
+	})
+	if err != nil {
+		handleReviewError(w, err, "failed to list control account balances")
+		return
+	}
+
+	response := struct {
+		Items []controlAccountBalanceResponse `json:"items"`
+	}{Items: make([]controlAccountBalanceResponse, 0, len(items))}
+	for _, item := range items {
+		response.Items = append(response.Items, mapControlAccountBalance(item))
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func (h *AgentAPIHandler) handleListTaxSummaries(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != reviewTaxSummariesPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+		return
+	}
+	if h.reviewService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "review service unavailable"})
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	items, err := h.reviewService.ListTaxSummaries(r.Context(), reporting.ListTaxSummariesInput{
+		StartOn: parseOptionalDate(r.URL.Query().Get("start_on")),
+		EndOn:   parseOptionalDate(r.URL.Query().Get("end_on")),
+		TaxType: strings.TrimSpace(r.URL.Query().Get("tax_type")),
+		Limit:   parseLimit(r.URL.Query().Get("limit")),
+		Actor:   actor,
+	})
+	if err != nil {
+		handleReviewError(w, err, "failed to list tax summaries")
+		return
+	}
+
+	response := struct {
+		Items []taxSummaryResponse `json:"items"`
+	}{Items: make([]taxSummaryResponse, 0, len(items))}
+	for _, item := range items {
+		response.Items = append(response.Items, mapTaxSummary(item))
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
 func (h *AgentAPIHandler) handleDecideApproval(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.NotFound(w, r)
@@ -748,7 +938,7 @@ func (h *AgentAPIHandler) handleDecideApproval(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	actor, err := actorFromHeaders(r)
+	actor, err := h.actorFromRequest(r)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
@@ -963,6 +1153,18 @@ func parseLimit(raw string) int {
 	return limit
 }
 
+func parseOptionalDate(raw string) time.Time {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}
+	}
+	parsed, err := time.Parse(time.DateOnly, raw)
+	if err != nil {
+		return time.Time{}
+	}
+	return parsed
+}
+
 func contentDisposition(fileName string) string {
 	encoded := url.PathEscape(fileName)
 	return fmt.Sprintf("attachment; filename=%q; filename*=UTF-8''%s", fileName, encoded)
@@ -988,6 +1190,84 @@ type approvalQueueEntryResponse struct {
 	JournalEntryID       *string    `json:"journal_entry_id,omitempty"`
 	JournalEntryNumber   *int64     `json:"journal_entry_number,omitempty"`
 	JournalEntryPostedAt *time.Time `json:"journal_entry_posted_at,omitempty"`
+}
+
+type documentReviewResponse struct {
+	DocumentID           string     `json:"document_id"`
+	TypeCode             string     `json:"type_code"`
+	Title                string     `json:"title"`
+	NumberValue          *string    `json:"number_value,omitempty"`
+	Status               string     `json:"status"`
+	SourceDocumentID     *string    `json:"source_document_id,omitempty"`
+	CreatedByUserID      string     `json:"created_by_user_id"`
+	SubmittedByUserID    *string    `json:"submitted_by_user_id,omitempty"`
+	SubmittedAt          *time.Time `json:"submitted_at,omitempty"`
+	ApprovedAt           *time.Time `json:"approved_at,omitempty"`
+	RejectedAt           *time.Time `json:"rejected_at,omitempty"`
+	CreatedAt            time.Time  `json:"created_at"`
+	UpdatedAt            time.Time  `json:"updated_at"`
+	ApprovalID           *string    `json:"approval_id,omitempty"`
+	ApprovalStatus       *string    `json:"approval_status,omitempty"`
+	ApprovalQueueCode    *string    `json:"approval_queue_code,omitempty"`
+	ApprovalRequestedAt  *time.Time `json:"approval_requested_at,omitempty"`
+	ApprovalDecidedAt    *time.Time `json:"approval_decided_at,omitempty"`
+	JournalEntryID       *string    `json:"journal_entry_id,omitempty"`
+	JournalEntryNumber   *int64     `json:"journal_entry_number,omitempty"`
+	JournalEntryPostedAt *time.Time `json:"journal_entry_posted_at,omitempty"`
+}
+
+type journalEntryReviewResponse struct {
+	EntryID           string    `json:"entry_id"`
+	EntryNumber       int64     `json:"entry_number"`
+	EntryKind         string    `json:"entry_kind"`
+	SourceDocumentID  *string   `json:"source_document_id,omitempty"`
+	ReversalOfEntryID *string   `json:"reversal_of_entry_id,omitempty"`
+	CurrencyCode      string    `json:"currency_code"`
+	TaxScopeCode      string    `json:"tax_scope_code"`
+	Summary           string    `json:"summary"`
+	ReversalReason    *string   `json:"reversal_reason,omitempty"`
+	PostedByUserID    string    `json:"posted_by_user_id"`
+	EffectiveOn       time.Time `json:"effective_on"`
+	PostedAt          time.Time `json:"posted_at"`
+	CreatedAt         time.Time `json:"created_at"`
+	DocumentTypeCode  *string   `json:"document_type_code,omitempty"`
+	DocumentNumber    *string   `json:"document_number,omitempty"`
+	DocumentStatus    *string   `json:"document_status,omitempty"`
+	LineCount         int       `json:"line_count"`
+	TotalDebitMinor   int64     `json:"total_debit_minor"`
+	TotalCreditMinor  int64     `json:"total_credit_minor"`
+	HasReversal       bool      `json:"has_reversal"`
+}
+
+type controlAccountBalanceResponse struct {
+	AccountID        string     `json:"account_id"`
+	AccountCode      string     `json:"account_code"`
+	AccountName      string     `json:"account_name"`
+	AccountClass     string     `json:"account_class"`
+	ControlType      string     `json:"control_type"`
+	TotalDebitMinor  int64      `json:"total_debit_minor"`
+	TotalCreditMinor int64      `json:"total_credit_minor"`
+	NetMinor         int64      `json:"net_minor"`
+	LastEffectiveOn  *time.Time `json:"last_effective_on,omitempty"`
+}
+
+type taxSummaryResponse struct {
+	TaxType               string     `json:"tax_type"`
+	TaxCode               string     `json:"tax_code"`
+	TaxName               string     `json:"tax_name"`
+	RateBasisPoints       int        `json:"rate_basis_points"`
+	EntryCount            int        `json:"entry_count"`
+	DocumentCount         int        `json:"document_count"`
+	TotalDebitMinor       int64      `json:"total_debit_minor"`
+	TotalCreditMinor      int64      `json:"total_credit_minor"`
+	NetMinor              int64      `json:"net_minor"`
+	ReceivableAccountID   *string    `json:"receivable_account_id,omitempty"`
+	ReceivableAccountCode *string    `json:"receivable_account_code,omitempty"`
+	ReceivableAccountName *string    `json:"receivable_account_name,omitempty"`
+	PayableAccountID      *string    `json:"payable_account_id,omitempty"`
+	PayableAccountCode    *string    `json:"payable_account_code,omitempty"`
+	PayableAccountName    *string    `json:"payable_account_name,omitempty"`
+	LastEffectiveOn       *time.Time `json:"last_effective_on,omitempty"`
 }
 
 type sessionContextResponse struct {
@@ -1230,6 +1510,92 @@ func mapApprovalQueueEntry(entry reporting.ApprovalQueueEntry) approvalQueueEntr
 		JournalEntryID:       stringPtr(entry.JournalEntryID),
 		JournalEntryNumber:   int64Ptr(entry.JournalEntryNumber),
 		JournalEntryPostedAt: timePtr(entry.JournalEntryPostedAt),
+	}
+}
+
+func mapDocumentReview(review reporting.DocumentReview) documentReviewResponse {
+	return documentReviewResponse{
+		DocumentID:           review.DocumentID,
+		TypeCode:             review.TypeCode,
+		Title:                review.Title,
+		NumberValue:          stringPtr(review.NumberValue),
+		Status:               review.Status,
+		SourceDocumentID:     stringPtr(review.SourceDocumentID),
+		CreatedByUserID:      review.CreatedByUserID,
+		SubmittedByUserID:    stringPtr(review.SubmittedByUserID),
+		SubmittedAt:          timePtr(review.SubmittedAt),
+		ApprovedAt:           timePtr(review.ApprovedAt),
+		RejectedAt:           timePtr(review.RejectedAt),
+		CreatedAt:            review.CreatedAt,
+		UpdatedAt:            review.UpdatedAt,
+		ApprovalID:           stringPtr(review.ApprovalID),
+		ApprovalStatus:       stringPtr(review.ApprovalStatus),
+		ApprovalQueueCode:    stringPtr(review.ApprovalQueueCode),
+		ApprovalRequestedAt:  timePtr(review.ApprovalRequestedAt),
+		ApprovalDecidedAt:    timePtr(review.ApprovalDecidedAt),
+		JournalEntryID:       stringPtr(review.JournalEntryID),
+		JournalEntryNumber:   int64Ptr(review.JournalEntryNumber),
+		JournalEntryPostedAt: timePtr(review.JournalEntryPostedAt),
+	}
+}
+
+func mapJournalEntryReview(review reporting.JournalEntryReview) journalEntryReviewResponse {
+	return journalEntryReviewResponse{
+		EntryID:           review.EntryID,
+		EntryNumber:       review.EntryNumber,
+		EntryKind:         review.EntryKind,
+		SourceDocumentID:  stringPtr(review.SourceDocumentID),
+		ReversalOfEntryID: stringPtr(review.ReversalOfEntryID),
+		CurrencyCode:      review.CurrencyCode,
+		TaxScopeCode:      review.TaxScopeCode,
+		Summary:           review.Summary,
+		ReversalReason:    stringPtr(review.ReversalReason),
+		PostedByUserID:    review.PostedByUserID,
+		EffectiveOn:       review.EffectiveOn,
+		PostedAt:          review.PostedAt,
+		CreatedAt:         review.CreatedAt,
+		DocumentTypeCode:  stringPtr(review.DocumentTypeCode),
+		DocumentNumber:    stringPtr(review.DocumentNumber),
+		DocumentStatus:    stringPtr(review.DocumentStatus),
+		LineCount:         review.LineCount,
+		TotalDebitMinor:   review.TotalDebitMinor,
+		TotalCreditMinor:  review.TotalCreditMinor,
+		HasReversal:       review.HasReversal,
+	}
+}
+
+func mapControlAccountBalance(balance reporting.ControlAccountBalance) controlAccountBalanceResponse {
+	return controlAccountBalanceResponse{
+		AccountID:        balance.AccountID,
+		AccountCode:      balance.AccountCode,
+		AccountName:      balance.AccountName,
+		AccountClass:     balance.AccountClass,
+		ControlType:      balance.ControlType,
+		TotalDebitMinor:  balance.TotalDebitMinor,
+		TotalCreditMinor: balance.TotalCreditMinor,
+		NetMinor:         balance.NetMinor,
+		LastEffectiveOn:  timePtr(balance.LastEffectiveOn),
+	}
+}
+
+func mapTaxSummary(summary reporting.TaxSummary) taxSummaryResponse {
+	return taxSummaryResponse{
+		TaxType:               summary.TaxType,
+		TaxCode:               summary.TaxCode,
+		TaxName:               summary.TaxName,
+		RateBasisPoints:       summary.RateBasisPoints,
+		EntryCount:            summary.EntryCount,
+		DocumentCount:         summary.DocumentCount,
+		TotalDebitMinor:       summary.TotalDebitMinor,
+		TotalCreditMinor:      summary.TotalCreditMinor,
+		NetMinor:              summary.NetMinor,
+		ReceivableAccountID:   stringPtr(summary.ReceivableAccountID),
+		ReceivableAccountCode: stringPtr(summary.ReceivableAccountCode),
+		ReceivableAccountName: stringPtr(summary.ReceivableAccountName),
+		PayableAccountID:      stringPtr(summary.PayableAccountID),
+		PayableAccountCode:    stringPtr(summary.PayableAccountCode),
+		PayableAccountName:    stringPtr(summary.PayableAccountName),
+		LastEffectiveOn:       timePtr(summary.LastEffectiveOn),
 	}
 }
 

@@ -289,12 +289,15 @@ Exit criteria:
 3. the web and later mobile clients are planned around one backend foundation rather than separate backends
 4. the web layer remains aligned with approval, audit, and domain-service boundaries
 
-Planned implementation checkpoint:
+Current implementation checkpoint:
 
-1. this milestone is not yet implemented
-2. detailed sequencing and constraints are captured in `web_application_layer_plan.md`
-3. this milestone should start after Milestone 6 establishes the live provider-backed AI path
-4. this milestone should be executed as a sequence of narrow vertical slices rather than one monolithic delivery
+1. the first Milestone 7 browser slice now exists as a server-rendered `/app` surface on top of the shared backend seam
+2. operators can now sign in with browser-session auth, submit inbound requests with file attachments, process the next queued request, review recent requests and pending approvals, open inbound-request detail, inspect attachments plus AI runs, artifacts, recommendations, and proposals, and decide approvals without dropping back to bespoke scripts
+3. the next Milestone 7 browser slice now widens that same application surface into downstream document and accounting review: `/app/review/documents` exposes document review, and `/app/review/accounting` exposes journal-entry review, control-account balance review, and tax-summary review on the same browser session and reporting-read foundation
+4. the shared backend seam now also exposes `GET /api/review/documents`, `GET /api/review/accounting/journal-entries`, `GET /api/review/accounting/control-account-balances`, and `GET /api/review/accounting/tax-summaries`, all reachable through the same browser session-cookie auth path as the rest of the browser flow
+5. this milestone remains in progress because the current browser layer still needs widening across the remaining inventory, work-order, and audit review surfaces plus further operator continuity
+6. detailed sequencing and constraints are captured in `web_application_layer_plan.md`
+7. this milestone should continue as a sequence of narrow vertical slices rather than one monolithic delivery
 
 ## 9. Execution warning
 

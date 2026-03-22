@@ -6,16 +6,21 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
+	"workflow_app/internal/accounting"
 	"workflow_app/internal/ai"
 	"workflow_app/internal/app"
 	"workflow_app/internal/documents"
 	"workflow_app/internal/identityaccess"
 	"workflow_app/internal/intake"
+	"workflow_app/internal/reporting"
 	"workflow_app/internal/testsupport/dbtest"
 	"workflow_app/internal/workflow"
 )
@@ -167,6 +172,264 @@ func TestAgentAPISubmitInboundRequestWithBrowserSessionCookies(t *testing.T) {
 	if !storedSessionID.Valid {
 		t.Fatal("expected persisted browser session linkage")
 	}
+}
+
+func TestAgentBrowserAppFlowIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, adminUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleAdmin)
+	orgSlug, userEmail := loadOrgSlugAndUserEmail(t, ctx, db, orgID, adminUserID)
+
+	processor, err := app.NewAgentProcessor(db, fakeCoordinatorProvider{
+		output: ai.CoordinatorProviderOutput{
+			ProviderName:       "openai",
+			ProviderResponseID: "resp_browser_flow_123",
+			Model:              "gpt-5.2",
+			Summary:            "Operator review is required for the urgent pump issue.",
+			Priority:           "urgent",
+			ArtifactTitle:      "Inbound request review brief",
+			ArtifactBody:       "The request describes an urgent equipment problem that should be reviewed immediately.",
+			Rationale: []string{
+				"The request describes a time-sensitive equipment failure.",
+			},
+			NextActions: []string{
+				"Confirm the site details and route controlled follow-up.",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new agent processor: %v", err)
+	}
+
+	documentService := documents.NewService(db)
+	workflowService := workflow.NewService(db, documentService)
+	handler := app.NewAgentAPIHandlerWithDependencies(
+		func() (app.ProcessNextQueuedInboundRequester, error) { return processor, nil },
+		app.NewSubmissionService(db),
+		reporting.NewService(db),
+		workflowService,
+		identityaccess.NewService(db),
+	)
+
+	adminSession := startSession(t, ctx, db, orgID, adminUserID)
+	createPendingApproval(t, ctx, documentService, workflowService, identityaccess.Actor{
+		OrgID:     orgID,
+		UserID:    adminUserID,
+		SessionID: adminSession.ID,
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/app", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected dashboard status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), "Start browser session") {
+		t.Fatalf("expected login page, body=%s", recorder.Body.String())
+	}
+
+	loginReq := httptest.NewRequest(
+		http.MethodPost,
+		"/app/login",
+		strings.NewReader("org_slug="+orgSlug+"&email="+userEmail+"&device_label=browser-ui"),
+	)
+	loginReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	loginRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(loginRecorder, loginReq)
+	if loginRecorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected web login status: got %d body=%s", loginRecorder.Code, loginRecorder.Body.String())
+	}
+
+	submitReq := newMultipartRequest(t, http.MethodPost, "/app/inbound-requests", map[string]string{
+		"submitter_label": "front desk",
+		"message_text":    "The warehouse pump failed and needs review.",
+	}, map[string]multipartUpload{
+		"attachments": {
+			FileName:    "pump-note.txt",
+			ContentType: "text/plain",
+			Content:     []byte("urgent pump failure details"),
+		},
+	})
+	applyResponseCookies(submitReq, loginRecorder.Result().Cookies())
+	submitRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(submitRecorder, submitReq)
+	if submitRecorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected web submit status: got %d body=%s", submitRecorder.Code, submitRecorder.Body.String())
+	}
+
+	detailPath := submitRecorder.Result().Header.Get("Location")
+	if !strings.HasPrefix(detailPath, "/app/inbound-requests/REQ-") {
+		t.Fatalf("unexpected detail redirect: %s", detailPath)
+	}
+
+	detailReq := httptest.NewRequest(http.MethodGet, detailPath, nil)
+	applyResponseCookies(detailReq, loginRecorder.Result().Cookies())
+	detailRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(detailRecorder, detailReq)
+	if detailRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected detail status before processing: got %d body=%s", detailRecorder.Code, detailRecorder.Body.String())
+	}
+	requireContains(t, detailRecorder.Body.String(), "pump-note.txt")
+	requireContains(t, detailRecorder.Body.String(), "The warehouse pump failed and needs review.")
+
+	processReq := httptest.NewRequest(http.MethodPost, "/app/agent/process-next-queued-inbound-request", nil)
+	applyResponseCookies(processReq, loginRecorder.Result().Cookies())
+	processRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(processRecorder, processReq)
+	if processRecorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected web process status: got %d body=%s", processRecorder.Code, processRecorder.Body.String())
+	}
+
+	processedDetailPath := processRecorder.Result().Header.Get("Location")
+	processedDetailReq := httptest.NewRequest(http.MethodGet, processedDetailPath, nil)
+	applyResponseCookies(processedDetailReq, loginRecorder.Result().Cookies())
+	processedDetailRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(processedDetailRecorder, processedDetailReq)
+	if processedDetailRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected detail status after processing: got %d body=%s", processedDetailRecorder.Code, processedDetailRecorder.Body.String())
+	}
+	requireContains(t, processedDetailRecorder.Body.String(), "Operator review is required for the urgent pump issue.")
+	requireContains(t, processedDetailRecorder.Body.String(), "Inbound request review brief")
+
+	approvalQueueReq := httptest.NewRequest(http.MethodGet, "/api/review/approval-queue?status=pending", nil)
+	applyResponseCookies(approvalQueueReq, loginRecorder.Result().Cookies())
+	approvalQueueRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(approvalQueueRecorder, approvalQueueReq)
+	if approvalQueueRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected approval queue status with cookies: got %d body=%s", approvalQueueRecorder.Code, approvalQueueRecorder.Body.String())
+	}
+
+	var approvalQueueResponse struct {
+		Items []struct {
+			ApprovalID string `json:"approval_id"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(approvalQueueRecorder.Body.Bytes(), &approvalQueueResponse); err != nil {
+		t.Fatalf("decode approval queue response: %v", err)
+	}
+	if len(approvalQueueResponse.Items) != 1 {
+		t.Fatalf("expected one pending approval, got %d", len(approvalQueueResponse.Items))
+	}
+
+	approvalReq := httptest.NewRequest(
+		http.MethodPost,
+		"/app/approvals/"+approvalQueueResponse.Items[0].ApprovalID+"/decision",
+		strings.NewReader("decision=approved&decision_note=Looks+correct.&return_to="+detailPath),
+	)
+	approvalReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	applyResponseCookies(approvalReq, loginRecorder.Result().Cookies())
+	approvalRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(approvalRecorder, approvalReq)
+	if approvalRecorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected web approval decision status: got %d body=%s", approvalRecorder.Code, approvalRecorder.Body.String())
+	}
+
+	var approvalStatus string
+	if err := db.QueryRowContext(ctx, `SELECT status FROM workflow.approvals WHERE id = $1`, approvalQueueResponse.Items[0].ApprovalID).Scan(&approvalStatus); err != nil {
+		t.Fatalf("load approval status: %v", err)
+	}
+	if approvalStatus != "approved" {
+		t.Fatalf("unexpected approval status: %s", approvalStatus)
+	}
+}
+
+func TestAgentBrowserReportingIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, adminUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleAdmin)
+	orgSlug, userEmail := loadOrgSlugAndUserEmail(t, ctx, db, orgID, adminUserID)
+	_, approverUserID := seedOrgAndUserInOrg(t, ctx, db, identityaccess.RoleApprover, orgID)
+
+	documentService := documents.NewService(db)
+	workflowService := workflow.NewService(db, documentService)
+	accountingService := accounting.NewService(db, documentService)
+	adminSession := startSession(t, ctx, db, orgID, adminUserID)
+	approverSession := startSession(t, ctx, db, orgID, approverUserID)
+	adminActor := identityaccess.Actor{OrgID: orgID, UserID: adminUserID, SessionID: adminSession.ID}
+	approverActor := identityaccess.Actor{OrgID: orgID, UserID: approverUserID, SessionID: approverSession.ID}
+
+	postApprovedGSTInvoice(t, ctx, accountingService, documentService, workflowService, adminActor, approverActor)
+
+	handler := app.NewAgentAPIHandler(db)
+
+	loginReq := httptest.NewRequest(
+		http.MethodPost,
+		"/app/login",
+		strings.NewReader("org_slug="+orgSlug+"&email="+userEmail+"&device_label=browser-ui"),
+	)
+	loginReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	loginRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(loginRecorder, loginReq)
+	if loginRecorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected web login status: got %d body=%s", loginRecorder.Code, loginRecorder.Body.String())
+	}
+
+	documentsReq := httptest.NewRequest(http.MethodGet, "/app/review/documents", nil)
+	applyResponseCookies(documentsReq, loginRecorder.Result().Cookies())
+	documentsRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(documentsRecorder, documentsReq)
+	if documentsRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected documents page status: got %d body=%s", documentsRecorder.Code, documentsRecorder.Body.String())
+	}
+	requireContains(t, documentsRecorder.Body.String(), "Document review")
+	requireContains(t, documentsRecorder.Body.String(), "Posted GST invoice")
+
+	accountingReq := httptest.NewRequest(http.MethodGet, "/app/review/accounting", nil)
+	applyResponseCookies(accountingReq, loginRecorder.Result().Cookies())
+	accountingRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(accountingRecorder, accountingReq)
+	if accountingRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected accounting page status: got %d body=%s", accountingRecorder.Code, accountingRecorder.Body.String())
+	}
+	requireContains(t, accountingRecorder.Body.String(), "Accounting review")
+	requireContains(t, accountingRecorder.Body.String(), "Post approved invoice with GST")
+	requireContains(t, accountingRecorder.Body.String(), "GST18")
+
+	apiDocumentsReq := httptest.NewRequest(http.MethodGet, "/api/review/documents", nil)
+	applyResponseCookies(apiDocumentsReq, loginRecorder.Result().Cookies())
+	apiDocumentsRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(apiDocumentsRecorder, apiDocumentsReq)
+	if apiDocumentsRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected documents api status: got %d body=%s", apiDocumentsRecorder.Code, apiDocumentsRecorder.Body.String())
+	}
+	requireContains(t, apiDocumentsRecorder.Body.String(), "Posted GST invoice")
+
+	apiJournalReq := httptest.NewRequest(http.MethodGet, "/api/review/accounting/journal-entries", nil)
+	applyResponseCookies(apiJournalReq, loginRecorder.Result().Cookies())
+	apiJournalRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(apiJournalRecorder, apiJournalReq)
+	if apiJournalRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected journal api status: got %d body=%s", apiJournalRecorder.Code, apiJournalRecorder.Body.String())
+	}
+	requireContains(t, apiJournalRecorder.Body.String(), "Post approved invoice with GST")
+
+	apiBalanceReq := httptest.NewRequest(http.MethodGet, "/api/review/accounting/control-account-balances", nil)
+	applyResponseCookies(apiBalanceReq, loginRecorder.Result().Cookies())
+	apiBalanceRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(apiBalanceRecorder, apiBalanceReq)
+	if apiBalanceRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected control balance api status: got %d body=%s", apiBalanceRecorder.Code, apiBalanceRecorder.Body.String())
+	}
+	requireContains(t, apiBalanceRecorder.Body.String(), "\"account_code\":\"2101\"")
+
+	apiTaxReq := httptest.NewRequest(http.MethodGet, "/api/review/accounting/tax-summaries", nil)
+	applyResponseCookies(apiTaxReq, loginRecorder.Result().Cookies())
+	apiTaxRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(apiTaxRecorder, apiTaxReq)
+	if apiTaxRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected tax summary api status: got %d body=%s", apiTaxRecorder.Code, apiTaxRecorder.Body.String())
+	}
+	requireContains(t, apiTaxRecorder.Body.String(), "\"tax_code\":\"GST18\"")
 }
 
 func TestAgentAPISessionLoginRejectsUnknownMembership(t *testing.T) {
@@ -875,6 +1138,47 @@ func applyResponseCookies(req *http.Request, cookies []*http.Cookie) {
 	}
 }
 
+type multipartUpload struct {
+	FileName    string
+	ContentType string
+	Content     []byte
+}
+
+func newMultipartRequest(t *testing.T, method, target string, fields map[string]string, files map[string]multipartUpload) *http.Request {
+	t.Helper()
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	for key, value := range fields {
+		if err := writer.WriteField(key, value); err != nil {
+			t.Fatalf("write multipart field %s: %v", key, err)
+		}
+	}
+	for fieldName, upload := range files {
+		part, err := writer.CreateFormFile(fieldName, upload.FileName)
+		if err != nil {
+			t.Fatalf("create multipart file %s: %v", fieldName, err)
+		}
+		if _, err := io.Copy(part, bytes.NewReader(upload.Content)); err != nil {
+			t.Fatalf("write multipart content %s: %v", fieldName, err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close multipart writer: %v", err)
+	}
+
+	req := httptest.NewRequest(method, target, &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	return req
+}
+
+func requireContains(t *testing.T, body, want string) {
+	t.Helper()
+	if !strings.Contains(body, want) {
+		t.Fatalf("expected response to contain %q, body=%s", want, body)
+	}
+}
+
 func createPendingApproval(t *testing.T, ctx context.Context, documentService *documents.Service, workflowService *workflow.Service, actor identityaccess.Actor) (workflow.Approval, documents.Document) {
 	t.Helper()
 
@@ -906,4 +1210,110 @@ func createPendingApproval(t *testing.T, ctx context.Context, documentService *d
 	}
 
 	return approval, doc
+}
+
+func postApprovedGSTInvoice(t *testing.T, ctx context.Context, accountingService *accounting.Service, documentService *documents.Service, workflowService *workflow.Service, operator, approver identityaccess.Actor) {
+	t.Helper()
+
+	doc, _, err := accountingService.CreateInvoice(ctx, accounting.CreateInvoiceInput{
+		Title:          "Posted GST invoice",
+		InvoiceRole:    accounting.InvoiceRoleSales,
+		CurrencyCode:   "INR",
+		ReferenceValue: "INV-TEST-1001",
+		Summary:        "Browser accounting review test invoice",
+		Actor:          operator,
+	})
+	if err != nil {
+		t.Fatalf("create invoice draft: %v", err)
+	}
+	doc, err = documentService.Submit(ctx, documents.SubmitInput{
+		DocumentID: doc.ID,
+		Actor:      operator,
+	})
+	if err != nil {
+		t.Fatalf("submit invoice draft: %v", err)
+	}
+	approval, err := workflowService.RequestApproval(ctx, workflow.RequestApprovalInput{
+		DocumentID: doc.ID,
+		QueueCode:  "finance",
+		Reason:     "post invoice",
+		Actor:      operator,
+	})
+	if err != nil {
+		t.Fatalf("request approval: %v", err)
+	}
+	if _, _, err := workflowService.DecideApproval(ctx, workflow.DecideApprovalInput{
+		ApprovalID: approval.ID,
+		Decision:   "approved",
+		Actor:      approver,
+	}); err != nil {
+		t.Fatalf("approve invoice: %v", err)
+	}
+
+	receivable := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:                "1100",
+		Name:                "Accounts Receivable",
+		AccountClass:        accounting.AccountClassAsset,
+		ControlType:         accounting.ControlTypeReceivable,
+		AllowsDirectPosting: false,
+		Actor:               operator,
+	})
+	gstOutput := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:                "2101",
+		Name:                "GST Output",
+		AccountClass:        accounting.AccountClassLiability,
+		ControlType:         accounting.ControlTypeGSTOutput,
+		AllowsDirectPosting: false,
+		Actor:               operator,
+	})
+	revenue := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:         "4000",
+		Name:         "Service Revenue",
+		AccountClass: accounting.AccountClassRevenue,
+		Actor:        operator,
+	})
+	gst18 := createTaxCode(t, ctx, accountingService, accounting.CreateTaxCodeInput{
+		Code:             "GST18",
+		Name:             "GST Output 18%",
+		TaxType:          accounting.TaxTypeGST,
+		RateBasisPoints:  1800,
+		PayableAccountID: gstOutput.ID,
+		Actor:            operator,
+	})
+
+	if _, _, _, err := accountingService.PostDocument(ctx, accounting.PostDocumentInput{
+		DocumentID:   doc.ID,
+		Summary:      "Post approved invoice with GST",
+		CurrencyCode: "INR",
+		TaxScopeCode: accounting.TaxScopeGST,
+		EffectiveOn:  time.Date(2026, 3, 22, 0, 0, 0, 0, time.UTC),
+		Lines: []accounting.PostingLineInput{
+			{AccountID: receivable.ID, Description: "Customer receivable", DebitMinor: 177000},
+			{AccountID: revenue.ID, Description: "Recognized revenue", CreditMinor: 150000},
+			{AccountID: gstOutput.ID, Description: "GST payable", CreditMinor: 27000, TaxCode: gst18.Code},
+		},
+		Actor: operator,
+	}); err != nil {
+		t.Fatalf("post invoice: %v", err)
+	}
+}
+
+func createLedgerAccount(t *testing.T, ctx context.Context, service *accounting.Service, input accounting.CreateLedgerAccountInput) accounting.LedgerAccount {
+	t.Helper()
+
+	account, err := service.CreateLedgerAccount(ctx, input)
+	if err != nil {
+		t.Fatalf("create ledger account %s: %v", input.Code, err)
+	}
+	return account
+}
+
+func createTaxCode(t *testing.T, ctx context.Context, service *accounting.Service, input accounting.CreateTaxCodeInput) accounting.TaxCode {
+	t.Helper()
+
+	code, err := service.CreateTaxCode(ctx, input)
+	if err != nil {
+		t.Fatalf("create tax code %s: %v", input.Code, err)
+	}
+	return code
 }

@@ -1,0 +1,1228 @@
+package app
+
+import (
+	"bytes"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"html/template"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
+
+	"workflow_app/internal/attachments"
+	"workflow_app/internal/identityaccess"
+	"workflow_app/internal/intake"
+	"workflow_app/internal/reporting"
+	"workflow_app/internal/workflow"
+)
+
+var webAppTemplate = template.Must(template.New("app").Funcs(template.FuncMap{
+	"formatTime":  formatTemplateTime,
+	"prettyJSON":  prettyTemplateJSON,
+	"statusClass": templateStatusClass,
+}).Parse(webAppHTML))
+
+type webAppDashboardData struct {
+	Session         identityaccess.SessionContext
+	Notice          string
+	Error           string
+	InboundSummary  []reporting.InboundRequestStatusSummary
+	InboundRequests []reporting.InboundRequestReview
+	Proposals       []reporting.ProcessedProposalReview
+	Approvals       []reporting.ApprovalQueueEntry
+}
+
+type webInboundDetailData struct {
+	Session identityaccess.SessionContext
+	Notice  string
+	Error   string
+	Detail  reporting.InboundRequestDetail
+}
+
+type webDocumentsData struct {
+	Session   identityaccess.SessionContext
+	Notice    string
+	Error     string
+	TypeCode  string
+	Status    string
+	Documents []reporting.DocumentReview
+}
+
+type webAccountingData struct {
+	Session         identityaccess.SessionContext
+	Notice          string
+	Error           string
+	StartOn         string
+	EndOn           string
+	AsOf            string
+	JournalEntries  []reporting.JournalEntryReview
+	ControlBalances []reporting.ControlAccountBalance
+	TaxSummaries    []reporting.TaxSummary
+}
+
+func (h *AgentAPIHandler) handleRoot(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	http.Redirect(w, r, webAppPath, http.StatusSeeOther)
+}
+
+func (h *AgentAPIHandler) handleWebAppDashboard(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != webAppPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		if errors.Is(err, identityaccess.ErrUnauthorized) {
+			h.renderWebPage(w, webPageData{
+				Title:      "workflow_app",
+				Notice:     strings.TrimSpace(r.URL.Query().Get("notice")),
+				Error:      strings.TrimSpace(r.URL.Query().Get("error")),
+				ShowLogin:  true,
+				LoginPath:  webLoginPath,
+				ActivePath: webAppPath,
+			})
+			return
+		}
+		http.Error(w, "failed to load session", http.StatusInternalServerError)
+		return
+	}
+
+	actor := sessionContext.Actor
+	data := webAppDashboardData{
+		Session: sessionContext,
+		Notice:  strings.TrimSpace(r.URL.Query().Get("notice")),
+		Error:   strings.TrimSpace(r.URL.Query().Get("error")),
+	}
+	if h.reviewService != nil {
+		if data.InboundSummary, err = h.reviewService.ListInboundRequestStatusSummary(r.Context(), actor); err != nil {
+			data.Error = "failed to load inbound request summary"
+		}
+		if data.InboundRequests, err = h.reviewService.ListInboundRequests(r.Context(), reporting.ListInboundRequestsInput{
+			Limit: 20,
+			Actor: actor,
+		}); err != nil {
+			data.Error = "failed to load inbound requests"
+		}
+		if data.Proposals, err = h.reviewService.ListProcessedProposals(r.Context(), reporting.ListProcessedProposalsInput{
+			Limit: 10,
+			Actor: actor,
+		}); err != nil {
+			data.Error = "failed to load processed proposals"
+		}
+		if data.Approvals, err = h.reviewService.ListApprovalQueue(r.Context(), reporting.ListApprovalQueueInput{
+			Status: "pending",
+			Limit:  10,
+			Actor:  actor,
+		}); err != nil {
+			data.Error = "failed to load approval queue"
+		}
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:      "workflow_app",
+		ActivePath: webAppPath,
+		Session:    &sessionContext,
+		Dashboard:  &data,
+	})
+}
+
+func (h *AgentAPIHandler) handleWebDocuments(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != webDocumentsPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("Please sign in."), http.StatusSeeOther)
+		return
+	}
+	if h.reviewService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("review service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	data := webDocumentsData{
+		Session:  sessionContext,
+		Notice:   strings.TrimSpace(r.URL.Query().Get("notice")),
+		Error:    strings.TrimSpace(r.URL.Query().Get("error")),
+		TypeCode: strings.TrimSpace(r.URL.Query().Get("type_code")),
+		Status:   strings.TrimSpace(r.URL.Query().Get("status")),
+	}
+	data.Documents, err = h.reviewService.ListDocuments(r.Context(), reporting.ListDocumentsInput{
+		TypeCode: data.TypeCode,
+		Status:   data.Status,
+		Limit:    50,
+		Actor:    sessionContext.Actor,
+	})
+	if err != nil {
+		data.Error = "failed to load documents"
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:      "workflow_app",
+		ActivePath: webDocumentsPath,
+		Session:    &sessionContext,
+		Documents:  &data,
+	})
+}
+
+func (h *AgentAPIHandler) handleWebAccounting(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != webAccountingPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("Please sign in."), http.StatusSeeOther)
+		return
+	}
+	if h.reviewService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("review service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	startOn := parseOptionalDate(r.URL.Query().Get("start_on"))
+	endOn := parseOptionalDate(r.URL.Query().Get("end_on"))
+	asOf := parseOptionalDate(r.URL.Query().Get("as_of"))
+	data := webAccountingData{
+		Session: sessionContext,
+		Notice:  strings.TrimSpace(r.URL.Query().Get("notice")),
+		Error:   strings.TrimSpace(r.URL.Query().Get("error")),
+		StartOn: formatDateInput(startOn),
+		EndOn:   formatDateInput(endOn),
+		AsOf:    formatDateInput(asOf),
+	}
+
+	data.JournalEntries, err = h.reviewService.ListJournalEntries(r.Context(), reporting.ListJournalEntriesInput{
+		StartOn: startOn,
+		EndOn:   endOn,
+		Limit:   50,
+		Actor:   sessionContext.Actor,
+	})
+	if err != nil {
+		data.Error = "failed to load journal entries"
+	}
+	if data.ControlBalances, err = h.reviewService.ListControlAccountBalances(r.Context(), reporting.ListControlAccountBalancesInput{
+		AsOf:  asOf,
+		Actor: sessionContext.Actor,
+	}); err != nil && data.Error == "" {
+		data.Error = "failed to load control account balances"
+	}
+	if data.TaxSummaries, err = h.reviewService.ListTaxSummaries(r.Context(), reporting.ListTaxSummariesInput{
+		StartOn: startOn,
+		EndOn:   endOn,
+		Limit:   50,
+		Actor:   sessionContext.Actor,
+	}); err != nil && data.Error == "" {
+		data.Error = "failed to load tax summaries"
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:      "workflow_app",
+		ActivePath: webAccountingPath,
+		Session:    &sessionContext,
+		Accounting: &data,
+	})
+}
+
+func (h *AgentAPIHandler) handleWebLogin(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != webLoginPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+	if h.authService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("auth service unavailable"), http.StatusSeeOther)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("invalid login form"), http.StatusSeeOther)
+		return
+	}
+
+	deviceLabel := strings.TrimSpace(r.FormValue("device_label"))
+	if deviceLabel == "" {
+		deviceLabel = "browser"
+	}
+
+	session, err := h.authService.StartBrowserSession(r.Context(), identityaccess.StartBrowserSessionInput{
+		OrgSlug:     strings.TrimSpace(r.FormValue("org_slug")),
+		Email:       strings.TrimSpace(r.FormValue("email")),
+		DeviceLabel: deviceLabel,
+		ExpiresAt:   time.Now().UTC().Add(browserSessionDuration),
+	})
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("invalid session credentials"), http.StatusSeeOther)
+		return
+	}
+
+	setSessionCookies(w, session.Session.ID, session.RefreshToken, session.Session.ExpiresAt)
+	http.Redirect(w, r, webAppPath+"?notice="+url.QueryEscape("Signed in."), http.StatusSeeOther)
+}
+
+func (h *AgentAPIHandler) handleWebLogout(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != webLogoutPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionID, refreshToken, ok := sessionCookiesFromRequest(r)
+	if ok && h.authService != nil {
+		_ = h.authService.RevokeAuthenticatedSession(r.Context(), sessionID, refreshToken)
+	}
+	clearSessionCookies(w)
+	http.Redirect(w, r, webAppPath+"?notice="+url.QueryEscape("Signed out."), http.StatusSeeOther)
+}
+
+func (h *AgentAPIHandler) handleWebSubmitInboundRequest(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != webSubmitInboundPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+	if h.submissionService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("submission service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("unauthorized"), http.StatusSeeOther)
+		return
+	}
+
+	if err := r.ParseMultipartForm(16 << 20); err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("invalid submission form"), http.StatusSeeOther)
+		return
+	}
+
+	var files []SubmitInboundRequestAttachmentInput
+	if r.MultipartForm != nil {
+		for _, fileHeader := range r.MultipartForm.File["attachments"] {
+			file, openErr := fileHeader.Open()
+			if openErr != nil {
+				http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("failed to read attachment"), http.StatusSeeOther)
+				return
+			}
+
+			content, readErr := io.ReadAll(file)
+			_ = file.Close()
+			if readErr != nil {
+				http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("failed to read attachment"), http.StatusSeeOther)
+				return
+			}
+			if len(content) == 0 {
+				continue
+			}
+
+			mediaType := strings.TrimSpace(fileHeader.Header.Get("Content-Type"))
+			if mediaType == "" {
+				mediaType = "application/octet-stream"
+			}
+
+			files = append(files, SubmitInboundRequestAttachmentInput{
+				OriginalFileName: fileHeader.Filename,
+				MediaType:        mediaType,
+				ContentBase64:    base64.StdEncoding.EncodeToString(content),
+				LinkRole:         attachments.LinkRoleEvidence,
+			})
+		}
+	}
+
+	result, err := h.submissionService.SubmitInboundRequest(r.Context(), SubmitInboundRequestInput{
+		OriginType:     intake.OriginHuman,
+		Channel:        "browser",
+		Metadata:       map[string]any{"submitter_label": strings.TrimSpace(r.FormValue("submitter_label"))},
+		MessageRole:    intake.MessageRoleRequest,
+		MessageText:    strings.TrimSpace(r.FormValue("message_text")),
+		Attachments:    files,
+		QueueForReview: true,
+		Actor:          actor,
+	})
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("failed to submit inbound request"), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, webInboundDetailPrefix+url.PathEscape(result.Request.RequestReference)+"?notice="+url.QueryEscape("Inbound request submitted."), http.StatusSeeOther)
+}
+
+func (h *AgentAPIHandler) handleWebProcessNextQueuedInboundRequest(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != webProcessNextQueuedPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("unauthorized"), http.StatusSeeOther)
+		return
+	}
+
+	processor, err := h.loadProcessor()
+	if err != nil {
+		if errors.Is(err, ErrAgentProviderNotConfigured) {
+			http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("AI provider not configured."), http.StatusSeeOther)
+			return
+		}
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("failed to initialize agent processor"), http.StatusSeeOther)
+		return
+	}
+
+	result, err := processor.ProcessNextQueuedInboundRequest(r.Context(), ProcessNextQueuedInboundRequestInput{
+		Channel: "browser",
+		Actor:   actor,
+	})
+	if err != nil {
+		if errors.Is(err, intake.ErrNoQueuedInboundRequest) {
+			http.Redirect(w, r, webAppPath+"?notice="+url.QueryEscape("No queued inbound requests."), http.StatusSeeOther)
+			return
+		}
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("failed to process queued inbound request"), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, webInboundDetailPrefix+url.PathEscape(result.Request.RequestReference)+"?notice="+url.QueryEscape("Queued inbound request processed."), http.StatusSeeOther)
+}
+
+func (h *AgentAPIHandler) handleWebInboundRequestDetail(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+	lookup, ok := parseChildPath(webSubmitInboundPath, r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("Please sign in."), http.StatusSeeOther)
+		return
+	}
+	if h.reviewService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("review service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	input := reporting.GetInboundRequestDetailInput{Actor: sessionContext.Actor}
+	if strings.HasPrefix(strings.ToUpper(lookup), "REQ-") {
+		input.RequestReference = lookup
+	} else {
+		input.RequestID = lookup
+	}
+
+	detail, err := h.reviewService.GetInboundRequestDetail(r.Context(), input)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("failed to load inbound request detail"), http.StatusSeeOther)
+		return
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:      "workflow_app",
+		ActivePath: webAppPath,
+		Session:    &sessionContext,
+		Detail: &webInboundDetailData{
+			Session: sessionContext,
+			Notice:  strings.TrimSpace(r.URL.Query().Get("notice")),
+			Error:   strings.TrimSpace(r.URL.Query().Get("error")),
+			Detail:  detail,
+		},
+	})
+}
+
+func (h *AgentAPIHandler) handleWebApprovalDecision(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+	if h.approvalService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("approval service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	approvalID, ok := parseChildPath(strings.TrimSuffix(webApprovalDecisionPrefix, "/"), strings.TrimSuffix(r.URL.Path, "/decision"))
+	if !ok || !strings.HasSuffix(r.URL.Path, "/decision") {
+		http.NotFound(w, r)
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("unauthorized"), http.StatusSeeOther)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("invalid approval form"), http.StatusSeeOther)
+		return
+	}
+
+	decision := strings.TrimSpace(r.FormValue("decision"))
+	if decision != "approved" && decision != "rejected" {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("invalid approval decision"), http.StatusSeeOther)
+		return
+	}
+
+	returnTo := sanitizeWebReturnPath(r.FormValue("return_to"))
+	if returnTo == "" {
+		returnTo = webAppPath
+	}
+
+	if _, _, err := h.approvalService.DecideApproval(r.Context(), workflow.DecideApprovalInput{
+		ApprovalID:   approvalID,
+		Decision:     decision,
+		DecisionNote: strings.TrimSpace(r.FormValue("decision_note")),
+		Actor:        actor,
+	}); err != nil {
+		http.Redirect(w, r, appendWebMessage(returnTo, "error", "failed to decide approval"), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, appendWebMessage(returnTo, "notice", "Approval updated."), http.StatusSeeOther)
+}
+
+type webPageData struct {
+	Title      string
+	ActivePath string
+	Notice     string
+	Error      string
+	ShowLogin  bool
+	LoginPath  string
+	Session    *identityaccess.SessionContext
+	Dashboard  *webAppDashboardData
+	Detail     *webInboundDetailData
+	Documents  *webDocumentsData
+	Accounting *webAccountingData
+}
+
+func (h *AgentAPIHandler) renderWebPage(w http.ResponseWriter, data webPageData) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_ = webAppTemplate.Execute(w, data)
+}
+
+func sanitizeWebReturnPath(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || !strings.HasPrefix(raw, webAppPath) {
+		return ""
+	}
+	if strings.Contains(raw, "://") {
+		return ""
+	}
+	return raw
+}
+
+func appendWebMessage(target, key, message string) string {
+	separator := "?"
+	if strings.Contains(target, "?") {
+		separator = "&"
+	}
+	return target + separator + key + "=" + url.QueryEscape(message)
+}
+
+func formatTemplateTime(value time.Time) string {
+	if value.IsZero() {
+		return "-"
+	}
+	return value.UTC().Format("2006-01-02 15:04:05 UTC")
+}
+
+func formatDateInput(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+	return value.UTC().Format(time.DateOnly)
+}
+
+func prettyTemplateJSON(raw any) string {
+	switch v := raw.(type) {
+	case nil:
+		return "{}"
+	case []byte:
+		if len(v) == 0 {
+			return "{}"
+		}
+		var out bytes.Buffer
+		if err := json.Indent(&out, v, "", "  "); err == nil {
+			return out.String()
+		}
+		return string(v)
+	default:
+		b, err := json.MarshalIndent(v, "", "  ")
+		if err != nil {
+			return fmt.Sprint(v)
+		}
+		return string(b)
+	}
+}
+
+func templateStatusClass(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "processed", "completed", "approved":
+		return "status-good"
+	case "failed", "rejected", "cancelled":
+		return "status-bad"
+	default:
+		return "status-neutral"
+	}
+}
+
+const webAppHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}}</title>
+  <style>
+    :root {
+      --bg: #f5efe3;
+      --panel: rgba(255,255,255,0.88);
+      --ink: #1f1f1f;
+      --muted: #5d5d5d;
+      --line: #d8cdb8;
+      --accent: #0f766e;
+      --accent-soft: #dff3f1;
+      --warn: #9a3412;
+      --warn-soft: #fde8d8;
+      --bad: #991b1b;
+      --bad-soft: #fee2e2;
+      --good: #166534;
+      --good-soft: #dcfce7;
+      --shadow: 0 24px 60px rgba(60, 41, 12, 0.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(15,118,110,0.18), transparent 28%),
+        radial-gradient(circle at top right, rgba(154,52,18,0.16), transparent 30%),
+        linear-gradient(180deg, #f7f2e8 0%, #efe6d6 100%);
+    }
+    a { color: #0f5e58; }
+    .shell {
+      width: min(1200px, calc(100% - 32px));
+      margin: 24px auto 48px;
+    }
+    .masthead, .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      border-radius: 18px;
+    }
+    .masthead {
+      padding: 24px;
+      margin-bottom: 18px;
+    }
+    .masthead h1 {
+      margin: 0 0 8px;
+      font-size: clamp(2rem, 4vw, 3.4rem);
+      line-height: 1;
+      letter-spacing: -0.04em;
+    }
+    .masthead p, .meta {
+      margin: 0;
+      color: var(--muted);
+    }
+    .nav {
+      margin-top: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 18px;
+      align-items: start;
+    }
+    .panel { padding: 18px; }
+    .panel h2, .panel h3 {
+      margin-top: 0;
+      margin-bottom: 12px;
+      font-size: 1.15rem;
+    }
+    .notice, .error {
+      padding: 12px 14px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      border: 1px solid transparent;
+    }
+    .notice {
+      background: var(--accent-soft);
+      border-color: rgba(15,118,110,0.16);
+    }
+    .error {
+      background: var(--warn-soft);
+      border-color: rgba(154,52,18,0.22);
+      color: var(--warn);
+    }
+    form { display: grid; gap: 12px; }
+    label { font-weight: 600; }
+    input, textarea, select, button {
+      width: 100%;
+      font: inherit;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.9);
+      color: var(--ink);
+    }
+    textarea { min-height: 132px; resize: vertical; }
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    button.secondary {
+      background: #6b5c43;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.96rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 8px;
+      border-top: 1px solid var(--line);
+      vertical-align: top;
+    }
+    th { color: var(--muted); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.08em; }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .status-good { background: var(--good-soft); color: var(--good); }
+    .status-bad { background: var(--bad-soft); color: var(--bad); }
+    .status-neutral { background: #ece8df; color: #5f513d; }
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #f4efe7;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      overflow-x: auto;
+    }
+    .split {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 18px;
+    }
+    .summary-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+    .summary-card {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.68);
+    }
+    .summary-card strong {
+      display: block;
+      font-size: 1.4rem;
+      margin-bottom: 6px;
+    }
+    .inline-form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .inline-form input[type="text"] { min-width: 220px; }
+    .stack { display: grid; gap: 18px; }
+    .detail-block + .detail-block { margin-top: 16px; }
+    @media (max-width: 880px) {
+      .split { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="masthead">
+      <h1>workflow_app</h1>
+      <p>AI-agent-first intake, review, approvals, and operator control on one browser surface.</p>
+      {{if .Session}}
+      <div class="nav">
+        <div>
+          <div class="meta">Signed in as {{.Session.UserEmail}} in {{.Session.OrgName}} ({{.Session.RoleCode}})</div>
+          <div class="meta" style="margin-top:8px;">
+            <a href="/app">Operations</a> |
+            <a href="/app/review/documents">Documents</a> |
+            <a href="/app/review/accounting">Accounting</a>
+          </div>
+        </div>
+        <form method="post" action="/app/logout" style="display:inline-grid;">
+          <button type="submit" class="secondary">Sign out</button>
+        </form>
+      </div>
+      {{end}}
+    </section>
+
+    {{if .ShowLogin}}
+    <section class="panel" style="max-width: 560px;">
+      {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+      {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+      <h2>Sign in</h2>
+      <form method="post" action="{{.LoginPath}}">
+        <label>Org slug
+          <input type="text" name="org_slug" autocomplete="organization" required>
+        </label>
+        <label>User email
+          <input type="email" name="email" autocomplete="email" required>
+        </label>
+        <label>Device label
+          <input type="text" name="device_label" value="browser">
+        </label>
+        <button type="submit">Start browser session</button>
+      </form>
+    </section>
+    {{end}}
+
+    {{with .Dashboard}}
+    <div class="stack">
+      {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+      {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+
+      <section class="panel">
+        <div class="split">
+          <div>
+            <h2>Submit inbound request</h2>
+            <form method="post" action="/app/inbound-requests" enctype="multipart/form-data">
+              <label>Submitter label
+                <input type="text" name="submitter_label" placeholder="front desk">
+              </label>
+              <label>Request message
+                <textarea name="message_text" required placeholder="Describe the request, evidence, and expected follow-up."></textarea>
+              </label>
+              <label>Attachments
+                <input type="file" name="attachments" multiple>
+              </label>
+              <button type="submit">Queue inbound request</button>
+            </form>
+          </div>
+          <div>
+            <h2>Agent queue</h2>
+            <p class="meta">Process the next queued request through the provider-backed coordinator on the same backend seam used by the API.</p>
+            <form method="post" action="/app/agent/process-next-queued-inbound-request">
+              <button type="submit">Process next queued request</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Inbound request status summary</h2>
+        <div class="summary-list">
+          {{range .InboundSummary}}
+          <div class="summary-card">
+            <strong>{{.RequestCount}}</strong>
+            <span class="status-pill {{statusClass .Status}}">{{.Status}}</span>
+            <div class="meta">Messages: {{.MessageCount}} | Attachments: {{.AttachmentCount}}</div>
+            <div class="meta">Updated: {{formatTime .LatestUpdatedAt}}</div>
+          </div>
+          {{else}}
+          <div class="summary-card">No inbound requests yet.</div>
+          {{end}}
+        </div>
+      </section>
+
+      <div class="grid">
+        <section class="panel">
+          <h2>Recent inbound requests</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Reference</th>
+                <th>Status</th>
+                <th>Channel</th>
+                <th>Messages</th>
+                <th>Updated</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{range .InboundRequests}}
+              <tr>
+                <td><a href="/app/inbound-requests/{{.RequestReference}}">{{.RequestReference}}</a></td>
+                <td><span class="status-pill {{statusClass .Status}}">{{.Status}}</span></td>
+                <td>{{.Channel}}</td>
+                <td>{{.MessageCount}} messages / {{.AttachmentCount}} files</td>
+                <td>{{formatTime .UpdatedAt}}</td>
+              </tr>
+              {{else}}
+              <tr><td colspan="5">No inbound requests available.</td></tr>
+              {{end}}
+            </tbody>
+          </table>
+        </section>
+
+        <section class="panel">
+          <h2>Pending approvals</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Queue</th>
+                <th>Document</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{range .Approvals}}
+              <tr>
+                <td>{{.QueueCode}}</td>
+                <td>{{.DocumentTitle}}</td>
+                <td>
+                  <div class="status-pill {{statusClass .ApprovalStatus}}">{{.ApprovalStatus}}</div>
+                  <form method="post" action="/app/approvals/{{.ApprovalID}}/decision" style="margin-top:8px;">
+                    <input type="hidden" name="return_to" value="/app">
+                    <input type="text" name="decision_note" placeholder="Decision note">
+                    <div class="inline-form">
+                      <button type="submit" name="decision" value="approved">Approve</button>
+                      <button type="submit" name="decision" value="rejected" class="secondary">Reject</button>
+                    </div>
+                  </form>
+                </td>
+              </tr>
+              {{else}}
+              <tr><td colspan="3">No pending approvals.</td></tr>
+              {{end}}
+            </tbody>
+          </table>
+        </section>
+      </div>
+
+      <section class="panel">
+        <h2>Processed proposals</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Request</th>
+              <th>Recommendation</th>
+              <th>Approval</th>
+              <th>Document</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .Proposals}}
+            <tr>
+              <td><a href="/app/inbound-requests/{{.RequestReference}}">{{.RequestReference}}</a></td>
+              <td>
+                <span class="status-pill {{statusClass .RecommendationStatus}}">{{.RecommendationStatus}}</span>
+                <div>{{.Summary}}</div>
+              </td>
+              <td>{{.ApprovalStatus.String}}</td>
+              <td>{{if .DocumentTitle.Valid}}<a href="/app/review/documents">{{.DocumentTitle.String}}</a>{{else}}-{{end}}</td>
+            </tr>
+            {{else}}
+            <tr><td colspan="4">No processed proposals available.</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+      </section>
+    </div>
+    {{end}}
+
+    {{with .Documents}}
+    <div class="stack">
+      {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+      {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+      <section class="panel">
+        <h2>Document review</h2>
+        <form method="get" action="/app/review/documents" class="inline-form">
+          <input type="text" name="type_code" value="{{.TypeCode}}" placeholder="type code">
+          <input type="text" name="status" value="{{.Status}}" placeholder="status">
+          <button type="submit">Filter documents</button>
+        </form>
+      </section>
+      <section class="panel">
+        <table>
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Title</th>
+              <th>Status</th>
+              <th>Approval</th>
+              <th>Posting</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .Documents}}
+            <tr>
+              <td>{{.TypeCode}}</td>
+              <td>{{.Title}}</td>
+              <td><span class="status-pill {{statusClass .Status}}">{{.Status}}</span></td>
+              <td>{{.ApprovalStatus.String}}</td>
+              <td>{{if .JournalEntryNumber.Valid}}Entry #{{.JournalEntryNumber.Int64}}{{else}}-{{end}}</td>
+            </tr>
+            {{else}}
+            <tr><td colspan="5">No documents available for the selected filters.</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+      </section>
+    </div>
+    {{end}}
+
+    {{with .Accounting}}
+    <div class="stack">
+      {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+      {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+      <section class="panel">
+        <h2>Accounting review</h2>
+        <form method="get" action="/app/review/accounting" class="inline-form">
+          <input type="date" name="start_on" value="{{.StartOn}}">
+          <input type="date" name="end_on" value="{{.EndOn}}">
+          <input type="date" name="as_of" value="{{.AsOf}}">
+          <button type="submit">Apply filters</button>
+        </form>
+      </section>
+      <div class="grid">
+        <section class="panel">
+          <h2>Journal entries</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Entry</th>
+                <th>Scope</th>
+                <th>Summary</th>
+                <th>Totals</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{range .JournalEntries}}
+              <tr>
+                <td>#{{.EntryNumber}}</td>
+                <td>{{.TaxScopeCode}}</td>
+                <td>{{.Summary}}</td>
+                <td>Dr {{.TotalDebitMinor}} / Cr {{.TotalCreditMinor}}</td>
+              </tr>
+              {{else}}
+              <tr><td colspan="4">No journal entries available.</td></tr>
+              {{end}}
+            </tbody>
+          </table>
+        </section>
+        <section class="panel">
+          <h2>Control accounts</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Type</th>
+                <th>Net</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{range .ControlBalances}}
+              <tr>
+                <td>{{.AccountCode}}</td>
+                <td>{{.ControlType}}</td>
+                <td>{{.NetMinor}}</td>
+              </tr>
+              {{else}}
+              <tr><td colspan="3">No control accounts available.</td></tr>
+              {{end}}
+            </tbody>
+          </table>
+        </section>
+      </div>
+      <section class="panel">
+        <h2>Tax summaries</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Tax code</th>
+              <th>Type</th>
+              <th>Entries</th>
+              <th>Net</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .TaxSummaries}}
+            <tr>
+              <td>{{.TaxCode}}</td>
+              <td>{{.TaxType}}</td>
+              <td>{{.EntryCount}}</td>
+              <td>{{.NetMinor}}</td>
+            </tr>
+            {{else}}
+            <tr><td colspan="4">No tax summaries available.</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+      </section>
+    </div>
+    {{end}}
+
+    {{with .Detail}}
+    <div class="stack">
+      {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+      {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+
+      <section class="panel">
+        <h2>Inbound request {{.Detail.Request.RequestReference}}</h2>
+        <div class="detail-block">
+          <span class="status-pill {{statusClass .Detail.Request.Status}}">{{.Detail.Request.Status}}</span>
+          <p class="meta">Channel: {{.Detail.Request.Channel}} | Origin: {{.Detail.Request.OriginType}} | Received: {{formatTime .Detail.Request.ReceivedAt}}</p>
+        </div>
+        <div class="detail-block">
+          <h3>Metadata</h3>
+          <pre>{{prettyJSON .Detail.Request.Metadata}}</pre>
+        </div>
+      </section>
+
+      <div class="grid">
+        <section class="panel">
+          <h2>Messages</h2>
+          {{range .Detail.Messages}}
+          <div class="detail-block">
+            <strong>#{{.MessageIndex}} {{.MessageRole}}</strong>
+            <p>{{.TextContent}}</p>
+            <div class="meta">{{formatTime .CreatedAt}}</div>
+          </div>
+          {{else}}
+          <p>No messages.</p>
+          {{end}}
+        </section>
+
+        <section class="panel">
+          <h2>Attachments</h2>
+          {{range .Detail.Attachments}}
+          <div class="detail-block">
+            <div><a href="/api/attachments/{{.AttachmentID}}/content">{{.OriginalFileName}}</a></div>
+            <div class="meta">{{.MediaType}} | {{.SizeBytes}} bytes | {{.LinkRole}}</div>
+            {{if .LatestDerivedText.Valid}}
+            <pre>{{.LatestDerivedText.String}}</pre>
+            {{end}}
+          </div>
+          {{else}}
+          <p>No attachments.</p>
+          {{end}}
+        </section>
+      </div>
+
+      <div class="grid">
+        <section class="panel">
+          <h2>AI runs</h2>
+          {{range .Detail.Runs}}
+          <div class="detail-block">
+            <div><strong>{{.AgentRole}}</strong> / {{.CapabilityCode}}</div>
+            <div class="status-pill {{statusClass .Status}}">{{.Status}}</div>
+            <p>{{.Summary}}</p>
+          </div>
+          {{else}}
+          <p>No AI runs yet.</p>
+          {{end}}
+        </section>
+
+        <section class="panel">
+          <h2>Artifacts</h2>
+          {{range .Detail.Artifacts}}
+          <div class="detail-block">
+            <strong>{{.Title}}</strong>
+            <div class="meta">{{.ArtifactType}} | {{formatTime .CreatedAt}}</div>
+            <pre>{{prettyJSON .Payload}}</pre>
+          </div>
+          {{else}}
+          <p>No artifacts yet.</p>
+          {{end}}
+        </section>
+      </div>
+
+      <div class="grid">
+        <section class="panel">
+          <h2>Recommendations</h2>
+          {{range .Detail.Recommendations}}
+          <div class="detail-block">
+            <strong>{{.Summary}}</strong>
+            <div class="status-pill {{statusClass .Status}}">{{.Status}}</div>
+            <pre>{{prettyJSON .Payload}}</pre>
+          </div>
+          {{else}}
+          <p>No recommendations yet.</p>
+          {{end}}
+        </section>
+
+        <section class="panel">
+          <h2>Proposals</h2>
+          {{range .Detail.Proposals}}
+          <div class="detail-block">
+            <strong>{{.Summary}}</strong>
+            <div class="meta">Recommendation: {{.RecommendationStatus}} | Approval: {{.ApprovalStatus.String}}</div>
+            <div class="meta">Document: {{.DocumentTitle.String}}</div>
+            {{if .ApprovalID.Valid}}
+            <form method="post" action="/app/approvals/{{.ApprovalID.String}}/decision">
+              <input type="hidden" name="return_to" value="/app/inbound-requests/{{$.Detail.Request.RequestReference}}">
+              <input type="text" name="decision_note" placeholder="Decision note">
+              <div class="inline-form">
+                <button type="submit" name="decision" value="approved">Approve</button>
+                <button type="submit" name="decision" value="rejected" class="secondary">Reject</button>
+              </div>
+            </form>
+            {{end}}
+          </div>
+          {{else}}
+          <p>No downstream proposals yet.</p>
+          {{end}}
+        </section>
+      </div>
+    </div>
+    {{end}}
+  </div>
+</body>
+</html>`
