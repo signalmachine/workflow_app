@@ -30,7 +30,7 @@ Current implementation checkpoint:
 7. provider-backed business writes still terminate at artifact and recommendation persistence rather than bypassing approvals, postings, or normal domain services
 8. `internal/app` now exposes a shared backend-facing agent-processing contract that loads the configured OpenAI provider and drives the queued coordinator path without direct package-level wiring in each caller
 9. `cmd/verify-agent` now provides a focused opt-in live-provider verification command on top of that shared contract, and provider-gated integration coverage now exists behind the `integration` build tag
-10. `internal/app` now also exposes the first HTTP API handler for that seam at `POST /api/agent/process-next-queued-inbound-request`, validating actor headers, surfacing queue-empty and provider-not-configured outcomes cleanly, and `cmd/app` now serves that first runnable API surface
+10. `internal/app` now also exposes the first widened HTTP API surface for that seam: `POST /api/agent/process-next-queued-inbound-request` validates actor headers and surfaces queue-empty and provider-not-configured outcomes cleanly, `POST /api/inbound-requests` now persists the initial request message plus optional inline attachments and queues the request through one backend workflow, `GET /api/attachments/{attachment_id}/content` now returns persisted attachment bytes through the same auth boundary, and `cmd/app` now serves that widened runnable API surface
 
 ## 2. V1 objective
 
@@ -54,7 +54,7 @@ In scope:
 6. explicit tool-registration, tool-policy enforcement, and approval-aware tool-loop handling in the provider-backed execution path
 7. structured-output and validation boundaries where provider output drives domain proposals or recommendations
 8. provider timeout, retry, and error handling rules that preserve business-state safety
-9. one minimal HTTP or API surface for session-auth, request submission, attachment upload and download, and review-oriented reads around the live AI path, with the first agent-processing endpoint now landed
+9. one minimal HTTP or API surface for session-auth, request submission, attachment upload and download, and review-oriented reads around the live AI path, with queued-request processing plus the first submission and attachment-download contracts now landed
 10. real integration tests gated on configured OpenAI credentials
 11. a repository-level verification command for provider-backed AI behavior when credentials are present
 
@@ -157,7 +157,8 @@ Recommended sequence after Milestone 5:
 2. add bounded specialist delegation on top of the now-live coordinator and tool-loop execution path
 3. add the shared backend processing seam, live-provider integration tests, and the explicit verification command
 4. extend the now-landed first API surface with attachment transport and request-submission contracts on top of that shared backend seam
-5. update reporting or operational docs only where needed to explain the now-live provider-backed path
+5. add operator-review backend contracts on top of the same shared seam without creating a second truth owner
+6. update reporting or operational docs only where needed to explain the now-live provider-backed path
 
 Execution rule:
 

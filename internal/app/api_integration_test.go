@@ -3,6 +3,7 @@ package app_test
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -229,5 +230,132 @@ func TestAgentAPIProcessNextQueuedInboundRequestRejectsMalformedHeaders(t *testi
 
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestAgentAPISubmitInboundRequestIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	session := startSession(t, ctx, db, orgID, operatorUserID)
+
+	handler := app.NewAgentAPIHandlerWithServices(nil, app.NewSubmissionService(db))
+
+	body := bytes.NewBufferString(`{
+		"origin_type":"human",
+		"channel":"browser",
+		"metadata":{"submitter_label":"front desk"},
+		"message":{"message_role":"request","text_content":"The warehouse pump has failed and needs review."},
+		"attachments":[
+			{
+				"original_file_name":"pump-note.txt",
+				"media_type":"text/plain",
+				"content_base64":"` + base64.StdEncoding.EncodeToString([]byte("urgent pump failure details")) + `",
+				"link_role":"evidence"
+			}
+		]
+	}`)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/inbound-requests", body)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Workflow-Org-ID", orgID)
+	req.Header.Set("X-Workflow-User-ID", operatorUserID)
+	req.Header.Set("X-Workflow-Session-ID", session.ID)
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	var response struct {
+		RequestID        string   `json:"request_id"`
+		RequestReference string   `json:"request_reference"`
+		Status           string   `json:"status"`
+		MessageID        string   `json:"message_id"`
+		AttachmentIDs    []string `json:"attachment_ids"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if response.RequestID == "" || response.RequestReference == "" || response.MessageID == "" {
+		t.Fatalf("expected request identifiers in response: %+v", response)
+	}
+	if response.Status != "queued" {
+		t.Fatalf("unexpected request status: %s", response.Status)
+	}
+	if len(response.AttachmentIDs) != 1 {
+		t.Fatalf("unexpected attachment ids: %+v", response.AttachmentIDs)
+	}
+
+	var requestStatus string
+	if err := db.QueryRowContext(ctx, `SELECT status FROM ai.inbound_requests WHERE id = $1`, response.RequestID).Scan(&requestStatus); err != nil {
+		t.Fatalf("load queued request: %v", err)
+	}
+	if requestStatus != "queued" {
+		t.Fatalf("unexpected persisted request status: %s", requestStatus)
+	}
+
+	downloadReq := httptest.NewRequest(http.MethodGet, "/api/attachments/"+response.AttachmentIDs[0]+"/content", nil)
+	downloadReq.Header.Set("X-Workflow-Org-ID", orgID)
+	downloadReq.Header.Set("X-Workflow-User-ID", operatorUserID)
+	downloadReq.Header.Set("X-Workflow-Session-ID", session.ID)
+
+	downloadRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(downloadRecorder, downloadReq)
+
+	if downloadRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected download status: got %d body=%s", downloadRecorder.Code, downloadRecorder.Body.String())
+	}
+	if got := downloadRecorder.Header().Get("Content-Type"); got != "text/plain" {
+		t.Fatalf("unexpected content type: %s", got)
+	}
+	if got := downloadRecorder.Body.String(); got != "urgent pump failure details" {
+		t.Fatalf("unexpected attachment payload: %q", got)
+	}
+}
+
+func TestAgentAPISubmitInboundRequestRejectsInvalidAttachmentContent(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	session := startSession(t, ctx, db, orgID, operatorUserID)
+
+	handler := app.NewAgentAPIHandlerWithServices(nil, app.NewSubmissionService(db))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/inbound-requests", bytes.NewBufferString(`{
+		"channel":"browser",
+		"message":{"text_content":"Attachment upload should fail."},
+		"attachments":[{"original_file_name":"broken.txt","media_type":"text/plain","content_base64":"not-base64%%%"}]
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Workflow-Org-ID", orgID)
+	req.Header.Set("X-Workflow-User-ID", operatorUserID)
+	req.Header.Set("X-Workflow-Session-ID", session.ID)
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	var requestCount int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM ai.inbound_requests WHERE org_id = $1`, orgID).Scan(&requestCount); err != nil {
+		t.Fatalf("count inbound requests: %v", err)
+	}
+	if requestCount != 0 {
+		t.Fatalf("expected failed submission cleanup, found %d requests", requestCount)
 	}
 }

@@ -62,6 +62,11 @@ type DerivedText struct {
 	CreatedAt          time.Time
 }
 
+type AttachmentContent struct {
+	Attachment
+	Content []byte
+}
+
 type CreateAttachmentInput struct {
 	OriginalFileName string
 	MediaType        string
@@ -212,6 +217,30 @@ func (s *Service) RecordDerivedText(ctx context.Context, input RecordDerivedText
 	return derived, nil
 }
 
+func (s *Service) GetAttachmentContent(ctx context.Context, attachmentID string, actor identityaccess.Actor) (AttachmentContent, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return AttachmentContent{}, fmt.Errorf("begin get attachment content: %w", err)
+	}
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, actor, identityaccess.RoleAdmin, identityaccess.RoleOperator); err != nil {
+		_ = tx.Rollback()
+		return AttachmentContent{}, err
+	}
+
+	attachment, err := getAttachmentContentTx(ctx, tx, actor.OrgID, attachmentID)
+	if err != nil {
+		_ = tx.Rollback()
+		return AttachmentContent{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return AttachmentContent{}, fmt.Errorf("commit get attachment content: %w", err)
+	}
+
+	return attachment, nil
+}
+
 func createAttachmentTx(ctx context.Context, tx *sql.Tx, input CreateAttachmentInput) (Attachment, error) {
 	name := strings.TrimSpace(input.OriginalFileName)
 	mediaType := strings.TrimSpace(input.MediaType)
@@ -354,6 +383,52 @@ RETURNING
 		return DerivedText{}, fmt.Errorf("insert derived text: %w", err)
 	}
 	return derived, nil
+}
+
+func getAttachmentContentTx(ctx context.Context, tx *sql.Tx, orgID, attachmentID string) (AttachmentContent, error) {
+	if strings.TrimSpace(attachmentID) == "" {
+		return AttachmentContent{}, ErrAttachmentNotFound
+	}
+
+	const statement = `
+SELECT
+	id,
+	org_id,
+	storage_backend,
+	storage_locator,
+	original_file_name,
+	media_type,
+	size_bytes,
+	checksum_sha256,
+	uploaded_by_user_id,
+	created_at,
+	content
+FROM attachments.attachments
+WHERE org_id = $1
+  AND id = $2;`
+
+	var attachment AttachmentContent
+	err := tx.QueryRowContext(ctx, statement, orgID, strings.TrimSpace(attachmentID)).Scan(
+		&attachment.ID,
+		&attachment.OrgID,
+		&attachment.StorageBackend,
+		&attachment.StorageLocator,
+		&attachment.OriginalFileName,
+		&attachment.MediaType,
+		&attachment.SizeBytes,
+		&attachment.ChecksumSHA256,
+		&attachment.UploadedByUserID,
+		&attachment.CreatedAt,
+		&attachment.Content,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return AttachmentContent{}, ErrAttachmentNotFound
+		}
+		return AttachmentContent{}, fmt.Errorf("select attachment content: %w", err)
+	}
+
+	return attachment, nil
 }
 
 type rowScanner interface {
