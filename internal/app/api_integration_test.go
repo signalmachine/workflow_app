@@ -958,6 +958,7 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	defer cancel()
 
 	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	orgSlug, userEmail := loadOrgSlugAndUserEmail(t, ctx, db, orgID, operatorUserID)
 	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
 	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
 
@@ -1170,6 +1171,31 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	if len(queueResponse.Items) != 1 || queueResponse.Items[0].ApprovalID != approval.ID || queueResponse.Items[0].ApprovalStatus != "pending" {
 		t.Fatalf("unexpected approval queue items: %+v", queueResponse.Items)
 	}
+
+	loginReq := httptest.NewRequest(
+		http.MethodPost,
+		"/app/login",
+		strings.NewReader("org_slug="+orgSlug+"&email="+userEmail+"&device_label=browser-review"),
+	)
+	loginReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	loginRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(loginRecorder, loginReq)
+	if loginRecorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected browser login status: got %d body=%s", loginRecorder.Code, loginRecorder.Body.String())
+	}
+
+	proposalsReq := httptest.NewRequest(http.MethodGet, "/app/review/proposals?request_reference="+request.RequestReference, nil)
+	applyResponseCookies(proposalsReq, loginRecorder.Result().Cookies())
+	proposalsRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(proposalsRecorder, proposalsReq)
+	if proposalsRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected proposals page status: got %d body=%s", proposalsRecorder.Code, proposalsRecorder.Body.String())
+	}
+	requireContains(t, proposalsRecorder.Body.String(), "Proposal review")
+	requireContains(t, proposalsRecorder.Body.String(), "Proposal status summary")
+	requireContains(t, proposalsRecorder.Body.String(), request.RequestReference)
+	requireContains(t, proposalsRecorder.Body.String(), ai.RecommendationStatusApprovalRequested)
+	requireContains(t, proposalsRecorder.Body.String(), "/app/inbound-requests/"+request.RequestReference)
 }
 
 func TestAgentAPIDecideApprovalIntegration(t *testing.T) {

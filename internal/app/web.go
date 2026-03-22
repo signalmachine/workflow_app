@@ -68,6 +68,16 @@ type webAccountingData struct {
 	TaxSummaries    []reporting.TaxSummary
 }
 
+type webProposalsData struct {
+	Session            identityaccess.SessionContext
+	Notice             string
+	Error              string
+	Status             string
+	RequestReference   string
+	StatusSummary      []reporting.ProcessedProposalStatusSummary
+	ProcessedProposals []reporting.ProcessedProposalReview
+}
+
 type webInventoryData struct {
 	Session               identityaccess.SessionContext
 	Notice                string
@@ -290,6 +300,55 @@ func (h *AgentAPIHandler) handleWebAccounting(w http.ResponseWriter, r *http.Req
 		ActivePath: webAccountingPath,
 		Session:    &sessionContext,
 		Accounting: &data,
+	})
+}
+
+func (h *AgentAPIHandler) handleWebProposals(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != webProposalsPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("Please sign in."), http.StatusSeeOther)
+		return
+	}
+	if h.reviewService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("review service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	data := webProposalsData{
+		Session:          sessionContext,
+		Notice:           strings.TrimSpace(r.URL.Query().Get("notice")),
+		Error:            strings.TrimSpace(r.URL.Query().Get("error")),
+		Status:           strings.TrimSpace(r.URL.Query().Get("status")),
+		RequestReference: strings.TrimSpace(r.URL.Query().Get("request_reference")),
+	}
+
+	data.StatusSummary, err = h.reviewService.ListProcessedProposalStatusSummary(r.Context(), sessionContext.Actor)
+	if err != nil {
+		data.Error = "failed to load proposal summary"
+	}
+	if data.ProcessedProposals, err = h.reviewService.ListProcessedProposals(r.Context(), reporting.ListProcessedProposalsInput{
+		Status:           data.Status,
+		RequestReference: data.RequestReference,
+		Limit:            50,
+		Actor:            sessionContext.Actor,
+	}); err != nil && data.Error == "" {
+		data.Error = "failed to load processed proposals"
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:      "workflow_app",
+		ActivePath: webProposalsPath,
+		Session:    &sessionContext,
+		Proposals:  &data,
 	})
 }
 
@@ -780,6 +839,7 @@ type webPageData struct {
 	Detail          *webInboundDetailData
 	Documents       *webDocumentsData
 	Accounting      *webAccountingData
+	Proposals       *webProposalsData
 	Inventory       *webInventoryData
 	WorkOrders      *webWorkOrdersData
 	WorkOrderDetail *webWorkOrderDetailData
@@ -1106,6 +1166,7 @@ const webAppHTML = `<!DOCTYPE html>
             <a href="/app">Operations</a> |
             <a href="/app/review/documents">Documents</a> |
             <a href="/app/review/accounting">Accounting</a> |
+            <a href="/app/review/proposals">Proposals</a> |
             <a href="/app/review/inventory">Inventory</a> |
             <a href="/app/review/work-orders">Work orders</a> |
             <a href="/app/review/audit">Audit</a>
@@ -1252,6 +1313,7 @@ const webAppHTML = `<!DOCTYPE html>
 
       <section class="panel">
         <h2>Processed proposals</h2>
+        <p class="meta"><a href="/app/review/proposals">Open full proposal review</a></p>
         <table>
           <thead>
             <tr>
@@ -1274,6 +1336,81 @@ const webAppHTML = `<!DOCTYPE html>
             </tr>
             {{else}}
             <tr><td colspan="4">No processed proposals available.</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+      </section>
+    </div>
+    {{end}}
+
+    {{with .Proposals}}
+    <div class="stack">
+      {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+      {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+      <section class="panel">
+        <h2>Proposal review</h2>
+        <form method="get" action="/app/review/proposals" class="inline-form">
+          <input type="text" name="status" value="{{.Status}}" placeholder="recommendation status">
+          <input type="text" name="request_reference" value="{{.RequestReference}}" placeholder="REQ-... reference">
+          <button type="submit">Filter proposals</button>
+        </form>
+      </section>
+      <section class="panel">
+        <h2>Proposal status summary</h2>
+        <div class="summary-list">
+          {{range .StatusSummary}}
+          <div class="summary-card">
+            <strong>{{.ProposalCount}}</strong>
+            <span class="status-pill {{statusClass .RecommendationStatus}}">{{.RecommendationStatus}}</span>
+            <div class="meta">Requests: {{.RequestCount}} | Documents: {{.DocumentCount}}</div>
+            <div class="meta">Updated: {{formatTime .LatestCreatedAt}}</div>
+          </div>
+          {{else}}
+          <div class="summary-card">No processed proposals yet.</div>
+          {{end}}
+        </div>
+      </section>
+      <section class="panel">
+        <table>
+          <thead>
+            <tr>
+              <th>Request</th>
+              <th>Recommendation</th>
+              <th>Approval</th>
+              <th>Document</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .ProcessedProposals}}
+            <tr>
+              <td>
+                <a href="/app/inbound-requests/{{.RequestReference}}">{{.RequestReference}}</a>
+                <div class="meta"><span class="status-pill {{statusClass .RequestStatus}}">{{.RequestStatus}}</span></div>
+              </td>
+              <td>
+                <span class="status-pill {{statusClass .RecommendationStatus}}">{{.RecommendationStatus}}</span>
+                <div>{{.Summary}}</div>
+                <div class="meta">Created: {{formatTime .CreatedAt}}</div>
+              </td>
+              <td>
+                {{if .ApprovalID.Valid}}
+                <div>{{.ApprovalQueueCode.String}}</div>
+                <div class="status-pill {{statusClass .ApprovalStatus.String}}">{{.ApprovalStatus.String}}</div>
+                {{else}}
+                -
+                {{end}}
+              </td>
+              <td>
+                {{if .DocumentID.Valid}}
+                <a href="/app/review/documents?document_id={{.DocumentID.String}}">{{.DocumentTitle.String}}</a>
+                <div class="meta">{{.DocumentTypeCode.String}} | <span class="status-pill {{statusClass .DocumentStatus.String}}">{{.DocumentStatus.String}}</span></div>
+                {{else}}
+                -
+                {{end}}
+              </td>
+            </tr>
+            {{else}}
+            <tr><td colspan="4">No processed proposals available for the selected filters.</td></tr>
             {{end}}
           </tbody>
         </table>
