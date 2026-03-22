@@ -34,6 +34,9 @@ const (
 	webApprovalDecisionPrefix  = "/app/approvals/"
 	webDocumentsPath           = "/app/review/documents"
 	webAccountingPath          = "/app/review/accounting"
+	webInventoryPath           = "/app/review/inventory"
+	webWorkOrdersPath          = "/app/review/work-orders"
+	webAuditPath               = "/app/review/audit"
 	agentProcessNextQueuedPath = "/api/agent/process-next-queued-inbound-request"
 	submitInboundRequestPath   = "/api/inbound-requests"
 	attachmentContentPrefix    = "/api/attachments/"
@@ -46,6 +49,11 @@ const (
 	reviewJournalEntriesPath   = "/api/review/accounting/journal-entries"
 	reviewControlBalancesPath  = "/api/review/accounting/control-account-balances"
 	reviewTaxSummariesPath     = "/api/review/accounting/tax-summaries"
+	reviewInventoryStockPath   = "/api/review/inventory/stock"
+	reviewInventoryMovesPath   = "/api/review/inventory/movements"
+	reviewInventoryReconPath   = "/api/review/inventory/reconciliation"
+	reviewWorkOrdersPath       = "/api/review/work-orders"
+	reviewAuditEventsPath      = "/api/review/audit-events"
 	approvalDecisionPrefix     = "/api/approvals/"
 	headerOrgID                = "X-Workflow-Org-ID"
 	headerUserID               = "X-Workflow-User-ID"
@@ -75,6 +83,12 @@ type operatorReviewReader interface {
 	ListJournalEntries(ctx context.Context, input reporting.ListJournalEntriesInput) ([]reporting.JournalEntryReview, error)
 	ListControlAccountBalances(ctx context.Context, input reporting.ListControlAccountBalancesInput) ([]reporting.ControlAccountBalance, error)
 	ListTaxSummaries(ctx context.Context, input reporting.ListTaxSummariesInput) ([]reporting.TaxSummary, error)
+	ListInventoryStock(ctx context.Context, input reporting.ListInventoryStockInput) ([]reporting.InventoryStockItem, error)
+	ListInventoryMovements(ctx context.Context, input reporting.ListInventoryMovementsInput) ([]reporting.InventoryMovementReview, error)
+	ListInventoryReconciliation(ctx context.Context, input reporting.ListInventoryReconciliationInput) ([]reporting.InventoryReconciliationItem, error)
+	ListWorkOrders(ctx context.Context, input reporting.ListWorkOrdersInput) ([]reporting.WorkOrderReview, error)
+	GetWorkOrderReview(ctx context.Context, input reporting.GetWorkOrderReviewInput) (reporting.WorkOrderReview, error)
+	LookupAuditEvents(ctx context.Context, input reporting.LookupAuditEventsInput) ([]reporting.AuditEvent, error)
 	ListInboundRequests(ctx context.Context, input reporting.ListInboundRequestsInput) ([]reporting.InboundRequestReview, error)
 	GetInboundRequestDetail(ctx context.Context, input reporting.GetInboundRequestDetailInput) (reporting.InboundRequestDetail, error)
 	ListInboundRequestStatusSummary(ctx context.Context, actor identityaccess.Actor) ([]reporting.InboundRequestStatusSummary, error)
@@ -193,6 +207,10 @@ func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(webApprovalDecisionPrefix, handler.handleWebApprovalDecision)
 	mux.HandleFunc(webDocumentsPath, handler.handleWebDocuments)
 	mux.HandleFunc(webAccountingPath, handler.handleWebAccounting)
+	mux.HandleFunc(webInventoryPath, handler.handleWebInventory)
+	mux.HandleFunc(webWorkOrdersPath, handler.handleWebWorkOrders)
+	mux.HandleFunc(webWorkOrdersPath+"/", handler.handleWebWorkOrderDetail)
+	mux.HandleFunc(webAuditPath, handler.handleWebAudit)
 	mux.HandleFunc(sessionLoginPath, handler.handleSessionLogin)
 	mux.HandleFunc(sessionCurrentPath, handler.handleCurrentSession)
 	mux.HandleFunc(sessionLogoutPath, handler.handleSessionLogout)
@@ -209,6 +227,12 @@ func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(reviewJournalEntriesPath, handler.handleListJournalEntries)
 	mux.HandleFunc(reviewControlBalancesPath, handler.handleListControlAccountBalances)
 	mux.HandleFunc(reviewTaxSummariesPath, handler.handleListTaxSummaries)
+	mux.HandleFunc(reviewInventoryStockPath, handler.handleListInventoryStock)
+	mux.HandleFunc(reviewInventoryMovesPath, handler.handleListInventoryMovements)
+	mux.HandleFunc(reviewInventoryReconPath, handler.handleListInventoryReconciliation)
+	mux.HandleFunc(reviewWorkOrdersPath, handler.handleListWorkOrders)
+	mux.HandleFunc(reviewWorkOrdersPath+"/", handler.handleGetWorkOrderReview)
+	mux.HandleFunc(reviewAuditEventsPath, handler.handleLookupAuditEvents)
 	mux.HandleFunc(approvalDecisionPrefix, handler.handleDecideApproval)
 	return mux
 }
@@ -922,6 +946,244 @@ func (h *AgentAPIHandler) handleListTaxSummaries(w http.ResponseWriter, r *http.
 	writeJSON(w, http.StatusOK, response)
 }
 
+func (h *AgentAPIHandler) handleListInventoryStock(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != reviewInventoryStockPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+		return
+	}
+	if h.reviewService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "review service unavailable"})
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	items, err := h.reviewService.ListInventoryStock(r.Context(), reporting.ListInventoryStockInput{
+		ItemID:      strings.TrimSpace(r.URL.Query().Get("item_id")),
+		LocationID:  strings.TrimSpace(r.URL.Query().Get("location_id")),
+		IncludeZero: strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("include_zero")), "true"),
+		Limit:       parseLimit(r.URL.Query().Get("limit")),
+		Actor:       actor,
+	})
+	if err != nil {
+		handleReviewError(w, err, "failed to list inventory stock")
+		return
+	}
+
+	response := struct {
+		Items []inventoryStockResponse `json:"items"`
+	}{Items: make([]inventoryStockResponse, 0, len(items))}
+	for _, item := range items {
+		response.Items = append(response.Items, mapInventoryStock(item))
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func (h *AgentAPIHandler) handleListInventoryMovements(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != reviewInventoryMovesPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+		return
+	}
+	if h.reviewService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "review service unavailable"})
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	items, err := h.reviewService.ListInventoryMovements(r.Context(), reporting.ListInventoryMovementsInput{
+		ItemID:       strings.TrimSpace(r.URL.Query().Get("item_id")),
+		LocationID:   strings.TrimSpace(r.URL.Query().Get("location_id")),
+		DocumentID:   strings.TrimSpace(r.URL.Query().Get("document_id")),
+		MovementType: strings.TrimSpace(r.URL.Query().Get("movement_type")),
+		Limit:        parseLimit(r.URL.Query().Get("limit")),
+		Actor:        actor,
+	})
+	if err != nil {
+		handleReviewError(w, err, "failed to list inventory movements")
+		return
+	}
+
+	response := struct {
+		Items []inventoryMovementResponse `json:"items"`
+	}{Items: make([]inventoryMovementResponse, 0, len(items))}
+	for _, item := range items {
+		response.Items = append(response.Items, mapInventoryMovement(item))
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func (h *AgentAPIHandler) handleListInventoryReconciliation(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != reviewInventoryReconPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+		return
+	}
+	if h.reviewService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "review service unavailable"})
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	items, err := h.reviewService.ListInventoryReconciliation(r.Context(), reporting.ListInventoryReconciliationInput{
+		ItemID:                strings.TrimSpace(r.URL.Query().Get("item_id")),
+		DocumentID:            strings.TrimSpace(r.URL.Query().Get("document_id")),
+		OnlyPendingAccounting: strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("only_pending_accounting")), "true"),
+		OnlyPendingExecution:  strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("only_pending_execution")), "true"),
+		Limit:                 parseLimit(r.URL.Query().Get("limit")),
+		Actor:                 actor,
+	})
+	if err != nil {
+		handleReviewError(w, err, "failed to list inventory reconciliation")
+		return
+	}
+
+	response := struct {
+		Items []inventoryReconciliationResponse `json:"items"`
+	}{Items: make([]inventoryReconciliationResponse, 0, len(items))}
+	for _, item := range items {
+		response.Items = append(response.Items, mapInventoryReconciliation(item))
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func (h *AgentAPIHandler) handleListWorkOrders(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != reviewWorkOrdersPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+		return
+	}
+	if h.reviewService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "review service unavailable"})
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	items, err := h.reviewService.ListWorkOrders(r.Context(), reporting.ListWorkOrdersInput{
+		Status: strings.TrimSpace(r.URL.Query().Get("status")),
+		Limit:  parseLimit(r.URL.Query().Get("limit")),
+		Actor:  actor,
+	})
+	if err != nil {
+		handleReviewError(w, err, "failed to list work orders")
+		return
+	}
+
+	response := struct {
+		Items []workOrderReviewResponse `json:"items"`
+	}{Items: make([]workOrderReviewResponse, 0, len(items))}
+	for _, item := range items {
+		response.Items = append(response.Items, mapWorkOrderReview(item))
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func (h *AgentAPIHandler) handleGetWorkOrderReview(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+	if h.reviewService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "review service unavailable"})
+		return
+	}
+
+	workOrderID, ok := parseChildPath(reviewWorkOrdersPath, r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	item, err := h.reviewService.GetWorkOrderReview(r.Context(), reporting.GetWorkOrderReviewInput{
+		WorkOrderID: workOrderID,
+		Actor:       actor,
+	})
+	if err != nil {
+		handleReviewError(w, err, "failed to load work order review")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, mapWorkOrderReview(item))
+}
+
+func (h *AgentAPIHandler) handleLookupAuditEvents(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != reviewAuditEventsPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+		return
+	}
+	if h.reviewService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "review service unavailable"})
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	items, err := h.reviewService.LookupAuditEvents(r.Context(), reporting.LookupAuditEventsInput{
+		EntityType: strings.TrimSpace(r.URL.Query().Get("entity_type")),
+		EntityID:   strings.TrimSpace(r.URL.Query().Get("entity_id")),
+		Limit:      parseLimit(r.URL.Query().Get("limit")),
+		Actor:      actor,
+	})
+	if err != nil {
+		handleReviewError(w, err, "failed to look up audit events")
+		return
+	}
+
+	response := struct {
+		Items []auditEventResponse `json:"items"`
+	}{Items: make([]auditEventResponse, 0, len(items))}
+	for _, item := range items {
+		response.Items = append(response.Items, mapAuditEvent(item))
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
 func (h *AgentAPIHandler) handleDecideApproval(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.NotFound(w, r)
@@ -1270,6 +1532,126 @@ type taxSummaryResponse struct {
 	LastEffectiveOn       *time.Time `json:"last_effective_on,omitempty"`
 }
 
+type inventoryStockResponse struct {
+	ItemID       string `json:"item_id"`
+	ItemSKU      string `json:"item_sku"`
+	ItemName     string `json:"item_name"`
+	ItemRole     string `json:"item_role"`
+	LocationID   string `json:"location_id"`
+	LocationCode string `json:"location_code"`
+	LocationName string `json:"location_name"`
+	LocationRole string `json:"location_role"`
+	OnHandMilli  int64  `json:"on_hand_milli"`
+}
+
+type inventoryMovementResponse struct {
+	MovementID              string    `json:"movement_id"`
+	MovementNumber          int64     `json:"movement_number"`
+	DocumentID              *string   `json:"document_id,omitempty"`
+	DocumentTypeCode        *string   `json:"document_type_code,omitempty"`
+	DocumentTitle           *string   `json:"document_title,omitempty"`
+	DocumentNumber          *string   `json:"document_number,omitempty"`
+	DocumentStatus          *string   `json:"document_status,omitempty"`
+	ItemID                  string    `json:"item_id"`
+	ItemSKU                 string    `json:"item_sku"`
+	ItemName                string    `json:"item_name"`
+	ItemRole                string    `json:"item_role"`
+	MovementType            string    `json:"movement_type"`
+	MovementPurpose         string    `json:"movement_purpose"`
+	UsageClassification     string    `json:"usage_classification"`
+	SourceLocationID        *string   `json:"source_location_id,omitempty"`
+	SourceLocationCode      *string   `json:"source_location_code,omitempty"`
+	SourceLocationName      *string   `json:"source_location_name,omitempty"`
+	SourceLocationRole      *string   `json:"source_location_role,omitempty"`
+	DestinationLocationID   *string   `json:"destination_location_id,omitempty"`
+	DestinationLocationCode *string   `json:"destination_location_code,omitempty"`
+	DestinationLocationName *string   `json:"destination_location_name,omitempty"`
+	DestinationLocationRole *string   `json:"destination_location_role,omitempty"`
+	QuantityMilli           int64     `json:"quantity_milli"`
+	ReferenceNote           string    `json:"reference_note"`
+	CreatedByUserID         string    `json:"created_by_user_id"`
+	CreatedAt               time.Time `json:"created_at"`
+}
+
+type inventoryReconciliationResponse struct {
+	DocumentID              string     `json:"document_id"`
+	DocumentTypeCode        string     `json:"document_type_code"`
+	DocumentTitle           string     `json:"document_title"`
+	DocumentNumber          *string    `json:"document_number,omitempty"`
+	DocumentStatus          string     `json:"document_status"`
+	DocumentLineID          string     `json:"document_line_id"`
+	LineNumber              int        `json:"line_number"`
+	MovementID              string     `json:"movement_id"`
+	MovementNumber          int64      `json:"movement_number"`
+	MovementType            string     `json:"movement_type"`
+	MovementPurpose         string     `json:"movement_purpose"`
+	UsageClassification     string     `json:"usage_classification"`
+	ItemID                  string     `json:"item_id"`
+	ItemSKU                 string     `json:"item_sku"`
+	ItemName                string     `json:"item_name"`
+	ItemRole                string     `json:"item_role"`
+	SourceLocationID        *string    `json:"source_location_id,omitempty"`
+	SourceLocationCode      *string    `json:"source_location_code,omitempty"`
+	SourceLocationName      *string    `json:"source_location_name,omitempty"`
+	DestinationLocationID   *string    `json:"destination_location_id,omitempty"`
+	DestinationLocationCode *string    `json:"destination_location_code,omitempty"`
+	DestinationLocationName *string    `json:"destination_location_name,omitempty"`
+	QuantityMilli           int64      `json:"quantity_milli"`
+	ExecutionLinkID         *string    `json:"execution_link_id,omitempty"`
+	ExecutionContextType    *string    `json:"execution_context_type,omitempty"`
+	ExecutionContextID      *string    `json:"execution_context_id,omitempty"`
+	ExecutionLinkStatus     *string    `json:"execution_link_status,omitempty"`
+	WorkOrderID             *string    `json:"work_order_id,omitempty"`
+	WorkOrderCode           *string    `json:"work_order_code,omitempty"`
+	WorkOrderStatus         *string    `json:"work_order_status,omitempty"`
+	AccountingHandoffID     *string    `json:"accounting_handoff_id,omitempty"`
+	AccountingHandoffStatus *string    `json:"accounting_handoff_status,omitempty"`
+	CostMinor               *int64     `json:"cost_minor,omitempty"`
+	CostCurrencyCode        *string    `json:"cost_currency_code,omitempty"`
+	JournalEntryID          *string    `json:"journal_entry_id,omitempty"`
+	JournalEntryNumber      *int64     `json:"journal_entry_number,omitempty"`
+	AccountingPostedAt      *time.Time `json:"accounting_posted_at,omitempty"`
+	MovementCreatedAt       time.Time  `json:"movement_created_at"`
+}
+
+type workOrderReviewResponse struct {
+	WorkOrderID              string     `json:"work_order_id"`
+	DocumentID               string     `json:"document_id"`
+	DocumentStatus           string     `json:"document_status"`
+	DocumentNumber           *string    `json:"document_number,omitempty"`
+	WorkOrderCode            string     `json:"work_order_code"`
+	Title                    string     `json:"title"`
+	Summary                  string     `json:"summary"`
+	Status                   string     `json:"status"`
+	ClosedAt                 *time.Time `json:"closed_at,omitempty"`
+	CreatedAt                time.Time  `json:"created_at"`
+	UpdatedAt                time.Time  `json:"updated_at"`
+	LastStatusChangedAt      time.Time  `json:"last_status_changed_at"`
+	OpenTaskCount            int        `json:"open_task_count"`
+	CompletedTaskCount       int        `json:"completed_task_count"`
+	LaborEntryCount          int        `json:"labor_entry_count"`
+	TotalLaborMinutes        int        `json:"total_labor_minutes"`
+	TotalLaborCostMinor      int64      `json:"total_labor_cost_minor"`
+	PostedLaborEntryCount    int        `json:"posted_labor_entry_count"`
+	PostedLaborCostMinor     int64      `json:"posted_labor_cost_minor"`
+	MaterialUsageCount       int        `json:"material_usage_count"`
+	MaterialQuantityMilli    int64      `json:"material_quantity_milli"`
+	PostedMaterialUsageCount int        `json:"posted_material_usage_count"`
+	PostedMaterialCostMinor  int64      `json:"posted_material_cost_minor"`
+	LastAccountingPostedAt   *time.Time `json:"last_accounting_posted_at,omitempty"`
+}
+
+type auditEventResponse struct {
+	ID          string          `json:"id"`
+	OrgID       *string         `json:"org_id,omitempty"`
+	ActorUserID *string         `json:"actor_user_id,omitempty"`
+	EventType   string          `json:"event_type"`
+	EntityType  string          `json:"entity_type"`
+	EntityID    string          `json:"entity_id"`
+	Payload     json.RawMessage `json:"payload"`
+	OccurredAt  time.Time       `json:"occurred_at"`
+}
+
 type sessionContextResponse struct {
 	SessionID       string    `json:"session_id"`
 	OrgID           string    `json:"org_id"`
@@ -1482,7 +1864,7 @@ func handleReviewError(w http.ResponseWriter, err error, fallback string) {
 		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
 	case errors.Is(err, reporting.ErrInvalidReviewFilter):
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid review filter"})
-	case errors.Is(err, sql.ErrNoRows):
+	case errors.Is(err, sql.ErrNoRows), errors.Is(err, reporting.ErrWorkOrderNotFound):
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "record not found"})
 	default:
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: fallback})
@@ -1596,6 +1978,136 @@ func mapTaxSummary(summary reporting.TaxSummary) taxSummaryResponse {
 		PayableAccountCode:    stringPtr(summary.PayableAccountCode),
 		PayableAccountName:    stringPtr(summary.PayableAccountName),
 		LastEffectiveOn:       timePtr(summary.LastEffectiveOn),
+	}
+}
+
+func mapInventoryStock(item reporting.InventoryStockItem) inventoryStockResponse {
+	return inventoryStockResponse{
+		ItemID:       item.ItemID,
+		ItemSKU:      item.ItemSKU,
+		ItemName:     item.ItemName,
+		ItemRole:     item.ItemRole,
+		LocationID:   item.LocationID,
+		LocationCode: item.LocationCode,
+		LocationName: item.LocationName,
+		LocationRole: item.LocationRole,
+		OnHandMilli:  item.OnHandMilli,
+	}
+}
+
+func mapInventoryMovement(review reporting.InventoryMovementReview) inventoryMovementResponse {
+	return inventoryMovementResponse{
+		MovementID:              review.MovementID,
+		MovementNumber:          review.MovementNumber,
+		DocumentID:              stringPtr(review.DocumentID),
+		DocumentTypeCode:        stringPtr(review.DocumentTypeCode),
+		DocumentTitle:           stringPtr(review.DocumentTitle),
+		DocumentNumber:          stringPtr(review.DocumentNumber),
+		DocumentStatus:          stringPtr(review.DocumentStatus),
+		ItemID:                  review.ItemID,
+		ItemSKU:                 review.ItemSKU,
+		ItemName:                review.ItemName,
+		ItemRole:                review.ItemRole,
+		MovementType:            review.MovementType,
+		MovementPurpose:         review.MovementPurpose,
+		UsageClassification:     review.UsageClassification,
+		SourceLocationID:        stringPtr(review.SourceLocationID),
+		SourceLocationCode:      stringPtr(review.SourceLocationCode),
+		SourceLocationName:      stringPtr(review.SourceLocationName),
+		SourceLocationRole:      stringPtr(review.SourceLocationRole),
+		DestinationLocationID:   stringPtr(review.DestinationLocationID),
+		DestinationLocationCode: stringPtr(review.DestinationLocationCode),
+		DestinationLocationName: stringPtr(review.DestinationLocationName),
+		DestinationLocationRole: stringPtr(review.DestinationLocationRole),
+		QuantityMilli:           review.QuantityMilli,
+		ReferenceNote:           review.ReferenceNote,
+		CreatedByUserID:         review.CreatedByUserID,
+		CreatedAt:               review.CreatedAt,
+	}
+}
+
+func mapInventoryReconciliation(item reporting.InventoryReconciliationItem) inventoryReconciliationResponse {
+	return inventoryReconciliationResponse{
+		DocumentID:              item.DocumentID,
+		DocumentTypeCode:        item.DocumentTypeCode,
+		DocumentTitle:           item.DocumentTitle,
+		DocumentNumber:          stringPtr(item.DocumentNumber),
+		DocumentStatus:          item.DocumentStatus,
+		DocumentLineID:          item.DocumentLineID,
+		LineNumber:              item.LineNumber,
+		MovementID:              item.MovementID,
+		MovementNumber:          item.MovementNumber,
+		MovementType:            item.MovementType,
+		MovementPurpose:         item.MovementPurpose,
+		UsageClassification:     item.UsageClassification,
+		ItemID:                  item.ItemID,
+		ItemSKU:                 item.ItemSKU,
+		ItemName:                item.ItemName,
+		ItemRole:                item.ItemRole,
+		SourceLocationID:        stringPtr(item.SourceLocationID),
+		SourceLocationCode:      stringPtr(item.SourceLocationCode),
+		SourceLocationName:      stringPtr(item.SourceLocationName),
+		DestinationLocationID:   stringPtr(item.DestinationLocationID),
+		DestinationLocationCode: stringPtr(item.DestinationLocationCode),
+		DestinationLocationName: stringPtr(item.DestinationLocationName),
+		QuantityMilli:           item.QuantityMilli,
+		ExecutionLinkID:         stringPtr(item.ExecutionLinkID),
+		ExecutionContextType:    stringPtr(item.ExecutionContextType),
+		ExecutionContextID:      stringPtr(item.ExecutionContextID),
+		ExecutionLinkStatus:     stringPtr(item.ExecutionLinkStatus),
+		WorkOrderID:             stringPtr(item.WorkOrderID),
+		WorkOrderCode:           stringPtr(item.WorkOrderCode),
+		WorkOrderStatus:         stringPtr(item.WorkOrderStatus),
+		AccountingHandoffID:     stringPtr(item.AccountingHandoffID),
+		AccountingHandoffStatus: stringPtr(item.AccountingHandoffStatus),
+		CostMinor:               int64Ptr(item.CostMinor),
+		CostCurrencyCode:        stringPtr(item.CostCurrencyCode),
+		JournalEntryID:          stringPtr(item.JournalEntryID),
+		JournalEntryNumber:      int64Ptr(item.JournalEntryNumber),
+		AccountingPostedAt:      timePtr(item.AccountingPostedAt),
+		MovementCreatedAt:       item.MovementCreatedAt,
+	}
+}
+
+func mapWorkOrderReview(review reporting.WorkOrderReview) workOrderReviewResponse {
+	return workOrderReviewResponse{
+		WorkOrderID:              review.WorkOrderID,
+		DocumentID:               review.DocumentID,
+		DocumentStatus:           review.DocumentStatus,
+		DocumentNumber:           stringPtr(review.DocumentNumber),
+		WorkOrderCode:            review.WorkOrderCode,
+		Title:                    review.Title,
+		Summary:                  review.Summary,
+		Status:                   review.Status,
+		ClosedAt:                 timePtr(review.ClosedAt),
+		CreatedAt:                review.CreatedAt,
+		UpdatedAt:                review.UpdatedAt,
+		LastStatusChangedAt:      review.LastStatusChangedAt,
+		OpenTaskCount:            review.OpenTaskCount,
+		CompletedTaskCount:       review.CompletedTaskCount,
+		LaborEntryCount:          review.LaborEntryCount,
+		TotalLaborMinutes:        review.TotalLaborMinutes,
+		TotalLaborCostMinor:      review.TotalLaborCostMinor,
+		PostedLaborEntryCount:    review.PostedLaborEntryCount,
+		PostedLaborCostMinor:     review.PostedLaborCostMinor,
+		MaterialUsageCount:       review.MaterialUsageCount,
+		MaterialQuantityMilli:    review.MaterialQuantityMilli,
+		PostedMaterialUsageCount: review.PostedMaterialUsageCount,
+		PostedMaterialCostMinor:  review.PostedMaterialCostMinor,
+		LastAccountingPostedAt:   timePtr(review.LastAccountingPostedAt),
+	}
+}
+
+func mapAuditEvent(event reporting.AuditEvent) auditEventResponse {
+	return auditEventResponse{
+		ID:          event.ID,
+		OrgID:       stringPtr(event.OrgID),
+		ActorUserID: stringPtr(event.ActorUserID),
+		EventType:   event.EventType,
+		EntityType:  event.EntityType,
+		EntityID:    event.EntityID,
+		Payload:     event.Payload,
+		OccurredAt:  event.OccurredAt,
 	}
 }
 

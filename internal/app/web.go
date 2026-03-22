@@ -64,6 +64,45 @@ type webAccountingData struct {
 	TaxSummaries    []reporting.TaxSummary
 }
 
+type webInventoryData struct {
+	Session               identityaccess.SessionContext
+	Notice                string
+	Error                 string
+	ItemID                string
+	LocationID            string
+	DocumentID            string
+	MovementType          string
+	OnlyPendingAccounting bool
+	OnlyPendingExecution  bool
+	Stock                 []reporting.InventoryStockItem
+	Movements             []reporting.InventoryMovementReview
+	Reconciliation        []reporting.InventoryReconciliationItem
+}
+
+type webWorkOrdersData struct {
+	Session    identityaccess.SessionContext
+	Notice     string
+	Error      string
+	Status     string
+	WorkOrders []reporting.WorkOrderReview
+}
+
+type webWorkOrderDetailData struct {
+	Session identityaccess.SessionContext
+	Notice  string
+	Error   string
+	Review  reporting.WorkOrderReview
+}
+
+type webAuditData struct {
+	Session    identityaccess.SessionContext
+	Notice     string
+	Error      string
+	EntityType string
+	EntityID   string
+	Events     []reporting.AuditEvent
+}
+
 func (h *AgentAPIHandler) handleRoot(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
@@ -244,6 +283,207 @@ func (h *AgentAPIHandler) handleWebAccounting(w http.ResponseWriter, r *http.Req
 		ActivePath: webAccountingPath,
 		Session:    &sessionContext,
 		Accounting: &data,
+	})
+}
+
+func (h *AgentAPIHandler) handleWebInventory(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != webInventoryPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("Please sign in."), http.StatusSeeOther)
+		return
+	}
+	if h.reviewService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("review service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	data := webInventoryData{
+		Session:               sessionContext,
+		Notice:                strings.TrimSpace(r.URL.Query().Get("notice")),
+		Error:                 strings.TrimSpace(r.URL.Query().Get("error")),
+		ItemID:                strings.TrimSpace(r.URL.Query().Get("item_id")),
+		LocationID:            strings.TrimSpace(r.URL.Query().Get("location_id")),
+		DocumentID:            strings.TrimSpace(r.URL.Query().Get("document_id")),
+		MovementType:          strings.TrimSpace(r.URL.Query().Get("movement_type")),
+		OnlyPendingAccounting: strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("only_pending_accounting")), "true"),
+		OnlyPendingExecution:  strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("only_pending_execution")), "true"),
+	}
+
+	data.Stock, err = h.reviewService.ListInventoryStock(r.Context(), reporting.ListInventoryStockInput{
+		ItemID:     data.ItemID,
+		LocationID: data.LocationID,
+		Limit:      50,
+		Actor:      sessionContext.Actor,
+	})
+	if err != nil {
+		data.Error = "failed to load inventory stock"
+	}
+	if data.Movements, err = h.reviewService.ListInventoryMovements(r.Context(), reporting.ListInventoryMovementsInput{
+		ItemID:       data.ItemID,
+		LocationID:   data.LocationID,
+		DocumentID:   data.DocumentID,
+		MovementType: data.MovementType,
+		Limit:        50,
+		Actor:        sessionContext.Actor,
+	}); err != nil && data.Error == "" {
+		data.Error = "failed to load inventory movements"
+	}
+	if data.Reconciliation, err = h.reviewService.ListInventoryReconciliation(r.Context(), reporting.ListInventoryReconciliationInput{
+		ItemID:                data.ItemID,
+		DocumentID:            data.DocumentID,
+		OnlyPendingAccounting: data.OnlyPendingAccounting,
+		OnlyPendingExecution:  data.OnlyPendingExecution,
+		Limit:                 50,
+		Actor:                 sessionContext.Actor,
+	}); err != nil && data.Error == "" {
+		data.Error = "failed to load inventory reconciliation"
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:      "workflow_app",
+		ActivePath: webInventoryPath,
+		Session:    &sessionContext,
+		Inventory:  &data,
+	})
+}
+
+func (h *AgentAPIHandler) handleWebWorkOrders(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != webWorkOrdersPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("Please sign in."), http.StatusSeeOther)
+		return
+	}
+	if h.reviewService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("review service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	data := webWorkOrdersData{
+		Session: sessionContext,
+		Notice:  strings.TrimSpace(r.URL.Query().Get("notice")),
+		Error:   strings.TrimSpace(r.URL.Query().Get("error")),
+		Status:  strings.TrimSpace(r.URL.Query().Get("status")),
+	}
+	data.WorkOrders, err = h.reviewService.ListWorkOrders(r.Context(), reporting.ListWorkOrdersInput{
+		Status: data.Status,
+		Limit:  50,
+		Actor:  sessionContext.Actor,
+	})
+	if err != nil {
+		data.Error = "failed to load work orders"
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:      "workflow_app",
+		ActivePath: webWorkOrdersPath,
+		Session:    &sessionContext,
+		WorkOrders: &data,
+	})
+}
+
+func (h *AgentAPIHandler) handleWebWorkOrderDetail(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+	workOrderID, ok := parseChildPath(webWorkOrdersPath, r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("Please sign in."), http.StatusSeeOther)
+		return
+	}
+	if h.reviewService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("review service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	review, err := h.reviewService.GetWorkOrderReview(r.Context(), reporting.GetWorkOrderReviewInput{
+		WorkOrderID: workOrderID,
+		Actor:       sessionContext.Actor,
+	})
+	if err != nil {
+		http.Redirect(w, r, webWorkOrdersPath+"?error="+url.QueryEscape("failed to load work order"), http.StatusSeeOther)
+		return
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:      "workflow_app",
+		ActivePath: webWorkOrdersPath,
+		Session:    &sessionContext,
+		WorkOrderDetail: &webWorkOrderDetailData{
+			Session: sessionContext,
+			Notice:  strings.TrimSpace(r.URL.Query().Get("notice")),
+			Error:   strings.TrimSpace(r.URL.Query().Get("error")),
+			Review:  review,
+		},
+	})
+}
+
+func (h *AgentAPIHandler) handleWebAudit(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != webAuditPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("Please sign in."), http.StatusSeeOther)
+		return
+	}
+	if h.reviewService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("review service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	data := webAuditData{
+		Session:    sessionContext,
+		Notice:     strings.TrimSpace(r.URL.Query().Get("notice")),
+		Error:      strings.TrimSpace(r.URL.Query().Get("error")),
+		EntityType: strings.TrimSpace(r.URL.Query().Get("entity_type")),
+		EntityID:   strings.TrimSpace(r.URL.Query().Get("entity_id")),
+	}
+	data.Events, err = h.reviewService.LookupAuditEvents(r.Context(), reporting.LookupAuditEventsInput{
+		EntityType: data.EntityType,
+		EntityID:   data.EntityID,
+		Limit:      100,
+		Actor:      sessionContext.Actor,
+	})
+	if err != nil {
+		data.Error = "failed to load audit events"
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:      "workflow_app",
+		ActivePath: webAuditPath,
+		Session:    &sessionContext,
+		Audit:      &data,
 	})
 }
 
@@ -520,17 +760,21 @@ func (h *AgentAPIHandler) handleWebApprovalDecision(w http.ResponseWriter, r *ht
 }
 
 type webPageData struct {
-	Title      string
-	ActivePath string
-	Notice     string
-	Error      string
-	ShowLogin  bool
-	LoginPath  string
-	Session    *identityaccess.SessionContext
-	Dashboard  *webAppDashboardData
-	Detail     *webInboundDetailData
-	Documents  *webDocumentsData
-	Accounting *webAccountingData
+	Title           string
+	ActivePath      string
+	Notice          string
+	Error           string
+	ShowLogin       bool
+	LoginPath       string
+	Session         *identityaccess.SessionContext
+	Dashboard       *webAppDashboardData
+	Detail          *webInboundDetailData
+	Documents       *webDocumentsData
+	Accounting      *webAccountingData
+	Inventory       *webInventoryData
+	WorkOrders      *webWorkOrdersData
+	WorkOrderDetail *webWorkOrderDetailData
+	Audit           *webAuditData
 }
 
 func (h *AgentAPIHandler) renderWebPage(w http.ResponseWriter, data webPageData) {
@@ -804,7 +1048,10 @@ const webAppHTML = `<!DOCTYPE html>
           <div class="meta" style="margin-top:8px;">
             <a href="/app">Operations</a> |
             <a href="/app/review/documents">Documents</a> |
-            <a href="/app/review/accounting">Accounting</a>
+            <a href="/app/review/accounting">Accounting</a> |
+            <a href="/app/review/inventory">Inventory</a> |
+            <a href="/app/review/work-orders">Work orders</a> |
+            <a href="/app/review/audit">Audit</a>
           </div>
         </div>
         <form method="post" action="/app/logout" style="display:inline-grid;">
@@ -1102,6 +1349,209 @@ const webAppHTML = `<!DOCTYPE html>
             </tr>
             {{else}}
             <tr><td colspan="4">No tax summaries available.</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+      </section>
+    </div>
+    {{end}}
+
+    {{with .Inventory}}
+    <div class="stack">
+      {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+      {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+      <section class="panel">
+        <h2>Inventory review</h2>
+        <form method="get" action="/app/review/inventory" class="inline-form">
+          <input type="text" name="item_id" value="{{.ItemID}}" placeholder="item id">
+          <input type="text" name="location_id" value="{{.LocationID}}" placeholder="location id">
+          <input type="text" name="document_id" value="{{.DocumentID}}" placeholder="document id">
+          <input type="text" name="movement_type" value="{{.MovementType}}" placeholder="movement type">
+          <label><input type="checkbox" name="only_pending_accounting" value="true" {{if .OnlyPendingAccounting}}checked{{end}}> pending accounting</label>
+          <label><input type="checkbox" name="only_pending_execution" value="true" {{if .OnlyPendingExecution}}checked{{end}}> pending execution</label>
+          <button type="submit">Apply filters</button>
+        </form>
+      </section>
+      <section class="panel">
+        <h2>Stock balances</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Role</th>
+              <th>Location</th>
+              <th>On hand</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .Stock}}
+            <tr>
+              <td>{{.ItemSKU}} | {{.ItemName}}</td>
+              <td>{{.ItemRole}}</td>
+              <td>{{.LocationCode}} | {{.LocationName}}</td>
+              <td>{{.OnHandMilli}}</td>
+            </tr>
+            {{else}}
+            <tr><td colspan="4">No stock balances available.</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+      </section>
+      <section class="panel">
+        <h2>Movement history</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Movement</th>
+              <th>Item</th>
+              <th>Route</th>
+              <th>Quantity</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .Movements}}
+            <tr>
+              <td>#{{.MovementNumber}} | {{.MovementType}}</td>
+              <td>{{.ItemSKU}} | {{.ItemName}}</td>
+              <td>{{if .SourceLocationCode.Valid}}{{.SourceLocationCode.String}}{{else}}-{{end}} -> {{if .DestinationLocationCode.Valid}}{{.DestinationLocationCode.String}}{{else}}-{{end}}</td>
+              <td>{{.QuantityMilli}}</td>
+            </tr>
+            {{else}}
+            <tr><td colspan="4">No inventory movements available.</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+      </section>
+      <section class="panel">
+        <h2>Reconciliation</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Document</th>
+              <th>Item</th>
+              <th>Execution</th>
+              <th>Accounting</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .Reconciliation}}
+            <tr>
+              <td>{{.DocumentTitle}} line {{.LineNumber}}</td>
+              <td>{{.ItemSKU}} | {{.ItemName}}</td>
+              <td>{{if .WorkOrderCode.Valid}}{{.WorkOrderCode.String}}{{else}}-{{end}} / {{if .ExecutionLinkStatus.Valid}}{{.ExecutionLinkStatus.String}}{{else}}-{{end}}</td>
+              <td>{{if .JournalEntryNumber.Valid}}Entry #{{.JournalEntryNumber.Int64}}{{else}}-{{end}} / {{if .AccountingHandoffStatus.Valid}}{{.AccountingHandoffStatus.String}}{{else}}-{{end}}</td>
+            </tr>
+            {{else}}
+            <tr><td colspan="4">No reconciliation rows available.</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+      </section>
+    </div>
+    {{end}}
+
+    {{with .WorkOrders}}
+    <div class="stack">
+      {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+      {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+      <section class="panel">
+        <h2>Work-order review</h2>
+        <form method="get" action="/app/review/work-orders" class="inline-form">
+          <input type="text" name="status" value="{{.Status}}" placeholder="status">
+          <button type="submit">Filter work orders</button>
+        </form>
+      </section>
+      <section class="panel">
+        <table>
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Status</th>
+              <th>Tasks</th>
+              <th>Labor</th>
+              <th>Material</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .WorkOrders}}
+            <tr>
+              <td><a href="/app/review/work-orders/{{.WorkOrderID}}">{{.WorkOrderCode}}</a><div>{{.Title}}</div></td>
+              <td><span class="status-pill {{statusClass .Status}}">{{.Status}}</span></td>
+              <td>{{.OpenTaskCount}} open / {{.CompletedTaskCount}} done</td>
+              <td>{{.LaborEntryCount}} entries / {{.TotalLaborMinutes}} min</td>
+              <td>{{.MaterialUsageCount}} usages / {{.MaterialQuantityMilli}}</td>
+            </tr>
+            {{else}}
+            <tr><td colspan="5">No work orders available.</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+      </section>
+    </div>
+    {{end}}
+
+    {{with .WorkOrderDetail}}
+    <div class="stack">
+      {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+      {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+      <section class="panel">
+        <h2>Work order {{.Review.WorkOrderCode}}</h2>
+        <div class="detail-block">
+          <span class="status-pill {{statusClass .Review.Status}}">{{.Review.Status}}</span>
+          <p>{{.Review.Title}}</p>
+          <p class="meta">{{.Review.Summary}}</p>
+        </div>
+      </section>
+      <div class="grid">
+        <section class="panel">
+          <h2>Execution rollup</h2>
+          <div class="detail-block">Tasks: {{.Review.OpenTaskCount}} open / {{.Review.CompletedTaskCount}} completed</div>
+          <div class="detail-block">Labor: {{.Review.LaborEntryCount}} entries / {{.Review.TotalLaborMinutes}} minutes / {{.Review.TotalLaborCostMinor}} minor</div>
+          <div class="detail-block">Material: {{.Review.MaterialUsageCount}} usages / {{.Review.MaterialQuantityMilli}} milli / {{.Review.PostedMaterialCostMinor}} posted cost</div>
+        </section>
+        <section class="panel">
+          <h2>Accounting linkage</h2>
+          <div class="detail-block">Document status: {{.Review.DocumentStatus}}</div>
+          <div class="detail-block">Posted labor entries: {{.Review.PostedLaborEntryCount}} / {{.Review.PostedLaborCostMinor}}</div>
+          <div class="detail-block">Posted material usages: {{.Review.PostedMaterialUsageCount}}</div>
+          <div class="detail-block">Last accounting post: {{if .Review.LastAccountingPostedAt.Valid}}{{formatTime .Review.LastAccountingPostedAt.Time}}{{else}}-{{end}}</div>
+        </section>
+      </div>
+    </div>
+    {{end}}
+
+    {{with .Audit}}
+    <div class="stack">
+      {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+      {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+      <section class="panel">
+        <h2>Audit lookup</h2>
+        <form method="get" action="/app/review/audit" class="inline-form">
+          <input type="text" name="entity_type" value="{{.EntityType}}" placeholder="entity type">
+          <input type="text" name="entity_id" value="{{.EntityID}}" placeholder="entity id">
+          <button type="submit">Search audit</button>
+        </form>
+      </section>
+      <section class="panel">
+        <table>
+          <thead>
+            <tr>
+              <th>Occurred</th>
+              <th>Event</th>
+              <th>Entity</th>
+              <th>Payload</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .Events}}
+            <tr>
+              <td>{{formatTime .OccurredAt}}</td>
+              <td>{{.EventType}}</td>
+              <td>{{.EntityType}} / {{.EntityID}}</td>
+              <td><pre>{{prettyJSON .Payload}}</pre></td>
+            </tr>
+            {{else}}
+            <tr><td colspan="4">No audit events available.</td></tr>
             {{end}}
           </tbody>
         </table>

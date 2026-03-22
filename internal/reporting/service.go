@@ -212,6 +212,12 @@ type WorkOrderReview struct {
 	LastAccountingPostedAt   sql.NullTime
 }
 
+type ListWorkOrdersInput struct {
+	Status string
+	Limit  int
+	Actor  identityaccess.Actor
+}
+
 type JournalEntryReview struct {
 	EntryID           string
 	EntryNumber       int64
@@ -1230,6 +1236,170 @@ WHERE wo.org_id = $1
 	}
 
 	return review, nil
+}
+
+func (s *Service) ListWorkOrders(ctx context.Context, input ListWorkOrdersInput) ([]WorkOrderReview, error) {
+	if input.Status != "" && input.Status != "open" && input.Status != "in_progress" && input.Status != "completed" && input.Status != "cancelled" {
+		return nil, ErrInvalidReviewFilter
+	}
+
+	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	rows, err := tx.QueryContext(ctx, `
+SELECT
+	wo.id,
+	d.id,
+	d.status,
+	d.number_value,
+	wo.work_order_code,
+	wo.title,
+	wo.summary,
+	wo.status,
+	wo.closed_at,
+	wo.created_at,
+	wo.updated_at,
+	last_status.changed_at,
+	COALESCE(task_counts.open_count, 0),
+	COALESCE(task_counts.completed_count, 0),
+	COALESCE(labor_totals.entry_count, 0),
+	COALESCE(labor_totals.total_minutes, 0),
+	COALESCE(labor_totals.total_cost_minor, 0),
+	COALESCE(labor_posted.posted_count, 0),
+	COALESCE(labor_posted.posted_cost_minor, 0),
+	COALESCE(material_totals.usage_count, 0),
+	COALESCE(material_totals.quantity_milli, 0),
+	COALESCE(material_posted.posted_count, 0),
+	COALESCE(material_posted.posted_cost_minor, 0),
+	GREATEST(COALESCE(labor_posted.last_posted_at, '-infinity'::timestamptz), COALESCE(material_posted.last_posted_at, '-infinity'::timestamptz))
+FROM work_orders.work_orders wo
+JOIN work_orders.documents wd
+	ON wd.work_order_id = wo.id
+   AND wd.org_id = wo.org_id
+JOIN documents.documents d
+	ON d.id = wd.document_id
+   AND d.org_id = wd.org_id
+JOIN LATERAL (
+	SELECT changed_at
+	FROM work_orders.status_history
+	WHERE org_id = wo.org_id
+	  AND work_order_id = wo.id
+	ORDER BY changed_at DESC, id DESC
+	LIMIT 1
+) last_status ON TRUE
+LEFT JOIN LATERAL (
+	SELECT
+		COUNT(*) FILTER (WHERE status IN ('open', 'in_progress')) AS open_count,
+		COUNT(*) FILTER (WHERE status = 'completed') AS completed_count
+	FROM workflow.tasks
+	WHERE org_id = wo.org_id
+	  AND context_type = 'work_order'
+	  AND context_id = wo.id
+) task_counts ON TRUE
+LEFT JOIN LATERAL (
+	SELECT
+		COUNT(*) AS entry_count,
+		COALESCE(SUM(duration_minutes), 0) AS total_minutes,
+		COALESCE(SUM(cost_minor), 0) AS total_cost_minor
+	FROM workforce.labor_entries
+	WHERE org_id = wo.org_id
+	  AND work_order_id = wo.id
+) labor_totals ON TRUE
+LEFT JOIN LATERAL (
+	SELECT
+		COUNT(*) AS posted_count,
+		COALESCE(SUM(le.cost_minor), 0) AS posted_cost_minor,
+		MAX(lah.posted_at) AS last_posted_at
+	FROM workforce.labor_accounting_handoffs lah
+	JOIN workforce.labor_entries le
+		ON le.id = lah.labor_entry_id
+	   AND le.org_id = lah.org_id
+	WHERE lah.org_id = wo.org_id
+	  AND lah.work_order_id = wo.id
+	  AND lah.handoff_status = 'posted'
+) labor_posted ON TRUE
+LEFT JOIN LATERAL (
+	SELECT
+		COUNT(*) AS usage_count,
+		COALESCE(SUM(quantity_milli), 0) AS quantity_milli
+	FROM work_orders.material_usages
+	WHERE org_id = wo.org_id
+	  AND work_order_id = wo.id
+) material_totals ON TRUE
+LEFT JOIN LATERAL (
+	SELECT
+		COUNT(*) AS posted_count,
+		COALESCE(SUM(ah.cost_minor), 0) AS posted_cost_minor,
+		MAX(ah.posted_at) AS last_posted_at
+	FROM work_orders.material_usages mu
+	JOIN inventory_ops.accounting_handoffs ah
+		ON ah.document_line_id = mu.inventory_document_line_id
+	   AND ah.org_id = mu.org_id
+	WHERE mu.org_id = wo.org_id
+	  AND mu.work_order_id = wo.id
+	  AND ah.handoff_status = 'posted'
+) material_posted ON TRUE
+WHERE wo.org_id = $1
+  AND ($2 = '' OR wo.status = $2)
+ORDER BY wo.updated_at DESC, wo.work_order_code ASC
+LIMIT $3;`,
+		input.Actor.OrgID,
+		strings.TrimSpace(input.Status),
+		normalizeLimit(input.Limit),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query work order reviews: %w", err)
+	}
+	defer rows.Close()
+
+	var reviews []WorkOrderReview
+	for rows.Next() {
+		var review WorkOrderReview
+		if err := rows.Scan(
+			&review.WorkOrderID,
+			&review.DocumentID,
+			&review.DocumentStatus,
+			&review.DocumentNumber,
+			&review.WorkOrderCode,
+			&review.Title,
+			&review.Summary,
+			&review.Status,
+			&review.ClosedAt,
+			&review.CreatedAt,
+			&review.UpdatedAt,
+			&review.LastStatusChangedAt,
+			&review.OpenTaskCount,
+			&review.CompletedTaskCount,
+			&review.LaborEntryCount,
+			&review.TotalLaborMinutes,
+			&review.TotalLaborCostMinor,
+			&review.PostedLaborEntryCount,
+			&review.PostedLaborCostMinor,
+			&review.MaterialUsageCount,
+			&review.MaterialQuantityMilli,
+			&review.PostedMaterialUsageCount,
+			&review.PostedMaterialCostMinor,
+			&review.LastAccountingPostedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan work order review: %w", err)
+		}
+		if !review.LastAccountingPostedAt.Valid || review.LastAccountingPostedAt.Time.Equal(time.Unix(0, 0)) {
+			review.LastAccountingPostedAt = sql.NullTime{}
+		}
+		reviews = append(reviews, review)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate work order reviews: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit work order review read: %w", err)
+	}
+
+	return reviews, nil
 }
 
 func (s *Service) ListJournalEntries(ctx context.Context, input ListJournalEntriesInput) ([]JournalEntryReview, error) {

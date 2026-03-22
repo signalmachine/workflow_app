@@ -2,7 +2,7 @@
 
 `workflow_app` is an AI-agent-first, database-first business operating system centered on documents, ledgers, execution context, approvals, reports, and the first real browser operator layer.
 
-This repository has completed Milestone 0 through Milestone 6 from the canonical planning set in [`new_app_docs/`](./new_app_docs), and Milestone 7 is now underway with multiple browser slices landed under `/app`. The shared control boundary now includes adopted document ownership for work orders, invoices, and payment or receipt documents plus persist-first inbound request and attachment foundations with stable `REQ-...` inbound-request references for submission acknowledgments and review. Draft requests can now be edited or hard-deleted before queueing, while queued pre-processing requests can be soft-cancelled or returned to draft for amendment and resubmission. The provider-backed AI foundation is now live: `internal/ai` includes optional OpenAI configuration loading, the official OpenAI Go SDK, a Responses-API-backed provider adapter, and a coordinator flow that can claim one queued inbound request, execute a hard-capped tool loop with per-capability tool-policy enforcement, auto-run the first reporting read tool when policy allows, optionally route the result through one allowlisted specialist capability with a durable child run and delegation record, and persist the resulting run, step, artifact, and recommendation without making the default build and test flow depend on external credentials. `internal/app` now provides one shared backend seam for browser-session auth, queue processing, inbound-request submission, attachment download, operator review, approval decisions, document review, and accounting review, plus server-rendered operator surfaces for sign-in, request intake, queue processing, request-detail inspection, approval actions, downstream document review, and accounting review, while `cmd/verify-agent` and `cmd/app` expose the live path through focused verification and the widened runnable application server.
+This repository has completed Milestone 0 through Milestone 6 from the canonical planning set in [`new_app_docs/`](./new_app_docs), and Milestone 7 is now underway with multiple browser slices landed under `/app`. The shared control boundary now includes adopted document ownership for work orders, invoices, and payment or receipt documents plus persist-first inbound request and attachment foundations with stable `REQ-...` inbound-request references for submission acknowledgments and review. Draft requests can now be edited or hard-deleted before queueing, while queued pre-processing requests can be soft-cancelled or returned to draft for amendment and resubmission. The provider-backed AI foundation is now live: `internal/ai` includes optional OpenAI configuration loading, the official OpenAI Go SDK, a Responses-API-backed provider adapter, and a coordinator flow that can claim one queued inbound request, execute a hard-capped tool loop with per-capability tool-policy enforcement, auto-run the first reporting read tool when policy allows, optionally route the result through one allowlisted specialist capability with a durable child run and delegation record, and persist the resulting run, step, artifact, and recommendation without making the default build and test flow depend on external credentials. `internal/app` now provides one shared backend seam for browser-session auth, queue processing, inbound-request submission, attachment download, operator review, approval decisions, document review, accounting review, inventory review, work-order review, and audit lookup, plus server-rendered operator surfaces for sign-in, request intake, queue processing, request-detail inspection, approval actions, and downstream document, accounting, inventory, work-order, and audit inspection, while `cmd/verify-agent` and `cmd/app` expose the live path through focused verification and the widened runnable application server.
 
 1. bootstrap the Go module
 2. add a migration runner
@@ -62,6 +62,9 @@ Open the current downstream browser review surfaces:
 ```text
 http://127.0.0.1:8080/app/review/documents
 http://127.0.0.1:8080/app/review/accounting
+http://127.0.0.1:8080/app/review/inventory
+http://127.0.0.1:8080/app/review/work-orders
+http://127.0.0.1:8080/app/review/audit
 ```
 
 Start a browser-usable session and capture cookies:
@@ -151,7 +154,7 @@ curl "http://127.0.0.1:8080/api/review/approval-queue?status=pending" \
   -b cookies.txt
 ```
 
-List document and accounting review surfaces through the same browser-session-backed API seam:
+List document, accounting, inventory, work-order, and audit review surfaces through the same browser-session-backed API seam:
 
 ```bash
 curl "http://127.0.0.1:8080/api/review/documents" \
@@ -164,6 +167,24 @@ curl "http://127.0.0.1:8080/api/review/accounting/control-account-balances" \
   -b cookies.txt
 
 curl "http://127.0.0.1:8080/api/review/accounting/tax-summaries" \
+  -b cookies.txt
+
+curl "http://127.0.0.1:8080/api/review/inventory/stock" \
+  -b cookies.txt
+
+curl "http://127.0.0.1:8080/api/review/inventory/movements" \
+  -b cookies.txt
+
+curl "http://127.0.0.1:8080/api/review/inventory/reconciliation" \
+  -b cookies.txt
+
+curl "http://127.0.0.1:8080/api/review/work-orders" \
+  -b cookies.txt
+
+curl "http://127.0.0.1:8080/api/review/work-orders/<work-order-uuid>" \
+  -b cookies.txt
+
+curl "http://127.0.0.1:8080/api/review/audit-events?entity_type=work_orders.work_order&entity_id=<work-order-uuid>" \
   -b cookies.txt
 ```
 
@@ -213,9 +234,10 @@ Implemented:
 25. the first widened HTTP API contract set over that seam at `POST /api/session/login`, `GET /api/session`, `POST /api/session/logout`, `POST /api/agent/process-next-queued-inbound-request`, `POST /api/inbound-requests`, `GET /api/attachments/{attachment_id}/content`, `GET /api/review/inbound-requests`, `GET /api/review/inbound-request-status-summary`, `GET /api/review/inbound-requests/{request_reference_or_id}`, `GET /api/review/processed-proposals`, `GET /api/review/processed-proposal-status-summary`, `GET /api/review/approval-queue`, and `POST /api/approvals/{approval_id}/decision`, including browser-session cookies, explicit active-org session promotion from org slug plus user email, compatibility with the existing UUID request-actor headers for automation, queued-request processing, one-workflow request submission with optional inline attachments, attachment download, reporting-backed operator review reads, approval decisions routed through the existing workflow boundary, provider-not-configured and queue-empty handling, and a minimal `cmd/app` server entrypoint for browser or API-driven testing
 26. the first real browser application slice at `/app`, including server-rendered browser sign-in, inbound-request submission with file attachments, process-next queue execution, recent inbound-request and pending-approval review, inbound-request detail with attachment, AI, and proposal inspection, and browser-driven approval decisions on the same shared backend foundation
 27. the next downstream browser review slice at `/app/review/documents` and `/app/review/accounting`, plus shared backend review endpoints at `GET /api/review/documents`, `GET /api/review/accounting/journal-entries`, `GET /api/review/accounting/control-account-balances`, and `GET /api/review/accounting/tax-summaries`, all available through the same browser session-cookie auth path so operators can continue from approvals into document and accounting review without leaving the app
+28. the next widened browser review slice at `/app/review/inventory`, `/app/review/work-orders`, `/app/review/work-orders/{work_order_id}`, and `/app/review/audit`, plus shared backend review endpoints at `GET /api/review/inventory/stock`, `GET /api/review/inventory/movements`, `GET /api/review/inventory/reconciliation`, `GET /api/review/work-orders`, `GET /api/review/work-orders/{work_order_id}`, and `GET /api/review/audit-events`, all available through the same browser session-cookie auth path so operators can continue from financial review into stock, execution, and audit inspection without leaving the app
 
 Immediate next steps:
 
-1. widen the landed `/app` browser slices across the remaining review and reporting surfaces on the same backend contracts
+1. tighten operator continuity and drill-downs on top of the landed `/app` review surfaces on the same backend contracts
 2. continue widening backend contracts only where the browser layer proves a concrete need, without creating a second truth owner
 3. keep Milestone 7 focused on one coherent operator loop at a time on backend contracts that a later v2 mobile client will also reuse

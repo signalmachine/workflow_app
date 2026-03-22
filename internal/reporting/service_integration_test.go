@@ -499,6 +499,18 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 		t.Fatal("expected last accounting posted timestamp")
 	}
 
+	workOrderList, err := reportingService.ListWorkOrders(ctx, reporting.ListWorkOrdersInput{
+		Status: workorders.StatusOpen,
+		Limit:  20,
+		Actor:  operator,
+	})
+	if err != nil {
+		t.Fatalf("list work order reviews: %v", err)
+	}
+	if len(workOrderList) == 0 || workOrderList[0].WorkOrderID != workOrderResult.WorkOrder.ID {
+		t.Fatalf("unexpected work order list: %+v", workOrderList)
+	}
+
 	journalReviews, err := reportingService.ListJournalEntries(ctx, reporting.ListJournalEntriesInput{
 		StartOn: startedAt,
 		EndOn:   tdsPostedAt,

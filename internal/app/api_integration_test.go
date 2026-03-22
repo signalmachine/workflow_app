@@ -20,9 +20,12 @@ import (
 	"workflow_app/internal/documents"
 	"workflow_app/internal/identityaccess"
 	"workflow_app/internal/intake"
+	"workflow_app/internal/inventoryops"
 	"workflow_app/internal/reporting"
 	"workflow_app/internal/testsupport/dbtest"
 	"workflow_app/internal/workflow"
+	"workflow_app/internal/workforce"
+	"workflow_app/internal/workorders"
 )
 
 func TestAgentAPISessionLoginCurrentSessionAndLogoutIntegration(t *testing.T) {
@@ -353,12 +356,16 @@ func TestAgentBrowserReportingIntegration(t *testing.T) {
 	documentService := documents.NewService(db)
 	workflowService := workflow.NewService(db, documentService)
 	accountingService := accounting.NewService(db, documentService)
+	inventoryService := inventoryops.NewService(db)
+	workOrderService := workorders.NewService(db, documentService)
+	workforceService := workforce.NewService(db)
 	adminSession := startSession(t, ctx, db, orgID, adminUserID)
 	approverSession := startSession(t, ctx, db, orgID, approverUserID)
 	adminActor := identityaccess.Actor{OrgID: orgID, UserID: adminUserID, SessionID: adminSession.ID}
 	approverActor := identityaccess.Actor{OrgID: orgID, UserID: approverUserID, SessionID: approverSession.ID}
 
 	postApprovedGSTInvoice(t, ctx, accountingService, documentService, workflowService, adminActor, approverActor)
+	workOrder := seedBrowserReviewData(t, ctx, documentService, workflowService, accountingService, inventoryService, workOrderService, workforceService, adminActor, approverActor)
 
 	handler := app.NewAgentAPIHandler(db)
 
@@ -395,6 +402,47 @@ func TestAgentBrowserReportingIntegration(t *testing.T) {
 	requireContains(t, accountingRecorder.Body.String(), "Post approved invoice with GST")
 	requireContains(t, accountingRecorder.Body.String(), "GST18")
 
+	inventoryReq := httptest.NewRequest(http.MethodGet, "/app/review/inventory", nil)
+	applyResponseCookies(inventoryReq, loginRecorder.Result().Cookies())
+	inventoryRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(inventoryRecorder, inventoryReq)
+	if inventoryRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected inventory page status: got %d body=%s", inventoryRecorder.Code, inventoryRecorder.Body.String())
+	}
+	requireContains(t, inventoryRecorder.Body.String(), "Inventory review")
+	requireContains(t, inventoryRecorder.Body.String(), "RPT-MAT-1")
+	requireContains(t, inventoryRecorder.Body.String(), "Inventory issue")
+
+	workOrdersReq := httptest.NewRequest(http.MethodGet, "/app/review/work-orders", nil)
+	applyResponseCookies(workOrdersReq, loginRecorder.Result().Cookies())
+	workOrdersRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(workOrdersRecorder, workOrdersReq)
+	if workOrdersRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected work orders page status: got %d body=%s", workOrdersRecorder.Code, workOrdersRecorder.Body.String())
+	}
+	requireContains(t, workOrdersRecorder.Body.String(), "Work-order review")
+	requireContains(t, workOrdersRecorder.Body.String(), "WO-RPT-1001")
+
+	workOrderDetailReq := httptest.NewRequest(http.MethodGet, "/app/review/work-orders/"+workOrder.ID, nil)
+	applyResponseCookies(workOrderDetailReq, loginRecorder.Result().Cookies())
+	workOrderDetailRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(workOrderDetailRecorder, workOrderDetailReq)
+	if workOrderDetailRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected work-order detail page status: got %d body=%s", workOrderDetailRecorder.Code, workOrderDetailRecorder.Body.String())
+	}
+	requireContains(t, workOrderDetailRecorder.Body.String(), "Work order WO-RPT-1001")
+	requireContains(t, workOrderDetailRecorder.Body.String(), "Review execution chain")
+
+	auditReq := httptest.NewRequest(http.MethodGet, "/app/review/audit?entity_type=work_orders.work_order&entity_id="+workOrder.ID, nil)
+	applyResponseCookies(auditReq, loginRecorder.Result().Cookies())
+	auditRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(auditRecorder, auditReq)
+	if auditRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected audit page status: got %d body=%s", auditRecorder.Code, auditRecorder.Body.String())
+	}
+	requireContains(t, auditRecorder.Body.String(), "Audit lookup")
+	requireContains(t, auditRecorder.Body.String(), "work_orders.work_order_created")
+
 	apiDocumentsReq := httptest.NewRequest(http.MethodGet, "/api/review/documents", nil)
 	applyResponseCookies(apiDocumentsReq, loginRecorder.Result().Cookies())
 	apiDocumentsRecorder := httptest.NewRecorder()
@@ -430,6 +478,60 @@ func TestAgentBrowserReportingIntegration(t *testing.T) {
 		t.Fatalf("unexpected tax summary api status: got %d body=%s", apiTaxRecorder.Code, apiTaxRecorder.Body.String())
 	}
 	requireContains(t, apiTaxRecorder.Body.String(), "\"tax_code\":\"GST18\"")
+
+	apiInventoryStockReq := httptest.NewRequest(http.MethodGet, "/api/review/inventory/stock", nil)
+	applyResponseCookies(apiInventoryStockReq, loginRecorder.Result().Cookies())
+	apiInventoryStockRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(apiInventoryStockRecorder, apiInventoryStockReq)
+	if apiInventoryStockRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected inventory stock api status: got %d body=%s", apiInventoryStockRecorder.Code, apiInventoryStockRecorder.Body.String())
+	}
+	requireContains(t, apiInventoryStockRecorder.Body.String(), "\"item_sku\":\"RPT-MAT-1\"")
+
+	apiInventoryMovesReq := httptest.NewRequest(http.MethodGet, "/api/review/inventory/movements", nil)
+	applyResponseCookies(apiInventoryMovesReq, loginRecorder.Result().Cookies())
+	apiInventoryMovesRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(apiInventoryMovesRecorder, apiInventoryMovesReq)
+	if apiInventoryMovesRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected inventory movement api status: got %d body=%s", apiInventoryMovesRecorder.Code, apiInventoryMovesRecorder.Body.String())
+	}
+	requireContains(t, apiInventoryMovesRecorder.Body.String(), "\"movement_type\":\"issue\"")
+
+	apiInventoryReconReq := httptest.NewRequest(http.MethodGet, "/api/review/inventory/reconciliation", nil)
+	applyResponseCookies(apiInventoryReconReq, loginRecorder.Result().Cookies())
+	apiInventoryReconRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(apiInventoryReconRecorder, apiInventoryReconReq)
+	if apiInventoryReconRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected inventory reconciliation api status: got %d body=%s", apiInventoryReconRecorder.Code, apiInventoryReconRecorder.Body.String())
+	}
+	requireContains(t, apiInventoryReconRecorder.Body.String(), "\"work_order_code\":\"WO-RPT-1001\"")
+
+	apiWorkOrdersReq := httptest.NewRequest(http.MethodGet, "/api/review/work-orders", nil)
+	applyResponseCookies(apiWorkOrdersReq, loginRecorder.Result().Cookies())
+	apiWorkOrdersRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(apiWorkOrdersRecorder, apiWorkOrdersReq)
+	if apiWorkOrdersRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected work orders api status: got %d body=%s", apiWorkOrdersRecorder.Code, apiWorkOrdersRecorder.Body.String())
+	}
+	requireContains(t, apiWorkOrdersRecorder.Body.String(), "\"work_order_code\":\"WO-RPT-1001\"")
+
+	apiWorkOrderDetailReq := httptest.NewRequest(http.MethodGet, "/api/review/work-orders/"+workOrder.ID, nil)
+	applyResponseCookies(apiWorkOrderDetailReq, loginRecorder.Result().Cookies())
+	apiWorkOrderDetailRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(apiWorkOrderDetailRecorder, apiWorkOrderDetailReq)
+	if apiWorkOrderDetailRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected work order detail api status: got %d body=%s", apiWorkOrderDetailRecorder.Code, apiWorkOrderDetailRecorder.Body.String())
+	}
+	requireContains(t, apiWorkOrderDetailRecorder.Body.String(), "\"work_order_id\":\""+workOrder.ID+"\"")
+
+	apiAuditReq := httptest.NewRequest(http.MethodGet, "/api/review/audit-events?entity_type=work_orders.work_order&entity_id="+workOrder.ID, nil)
+	applyResponseCookies(apiAuditReq, loginRecorder.Result().Cookies())
+	apiAuditRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(apiAuditRecorder, apiAuditReq)
+	if apiAuditRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected audit api status: got %d body=%s", apiAuditRecorder.Code, apiAuditRecorder.Body.String())
+	}
+	requireContains(t, apiAuditRecorder.Body.String(), "\"event_type\":\"work_orders.work_order_created\"")
 }
 
 func TestAgentAPISessionLoginRejectsUnknownMembership(t *testing.T) {
@@ -1296,6 +1398,234 @@ func postApprovedGSTInvoice(t *testing.T, ctx context.Context, accountingService
 	}); err != nil {
 		t.Fatalf("post invoice: %v", err)
 	}
+}
+
+func seedBrowserReviewData(t *testing.T, ctx context.Context, documentService *documents.Service, workflowService *workflow.Service, accountingService *accounting.Service, inventoryService *inventoryops.Service, workOrderService *workorders.Service, workforceService *workforce.Service, operator, approver identityaccess.Actor) workorders.WorkOrder {
+	t.Helper()
+
+	workOrderResult, err := workOrderService.CreateWorkOrder(ctx, workorders.CreateWorkOrderInput{
+		WorkOrderCode: "WO-RPT-1001",
+		Title:         "Review execution chain",
+		Summary:       "Browser reporting coverage",
+		Actor:         operator,
+	})
+	if err != nil {
+		t.Fatalf("create work order: %v", err)
+	}
+
+	worker := createWorker(t, ctx, workforceService, workforce.CreateWorkerInput{
+		WorkerCode:             "TECH-RPT-1",
+		DisplayName:            "Reporting Technician",
+		DefaultHourlyCostMinor: 3600,
+		CostCurrencyCode:       "INR",
+		Actor:                  operator,
+	})
+	task, err := workflowService.CreateTask(ctx, workflow.CreateTaskInput{
+		ContextType:         "work_order",
+		ContextID:           workOrderResult.WorkOrder.ID,
+		Title:               "Inspect and post",
+		QueueCode:           "dispatch",
+		AccountableWorkerID: worker.ID,
+		Actor:               operator,
+	})
+	if err != nil {
+		t.Fatalf("create task: %v", err)
+	}
+	if _, err := workflowService.UpdateTaskStatus(ctx, workflow.UpdateTaskStatusInput{
+		TaskID: task.ID,
+		Status: "completed",
+		Actor:  operator,
+	}); err != nil {
+		t.Fatalf("complete task: %v", err)
+	}
+
+	item := createItem(t, ctx, inventoryService, inventoryops.CreateItemInput{
+		SKU:          "RPT-MAT-1",
+		Name:         "Reporting Material",
+		ItemRole:     inventoryops.ItemRoleServiceMaterial,
+		TrackingMode: inventoryops.TrackingModeNone,
+		Actor:        operator,
+	})
+	warehouse := createLocation(t, ctx, inventoryService, inventoryops.CreateLocationInput{
+		Code:         "RPT-WH-1",
+		Name:         "Reporting Warehouse",
+		LocationRole: inventoryops.LocationRoleWarehouse,
+		Actor:        operator,
+	})
+
+	receiptDoc := prepareApprovedDocumentOfType(t, ctx, documentService, workflowService, operator, approver, "inventory_receipt", "Inventory receipt")
+	if _, err := inventoryService.CaptureDocument(ctx, inventoryops.CaptureDocumentInput{
+		DocumentID: receiptDoc.ID,
+		Lines: []inventoryops.CaptureDocumentLineInput{{
+			ItemID:                item.ID,
+			MovementPurpose:       inventoryops.MovementPurposeServiceConsumption,
+			UsageClassification:   inventoryops.UsageBillable,
+			DestinationLocationID: warehouse.ID,
+			QuantityMilli:         5000,
+		}},
+		Actor: operator,
+	}); err != nil {
+		t.Fatalf("capture receipt: %v", err)
+	}
+
+	issueDoc := prepareApprovedDocumentOfType(t, ctx, documentService, workflowService, operator, approver, "inventory_issue", "Inventory issue")
+	if _, err := inventoryService.CaptureDocument(ctx, inventoryops.CaptureDocumentInput{
+		DocumentID: issueDoc.ID,
+		Lines: []inventoryops.CaptureDocumentLineInput{{
+			ItemID:               item.ID,
+			MovementPurpose:      inventoryops.MovementPurposeServiceConsumption,
+			UsageClassification:  inventoryops.UsageBillable,
+			SourceLocationID:     warehouse.ID,
+			QuantityMilli:        2000,
+			CostMinor:            5400,
+			CostCurrencyCode:     "INR",
+			AccountingHandoff:    true,
+			ExecutionContextType: inventoryops.ExecutionContextWorkOrder,
+			ExecutionContextID:   workOrderResult.WorkOrder.WorkOrderCode,
+		}},
+		Actor: operator,
+	}); err != nil {
+		t.Fatalf("capture issue: %v", err)
+	}
+
+	if _, err := workOrderService.SyncInventoryUsage(ctx, workorders.SyncInventoryUsageInput{
+		WorkOrderID: workOrderResult.WorkOrder.ID,
+		Actor:       operator,
+	}); err != nil {
+		t.Fatalf("sync inventory usage: %v", err)
+	}
+
+	startedAt := time.Date(2026, 3, 21, 9, 0, 0, 0, time.UTC)
+	laborEntry, err := workforceService.RecordLabor(ctx, workforce.RecordLaborInput{
+		WorkerID:    worker.ID,
+		WorkOrderID: workOrderResult.WorkOrder.ID,
+		TaskID:      task.ID,
+		StartedAt:   startedAt,
+		EndedAt:     startedAt.Add(2 * time.Hour),
+		Note:        "Execution review labor",
+		Actor:       operator,
+	})
+	if err != nil {
+		t.Fatalf("record labor: %v", err)
+	}
+
+	materialExpense := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:         "5101",
+		Name:         "Material Expense",
+		AccountClass: accounting.AccountClassExpense,
+		Actor:        operator,
+	})
+	laborExpense := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:         "5102",
+		Name:         "Labor Expense",
+		AccountClass: accounting.AccountClassExpense,
+		Actor:        operator,
+	})
+	accruedOffset := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:         "2201",
+		Name:         "Accrued Costs",
+		AccountClass: accounting.AccountClassLiability,
+		Actor:        operator,
+	})
+
+	laborJournalDoc := prepareApprovedDocumentOfType(t, ctx, documentService, workflowService, operator, approver, "journal", "Labor posting")
+	if _, err := accountingService.PostWorkOrderLabor(ctx, accounting.PostWorkOrderLaborInput{
+		DocumentID:       laborJournalDoc.ID,
+		WorkOrderID:      workOrderResult.WorkOrder.ID,
+		ExpenseAccountID: laborExpense.ID,
+		OffsetAccountID:  accruedOffset.ID,
+		Summary:          "Post labor review costs",
+		EffectiveOn:      startedAt,
+		Actor:            operator,
+	}); err != nil {
+		t.Fatalf("post work order labor: %v", err)
+	}
+
+	materialJournalDoc := prepareApprovedDocumentOfType(t, ctx, documentService, workflowService, operator, approver, "journal", "Material posting")
+	if _, err := accountingService.PostWorkOrderInventory(ctx, accounting.PostWorkOrderInventoryInput{
+		DocumentID:       materialJournalDoc.ID,
+		WorkOrderID:      workOrderResult.WorkOrder.ID,
+		ExpenseAccountID: materialExpense.ID,
+		OffsetAccountID:  accruedOffset.ID,
+		Summary:          "Post material review costs",
+		EffectiveOn:      startedAt,
+		Actor:            operator,
+	}); err != nil {
+		t.Fatalf("post work order inventory: %v", err)
+	}
+
+	if laborEntry.ID == "" {
+		t.Fatal("expected labor entry id")
+	}
+	return workOrderResult.WorkOrder
+}
+
+func prepareApprovedDocumentOfType(t *testing.T, ctx context.Context, documentService *documents.Service, workflowService *workflow.Service, operator, approver identityaccess.Actor, typeCode, title string) documents.Document {
+	t.Helper()
+
+	doc, err := documentService.CreateDraft(ctx, documents.CreateDraftInput{
+		TypeCode: typeCode,
+		Title:    title,
+		Actor:    operator,
+	})
+	if err != nil {
+		t.Fatalf("create draft %s document: %v", typeCode, err)
+	}
+	doc, err = documentService.Submit(ctx, documents.SubmitInput{
+		DocumentID: doc.ID,
+		Actor:      operator,
+	})
+	if err != nil {
+		t.Fatalf("submit %s document: %v", typeCode, err)
+	}
+	approval, err := workflowService.RequestApproval(ctx, workflow.RequestApprovalInput{
+		DocumentID: doc.ID,
+		QueueCode:  "operations",
+		Reason:     "prepare review data",
+		Actor:      operator,
+	})
+	if err != nil {
+		t.Fatalf("request %s approval: %v", typeCode, err)
+	}
+	_, doc, err = workflowService.DecideApproval(ctx, workflow.DecideApprovalInput{
+		ApprovalID: approval.ID,
+		Decision:   "approved",
+		Actor:      approver,
+	})
+	if err != nil {
+		t.Fatalf("approve %s document: %v", typeCode, err)
+	}
+	return doc
+}
+
+func createItem(t *testing.T, ctx context.Context, service *inventoryops.Service, input inventoryops.CreateItemInput) inventoryops.Item {
+	t.Helper()
+
+	item, err := service.CreateItem(ctx, input)
+	if err != nil {
+		t.Fatalf("create item %s: %v", input.SKU, err)
+	}
+	return item
+}
+
+func createLocation(t *testing.T, ctx context.Context, service *inventoryops.Service, input inventoryops.CreateLocationInput) inventoryops.Location {
+	t.Helper()
+
+	location, err := service.CreateLocation(ctx, input)
+	if err != nil {
+		t.Fatalf("create location %s: %v", input.Code, err)
+	}
+	return location
+}
+
+func createWorker(t *testing.T, ctx context.Context, service *workforce.Service, input workforce.CreateWorkerInput) workforce.Worker {
+	t.Helper()
+
+	worker, err := service.CreateWorker(ctx, input)
+	if err != nil {
+		t.Fatalf("create worker %s: %v", input.WorkerCode, err)
+	}
+	return worker
 }
 
 func createLedgerAccount(t *testing.T, ctx context.Context, service *accounting.Service, input accounting.CreateLedgerAccountInput) accounting.LedgerAccount {
