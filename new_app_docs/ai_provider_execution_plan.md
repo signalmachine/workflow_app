@@ -15,7 +15,7 @@ The current thin-v1 codebase has durable AI control-boundary foundations:
 
 What is still missing:
 
-1. wider backend contracts and web promotion beyond the now-landed first shared processing API seam and verification command
+1. browser-usable auth and session promotion beyond the now-landed shared processing, submission, attachment-transport, operator-review, and approval-action API seams
 
 This gap is now important for thin v1 because the application is intended to be AI-agent-first. Without a live provider-backed path, the current AI layer remains an observability and control scaffold rather than a usable operator interface.
 
@@ -30,7 +30,7 @@ Current implementation checkpoint:
 7. provider-backed business writes still terminate at artifact and recommendation persistence rather than bypassing approvals, postings, or normal domain services
 8. `internal/app` now exposes a shared backend-facing agent-processing contract that loads the configured OpenAI provider and drives the queued coordinator path without direct package-level wiring in each caller
 9. `cmd/verify-agent` now provides a focused opt-in live-provider verification command on top of that shared contract, and provider-gated integration coverage now exists behind the `integration` build tag
-10. `internal/app` now also exposes the first widened HTTP API surface for that seam: `POST /api/agent/process-next-queued-inbound-request` validates actor headers and surfaces queue-empty and provider-not-configured outcomes cleanly, `POST /api/inbound-requests` now persists the initial request message plus optional inline attachments and queues the request through one backend workflow, `GET /api/attachments/{attachment_id}/content` now returns persisted attachment bytes through the same auth boundary, and `cmd/app` now serves that widened runnable API surface
+10. `internal/app` now also exposes the first widened HTTP API surface for that seam: `POST /api/agent/process-next-queued-inbound-request` validates actor headers and surfaces queue-empty and provider-not-configured outcomes cleanly, `POST /api/inbound-requests` now persists the initial request message plus optional inline attachments and queues the request through one backend workflow, `GET /api/attachments/{attachment_id}/content` now returns persisted attachment bytes through the same auth boundary, `GET /api/review/inbound-requests`, `GET /api/review/inbound-request-status-summary`, `GET /api/review/inbound-requests/{request_reference_or_id}`, `GET /api/review/processed-proposals`, `GET /api/review/processed-proposal-status-summary`, and `GET /api/review/approval-queue` now expose browser-usable operator review reads backed by the existing reporting model, `POST /api/approvals/{approval_id}/decision` now routes approval actions through the existing workflow control boundary, and `cmd/app` now serves that widened runnable API surface
 
 ## 2. V1 objective
 
@@ -157,8 +157,9 @@ Recommended sequence after Milestone 5:
 2. add bounded specialist delegation on top of the now-live coordinator and tool-loop execution path
 3. add the shared backend processing seam, live-provider integration tests, and the explicit verification command
 4. extend the now-landed first API surface with attachment transport and request-submission contracts on top of that shared backend seam
-5. add operator-review backend contracts on top of the same shared seam without creating a second truth owner
-6. update reporting or operational docs only where needed to explain the now-live provider-backed path
+5. add operator-review and approval-decision backend contracts on top of the same shared seam without creating a second truth owner
+6. promote browser-usable auth and session handling on top of that widened seam
+7. update reporting or operational docs only where needed to explain the now-live provider-backed path
 
 Execution rule:
 

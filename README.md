@@ -2,7 +2,7 @@
 
 `workflow_app` is an AI-agent-first, database-first business operating system centered on documents, ledgers, execution context, approvals, and reports.
 
-This repository has completed Milestone 0 through Milestone 5 from the canonical planning set in [`new_app_docs/`](./new_app_docs). The shared control boundary now includes adopted document ownership for work orders, invoices, and payment or receipt documents plus persist-first inbound request and attachment foundations with stable `REQ-...` inbound-request references for submission acknowledgments and review. Draft requests can now be edited or hard-deleted before queueing, while queued pre-processing requests can be soft-cancelled or returned to draft for amendment and resubmission. Milestone 6 is in progress with the first real provider-backed AI path: `internal/ai` now includes optional OpenAI configuration loading, the official OpenAI Go SDK, a Responses-API-backed provider adapter, and a coordinator flow that can claim one queued inbound request, execute a hard-capped tool loop with per-capability tool-policy enforcement, auto-run the first reporting read tool when policy allows, optionally route the result through one allowlisted specialist capability with a durable child run and delegation record, and persist the resulting run, step, artifact, and recommendation without making the default build and test flow depend on external credentials. `internal/app` now provides shared backend contracts for queue processing, inbound-request submission, and attachment download, while `cmd/verify-agent` and `cmd/app` expose the live path through focused verification and the widened runnable application server.
+This repository has completed Milestone 0 through Milestone 5 from the canonical planning set in [`new_app_docs/`](./new_app_docs). The shared control boundary now includes adopted document ownership for work orders, invoices, and payment or receipt documents plus persist-first inbound request and attachment foundations with stable `REQ-...` inbound-request references for submission acknowledgments and review. Draft requests can now be edited or hard-deleted before queueing, while queued pre-processing requests can be soft-cancelled or returned to draft for amendment and resubmission. Milestone 6 is in progress with the first real provider-backed AI path: `internal/ai` now includes optional OpenAI configuration loading, the official OpenAI Go SDK, a Responses-API-backed provider adapter, and a coordinator flow that can claim one queued inbound request, execute a hard-capped tool loop with per-capability tool-policy enforcement, auto-run the first reporting read tool when policy allows, optionally route the result through one allowlisted specialist capability with a durable child run and delegation record, and persist the resulting run, step, artifact, and recommendation without making the default build and test flow depend on external credentials. `internal/app` now provides shared backend contracts for queue processing, inbound-request submission, attachment download, operator review, and approval decisions, while `cmd/verify-agent` and `cmd/app` expose the live path through focused verification and the widened runnable application server.
 
 1. bootstrap the Go module
 2. add a migration runner
@@ -100,6 +100,49 @@ curl -L http://127.0.0.1:8080/api/attachments/<attachment-uuid>/content \
   -o attachment.bin
 ```
 
+List inbound requests queued or processed for operator review:
+
+```bash
+curl "http://127.0.0.1:8080/api/review/inbound-requests?status=processed" \
+  -H "X-Workflow-Org-ID: <org-uuid>" \
+  -H "X-Workflow-User-ID: <user-uuid>" \
+  -H "X-Workflow-Session-ID: <session-uuid>"
+```
+
+Load one inbound request review detail by stable request reference:
+
+```bash
+curl "http://127.0.0.1:8080/api/review/inbound-requests/REQ-000001" \
+  -H "X-Workflow-Org-ID: <org-uuid>" \
+  -H "X-Workflow-User-ID: <user-uuid>" \
+  -H "X-Workflow-Session-ID: <session-uuid>"
+```
+
+List processed proposals and approval queue entries:
+
+```bash
+curl "http://127.0.0.1:8080/api/review/processed-proposals?request_reference=REQ-000001" \
+  -H "X-Workflow-Org-ID: <org-uuid>" \
+  -H "X-Workflow-User-ID: <user-uuid>" \
+  -H "X-Workflow-Session-ID: <session-uuid>"
+
+curl "http://127.0.0.1:8080/api/review/approval-queue?status=pending" \
+  -H "X-Workflow-Org-ID: <org-uuid>" \
+  -H "X-Workflow-User-ID: <user-uuid>" \
+  -H "X-Workflow-Session-ID: <session-uuid>"
+```
+
+Decide an approval through the same API surface:
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/approvals/<approval-uuid>/decision \
+  -H "Content-Type: application/json" \
+  -H "X-Workflow-Org-ID: <org-uuid>" \
+  -H "X-Workflow-User-ID: <approver-user-uuid>" \
+  -H "X-Workflow-Session-ID: <session-uuid>" \
+  -d '{"decision":"approved","decision_note":"Looks correct."}'
+```
+
 ## Current implementation status
 
 Implemented:
@@ -128,10 +171,10 @@ Implemented:
 22. optional OpenAI provider configuration loading and validation in `internal/ai`, keeping live-provider setup explicit while default repository verification remains provider-independent
 23. the official OpenAI Go SDK plus a Responses-API-backed coordinator provider in `internal/ai`, with a queued inbound-request execution path that claims one request, assembles request, attachment, and derived-text context, runs a hard-capped tool loop, enforces per-capability tool policy, auto-executes the first reporting read tool when allowed, can optionally persist one allowlisted specialist child run plus delegation record, persists coordinator or specialist step, artifact, and recommendation tool-execution metadata, and marks the request `processed` or `failed` according to the provider-backed outcome
 24. a shared backend-facing `internal/app` agent-processing contract that drives the queued coordinator path outside direct package wiring, plus an opt-in `cmd/verify-agent` live-provider verification command and integration coverage built on that shared seam
-25. the first widened HTTP API contract set over that seam at `POST /api/agent/process-next-queued-inbound-request`, `POST /api/inbound-requests`, and `GET /api/attachments/{attachment_id}/content`, including UUID-based request-actor header validation, queued-request processing, one-workflow request submission with optional inline attachments, attachment download, provider-not-configured and queue-empty handling, and a minimal `cmd/app` server entrypoint for browser or API-driven testing
+25. the first widened HTTP API contract set over that seam at `POST /api/agent/process-next-queued-inbound-request`, `POST /api/inbound-requests`, `GET /api/attachments/{attachment_id}/content`, `GET /api/review/inbound-requests`, `GET /api/review/inbound-request-status-summary`, `GET /api/review/inbound-requests/{request_reference_or_id}`, `GET /api/review/processed-proposals`, `GET /api/review/processed-proposal-status-summary`, `GET /api/review/approval-queue`, and `POST /api/approvals/{approval_id}/decision`, including UUID-based request-actor header validation, queued-request processing, one-workflow request submission with optional inline attachments, attachment download, reporting-backed operator review reads, approval decisions routed through the existing workflow boundary, provider-not-configured and queue-empty handling, and a minimal `cmd/app` server entrypoint for browser or API-driven testing
 
 Immediate next steps:
 
-1. widen backend contracts for operator review on the same shared foundation now that request submission and attachment transport are live
-2. promote session-auth and active-org handling from header-carried test seams to browser-usable flows on top of the same backend foundation
+1. promote session-auth and active-org handling from header-carried test seams to browser-usable flows on top of the same backend foundation now that request submission, review, and approval actions are live
+2. continue widening backend contracts in small slices on the same shared foundation without creating a second truth owner
 3. after Milestone 6, implement the usable web application layer on backend contracts that a later v2 mobile client will also reuse

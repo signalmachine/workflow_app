@@ -3,6 +3,7 @@ package app_test
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
@@ -12,8 +13,11 @@ import (
 
 	"workflow_app/internal/ai"
 	"workflow_app/internal/app"
+	"workflow_app/internal/documents"
 	"workflow_app/internal/identityaccess"
+	"workflow_app/internal/intake"
 	"workflow_app/internal/testsupport/dbtest"
+	"workflow_app/internal/workflow"
 )
 
 func TestAgentAPIProcessNextQueuedInboundRequestIntegration(t *testing.T) {
@@ -358,4 +362,357 @@ func TestAgentAPISubmitInboundRequestRejectsInvalidAttachmentContent(t *testing.
 	if requestCount != 0 {
 		t.Fatalf("expected failed submission cleanup, found %d requests", requestCount)
 	}
+}
+
+func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
+
+	request := createQueuedRequest(t, ctx, db, operator, "Urgent pump issue reported from the warehouse.")
+
+	processor, err := app.NewAgentProcessor(db, fakeCoordinatorProvider{
+		output: ai.CoordinatorProviderOutput{
+			ProviderName:       "openai",
+			ProviderResponseID: "resp_review_api_test_123",
+			Model:              "gpt-5.2",
+			Summary:            "Operator review is required for the urgent pump issue.",
+			Priority:           "urgent",
+			ArtifactTitle:      "Inbound request review brief",
+			ArtifactBody:       "The request describes an urgent equipment problem that should be reviewed immediately.",
+			Rationale: []string{
+				"The request describes a time-sensitive equipment failure.",
+			},
+			NextActions: []string{
+				"Confirm the site details and route controlled follow-up.",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new agent processor: %v", err)
+	}
+
+	processResult, err := processor.ProcessNextQueuedInboundRequest(ctx, app.ProcessNextQueuedInboundRequestInput{
+		Channel: "browser",
+		Actor:   operator,
+	})
+	if err != nil {
+		t.Fatalf("process next queued inbound request: %v", err)
+	}
+
+	documentService := documents.NewService(db)
+	workflowService := workflow.NewService(db, documentService)
+	aiService := ai.NewService(db)
+
+	approval, _ := createPendingApproval(t, ctx, documentService, workflowService, operator)
+	if _, err := aiService.LinkRecommendationApproval(ctx, ai.LinkRecommendationApprovalInput{
+		RecommendationID: processResult.Recommendation.ID,
+		ApprovalID:       approval.ID,
+		Actor:            operator,
+	}); err != nil {
+		t.Fatalf("link recommendation approval: %v", err)
+	}
+
+	handler := app.NewAgentAPIHandler(db)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/review/inbound-requests?status=processed", nil)
+	req.Header.Set("X-Workflow-Org-ID", orgID)
+	req.Header.Set("X-Workflow-User-ID", operatorUserID)
+	req.Header.Set("X-Workflow-Session-ID", operatorSession.ID)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected inbound request list status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	var listResponse struct {
+		Items []struct {
+			RequestReference         string `json:"request_reference"`
+			Status                   string `json:"status"`
+			LastRecommendationStatus string `json:"last_recommendation_status"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &listResponse); err != nil {
+		t.Fatalf("decode inbound request list: %v", err)
+	}
+	if len(listResponse.Items) != 1 {
+		t.Fatalf("unexpected inbound request item count: %d", len(listResponse.Items))
+	}
+	if listResponse.Items[0].RequestReference != request.RequestReference || listResponse.Items[0].Status != intake.StatusProcessed {
+		t.Fatalf("unexpected inbound request list item: %+v", listResponse.Items[0])
+	}
+	if listResponse.Items[0].LastRecommendationStatus != ai.RecommendationStatusApprovalRequested {
+		t.Fatalf("unexpected recommendation status: %+v", listResponse.Items[0])
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/review/inbound-request-status-summary", nil)
+	req.Header.Set("X-Workflow-Org-ID", orgID)
+	req.Header.Set("X-Workflow-User-ID", operatorUserID)
+	req.Header.Set("X-Workflow-Session-ID", operatorSession.ID)
+	recorder = httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected inbound request summary status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	var summaryResponse struct {
+		Items []struct {
+			Status       string `json:"status"`
+			RequestCount int    `json:"request_count"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &summaryResponse); err != nil {
+		t.Fatalf("decode inbound request summary: %v", err)
+	}
+	if len(summaryResponse.Items) == 0 || summaryResponse.Items[0].Status != intake.StatusProcessed {
+		t.Fatalf("unexpected inbound request summary items: %+v", summaryResponse.Items)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/review/inbound-requests/"+request.RequestReference, nil)
+	req.Header.Set("X-Workflow-Org-ID", orgID)
+	req.Header.Set("X-Workflow-User-ID", operatorUserID)
+	req.Header.Set("X-Workflow-Session-ID", operatorSession.ID)
+	recorder = httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected inbound request detail status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	var detailResponse struct {
+		Request struct {
+			RequestReference string `json:"request_reference"`
+		} `json:"request"`
+		Runs            []struct{} `json:"runs"`
+		Recommendations []struct {
+			ApprovalID *string `json:"approval_id"`
+		} `json:"recommendations"`
+		Proposals []struct {
+			ApprovalID *string `json:"approval_id"`
+		} `json:"proposals"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &detailResponse); err != nil {
+		t.Fatalf("decode inbound request detail: %v", err)
+	}
+	if detailResponse.Request.RequestReference != request.RequestReference {
+		t.Fatalf("unexpected inbound request detail reference: %+v", detailResponse.Request)
+	}
+	if len(detailResponse.Runs) == 0 || len(detailResponse.Recommendations) == 0 || len(detailResponse.Proposals) == 0 {
+		t.Fatalf("expected review detail slices, got %+v", detailResponse)
+	}
+	if detailResponse.Recommendations[0].ApprovalID == nil || *detailResponse.Recommendations[0].ApprovalID != approval.ID {
+		t.Fatalf("unexpected recommendation approval linkage: %+v", detailResponse.Recommendations[0])
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/review/processed-proposals?request_reference="+request.RequestReference, nil)
+	req.Header.Set("X-Workflow-Org-ID", orgID)
+	req.Header.Set("X-Workflow-User-ID", operatorUserID)
+	req.Header.Set("X-Workflow-Session-ID", operatorSession.ID)
+	recorder = httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected processed proposal list status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	var proposalListResponse struct {
+		Items []struct {
+			RecommendationStatus string  `json:"recommendation_status"`
+			ApprovalID           *string `json:"approval_id"`
+			ApprovalStatus       *string `json:"approval_status"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &proposalListResponse); err != nil {
+		t.Fatalf("decode processed proposal list: %v", err)
+	}
+	if len(proposalListResponse.Items) != 1 {
+		t.Fatalf("unexpected processed proposal count: %d", len(proposalListResponse.Items))
+	}
+	if proposalListResponse.Items[0].ApprovalID == nil || *proposalListResponse.Items[0].ApprovalID != approval.ID {
+		t.Fatalf("unexpected processed proposal approval linkage: %+v", proposalListResponse.Items[0])
+	}
+	if proposalListResponse.Items[0].RecommendationStatus != ai.RecommendationStatusApprovalRequested {
+		t.Fatalf("unexpected processed proposal status: %+v", proposalListResponse.Items[0])
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/review/processed-proposal-status-summary", nil)
+	req.Header.Set("X-Workflow-Org-ID", orgID)
+	req.Header.Set("X-Workflow-User-ID", operatorUserID)
+	req.Header.Set("X-Workflow-Session-ID", operatorSession.ID)
+	recorder = httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected processed proposal summary status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	var proposalSummaryResponse struct {
+		Items []struct {
+			RecommendationStatus string `json:"recommendation_status"`
+			ProposalCount        int    `json:"proposal_count"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &proposalSummaryResponse); err != nil {
+		t.Fatalf("decode processed proposal summary: %v", err)
+	}
+	if len(proposalSummaryResponse.Items) == 0 || proposalSummaryResponse.Items[0].RecommendationStatus != ai.RecommendationStatusApprovalRequested {
+		t.Fatalf("unexpected processed proposal summary items: %+v", proposalSummaryResponse.Items)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/review/approval-queue?status=pending", nil)
+	req.Header.Set("X-Workflow-Org-ID", orgID)
+	req.Header.Set("X-Workflow-User-ID", operatorUserID)
+	req.Header.Set("X-Workflow-Session-ID", operatorSession.ID)
+	recorder = httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected approval queue status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	var queueResponse struct {
+		Items []struct {
+			ApprovalID     string `json:"approval_id"`
+			ApprovalStatus string `json:"approval_status"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &queueResponse); err != nil {
+		t.Fatalf("decode approval queue: %v", err)
+	}
+	if len(queueResponse.Items) != 1 || queueResponse.Items[0].ApprovalID != approval.ID || queueResponse.Items[0].ApprovalStatus != "pending" {
+		t.Fatalf("unexpected approval queue items: %+v", queueResponse.Items)
+	}
+}
+
+func TestAgentAPIDecideApprovalIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
+
+	_, approverUserID := seedOrgAndUserInOrg(t, ctx, db, identityaccess.RoleApprover, orgID)
+	approverSession := startSession(t, ctx, db, orgID, approverUserID)
+	approver := identityaccess.Actor{OrgID: orgID, UserID: approverUserID, SessionID: approverSession.ID}
+
+	documentService := documents.NewService(db)
+	workflowService := workflow.NewService(db, documentService)
+	approval, doc := createPendingApproval(t, ctx, documentService, workflowService, operator)
+
+	handler := app.NewAgentAPIHandler(db)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/approvals/"+approval.ID+"/decision", bytes.NewBufferString(`{"decision":"approved","decision_note":"Looks correct."}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Workflow-Org-ID", orgID)
+	req.Header.Set("X-Workflow-User-ID", approverUserID)
+	req.Header.Set("X-Workflow-Session-ID", approverSession.ID)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected approval decision status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	var response struct {
+		ApprovalID     string  `json:"approval_id"`
+		Status         string  `json:"status"`
+		DocumentID     string  `json:"document_id"`
+		DocumentStatus string  `json:"document_status"`
+		DecisionNote   *string `json:"decision_note"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode approval decision response: %v", err)
+	}
+	if response.ApprovalID != approval.ID || response.DocumentID != doc.ID {
+		t.Fatalf("unexpected approval decision response: %+v", response)
+	}
+	if response.Status != "approved" || response.DocumentStatus != string(documents.StatusApproved) {
+		t.Fatalf("unexpected approval decision states: %+v", response)
+	}
+	if response.DecisionNote == nil || *response.DecisionNote != "Looks correct." {
+		t.Fatalf("unexpected decision note: %+v", response)
+	}
+
+	var documentStatus string
+	if err := db.QueryRowContext(ctx, `SELECT status FROM documents.documents WHERE id = $1`, doc.ID).Scan(&documentStatus); err != nil {
+		t.Fatalf("load document status: %v", err)
+	}
+	if documentStatus != string(documents.StatusApproved) {
+		t.Fatalf("unexpected persisted document status: %s", documentStatus)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/review/approval-queue?status=closed", nil)
+	req.Header.Set("X-Workflow-Org-ID", orgID)
+	req.Header.Set("X-Workflow-User-ID", approver.UserID)
+	req.Header.Set("X-Workflow-Session-ID", approver.SessionID)
+	recorder = httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected closed approval queue status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func seedOrgAndUserInOrg(t *testing.T, ctx context.Context, db *sql.DB, roleCode, orgID string) (string, string) {
+	t.Helper()
+
+	var userID string
+	if err := db.QueryRowContext(
+		ctx,
+		`INSERT INTO identityaccess.users (email, display_name) VALUES ($1, 'Example User') RETURNING id`,
+		"user-"+time.Now().UTC().Format("150405.000000000")+"@example.com",
+	).Scan(&userID); err != nil {
+		t.Fatalf("insert user: %v", err)
+	}
+
+	if _, err := db.ExecContext(
+		ctx,
+		`INSERT INTO identityaccess.memberships (org_id, user_id, role_code) VALUES ($1, $2, $3)`,
+		orgID,
+		userID,
+		roleCode,
+	); err != nil {
+		t.Fatalf("insert membership: %v", err)
+	}
+
+	return orgID, userID
+}
+
+func createPendingApproval(t *testing.T, ctx context.Context, documentService *documents.Service, workflowService *workflow.Service, actor identityaccess.Actor) (workflow.Approval, documents.Document) {
+	t.Helper()
+
+	doc, err := documentService.CreateDraft(ctx, documents.CreateDraftInput{
+		TypeCode: "invoice",
+		Title:    "Approval-backed invoice",
+		Actor:    actor,
+	})
+	if err != nil {
+		t.Fatalf("create draft document: %v", err)
+	}
+
+	doc, err = documentService.Submit(ctx, documents.SubmitInput{
+		DocumentID: doc.ID,
+		Actor:      actor,
+	})
+	if err != nil {
+		t.Fatalf("submit document: %v", err)
+	}
+
+	approval, err := workflowService.RequestApproval(ctx, workflow.RequestApprovalInput{
+		DocumentID: doc.ID,
+		QueueCode:  "finance",
+		Reason:     "needs approval",
+		Actor:      actor,
+	})
+	if err != nil {
+		t.Fatalf("request approval: %v", err)
+	}
+
+	return approval, doc
 }
