@@ -21,9 +21,12 @@ import (
 )
 
 var webAppTemplate = template.Must(template.New("app").Funcs(template.FuncMap{
-	"formatTime":  formatTemplateTime,
-	"prettyJSON":  prettyTemplateJSON,
-	"statusClass": templateStatusClass,
+	"formatTime":         formatTemplateTime,
+	"prettyJSON":         prettyTemplateJSON,
+	"statusClass":        templateStatusClass,
+	"documentReviewHref": templateDocumentReviewHref,
+	"auditEntityHref":    templateAuditEntityHref,
+	"auditEntityLabel":   templateAuditEntityLabel,
 }).Parse(webAppHTML))
 
 type webAppDashboardData struct {
@@ -85,6 +88,7 @@ type webWorkOrdersData struct {
 	Notice     string
 	Error      string
 	Status     string
+	DocumentID string
 	WorkOrders []reporting.WorkOrderReview
 }
 
@@ -380,15 +384,17 @@ func (h *AgentAPIHandler) handleWebWorkOrders(w http.ResponseWriter, r *http.Req
 	}
 
 	data := webWorkOrdersData{
-		Session: sessionContext,
-		Notice:  strings.TrimSpace(r.URL.Query().Get("notice")),
-		Error:   strings.TrimSpace(r.URL.Query().Get("error")),
-		Status:  strings.TrimSpace(r.URL.Query().Get("status")),
+		Session:    sessionContext,
+		Notice:     strings.TrimSpace(r.URL.Query().Get("notice")),
+		Error:      strings.TrimSpace(r.URL.Query().Get("error")),
+		Status:     strings.TrimSpace(r.URL.Query().Get("status")),
+		DocumentID: strings.TrimSpace(r.URL.Query().Get("document_id")),
 	}
 	data.WorkOrders, err = h.reviewService.ListWorkOrders(r.Context(), reporting.ListWorkOrdersInput{
-		Status: data.Status,
-		Limit:  50,
-		Actor:  sessionContext.Actor,
+		Status:     data.Status,
+		DocumentID: data.DocumentID,
+		Limit:      50,
+		Actor:      sessionContext.Actor,
 	})
 	if err != nil {
 		data.Error = "failed to load work orders"
@@ -852,6 +858,54 @@ func templateStatusClass(status string) string {
 	}
 }
 
+func templateDocumentReviewHref(documentID string) string {
+	documentID = strings.TrimSpace(documentID)
+	if documentID == "" {
+		return webDocumentsPath
+	}
+	return webDocumentsPath + "?document_id=" + url.QueryEscape(documentID)
+}
+
+func templateAuditEntityHref(entityType, entityID string) string {
+	entityType = strings.TrimSpace(entityType)
+	entityID = strings.TrimSpace(entityID)
+	if entityType == "" || entityID == "" {
+		return ""
+	}
+
+	switch entityType {
+	case "documents.document":
+		return templateDocumentReviewHref(entityID)
+	case "work_orders.work_order":
+		return webWorkOrdersPath + "/" + url.PathEscape(entityID)
+	case "inventory_ops.item":
+		return webInventoryPath + "?item_id=" + url.QueryEscape(entityID)
+	case "inventory_ops.location":
+		return webInventoryPath + "?location_id=" + url.QueryEscape(entityID)
+	case "inventory_ops.movement":
+		return webAuditPath + "?entity_type=" + url.QueryEscape(entityType) + "&entity_id=" + url.QueryEscape(entityID)
+	default:
+		return ""
+	}
+}
+
+func templateAuditEntityLabel(entityType string) string {
+	switch strings.TrimSpace(entityType) {
+	case "documents.document":
+		return "Open document"
+	case "work_orders.work_order":
+		return "Open work order"
+	case "inventory_ops.item":
+		return "Filter inventory by item"
+	case "inventory_ops.location":
+		return "Filter inventory by location"
+	case "inventory_ops.movement":
+		return "Stay on audit detail"
+	default:
+		return ""
+	}
+}
+
 const webAppHTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1258,7 +1312,11 @@ const webAppHTML = `<!DOCTYPE html>
               <td>
                 <strong>{{.Title}}</strong>
                 <div class="meta">{{.DocumentID}}</div>
-                <div class="meta"><a href="/app/review/audit?entity_type=documents.document&amp;entity_id={{.DocumentID}}">Audit trail</a></div>
+                <div class="meta">
+                  <a href="/app/review/audit?entity_type=documents.document&amp;entity_id={{.DocumentID}}">Audit trail</a>
+                  {{if eq .TypeCode "work_order"}} | <a href="/app/review/work-orders?document_id={{.DocumentID}}">Execution review</a>{{end}}
+                  {{if or (eq .TypeCode "inventory_receipt") (eq .TypeCode "inventory_issue") (eq .TypeCode "inventory_adjustment")}} | <a href="/app/review/inventory?document_id={{.DocumentID}}">Inventory review</a>{{end}}
+                </div>
               </td>
               <td><span class="status-pill {{statusClass .Status}}">{{.Status}}</span></td>
               <td>{{.ApprovalStatus.String}}</td>
@@ -1419,10 +1477,19 @@ const webAppHTML = `<!DOCTYPE html>
           <tbody>
             {{range .Movements}}
             <tr>
-              <td>#{{.MovementNumber}} | {{.MovementType}}</td>
-              <td>{{.ItemSKU}} | {{.ItemName}}</td>
+              <td>
+                #{{.MovementNumber}} | {{.MovementType}}
+                <div class="meta"><a href="/app/review/audit?entity_type=inventory_ops.movement&amp;entity_id={{.MovementID}}">Audit trail</a></div>
+              </td>
+              <td>
+                {{.ItemSKU}} | {{.ItemName}}
+                <div class="meta"><a href="/app/review/inventory?item_id={{.ItemID}}">Filter by item</a></div>
+              </td>
               <td>{{if .SourceLocationCode.Valid}}{{.SourceLocationCode.String}}{{else}}-{{end}} -> {{if .DestinationLocationCode.Valid}}{{.DestinationLocationCode.String}}{{else}}-{{end}}</td>
-              <td>{{.QuantityMilli}}</td>
+              <td>
+                {{.QuantityMilli}}
+                {{if .DocumentID.Valid}}<div class="meta"><a href="/app/review/documents?document_id={{.DocumentID.String}}">{{.DocumentTitle.String}}</a></div>{{end}}
+              </td>
             </tr>
             {{else}}
             <tr><td colspan="4">No inventory movements available.</td></tr>
@@ -1469,6 +1536,7 @@ const webAppHTML = `<!DOCTYPE html>
         <h2>Work-order review</h2>
         <form method="get" action="/app/review/work-orders" class="inline-form">
           <input type="text" name="status" value="{{.Status}}" placeholder="status">
+          <input type="text" name="document_id" value="{{.DocumentID}}" placeholder="document id">
           <button type="submit">Filter work orders</button>
         </form>
       </section>
@@ -1486,7 +1554,14 @@ const webAppHTML = `<!DOCTYPE html>
           <tbody>
             {{range .WorkOrders}}
             <tr>
-              <td><a href="/app/review/work-orders/{{.WorkOrderID}}">{{.WorkOrderCode}}</a><div>{{.Title}}</div></td>
+              <td>
+                <a href="/app/review/work-orders/{{.WorkOrderID}}">{{.WorkOrderCode}}</a>
+                <div>{{.Title}}</div>
+                <div class="meta">
+                  <a href="{{documentReviewHref .DocumentID}}">Source document</a> |
+                  <a href="/app/review/audit?entity_type=work_orders.work_order&amp;entity_id={{.WorkOrderID}}">Audit trail</a>
+                </div>
+              </td>
               <td><span class="status-pill {{statusClass .Status}}">{{.Status}}</span></td>
               <td>{{.OpenTaskCount}} open / {{.CompletedTaskCount}} done</td>
               <td>{{.LaborEntryCount}} entries / {{.TotalLaborMinutes}} min</td>
@@ -1562,7 +1637,12 @@ const webAppHTML = `<!DOCTYPE html>
             <tr>
               <td>{{formatTime .OccurredAt}}</td>
               <td>{{.EventType}}</td>
-              <td>{{.EntityType}} / {{.EntityID}}</td>
+              <td>
+                {{.EntityType}} / {{.EntityID}}
+                {{if auditEntityHref .EntityType .EntityID}}
+                <div class="meta"><a href="{{auditEntityHref .EntityType .EntityID}}">{{auditEntityLabel .EntityType}}</a></div>
+                {{end}}
+              </td>
               <td><pre>{{prettyJSON .Payload}}</pre></td>
             </tr>
             {{else}}

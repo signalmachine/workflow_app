@@ -1093,9 +1093,10 @@ func (h *AgentAPIHandler) handleListWorkOrders(w http.ResponseWriter, r *http.Re
 	}
 
 	items, err := h.reviewService.ListWorkOrders(r.Context(), reporting.ListWorkOrdersInput{
-		Status: strings.TrimSpace(r.URL.Query().Get("status")),
-		Limit:  parseLimit(r.URL.Query().Get("limit")),
-		Actor:  actor,
+		Status:     strings.TrimSpace(r.URL.Query().Get("status")),
+		DocumentID: strings.TrimSpace(r.URL.Query().Get("document_id")),
+		Limit:      parseLimit(r.URL.Query().Get("limit")),
+		Actor:      actor,
 	})
 	if err != nil {
 		handleReviewError(w, err, "failed to list work orders")

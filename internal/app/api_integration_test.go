@@ -396,6 +396,7 @@ func TestAgentBrowserReportingIntegration(t *testing.T) {
 	requireContains(t, documentsRecorder.Body.String(), "Document review")
 	requireContains(t, documentsRecorder.Body.String(), "Posted GST invoice")
 	requireContains(t, documentsRecorder.Body.String(), "/app/review/audit?entity_type=documents.document&amp;entity_id="+gstInvoiceDocumentID)
+	requireContains(t, documentsRecorder.Body.String(), "/app/review/work-orders?document_id="+workOrder.DocumentID)
 
 	exactDocumentsReq := httptest.NewRequest(http.MethodGet, "/app/review/documents?document_id="+gstInvoiceDocumentID, nil)
 	applyResponseCookies(exactDocumentsReq, loginRecorder.Result().Cookies())
@@ -430,6 +431,7 @@ func TestAgentBrowserReportingIntegration(t *testing.T) {
 	requireContains(t, inventoryRecorder.Body.String(), "Inventory issue")
 	requireContains(t, inventoryRecorder.Body.String(), "/app/review/work-orders/"+workOrder.ID)
 	requireContains(t, inventoryRecorder.Body.String(), "/app/review/documents?document_id=")
+	requireContains(t, inventoryRecorder.Body.String(), "/app/review/audit?entity_type=inventory_ops.movement&amp;entity_id=")
 
 	workOrdersReq := httptest.NewRequest(http.MethodGet, "/app/review/work-orders", nil)
 	applyResponseCookies(workOrdersReq, loginRecorder.Result().Cookies())
@@ -440,6 +442,16 @@ func TestAgentBrowserReportingIntegration(t *testing.T) {
 	}
 	requireContains(t, workOrdersRecorder.Body.String(), "Work-order review")
 	requireContains(t, workOrdersRecorder.Body.String(), "WO-RPT-1001")
+	requireContains(t, workOrdersRecorder.Body.String(), "/app/review/documents?document_id="+workOrder.DocumentID)
+
+	exactWorkOrdersReq := httptest.NewRequest(http.MethodGet, "/app/review/work-orders?document_id="+workOrder.DocumentID, nil)
+	applyResponseCookies(exactWorkOrdersReq, loginRecorder.Result().Cookies())
+	exactWorkOrdersRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(exactWorkOrdersRecorder, exactWorkOrdersReq)
+	if exactWorkOrdersRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected exact work orders page status: got %d body=%s", exactWorkOrdersRecorder.Code, exactWorkOrdersRecorder.Body.String())
+	}
+	requireContains(t, exactWorkOrdersRecorder.Body.String(), "WO-RPT-1001")
 
 	workOrderDetailReq := httptest.NewRequest(http.MethodGet, "/app/review/work-orders/"+workOrder.ID, nil)
 	applyResponseCookies(workOrderDetailReq, loginRecorder.Result().Cookies())
@@ -462,6 +474,7 @@ func TestAgentBrowserReportingIntegration(t *testing.T) {
 	}
 	requireContains(t, auditRecorder.Body.String(), "Audit lookup")
 	requireContains(t, auditRecorder.Body.String(), "work_orders.work_order_created")
+	requireContains(t, auditRecorder.Body.String(), "/app/review/work-orders/"+workOrder.ID)
 
 	apiDocumentsReq := httptest.NewRequest(http.MethodGet, "/api/review/documents", nil)
 	applyResponseCookies(apiDocumentsReq, loginRecorder.Result().Cookies())
@@ -543,6 +556,15 @@ func TestAgentBrowserReportingIntegration(t *testing.T) {
 		t.Fatalf("unexpected work orders api status: got %d body=%s", apiWorkOrdersRecorder.Code, apiWorkOrdersRecorder.Body.String())
 	}
 	requireContains(t, apiWorkOrdersRecorder.Body.String(), "\"work_order_code\":\"WO-RPT-1001\"")
+
+	apiExactWorkOrdersReq := httptest.NewRequest(http.MethodGet, "/api/review/work-orders?document_id="+workOrder.DocumentID, nil)
+	applyResponseCookies(apiExactWorkOrdersReq, loginRecorder.Result().Cookies())
+	apiExactWorkOrdersRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(apiExactWorkOrdersRecorder, apiExactWorkOrdersReq)
+	if apiExactWorkOrdersRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected exact work orders api status: got %d body=%s", apiExactWorkOrdersRecorder.Code, apiExactWorkOrdersRecorder.Body.String())
+	}
+	requireContains(t, apiExactWorkOrdersRecorder.Body.String(), "\"document_id\":\""+workOrder.DocumentID+"\"")
 
 	apiWorkOrderDetailReq := httptest.NewRequest(http.MethodGet, "/api/review/work-orders/"+workOrder.ID, nil)
 	applyResponseCookies(apiWorkOrderDetailReq, loginRecorder.Result().Cookies())

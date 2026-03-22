@@ -214,9 +214,10 @@ type WorkOrderReview struct {
 }
 
 type ListWorkOrdersInput struct {
-	Status string
-	Limit  int
-	Actor  identityaccess.Actor
+	Status     string
+	DocumentID string
+	Limit      int
+	Actor      identityaccess.Actor
 }
 
 type JournalEntryReview struct {
@@ -1347,10 +1348,12 @@ LEFT JOIN LATERAL (
 ) material_posted ON TRUE
 WHERE wo.org_id = $1
   AND ($2 = '' OR wo.status = $2)
+  AND ($3 = '' OR d.id::text = $3)
 ORDER BY wo.updated_at DESC, wo.work_order_code ASC
-LIMIT $3;`,
+LIMIT $4;`,
 		input.Actor.OrgID,
 		strings.TrimSpace(input.Status),
+		strings.TrimSpace(input.DocumentID),
 		normalizeLimit(input.Limit),
 	)
 	if err != nil {
