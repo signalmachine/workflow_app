@@ -13,10 +13,11 @@ import (
 )
 
 const (
-	DefaultCoordinatorCapabilityCode = "inbound_request.coordination"
-	coordinatorStepTypeProviderRun   = "provider_execution"
-	coordinatorArtifactType          = "provider_brief"
-	coordinatorRecommendationType    = "operator_review"
+	DefaultCoordinatorCapabilityCode  = "inbound_request.coordination"
+	coordinatorStepTypeProviderRun    = "provider_execution"
+	specialistStepTypeDelegatedReview = "delegated_review"
+	coordinatorArtifactType           = "provider_brief"
+	coordinatorRecommendationType     = "operator_review"
 )
 
 var (
@@ -63,20 +64,26 @@ type CoordinatorDerivedText struct {
 }
 
 type CoordinatorProviderOutput struct {
-	ProviderResponseID string
-	ProviderName       string
-	Model              string
-	Summary            string
-	Priority           string
-	ArtifactTitle      string
-	ArtifactBody       string
-	Rationale          []string
-	NextActions        []string
-	InputTokens        int64
-	OutputTokens       int64
-	TotalTokens        int64
-	ToolLoopIterations int
-	ToolExecutions     []CoordinatorToolExecution
+	ProviderResponseID   string
+	ProviderName         string
+	Model                string
+	Summary              string
+	Priority             string
+	ArtifactTitle        string
+	ArtifactBody         string
+	Rationale            []string
+	NextActions          []string
+	InputTokens          int64
+	OutputTokens         int64
+	TotalTokens          int64
+	ToolLoopIterations   int
+	ToolExecutions       []CoordinatorToolExecution
+	SpecialistDelegation *CoordinatorSpecialistDelegation
+}
+
+type CoordinatorSpecialistDelegation struct {
+	CapabilityCode string `json:"capability_code"`
+	Reason         string `json:"reason"`
 }
 
 type CoordinatorToolExecution struct {
@@ -98,6 +105,8 @@ type ProcessNextQueuedResult struct {
 	Request        intake.InboundRequest
 	Run            Run
 	Step           RunStep
+	Delegation     Delegation
+	SpecialistRun  Run
 	Artifact       Artifact
 	Recommendation Recommendation
 }
@@ -217,15 +226,16 @@ func (c *Coordinator) ProcessNextQueued(ctx context.Context, input ProcessNextQu
 			"derived_text_count": len(requestContext.DerivedTexts),
 		},
 		OutputPayload: map[string]any{
-			"provider":             providerOutput.ProviderName,
-			"provider_response_id": providerOutput.ProviderResponseID,
-			"model":                providerOutput.Model,
-			"priority":             providerOutput.Priority,
-			"input_tokens":         providerOutput.InputTokens,
-			"output_tokens":        providerOutput.OutputTokens,
-			"total_tokens":         providerOutput.TotalTokens,
-			"tool_loop_iterations": providerOutput.ToolLoopIterations,
-			"tool_executions":      providerOutput.ToolExecutions,
+			"provider":              providerOutput.ProviderName,
+			"provider_response_id":  providerOutput.ProviderResponseID,
+			"model":                 providerOutput.Model,
+			"priority":              providerOutput.Priority,
+			"input_tokens":          providerOutput.InputTokens,
+			"output_tokens":         providerOutput.OutputTokens,
+			"total_tokens":          providerOutput.TotalTokens,
+			"tool_loop_iterations":  providerOutput.ToolLoopIterations,
+			"tool_executions":       providerOutput.ToolExecutions,
+			"specialist_delegation": providerOutput.SpecialistDelegation,
 		},
 		Actor: input.Actor,
 	})
@@ -235,23 +245,40 @@ func (c *Coordinator) ProcessNextQueued(ctx context.Context, input ProcessNextQu
 	}
 	result.Step = step
 
+	artifactRun := run
+	artifactStep := step
+	if providerOutput.SpecialistDelegation != nil {
+		var delegation Delegation
+		artifactRun, artifactStep, delegation, err = c.createDelegatedSpecialistRun(ctx, request, run, step, requestContext, providerOutput, input.Actor)
+		if err != nil {
+			c.failRunAndRequest(ctx, run, sanitizeFailureReason(err.Error()), input.Actor)
+			return result, fmt.Errorf("create delegated specialist run: %w", err)
+		}
+		result.Delegation = delegation
+		result.SpecialistRun = artifactRun
+		if artifactRun.ParentRunID.Valid {
+			result.Run = run
+		}
+	}
+
 	artifact, err := c.aiService.CreateArtifact(ctx, CreateArtifactInput{
-		RunID:        run.ID,
-		StepID:       step.ID,
+		RunID:        artifactRun.ID,
+		StepID:       artifactStep.ID,
 		ArtifactType: coordinatorArtifactType,
 		Title:        providerOutput.ArtifactTitle,
 		Payload: map[string]any{
-			"provider":             providerOutput.ProviderName,
-			"provider_response_id": providerOutput.ProviderResponseID,
-			"model":                providerOutput.Model,
-			"request_reference":    request.RequestReference,
-			"summary":              providerOutput.Summary,
-			"priority":             providerOutput.Priority,
-			"body":                 providerOutput.ArtifactBody,
-			"rationale":            providerOutput.Rationale,
-			"next_actions":         providerOutput.NextActions,
-			"tool_loop_iterations": providerOutput.ToolLoopIterations,
-			"tool_executions":      providerOutput.ToolExecutions,
+			"provider":              providerOutput.ProviderName,
+			"provider_response_id":  providerOutput.ProviderResponseID,
+			"model":                 providerOutput.Model,
+			"request_reference":     request.RequestReference,
+			"summary":               providerOutput.Summary,
+			"priority":              providerOutput.Priority,
+			"body":                  providerOutput.ArtifactBody,
+			"rationale":             providerOutput.Rationale,
+			"next_actions":          providerOutput.NextActions,
+			"tool_loop_iterations":  providerOutput.ToolLoopIterations,
+			"tool_executions":       providerOutput.ToolExecutions,
+			"specialist_delegation": providerOutput.SpecialistDelegation,
 		},
 		Actor: input.Actor,
 	})
@@ -262,19 +289,20 @@ func (c *Coordinator) ProcessNextQueued(ctx context.Context, input ProcessNextQu
 	result.Artifact = artifact
 
 	recommendation, err := c.aiService.CreateRecommendation(ctx, CreateRecommendationInput{
-		RunID:              run.ID,
+		RunID:              artifactRun.ID,
 		ArtifactID:         artifact.ID,
 		RecommendationType: coordinatorRecommendationType,
 		Summary:            providerOutput.Summary,
 		Payload: map[string]any{
-			"provider":             providerOutput.ProviderName,
-			"model":                providerOutput.Model,
-			"request_reference":    request.RequestReference,
-			"priority":             providerOutput.Priority,
-			"next_actions":         providerOutput.NextActions,
-			"rationale":            providerOutput.Rationale,
-			"tool_loop_iterations": providerOutput.ToolLoopIterations,
-			"tool_executions":      providerOutput.ToolExecutions,
+			"provider":              providerOutput.ProviderName,
+			"model":                 providerOutput.Model,
+			"request_reference":     request.RequestReference,
+			"priority":              providerOutput.Priority,
+			"next_actions":          providerOutput.NextActions,
+			"rationale":             providerOutput.Rationale,
+			"tool_loop_iterations":  providerOutput.ToolLoopIterations,
+			"tool_executions":       providerOutput.ToolExecutions,
+			"specialist_delegation": providerOutput.SpecialistDelegation,
 		},
 		Actor: input.Actor,
 	})
@@ -284,18 +312,56 @@ func (c *Coordinator) ProcessNextQueued(ctx context.Context, input ProcessNextQu
 	}
 	result.Recommendation = recommendation
 
+	if providerOutput.SpecialistDelegation != nil {
+		specialistRun, err := c.aiService.CompleteRun(ctx, CompleteRunInput{
+			RunID:   artifactRun.ID,
+			Status:  RunStatusCompleted,
+			Summary: providerOutput.Summary,
+			Metadata: map[string]any{
+				"provider":              providerOutput.ProviderName,
+				"provider_response_id":  providerOutput.ProviderResponseID,
+				"model":                 providerOutput.Model,
+				"priority":              providerOutput.Priority,
+				"recommendation_id":     recommendation.ID,
+				"specialist_delegation": providerOutput.SpecialistDelegation,
+			},
+			Actor: input.Actor,
+		})
+		if err != nil {
+			c.failRunAndRequest(ctx, run, "failed to complete specialist run", input.Actor)
+			return result, fmt.Errorf("complete specialist run: %w", err)
+		}
+		result.SpecialistRun = specialistRun
+	}
+
+	runSummary := providerOutput.Summary
+	runMetadata := map[string]any{
+		"provider":             providerOutput.ProviderName,
+		"provider_response_id": providerOutput.ProviderResponseID,
+		"model":                providerOutput.Model,
+		"priority":             providerOutput.Priority,
+		"recommendation_id":    recommendation.ID,
+	}
+	if providerOutput.SpecialistDelegation != nil {
+		runSummary = fmt.Sprintf(
+			"Delegated inbound request %s to %s",
+			request.RequestReference,
+			providerOutput.SpecialistDelegation.CapabilityCode,
+		)
+		runMetadata["specialist_delegation"] = providerOutput.SpecialistDelegation
+		if result.SpecialistRun.ID != "" {
+			runMetadata["child_run_id"] = result.SpecialistRun.ID
+		}
+		if result.Delegation.ID != "" {
+			runMetadata["delegation_id"] = result.Delegation.ID
+		}
+	}
 	run, err = c.aiService.CompleteRun(ctx, CompleteRunInput{
-		RunID:   run.ID,
-		Status:  RunStatusCompleted,
-		Summary: providerOutput.Summary,
-		Metadata: map[string]any{
-			"provider":             providerOutput.ProviderName,
-			"provider_response_id": providerOutput.ProviderResponseID,
-			"model":                providerOutput.Model,
-			"priority":             providerOutput.Priority,
-			"recommendation_id":    recommendation.ID,
-		},
-		Actor: input.Actor,
+		RunID:    run.ID,
+		Status:   RunStatusCompleted,
+		Summary:  runSummary,
+		Metadata: runMetadata,
+		Actor:    input.Actor,
 	})
 	if err != nil {
 		c.markRequestFailed(ctx, request.ID, "failed to complete coordinator run", input.Actor)
@@ -314,6 +380,102 @@ func (c *Coordinator) ProcessNextQueued(ctx context.Context, input ProcessNextQu
 	result.Request = request
 
 	return result, nil
+}
+
+func (c *Coordinator) createDelegatedSpecialistRun(
+	ctx context.Context,
+	request intake.InboundRequest,
+	parentRun Run,
+	parentStep RunStep,
+	requestContext CoordinatorProviderInput,
+	providerOutput CoordinatorProviderOutput,
+	actor identityaccess.Actor,
+) (Run, RunStep, Delegation, error) {
+	specialist := providerOutput.SpecialistDelegation
+	if specialist == nil {
+		return Run{}, RunStep{}, Delegation{}, ErrInvalidCoordinatorOutput
+	}
+
+	childRun, err := c.aiService.StartRun(ctx, StartRunInput{
+		AgentRole:        RunRoleSpecialist,
+		CapabilityCode:   specialist.CapabilityCode,
+		InboundRequestID: request.ID,
+		ParentRunID:      parentRun.ID,
+		RequestText:      fmt.Sprintf("Handle inbound request %s via delegated specialist review", request.RequestReference),
+		Metadata: map[string]any{
+			"request_reference":     request.RequestReference,
+			"parent_run_id":         parentRun.ID,
+			"provider":              providerOutput.ProviderName,
+			"provider_response_id":  providerOutput.ProviderResponseID,
+			"specialist_delegation": specialist,
+		},
+		Actor: actor,
+	})
+	if err != nil {
+		return Run{}, RunStep{}, Delegation{}, err
+	}
+
+	delegation, err := c.aiService.RecordDelegation(ctx, RecordDelegationInput{
+		ParentRunID:       parentRun.ID,
+		ChildRunID:        childRun.ID,
+		RequestedByStepID: parentStep.ID,
+		CapabilityCode:    specialist.CapabilityCode,
+		Reason:            specialist.Reason,
+		Actor:             actor,
+	})
+	if err != nil {
+		_, _ = c.aiService.CompleteRun(ctx, CompleteRunInput{
+			RunID:   childRun.ID,
+			Status:  RunStatusFailed,
+			Summary: "failed to record delegation",
+			Metadata: map[string]any{
+				"failure_reason": "failed to record delegation",
+			},
+			Actor: actor,
+		})
+		return Run{}, RunStep{}, Delegation{}, err
+	}
+
+	step, err := c.aiService.AppendStep(ctx, AppendStepInput{
+		RunID:     childRun.ID,
+		StepType:  specialistStepTypeDelegatedReview,
+		StepTitle: "Produce delegated specialist review",
+		Status:    StepStatusCompleted,
+		InputPayload: map[string]any{
+			"request_reference":  request.RequestReference,
+			"parent_run_id":      parentRun.ID,
+			"delegation_id":      delegation.ID,
+			"delegation_reason":  specialist.Reason,
+			"message_count":      len(requestContext.Messages),
+			"attachment_count":   len(requestContext.Attachments),
+			"derived_text_count": len(requestContext.DerivedTexts),
+		},
+		OutputPayload: map[string]any{
+			"provider":              providerOutput.ProviderName,
+			"provider_response_id":  providerOutput.ProviderResponseID,
+			"model":                 providerOutput.Model,
+			"priority":              providerOutput.Priority,
+			"summary":               providerOutput.Summary,
+			"tool_loop_iterations":  providerOutput.ToolLoopIterations,
+			"tool_executions":       providerOutput.ToolExecutions,
+			"specialist_delegation": specialist,
+		},
+		Actor: actor,
+	})
+	if err != nil {
+		_, _ = c.aiService.CompleteRun(ctx, CompleteRunInput{
+			RunID:   childRun.ID,
+			Status:  RunStatusFailed,
+			Summary: "failed to record delegated specialist step",
+			Metadata: map[string]any{
+				"failure_reason": "failed to record delegated specialist step",
+			},
+			Actor: actor,
+		})
+		return Run{}, RunStep{}, Delegation{}, err
+	}
+
+	return childRun, step, delegation, nil
 }
 
 func (c *Coordinator) loadRequestContext(ctx context.Context, actor identityaccess.Actor, requestID string) (CoordinatorProviderInput, error) {
@@ -567,8 +729,25 @@ func validateCoordinatorProviderOutput(output CoordinatorProviderOutput) error {
 	if priority == "" {
 		return fmt.Errorf("%w: priority must be low, normal, high, or urgent", ErrInvalidCoordinatorOutput)
 	}
+	if output.SpecialistDelegation != nil {
+		if strings.TrimSpace(output.SpecialistDelegation.Reason) == "" {
+			return fmt.Errorf("%w: specialist delegation reason is required", ErrInvalidCoordinatorOutput)
+		}
+		if !isAllowedSpecialistCapability(output.SpecialistDelegation.CapabilityCode) {
+			return fmt.Errorf("%w: unsupported specialist capability %q", ErrInvalidCoordinatorOutput, output.SpecialistDelegation.CapabilityCode)
+		}
+	}
 
 	return nil
+}
+
+func isAllowedSpecialistCapability(capabilityCode string) bool {
+	switch strings.TrimSpace(capabilityCode) {
+	case "inbound_request.operations_triage", "inbound_request.approval_triage":
+		return true
+	default:
+		return false
+	}
 }
 
 func normalizePriority(priority string) string {

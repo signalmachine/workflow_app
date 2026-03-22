@@ -1,6 +1,6 @@
 # workflow_app AI Provider Execution Plan
 
-Date: 2026-03-21
+Date: 2026-03-22
 Status: In-progress thin-v1 implementation slice
 Purpose: define the foundation-complete provider-backed AI execution layer required after Milestone 5 so `workflow_app` is usable as an AI-agent-first application in v1 rather than only having AI persistence and observability scaffolding.
 
@@ -15,9 +15,8 @@ The current thin-v1 codebase has durable AI control-boundary foundations:
 
 What is still missing:
 
-1. provider-backed specialist delegation on top of the now-live coordinator execution path
-2. integration tests that can exercise the live OpenAI path when an OpenAI API key is configured
-3. a focused provider-verification command and the promoted backend or web contracts needed to exercise the live path outside direct service calls
+1. integration tests that can exercise the live OpenAI path when an OpenAI API key is configured
+2. a focused provider-verification command and the promoted backend or web contracts needed to exercise the live path outside direct service calls
 
 This gap is now important for thin v1 because the application is intended to be AI-agent-first. Without a live provider-backed path, the current AI layer remains an observability and control scaffold rather than a usable operator interface.
 
@@ -28,14 +27,15 @@ Current implementation checkpoint:
 3. the first provider-backed adapter now uses the Responses API with strict structured output for queued inbound-request review
 4. the first coordinator flow can claim one queued inbound request, assemble request, attachment, and derived-text context, create a coordinator run and step, persist a provider brief artifact and operator-review recommendation, and mark the request `processed` or `failed`
 5. the coordinator path now includes a hard-capped Responses tool loop, per-capability tool-policy enforcement, and the first reporting read tool for inbound-request status summaries, with tool-execution metadata persisted in the coordinator step, artifact, and recommendation payloads
-6. provider-backed business writes still terminate at artifact and recommendation persistence rather than bypassing approvals, postings, or normal domain services
+6. the coordinator can now optionally route one allowlisted specialist delegation through a durable child run and delegation record before the final artifact and recommendation are persisted
+7. provider-backed business writes still terminate at artifact and recommendation persistence rather than bypassing approvals, postings, or normal domain services
 
 ## 2. V1 objective
 
 Land the provider-backed AI execution foundations required for a usable v1 agent layer so:
 
 1. queued inbound requests can be processed through a real OpenAI-backed coordinator flow
-2. the coordinator can route bounded work to specialist capabilities while preserving the existing durable run history and delegation model
+2. the coordinator can route bounded work to one allowlisted specialist capability while preserving the existing durable run history and delegation model
 3. AI still acts only through explicit tools and normal domain services
 4. approval, posting, audit, and write boundaries remain unchanged
 5. the implementation remains narrow in product breadth while still being complete in provider, tool-loop, safety, configuration, and verification foundations
@@ -153,8 +153,8 @@ Recommended sequence after Milestone 5:
 
 1. add configuration and `.env.example` support for OpenAI credentials and model selection
 2. add bounded specialist delegation on top of the now-live coordinator and tool-loop execution path
-3. add the minimum API surface and attachment transport contracts needed to exercise that path outside direct service calls
-4. add live-provider integration tests plus the explicit verification command
+3. add live-provider integration tests plus the explicit verification command
+4. add the minimum API surface and attachment transport contracts needed to exercise that path outside direct service calls
 5. update reporting or operational docs only where needed to explain the now-live provider-backed path
 
 Execution rule:

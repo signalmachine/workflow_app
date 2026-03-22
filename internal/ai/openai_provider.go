@@ -102,20 +102,21 @@ func (p *OpenAIProvider) ExecuteInboundRequest(ctx context.Context, input Coordi
 			}
 
 			return CoordinatorProviderOutput{
-				ProviderResponseID: previousResponseID,
-				ProviderName:       "openai",
-				Model:              string(resp.Model),
-				Summary:            strings.TrimSpace(parsed.Summary),
-				Priority:           normalizePriority(parsed.Priority),
-				ArtifactTitle:      strings.TrimSpace(parsed.ArtifactTitle),
-				ArtifactBody:       strings.TrimSpace(parsed.ArtifactBody),
-				Rationale:          trimList(parsed.Rationale),
-				NextActions:        trimList(parsed.NextActions),
-				InputTokens:        totalUsage.InputTokens,
-				OutputTokens:       totalUsage.OutputTokens,
-				TotalTokens:        totalUsage.TotalTokens,
-				ToolLoopIterations: iteration,
-				ToolExecutions:     toolExecutions,
+				ProviderResponseID:   previousResponseID,
+				ProviderName:         "openai",
+				Model:                string(resp.Model),
+				Summary:              strings.TrimSpace(parsed.Summary),
+				Priority:             normalizePriority(parsed.Priority),
+				ArtifactTitle:        strings.TrimSpace(parsed.ArtifactTitle),
+				ArtifactBody:         strings.TrimSpace(parsed.ArtifactBody),
+				Rationale:            trimList(parsed.Rationale),
+				NextActions:          trimList(parsed.NextActions),
+				InputTokens:          totalUsage.InputTokens,
+				OutputTokens:         totalUsage.OutputTokens,
+				TotalTokens:          totalUsage.TotalTokens,
+				ToolLoopIterations:   iteration,
+				ToolExecutions:       toolExecutions,
+				SpecialistDelegation: normalizeSpecialistDelegation(parsed.SpecialistDelegation),
 			}, nil
 		}
 
@@ -163,7 +164,12 @@ Review the persisted request context and produce a structured operator-review br
 You may use the available read tools when they improve prioritization context.
 Do not propose direct writes, approval decisions, postings, or autonomous follow-up actions.
 If a tool call is denied or unavailable, continue without it and produce the best safe review possible.
-Focus on a safe summary, priority, rationale, and next actions for a human operator.`
+Focus on a safe summary, priority, rationale, and next actions for a human operator.
+If the request clearly needs deeper review framing, you may delegate to exactly one specialist by filling specialist_delegation with an allowlisted capability and a concrete reason.
+Allowed specialist capabilities:
+- inbound_request.operations_triage
+- inbound_request.approval_triage
+Otherwise set specialist_delegation to null.`
 }
 
 func (p *OpenAIProvider) coordinatorToolDefinitions() map[string]coordinatorToolDefinition {
@@ -418,12 +424,13 @@ func (u *coordinatorTokenUsage) add(usage responses.ResponseUsage) {
 }
 
 type openAICoordinatorPayload struct {
-	Summary       string   `json:"summary"`
-	Priority      string   `json:"priority"`
-	ArtifactTitle string   `json:"artifact_title"`
-	ArtifactBody  string   `json:"artifact_body"`
-	Rationale     []string `json:"rationale"`
-	NextActions   []string `json:"next_actions"`
+	Summary              string                           `json:"summary"`
+	Priority             string                           `json:"priority"`
+	ArtifactTitle        string                           `json:"artifact_title"`
+	ArtifactBody         string                           `json:"artifact_body"`
+	Rationale            []string                         `json:"rationale"`
+	NextActions          []string                         `json:"next_actions"`
+	SpecialistDelegation *CoordinatorSpecialistDelegation `json:"specialist_delegation"`
 }
 
 func coordinatorResponseFormat() responses.ResponseFormatTextConfigUnionParam {
@@ -467,6 +474,33 @@ func coordinatorResponseSchema() map[string]any {
 					"type": "string",
 				},
 			},
+			"specialist_delegation": map[string]any{
+				"anyOf": []any{
+					map[string]any{
+						"type":                 "object",
+						"additionalProperties": false,
+						"properties": map[string]any{
+							"capability_code": map[string]any{
+								"type": "string",
+								"enum": []string{
+									"inbound_request.operations_triage",
+									"inbound_request.approval_triage",
+								},
+							},
+							"reason": map[string]any{
+								"type": "string",
+							},
+						},
+						"required": []string{
+							"capability_code",
+							"reason",
+						},
+					},
+					map[string]any{
+						"type": "null",
+					},
+				},
+			},
 		},
 		"required": []string{
 			"summary",
@@ -475,6 +509,7 @@ func coordinatorResponseSchema() map[string]any {
 			"artifact_body",
 			"rationale",
 			"next_actions",
+			"specialist_delegation",
 		},
 	}
 }
@@ -546,4 +581,14 @@ func trimList(items []string) []string {
 		trimmed = append(trimmed, item)
 	}
 	return trimmed
+}
+
+func normalizeSpecialistDelegation(delegation *CoordinatorSpecialistDelegation) *CoordinatorSpecialistDelegation {
+	if delegation == nil {
+		return nil
+	}
+	return &CoordinatorSpecialistDelegation{
+		CapabilityCode: strings.TrimSpace(delegation.CapabilityCode),
+		Reason:         strings.TrimSpace(delegation.Reason),
+	}
 }

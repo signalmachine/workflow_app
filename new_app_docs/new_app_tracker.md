@@ -1,6 +1,6 @@
 # workflow_app Tracker
 
-Date: 2026-03-21
+Date: 2026-03-22
 Status: Draft reset tracker
 Purpose: track the `workflow_app` plan and guard against scope drift during bootstrap and implementation.
 
@@ -25,7 +25,7 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 | Milestone 3 inventory foundation | done | The inventory foundation now includes `inventory_ops` items, locations, movement numbering, append-only movements, derived stock balances, inventory-owned document payload and line records, explicit execution and accounting handoffs, and costed inventory-accounting handoffs consumed through centralized journal posting covered by integration tests |
 | Milestone 4 execution foundation | done | `work_orders` now includes first-class work-order records, append-only execution status history, transactional consumption of pending inventory execution links into work-order material-usage truth, workflow-owned work-order tasks with one accountable worker, workforce-owned labor capture with cost snapshots, and centralized accounting consumption of both labor and work-order-linked inventory handoffs covered by integration tests |
 | Milestone 5 review and reporting surfaces | done | `reporting` now exposes approval queue, document, accounting journal review, control-account balance review, GST/TDS tax summaries, inventory stock, inventory movement review, inventory reconciliation review, work-order, audit lookup, inbound-request, and processed-proposal review surfaces covered by integration tests; stable inbound-request references now exist for operator tracking and submission acknowledgments, inbound-request list filtering now supports exact `REQ-...` reference lookup, request detail and processed-proposal reads resolve by stable `REQ-...` reference inside the authorized reporting read path instead of depending on raw UUID-only lookup, inbound-request review now also surfaces persisted cancellation and failure reasons with their timestamps for operator troubleshooting plus submitter, session, metadata, attachment provenance, AI step and delegation detail, AI artifact detail, and recommendation payload context, and queue-oriented reporting summaries now provide status-count rollups for inbound requests and processed proposals, so remaining v1 work has moved from reporting polish to provider-backed AI execution and the web layer |
-| Milestone 6 provider-backed AI execution | in_progress | Milestone 6 is now active. `internal/ai` now includes optional OpenAI provider configuration loading, the official OpenAI Go SDK, a Responses-API-backed provider adapter, and a coordinator flow that can claim one queued inbound request, assemble request, attachment, and derived-text context, run a hard-capped tool loop, enforce per-capability tool policy, auto-execute the first reporting read tool when policy allows, persist the resulting coordinator run and step with tool-execution metadata, write a provider brief artifact and operator-review recommendation, and mark the request `processed` or `failed` without bypassing existing control boundaries. Remaining work is specialist-delegation depth plus opt-in live-provider verification and backend entrypoints; see `ai_provider_execution_plan.md` |
+| Milestone 6 provider-backed AI execution | in_progress | Milestone 6 is now active. `internal/ai` now includes optional OpenAI provider configuration loading, the official OpenAI Go SDK, a Responses-API-backed provider adapter, and a coordinator flow that can claim one queued inbound request, assemble request, attachment, and derived-text context, run a hard-capped tool loop, enforce per-capability tool policy, auto-execute the first reporting read tool when policy allows, optionally route the result through one allowlisted specialist capability with a durable child run and delegation record, persist the resulting coordinator and specialist steps with tool-execution metadata, write a provider brief artifact and operator-review recommendation, and mark the request `processed` or `failed` without bypassing existing control boundaries. Remaining work is opt-in live-provider verification plus backend entrypoints; see `ai_provider_execution_plan.md` |
 | Milestone 7 usable web application layer | planned | after provider-backed AI execution, v1 should land a usable web layer for auth, request submission, attachment transport, approval actions, and operator review on top of the shared backend foundation that a later v2 mobile client will also use; execute this as multiple narrow vertical slices rather than one monolithic delivery; see `web_application_layer_plan.md` |
 | Minimum thin-v1 party and contact support depth | done | `parties` support records now cover external party identity plus support-depth contacts with tenant-safe service boundaries and integration tests |
 | Remaining thin-v1 adopted-document gaps | done | thin v1 adopted document-family ownership is now implemented for work-order, invoice, and payment or receipt document families through module-owned one-to-one payload bridges keyed by `document_id`; see `adopted_document_ownership_remediation_plan.md` |
@@ -33,9 +33,9 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 
 ## 2. Immediate next steps
 
-1. continue Milestone 6 from the now-landed provider-backed coordinator and bounded tool-loop slice by adding bounded specialist delegation in `internal/ai`
-2. add provider-gated verification coverage so default `go test ./...` remains provider-independent while live OpenAI checks stay opt-in
-3. add the first narrow backend or web entrypoint needed to exercise the live AI path outside direct service calls
+1. continue Milestone 6 from the now-landed provider-backed coordinator, bounded tool-loop, and specialist-delegation slice by adding provider-gated verification coverage
+2. add the first narrow backend or web entrypoint needed to exercise the live AI path outside direct service calls
+3. add a focused live-provider verification command once the first shared entrypoint exists
 4. after Milestone 6, implement the usable web application layer on the same backend foundation that a later v2 mobile client will reuse
 5. keep the codebase centered on the approved first-class modules while allowing support-depth records such as `parties` and `contacts` where the canonical module-boundary doc explicitly permits them
 6. add attachments only where they support approval evidence, document support flows, or persisted inbound request intake
@@ -47,18 +47,20 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 
 Recommended sequence:
 
-1. continue Milestone 6 from the now-landed OpenAI-backed coordinator plus bounded tool-loop execution path by adding specialist-delegation depth
+1. add provider-gated verification coverage on top of the now-landed OpenAI-backed coordinator, bounded tool-loop, and specialist-delegation execution path
 2. add the first backend or web contract that can drive the live AI path without direct service calls
-3. implement the usable web application layer after Milestone 6 so operators can work through the browser on the same backend contracts that later mobile will reuse
-4. execute Milestones 6 and 7 through small end-to-end slices rather than broad monolithic pushes so implementation stays controllable and reviewable
+3. add the focused live-provider verification command on top of that shared entrypoint
+4. implement the usable web application layer after Milestone 6 so operators can work through the browser on the same backend contracts that later mobile will reuse
+5. execute Milestones 6 and 7 through small end-to-end slices rather than broad monolithic pushes so implementation stays controllable and reviewable
 
 Reason:
 
 1. the adopted document-family ownership mismatch is now closed for work-order, invoice, and payment or receipt families
 2. inbound request intake, attachment support, queue claim semantics, and reporting-visible AI causation now sit on top of the stabilized document-adoption model
 3. the reporting foundation is now complete enough for thin-v1 review and browser-ready read seams, so the next major remaining v1 gaps are live provider-backed AI execution and the usable web layer needed to make the application operable through the browser
-4. the landed coordinator slice now includes a hard-capped tool loop with policy-enforced read-tool execution while keeping the default contributor workflow provider-independent
-5. both remaining milestones are substantial enough that they should be decomposed into narrow vertical slices to avoid schedule drag and architecture sprawl
+4. the landed coordinator slice now includes a hard-capped tool loop with policy-enforced read-tool execution plus bounded specialist delegation while keeping the default contributor workflow provider-independent
+5. the next high-value Milestone 6 gap is now opt-in live-provider verification and a shared contract for driving the live path outside direct service calls
+6. both remaining milestones are substantial enough that they should be decomposed into narrow vertical slices to avoid schedule drag and architecture sprawl
 
 ## 3. Scope guardrail
 

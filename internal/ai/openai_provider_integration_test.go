@@ -314,6 +314,72 @@ func TestOpenAIProviderBlocksDeniedToolPolicyIntegration(t *testing.T) {
 	}
 }
 
+func TestOpenAIProviderParsesSpecialistDelegationIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedAIOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	session := startAISession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: session.ID}
+
+	provider := &OpenAIProvider{
+		responsesAPI: &fakeOpenAIResponsesAPI{responses: []*responses.Response{
+			mustResponseFromJSON(t, `{
+				"id":"resp_delegate_1",
+				"created_at":1,
+				"error":{},
+				"incomplete_details":{},
+				"instructions":"coordinator",
+				"metadata":{},
+				"model":"gpt-5.2",
+				"object":"response",
+				"output":[{"id":"msg_1","type":"message","status":"completed","role":"assistant","content":[{"type":"output_text","text":"{\"summary\":\"Approval-focused specialist review is recommended before operator follow-up.\",\"priority\":\"high\",\"artifact_title\":\"Delegated inbound request review brief\",\"artifact_body\":\"The request should be routed through approval-focused triage before an operator acts.\",\"rationale\":[\"The request implies a controlled business follow-up.\"],\"next_actions\":[\"Review the specialist recommendation.\"],\"specialist_delegation\":{\"capability_code\":\"inbound_request.approval_triage\",\"reason\":\"The request likely needs narrower approval-oriented review framing.\"}}","annotations":[]}]}],
+				"parallel_tool_calls":false,
+				"temperature":0.1,
+				"tool_choice":"auto",
+				"tools":[],
+				"top_p":1,
+				"status":"completed",
+				"text":{"format":{"type":"json_schema","name":"inbound_request_review","schema":{"type":"object"}}},
+				"usage":{"input_tokens":18,"input_tokens_details":{"cached_tokens":0},"output_tokens":16,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":34}
+			}`),
+		}},
+		aiService:         NewService(db),
+		reportingService:  reporting.NewService(db),
+		model:             "gpt-5.2",
+		maxToolIterations: 3,
+	}
+
+	output, err := provider.ExecuteInboundRequest(ctx, CoordinatorProviderInput{
+		CapabilityCode:   DefaultCoordinatorCapabilityCode,
+		Actor:            operator,
+		RequestReference: "REQ-000099",
+		Channel:          "browser",
+		OriginType:       intake.OriginHuman,
+		Metadata:         json.RawMessage(`{"submitter_label":"front desk"}`),
+		Messages: []CoordinatorMessage{
+			{Role: intake.MessageRoleRequest, TextContent: "Please review a controlled follow-up request."},
+		},
+	})
+	if err != nil {
+		t.Fatalf("execute inbound request: %v", err)
+	}
+
+	if output.SpecialistDelegation == nil {
+		t.Fatal("expected specialist delegation")
+	}
+	if output.SpecialistDelegation.CapabilityCode != "inbound_request.approval_triage" {
+		t.Fatalf("unexpected specialist capability: %+v", output.SpecialistDelegation)
+	}
+	if output.SpecialistDelegation.Reason == "" {
+		t.Fatalf("expected specialist delegation reason: %+v", output.SpecialistDelegation)
+	}
+}
+
 type fakeOpenAIResponsesAPI struct {
 	responses []*responses.Response
 }

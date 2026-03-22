@@ -1,6 +1,6 @@
 # workflow_app Execution Plan
 
-Date: 2026-03-21
+Date: 2026-03-22
 Status: Draft canonical execution plan
 Purpose: define the narrow implementation path for the `workflow_app` replacement codebase.
 
@@ -258,6 +258,7 @@ Planned implementation checkpoint:
 3. `internal/ai` now uses the official OpenAI Go SDK and the Responses API for the first real provider-backed path
 4. the first coordinator flow can now claim one queued inbound request, assemble request, attachment, and derived-text context, call the provider, persist the resulting coordinator run and step, write a provider brief artifact plus operator-review recommendation, and transition the request to `processed` or `failed`
 5. the provider-backed coordinator path now includes a hard-capped Responses tool loop, per-capability tool-policy enforcement, and the first reporting read tool for inbound-request status summaries, with tool-execution metadata persisted in the coordinator step, artifact, and recommendation payloads
+6. the coordinator can now optionally route one allowlisted specialist delegation through a durable child run and delegation record, with the final provider-backed artifact and recommendation persisting on that specialist run while the coordinator run remains the bounded parent
 6. provider configuration remains optional so the default local build and database-backed test flow does not require external credentials
 6. `.env.example` now documents the OpenAI variables needed for later live-provider slices
 7. detailed sequencing and constraints are captured in `ai_provider_execution_plan.md`

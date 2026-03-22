@@ -232,6 +232,109 @@ func TestCoordinatorMarksRequestFailedOnProviderErrorIntegration(t *testing.T) {
 	}
 }
 
+func TestCoordinatorCreatesDelegatedSpecialistRunIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	session := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: session.ID}
+
+	intakeService := intake.NewService(db)
+	reportingService := reporting.NewService(db)
+
+	request := createQueuedRequest(t, ctx, intakeService, operator, "Urgent request needs deeper approval planning review")
+
+	coordinator := ai.NewCoordinator(db, fakeCoordinatorProvider{
+		output: ai.CoordinatorProviderOutput{
+			ProviderName:       "openai",
+			ProviderResponseID: "resp_test_delegate_123",
+			Model:              "gpt-5.2",
+			Summary:            "The request should be triaged by the approval specialist before operator action.",
+			Priority:           "high",
+			ArtifactTitle:      "Delegated inbound request review brief",
+			ArtifactBody:       "The request appears likely to require approval-path review before follow-up.",
+			Rationale: []string{
+				"The request implies a control-sensitive next step.",
+			},
+			NextActions: []string{
+				"Review the specialist recommendation and confirm the next controlled workflow.",
+			},
+			SpecialistDelegation: &ai.CoordinatorSpecialistDelegation{
+				CapabilityCode: "inbound_request.approval_triage",
+				Reason:         "The provider determined the request needs narrower approval-focused review framing.",
+			},
+		},
+	})
+
+	result, err := coordinator.ProcessNextQueued(ctx, ai.ProcessNextQueuedInput{
+		Channel: "browser",
+		Actor:   operator,
+	})
+	if err != nil {
+		t.Fatalf("process next queued request with delegation: %v", err)
+	}
+
+	if result.Delegation.ID == "" {
+		t.Fatal("expected delegation to be recorded")
+	}
+	if result.SpecialistRun.ID == "" {
+		t.Fatal("expected specialist run to be created")
+	}
+	if result.SpecialistRun.AgentRole != ai.RunRoleSpecialist {
+		t.Fatalf("unexpected specialist agent role: %s", result.SpecialistRun.AgentRole)
+	}
+	if result.Artifact.RunID != result.SpecialistRun.ID {
+		t.Fatalf("expected artifact on specialist run, got %s want %s", result.Artifact.RunID, result.SpecialistRun.ID)
+	}
+	if result.Recommendation.RunID != result.SpecialistRun.ID {
+		t.Fatalf("expected recommendation on specialist run, got %s want %s", result.Recommendation.RunID, result.SpecialistRun.ID)
+	}
+
+	detail, err := reportingService.GetInboundRequestDetail(ctx, reporting.GetInboundRequestDetailInput{
+		RequestReference: request.RequestReference,
+		Actor:            operator,
+	})
+	if err != nil {
+		t.Fatalf("get inbound request detail: %v", err)
+	}
+
+	if len(detail.Runs) != 2 {
+		t.Fatalf("unexpected run count: %d", len(detail.Runs))
+	}
+	if len(detail.Delegations) != 1 {
+		t.Fatalf("unexpected delegation count: %d", len(detail.Delegations))
+	}
+	if detail.Delegations[0].CapabilityCode != "inbound_request.approval_triage" {
+		t.Fatalf("unexpected delegation capability: %+v", detail.Delegations[0])
+	}
+	if detail.Delegations[0].ChildRunID != result.SpecialistRun.ID {
+		t.Fatalf("unexpected delegated child run: %+v", detail.Delegations[0])
+	}
+	if len(detail.Artifacts) != 1 || detail.Artifacts[0].RunID != result.SpecialistRun.ID {
+		t.Fatalf("unexpected artifact review rows: %+v", detail.Artifacts)
+	}
+	if len(detail.Recommendations) != 1 || detail.Recommendations[0].RunID != result.SpecialistRun.ID {
+		t.Fatalf("unexpected recommendation review rows: %+v", detail.Recommendations)
+	}
+
+	var recommendationPayload map[string]any
+	if err := json.Unmarshal(detail.Recommendations[0].Payload, &recommendationPayload); err != nil {
+		t.Fatalf("unmarshal recommendation payload: %v", err)
+	}
+	delegationPayload, ok := recommendationPayload["specialist_delegation"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected specialist delegation payload: %+v", recommendationPayload)
+	}
+	if delegationPayload["capability_code"] != "inbound_request.approval_triage" {
+		t.Fatalf("unexpected specialist delegation payload: %+v", delegationPayload)
+	}
+}
+
 type fakeCoordinatorProvider struct {
 	output ai.CoordinatorProviderOutput
 	err    error
