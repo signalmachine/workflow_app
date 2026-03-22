@@ -1853,6 +1853,31 @@ const webAppHTML = `<!DOCTYPE html>
         </section>
 
         <section class="panel">
+          <h2>AI steps</h2>
+          {{range .Detail.Steps}}
+          <div class="detail-block">
+            <strong>#{{.StepIndex}} {{.StepTitle}}</strong>
+            <div class="meta">{{.StepType}} | Run {{.RunID}}</div>
+            <div class="status-pill {{statusClass .Status}}">{{.Status}}</div>
+            <div class="meta">Created: {{formatTime .CreatedAt}}</div>
+            <details style="margin-top:10px;">
+              <summary>Step payloads</summary>
+              <div class="detail-block">
+                <div class="meta">Input</div>
+                <pre>{{prettyJSON .InputPayload}}</pre>
+              </div>
+              <div class="detail-block">
+                <div class="meta">Output</div>
+                <pre>{{prettyJSON .OutputPayload}}</pre>
+              </div>
+            </details>
+          </div>
+          {{else}}
+          <p>No AI steps yet.</p>
+          {{end}}
+        </section>
+
+        <section class="panel">
           <h2>Artifacts</h2>
           {{range .Detail.Artifacts}}
           <div class="detail-block">
@@ -1867,6 +1892,23 @@ const webAppHTML = `<!DOCTYPE html>
       </div>
 
       <div class="grid">
+        <section class="panel">
+          <h2>Delegations</h2>
+          {{range .Detail.Delegations}}
+          <div class="detail-block">
+            <strong>{{.CapabilityCode}}</strong>
+            <div class="meta">Parent run: {{.ParentRunID}}</div>
+            <div class="meta">Child run: {{.ChildRunID}} | {{.ChildAgentRole}} / {{.ChildCapabilityCode}}</div>
+            {{if .RequestedByStepID.Valid}}<div class="meta">Requested by step: {{.RequestedByStepID.String}}</div>{{end}}
+            <div class="status-pill {{statusClass .ChildRunStatus}}">{{.ChildRunStatus}}</div>
+            <p>{{.Reason}}</p>
+            <div class="meta">Created: {{formatTime .CreatedAt}}</div>
+          </div>
+          {{else}}
+          <p>No delegations yet.</p>
+          {{end}}
+        </section>
+
         <section class="panel">
           <h2>Recommendations</h2>
           {{range .Detail.Recommendations}}

@@ -203,6 +203,10 @@ func TestAgentBrowserAppFlowIntegration(t *testing.T) {
 			NextActions: []string{
 				"Confirm the site details and route controlled follow-up.",
 			},
+			SpecialistDelegation: &ai.CoordinatorSpecialistDelegation{
+				CapabilityCode: "inbound_request.approval_triage",
+				Reason:         "The request needs narrower approval-focused review framing before action.",
+			},
 		},
 	})
 	if err != nil {
@@ -298,6 +302,11 @@ func TestAgentBrowserAppFlowIntegration(t *testing.T) {
 	}
 	requireContains(t, processedDetailRecorder.Body.String(), "Operator review is required for the urgent pump issue.")
 	requireContains(t, processedDetailRecorder.Body.String(), "Inbound request review brief")
+	requireContains(t, processedDetailRecorder.Body.String(), "AI steps")
+	requireContains(t, processedDetailRecorder.Body.String(), "Execute provider-backed coordinator review")
+	requireContains(t, processedDetailRecorder.Body.String(), "Delegations")
+	requireContains(t, processedDetailRecorder.Body.String(), "inbound_request.approval_triage")
+	requireContains(t, processedDetailRecorder.Body.String(), "The request needs narrower approval-focused review framing before action.")
 
 	approvalQueueReq := httptest.NewRequest(http.MethodGet, "/api/review/approval-queue?status=pending", nil)
 	applyResponseCookies(approvalQueueReq, loginRecorder.Result().Cookies())
