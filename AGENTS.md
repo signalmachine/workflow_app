@@ -60,6 +60,8 @@ During implementation, if a codebase review surfaces drift, an issue, an inconsi
 
 `workflow_app` is intentionally AI-agent-first, database-first, and centered on documents, ledgers, and execution context. Do not let CRM, portal, or broad manual-entry UI concerns become the center of gravity again. If a capability can wait until v2 without weakening the foundation, put it under `new_app_docs/app_v2_plans/` instead of expanding v1. Thin v1 means narrow breadth, not weak modeling or low quality.
 
+For the promoted web layer, prefer a Go-native server-rendered stack by default. Use Go `html/template` plus standard browser behavior as the baseline, prefer `htmx` for progressive enhancement where partial-page updates materially improve operator flow, and use `Alpine.js` only for small local UI state when plain HTML becomes awkward. Avoid introducing a separate Node or SPA toolchain unless the canonical planning docs are explicitly updated to require it.
+
 Shared foundation entities should have one canonical identity reused across modules. Do not let accounting, inventory, execution, CRM-style support flows, or later features create duplicate module-local truth models when they should reference the same underlying record.
 
 The primary app working model is persist-first and queue-oriented. Inbound requests should be stored durably before AI processing begins, AI processing should usually run asynchronously from that queue, and humans should review the resulting proposals or actions from explicit review surfaces rather than depending on immediate AI response as the default path.

@@ -41,6 +41,7 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 6. use `new_app_v1_gap_review_from_current_codebase.md` as historical context only, not as the live list of remaining missing foundation areas
 7. use `new_app_implementation_defaults.md` as the default-rules reference during implementation
 8. use `new_app_foundation_coverage.md` as the v1 completion checklist and foundation coverage control
+9. keep Milestone 7 on the approved thin-v1 web stack: Go server-rendered HTML as the baseline, `htmx` where partial updates materially help, `Alpine.js` only for small local state, and no separate Node toolchain unless the canonical planning set changes
 
 ## 2.1 Planned next implementation order
 

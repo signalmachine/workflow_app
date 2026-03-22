@@ -281,6 +281,7 @@ Scope:
 5. request, proposal, document, accounting, inventory, work-order, and audit review surfaces through the web layer
 6. enough page flow, navigation, and operator continuity that v1 is usable without direct service or database tooling
 7. shared backend contracts that a later v2 mobile client can also reuse
+8. a Go-native web implementation approach with server-rendered HTML as the baseline and lightweight progressive enhancement rather than a separate frontend build system
 
 Exit criteria:
 
@@ -299,6 +300,7 @@ Current implementation checkpoint:
 6. this milestone remains in progress because the current browser layer still needs tighter operator continuity, richer drill-downs, and focused refinement across the now-landed review surfaces
 7. detailed sequencing and constraints are captured in `web_application_layer_plan.md`
 8. this milestone should continue as a sequence of narrow vertical slices rather than one monolithic delivery
+9. the active thin-v1 web-stack direction is now explicit: keep Go server-rendered HTML as the primary rendering model, prefer `htmx` where partial updates materially improve operator continuity, use `Alpine.js` only for small local state, and avoid introducing a Node toolchain unless the canonical planning set changes
 
 ## 9. Execution warning
 

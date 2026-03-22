@@ -16,6 +16,7 @@ Current decision:
 2. the web layer should support the real provider-backed AI path, not only report on its outputs after the fact
 3. this does not remove the approval, posting, audit, or database-first control model
 4. this does mean web work is no longer limited to minimal browser-testing seams
+5. the preferred thin-v1 implementation stack for that web layer is Go server-rendered HTML on the shared backend, optionally enhanced with `htmx` for partial-page updates and `Alpine.js` for small local UI state, without introducing a Node toolchain
 
 ## 2. V1 objective
 
@@ -52,6 +53,17 @@ The promoted v1 web layer should preserve the core doctrine:
 4. the browser layer should orchestrate domain services rather than become a second truth owner
 5. the web layer should make the request -> AI -> recommendation -> approval -> document -> posting or execution chain understandable without raw SQL or developer-only tools
 6. the promoted web layer should use backend contracts that a later v2 mobile client can also reuse, even if the web and mobile clients differ in interaction design and presentation
+7. the promoted web layer should prefer progressive enhancement over SPA-style client ownership so the server remains the primary truth owner for rendering and flow control
+
+## 4.1 Preferred implementation stack
+
+Preferred thin-v1 stack:
+
+1. Go `net/http` plus Go `html/template` as the rendering baseline
+2. shared backend handlers and reporting reads as the only truth-owning web backend
+3. `htmx` for incremental updates such as filter refresh, inline detail loads, queue actions, and other partial-page interactions
+4. `Alpine.js` only where a small amount of local client state materially improves usability
+5. no required Node, npm, or separate frontend build pipeline in thin v1 unless a later canonical planning update explicitly changes that rule
 
 ## 5. Minimum usable v1 web outcomes
 

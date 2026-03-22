@@ -159,6 +159,7 @@ Allowed primary human surfaces:
 3. inspection and query surfaces
 4. reports
 5. a usable web application layer over the shared backend contracts
+6. a thin-v1 browser layer that stays server-rendered by default and may use lightweight progressive-enhancement libraries without adopting a separate frontend build stack
 
 Not intended as core thin-v1 behavior:
 
@@ -167,6 +168,13 @@ Not intended as core thin-v1 behavior:
 3. broad human operational UI replacing agent-driven workflows
 4. a separate backend for web versus mobile clients
 5. thin v1 should still preserve one shared backend foundation that later mobile and web clients can both use, even where their capture and presentation layers differ
+
+Preferred thin-v1 web-implementation stance:
+
+1. keep Go-native server-rendered HTML as the baseline browser delivery model
+2. prefer progressive enhancement such as `htmx` where it materially improves operator continuity while preserving server ownership of rendering and workflow state
+3. use small client-state helpers such as `Alpine.js` only where local interaction needs justify them
+4. avoid introducing a separate SPA architecture, Node dependency chain, or frontend-specific build pipeline in thin v1 unless the canonical planning set explicitly changes that decision
 
 ## 8. Data and database principles
 

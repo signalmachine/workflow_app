@@ -105,6 +105,10 @@ Purpose: record the active defaults that implementation should preserve unless t
 3. CLI tooling may exist for developer or support work, but it is not a first-class product interface
 4. the web layer should use backend contracts that a later mobile client can also reuse rather than diverging into a second backend model
 5. mobile-product depth, voice-capture UX, and richer multimodal client behavior remain v2 concerns unless a foundation dependency proves otherwise
+6. the preferred thin-v1 web stack is Go server-rendered HTML on the shared Go backend without a separate Node build pipeline
+7. `htmx` is the preferred progressive-enhancement layer where partial-page updates materially improve operator continuity while preserving server-rendered ownership
+8. `Alpine.js` is acceptable only for small local UI-state needs such as disclosure, tabs, or lightweight interaction polish
+9. do not introduce a separate SPA frontend, Node dependency tree, or frontend-specific build chain unless the canonical planning set is explicitly updated to justify that cost
 
 ### 2.10 Inbound request and attachment handling
 

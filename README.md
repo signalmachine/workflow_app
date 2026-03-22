@@ -4,6 +4,20 @@
 
 This repository has completed Milestone 0 through Milestone 6 from the canonical planning set in [`new_app_docs/`](./new_app_docs), and Milestone 7 is now underway with multiple browser slices landed under `/app`. The shared control boundary now includes adopted document ownership for work orders, invoices, and payment or receipt documents plus persist-first inbound request and attachment foundations with stable `REQ-...` inbound-request references for submission acknowledgments and review. Draft requests can now be edited or hard-deleted before queueing, while queued pre-processing requests can be soft-cancelled or returned to draft for amendment and resubmission. The provider-backed AI foundation is now live: `internal/ai` includes optional OpenAI configuration loading, the official OpenAI Go SDK, a Responses-API-backed provider adapter, and a coordinator flow that can claim one queued inbound request, execute a hard-capped tool loop with per-capability tool-policy enforcement, auto-run the first reporting read tool when policy allows, optionally route the result through one allowlisted specialist capability with a durable child run and delegation record, and persist the resulting run, step, artifact, and recommendation without making the default build and test flow depend on external credentials. `internal/app` now provides one shared backend seam for browser-session auth, queue processing, inbound-request submission, attachment download, operator review, approval decisions, document review, accounting review, inventory review, work-order review, and audit lookup, plus server-rendered operator surfaces for sign-in, request intake, queue processing, request-detail inspection, approval actions, and downstream document, accounting, inventory, work-order, and audit inspection, while `cmd/verify-agent` and `cmd/app` expose the live path through focused verification and the widened runnable application server.
 
+## Web stack
+
+The current and preferred thin-v1 web stack is:
+
+1. Go `net/http` on the shared application backend
+2. Go `html/template` for server-rendered HTML
+3. standard HTML forms and browser behavior as the baseline interaction model
+4. optional `htmx` for progressive enhancement where partial-page updates materially improve operator flow
+5. optional `Alpine.js` only for small local UI-state needs
+
+Thin-v1 default rule:
+
+1. do not introduce a separate SPA frontend or a Node-based frontend build pipeline unless the canonical planning documents are explicitly updated to require it
+
 1. bootstrap the Go module
 2. add a migration runner
 3. create the first control-boundary schema for orgs, users, memberships, audit, and idempotency
