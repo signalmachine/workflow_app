@@ -26,6 +26,7 @@ var webAppTemplate = template.Must(template.New("app").Funcs(template.FuncMap{
 	"statusClass":        templateStatusClass,
 	"documentReviewHref": templateDocumentReviewHref,
 	"approvalQueueHref":  templateApprovalQueueHref,
+	"proposalReviewHref": templateProposalReviewHref,
 	"auditEntityHref":    templateAuditEntityHref,
 	"auditEntityLabel":   templateAuditEntityLabel,
 }).Parse(webAppHTML))
@@ -84,6 +85,7 @@ type webProposalsData struct {
 	Session            identityaccess.SessionContext
 	Notice             string
 	Error              string
+	RecommendationID   string
 	Status             string
 	RequestReference   string
 	StatusSummary      []reporting.ProcessedProposalStatusSummary
@@ -91,12 +93,13 @@ type webProposalsData struct {
 }
 
 type webApprovalsData struct {
-	Session   identityaccess.SessionContext
-	Notice    string
-	Error     string
-	Status    string
-	QueueCode string
-	Approvals []reporting.ApprovalQueueEntry
+	Session    identityaccess.SessionContext
+	Notice     string
+	Error      string
+	ApprovalID string
+	Status     string
+	QueueCode  string
+	Approvals  []reporting.ApprovalQueueEntry
 }
 
 type webInventoryData struct {
@@ -399,6 +402,7 @@ func (h *AgentAPIHandler) handleWebProposals(w http.ResponseWriter, r *http.Requ
 		Session:          sessionContext,
 		Notice:           strings.TrimSpace(r.URL.Query().Get("notice")),
 		Error:            strings.TrimSpace(r.URL.Query().Get("error")),
+		RecommendationID: strings.TrimSpace(r.URL.Query().Get("recommendation_id")),
 		Status:           strings.TrimSpace(r.URL.Query().Get("status")),
 		RequestReference: strings.TrimSpace(r.URL.Query().Get("request_reference")),
 	}
@@ -408,6 +412,7 @@ func (h *AgentAPIHandler) handleWebProposals(w http.ResponseWriter, r *http.Requ
 		data.Error = "failed to load proposal summary"
 	}
 	if data.ProcessedProposals, err = h.reviewService.ListProcessedProposals(r.Context(), reporting.ListProcessedProposalsInput{
+		RecommendationID: data.RecommendationID,
 		Status:           data.Status,
 		RequestReference: data.RequestReference,
 		Limit:            50,
@@ -445,17 +450,19 @@ func (h *AgentAPIHandler) handleWebApprovals(w http.ResponseWriter, r *http.Requ
 	}
 
 	data := webApprovalsData{
-		Session:   sessionContext,
-		Notice:    strings.TrimSpace(r.URL.Query().Get("notice")),
-		Error:     strings.TrimSpace(r.URL.Query().Get("error")),
-		Status:    strings.TrimSpace(r.URL.Query().Get("status")),
-		QueueCode: strings.TrimSpace(r.URL.Query().Get("queue_code")),
+		Session:    sessionContext,
+		Notice:     strings.TrimSpace(r.URL.Query().Get("notice")),
+		Error:      strings.TrimSpace(r.URL.Query().Get("error")),
+		ApprovalID: strings.TrimSpace(r.URL.Query().Get("approval_id")),
+		Status:     strings.TrimSpace(r.URL.Query().Get("status")),
+		QueueCode:  strings.TrimSpace(r.URL.Query().Get("queue_code")),
 	}
 	data.Approvals, err = h.reviewService.ListApprovalQueue(r.Context(), reporting.ListApprovalQueueInput{
-		Status:    data.Status,
-		QueueCode: data.QueueCode,
-		Limit:     50,
-		Actor:     sessionContext.Actor,
+		ApprovalID: data.ApprovalID,
+		Status:     data.Status,
+		QueueCode:  data.QueueCode,
+		Limit:      50,
+		Actor:      sessionContext.Actor,
 	})
 	if err != nil {
 		data.Error = "failed to load approval queue"
@@ -1066,6 +1073,23 @@ func templateApprovalQueueHref(queueCode, status string) string {
 	return webApprovalsPath
 }
 
+func templateProposalReviewHref(recommendationID, status, requestReference string) string {
+	values := url.Values{}
+	if strings.TrimSpace(recommendationID) != "" {
+		values.Set("recommendation_id", strings.TrimSpace(recommendationID))
+	}
+	if strings.TrimSpace(status) != "" {
+		values.Set("status", strings.TrimSpace(status))
+	}
+	if strings.TrimSpace(requestReference) != "" {
+		values.Set("request_reference", strings.TrimSpace(requestReference))
+	}
+	if encoded := values.Encode(); encoded != "" {
+		return webProposalsPath + "?" + encoded
+	}
+	return webProposalsPath
+}
+
 func templateAuditEntityHref(entityType, entityID string) string {
 	entityType = strings.TrimSpace(entityType)
 	entityID = strings.TrimSpace(entityID)
@@ -1076,6 +1100,12 @@ func templateAuditEntityHref(entityType, entityID string) string {
 	switch entityType {
 	case "documents.document":
 		return templateDocumentReviewHref(entityID)
+	case "ai.inbound_request":
+		return webInboundDetailPrefix + url.PathEscape(entityID)
+	case "workflow.approval":
+		return webApprovalsPath + "?approval_id=" + url.QueryEscape(entityID)
+	case "ai.agent_recommendation":
+		return webProposalsPath + "?recommendation_id=" + url.QueryEscape(entityID)
 	case "work_orders.work_order":
 		return webWorkOrdersPath + "/" + url.PathEscape(entityID)
 	case "inventory_ops.item":
@@ -1093,6 +1123,12 @@ func templateAuditEntityLabel(entityType string) string {
 	switch strings.TrimSpace(entityType) {
 	case "documents.document":
 		return "Open document"
+	case "ai.inbound_request":
+		return "Open inbound request"
+	case "workflow.approval":
+		return "Open approval review"
+	case "ai.agent_recommendation":
+		return "Open proposal review"
 	case "work_orders.work_order":
 		return "Open work order"
 	case "inventory_ops.item":
@@ -1570,6 +1606,7 @@ const webAppHTML = `<!DOCTYPE html>
       <section class="panel">
         <h2>Approval review</h2>
         <form method="get" action="/app/review/approvals" class="inline-form">
+          <input type="text" name="approval_id" value="{{.ApprovalID}}" placeholder="approval id">
           <input type="text" name="status" value="{{.Status}}" placeholder="pending or closed">
           <input type="text" name="queue_code" value="{{.QueueCode}}" placeholder="queue code">
           <button type="submit">Filter approvals</button>
@@ -1639,6 +1676,7 @@ const webAppHTML = `<!DOCTYPE html>
       <section class="panel">
         <h2>Proposal review</h2>
         <form method="get" action="/app/review/proposals" class="inline-form">
+          <input type="text" name="recommendation_id" value="{{.RecommendationID}}" placeholder="recommendation id">
           <input type="text" name="status" value="{{.Status}}" placeholder="recommendation status">
           <input type="text" name="request_reference" value="{{.RequestReference}}" placeholder="REQ-... reference">
           <button type="submit">Filter proposals</button>
@@ -1680,11 +1718,13 @@ const webAppHTML = `<!DOCTYPE html>
                 <span class="status-pill {{statusClass .RecommendationStatus}}">{{.RecommendationStatus}}</span>
                 <div>{{.Summary}}</div>
                 <div class="meta">Created: {{formatTime .CreatedAt}}</div>
+                <div class="meta"><a href="{{proposalReviewHref .RecommendationID .RecommendationStatus .RequestReference}}">Open exact proposal</a></div>
               </td>
               <td>
                 {{if .ApprovalID.Valid}}
                 <div><a href="{{approvalQueueHref .ApprovalQueueCode.String .ApprovalStatus.String}}">{{.ApprovalQueueCode.String}}</a></div>
                 <div class="status-pill {{statusClass .ApprovalStatus.String}}">{{.ApprovalStatus.String}}</div>
+                <div class="meta"><a href="/app/review/approvals?approval_id={{.ApprovalID.String}}">Open exact approval</a></div>
                 {{else}}
                 -
                 {{end}}

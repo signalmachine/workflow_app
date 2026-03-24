@@ -40,10 +40,11 @@ type ApprovalQueueEntry struct {
 }
 
 type ListApprovalQueueInput struct {
-	QueueCode string
-	Status    string
-	Limit     int
-	Actor     identityaccess.Actor
+	ApprovalID string
+	QueueCode  string
+	Status     string
+	Limit      int
+	Actor      identityaccess.Actor
 }
 
 type DocumentReview struct {
@@ -471,6 +472,7 @@ type ProcessedProposalReview struct {
 }
 
 type ListProcessedProposalsInput struct {
+	RecommendationID string
 	Status           string
 	RequestID        string
 	RequestReference string
@@ -556,11 +558,13 @@ LEFT JOIN accounting.journal_entries je
    AND je.source_document_id = d.id
    AND je.entry_kind = 'posting'
 WHERE aqe.org_id = $1
-  AND ($2 = '' OR aqe.queue_code = $2)
-  AND ($3 = '' OR aqe.status = $3)
+  AND ($2 = '' OR aqe.approval_id = $2::uuid)
+  AND ($3 = '' OR aqe.queue_code = $3)
+  AND ($4 = '' OR aqe.status = $4)
 ORDER BY aqe.enqueued_at DESC, aqe.id DESC
-LIMIT $4;`,
+LIMIT $5;`,
 		input.Actor.OrgID,
+		strings.TrimSpace(input.ApprovalID),
 		strings.TrimSpace(input.QueueCode),
 		input.Status,
 		normalizeLimit(input.Limit),
@@ -2328,7 +2332,7 @@ ORDER BY rec.created_at ASC, rec.id ASC;`
 	}
 	recommendationRows.Close()
 
-	proposals, err := s.listProcessedProposalsTx(ctx, tx, input.Actor.OrgID, requestID, "")
+	proposals, err := s.listProcessedProposalsTx(ctx, tx, input.Actor.OrgID, requestID, "", "")
 	if err != nil {
 		_ = tx.Rollback()
 		return InboundRequestDetail{}, err
@@ -2429,7 +2433,14 @@ func (s *Service) ListProcessedProposals(ctx context.Context, input ListProcesse
 		return nil, err
 	}
 
-	proposals, err := s.listProcessedProposalsTx(ctx, tx, input.Actor.OrgID, requestID, strings.TrimSpace(input.Status))
+	proposals, err := s.listProcessedProposalsTx(
+		ctx,
+		tx,
+		input.Actor.OrgID,
+		requestID,
+		strings.TrimSpace(input.RecommendationID),
+		strings.TrimSpace(input.Status),
+	)
 	if err != nil {
 		_ = tx.Rollback()
 		return nil, err
@@ -2621,7 +2632,7 @@ WHERE r.org_id = $1
 	return reviews, nil
 }
 
-func (s *Service) listProcessedProposalsTx(ctx context.Context, tx *sql.Tx, orgID, requestID, status string) ([]ProcessedProposalReview, error) {
+func (s *Service) listProcessedProposalsTx(ctx context.Context, tx *sql.Tx, orgID, requestID, recommendationID, status string) ([]ProcessedProposalReview, error) {
 	const query = `
 SELECT
 	r.id,
@@ -2653,11 +2664,12 @@ LEFT JOIN documents.documents d
 	ON d.id = ap.document_id
 WHERE r.org_id = $1
   AND ($2 = '' OR r.id = NULLIF($2, '')::uuid)
-  AND ($3 = '' OR rec.status = $3)
+  AND ($3 = '' OR rec.id = NULLIF($3, '')::uuid)
+  AND ($4 = '' OR rec.status = $4)
 ORDER BY rec.created_at DESC, rec.id DESC
 LIMIT 200;`
 
-	rows, err := tx.QueryContext(ctx, query, orgID, requestID, status)
+	rows, err := tx.QueryContext(ctx, query, orgID, requestID, recommendationID, status)
 	if err != nil {
 		return nil, fmt.Errorf("list processed proposals: %w", err)
 	}

@@ -300,10 +300,11 @@ Current implementation checkpoint:
 6. the latest continuity slice now also adds `/app/review/proposals`, giving operators a dedicated browser review surface for processed proposals with proposal-status summary, request-reference filtering, and direct continuation back into request detail and forward into downstream documents
 7. accounting review now also supports exact source-`document_id` journal drill-down through both `/api/review/accounting/journal-entries?document_id=...` and `/app/review/accounting?document_id=...`, and the browser templates now link document, inventory-reconciliation, and work-order accounting context into that filtered accounting surface so operators can continue the downstream control chain without reopening broad journal lists
 8. inventory review now also supports exact `movement_id` drill-down through both `/api/review/inventory/movements?movement_id=...` and `/app/review/inventory?movement_id=...`, and audit-page movement links now continue into that filtered inventory surface so operators can move from audit events back into the exact movement and reconciliation context instead of looping on the audit page
-9. this milestone remains in progress because the current browser layer still needs tighter operator continuity, richer drill-downs, and focused refinement across the now-landed review surfaces
-10. detailed sequencing and constraints are captured in `web_application_layer_plan.md`
-11. this milestone should continue as a sequence of narrow vertical slices rather than one monolithic delivery
-12. the active thin-v1 web-stack direction is now explicit: keep Go server-rendered HTML as the primary rendering model, prefer `htmx` where partial updates materially improve operator continuity, use `Alpine.js` only for small local state, and avoid introducing a Node toolchain unless the canonical planning set changes
+9. proposal and approval review now also support exact `recommendation_id` and exact `approval_id` drill-down through both `/api/review/processed-proposals?recommendation_id=...`, `/app/review/proposals?recommendation_id=...`, `/api/review/approval-queue?approval_id=...`, and `/app/review/approvals?approval_id=...`, and audit-page entity links now continue directly into exact inbound-request detail, exact approval review, and exact proposal review instead of leaving those audit results as dead ends
+10. this milestone remains in progress because the current browser layer still needs tighter operator continuity, richer drill-downs, and focused refinement across the now-landed review surfaces
+11. detailed sequencing and constraints are captured in `web_application_layer_plan.md`
+12. this milestone should continue as a sequence of narrow vertical slices rather than one monolithic delivery
+13. the active thin-v1 web-stack direction is now explicit: keep Go server-rendered HTML as the primary rendering model, prefer `htmx` where partial updates materially improve operator continuity, use `Alpine.js` only for small local state, and avoid introducing a Node toolchain unless the canonical planning set changes
 
 ## 9. Execution warning
 

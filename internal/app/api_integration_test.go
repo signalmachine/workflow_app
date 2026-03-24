@@ -1203,6 +1203,7 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 
 	var proposalListResponse struct {
 		Items []struct {
+			RecommendationID     string  `json:"recommendation_id"`
 			RecommendationStatus string  `json:"recommendation_status"`
 			ApprovalID           *string `json:"approval_id"`
 			ApprovalStatus       *string `json:"approval_status"`
@@ -1219,6 +1220,22 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	}
 	if proposalListResponse.Items[0].RecommendationStatus != ai.RecommendationStatusApprovalRequested {
 		t.Fatalf("unexpected processed proposal status: %+v", proposalListResponse.Items[0])
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/review/processed-proposals?recommendation_id="+proposalListResponse.Items[0].RecommendationID, nil)
+	req.Header.Set("X-Workflow-Org-ID", orgID)
+	req.Header.Set("X-Workflow-User-ID", operatorUserID)
+	req.Header.Set("X-Workflow-Session-ID", operatorSession.ID)
+	recorder = httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected exact processed proposal list status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &proposalListResponse); err != nil {
+		t.Fatalf("decode exact processed proposal list: %v", err)
+	}
+	if len(proposalListResponse.Items) != 1 || proposalListResponse.Items[0].RecommendationID == "" {
+		t.Fatalf("unexpected exact processed proposal items: %+v", proposalListResponse.Items)
 	}
 
 	req = httptest.NewRequest(http.MethodGet, "/api/review/processed-proposal-status-summary", nil)
@@ -1268,6 +1285,22 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 		t.Fatalf("unexpected approval queue items: %+v", queueResponse.Items)
 	}
 
+	req = httptest.NewRequest(http.MethodGet, "/api/review/approval-queue?approval_id="+approval.ID, nil)
+	req.Header.Set("X-Workflow-Org-ID", orgID)
+	req.Header.Set("X-Workflow-User-ID", operatorUserID)
+	req.Header.Set("X-Workflow-Session-ID", operatorSession.ID)
+	recorder = httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected exact approval queue status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &queueResponse); err != nil {
+		t.Fatalf("decode exact approval queue: %v", err)
+	}
+	if len(queueResponse.Items) != 1 || queueResponse.Items[0].ApprovalID != approval.ID {
+		t.Fatalf("unexpected exact approval queue items: %+v", queueResponse.Items)
+	}
+
 	loginReq := httptest.NewRequest(
 		http.MethodPost,
 		"/app/login",
@@ -1293,6 +1326,7 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	requireContains(t, proposalsRecorder.Body.String(), ai.RecommendationStatusApprovalRequested)
 	requireContains(t, proposalsRecorder.Body.String(), "/app/inbound-requests/"+request.RequestReference)
 	requireContains(t, proposalsRecorder.Body.String(), "/app/review/approvals?queue_code="+queueResponse.Items[0].QueueCode+"&amp;status=pending")
+	requireContains(t, proposalsRecorder.Body.String(), "/app/review/approvals?approval_id="+approval.ID)
 
 	inboundRequestsReq := httptest.NewRequest(http.MethodGet, "/app/review/inbound-requests?request_reference="+request.RequestReference, nil)
 	applyResponseCookies(inboundRequestsReq, loginRecorder.Result().Cookies())
@@ -1316,6 +1350,51 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	requireContains(t, approvalsRecorder.Body.String(), "Approval review")
 	requireContains(t, approvalsRecorder.Body.String(), queueResponse.Items[0].QueueCode)
 	requireContains(t, approvalsRecorder.Body.String(), "/app/review/documents?document_id=")
+
+	exactApprovalsReq := httptest.NewRequest(http.MethodGet, "/app/review/approvals?approval_id="+approval.ID, nil)
+	applyResponseCookies(exactApprovalsReq, loginRecorder.Result().Cookies())
+	exactApprovalsRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(exactApprovalsRecorder, exactApprovalsReq)
+	if exactApprovalsRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected exact approvals page status: got %d body=%s", exactApprovalsRecorder.Code, exactApprovalsRecorder.Body.String())
+	}
+	requireContains(t, exactApprovalsRecorder.Body.String(), approval.ID)
+
+	exactProposalsReq := httptest.NewRequest(http.MethodGet, "/app/review/proposals?recommendation_id="+proposalListResponse.Items[0].RecommendationID, nil)
+	applyResponseCookies(exactProposalsReq, loginRecorder.Result().Cookies())
+	exactProposalsRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(exactProposalsRecorder, exactProposalsReq)
+	if exactProposalsRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected exact proposals page status: got %d body=%s", exactProposalsRecorder.Code, exactProposalsRecorder.Body.String())
+	}
+	requireContains(t, exactProposalsRecorder.Body.String(), proposalListResponse.Items[0].RecommendationID)
+
+	inboundAuditReq := httptest.NewRequest(http.MethodGet, "/app/review/audit?entity_type=ai.inbound_request&entity_id="+request.ID, nil)
+	applyResponseCookies(inboundAuditReq, loginRecorder.Result().Cookies())
+	inboundAuditRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(inboundAuditRecorder, inboundAuditReq)
+	if inboundAuditRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected inbound audit page status: got %d body=%s", inboundAuditRecorder.Code, inboundAuditRecorder.Body.String())
+	}
+	requireContains(t, inboundAuditRecorder.Body.String(), "/app/inbound-requests/"+request.ID)
+
+	approvalAuditReq := httptest.NewRequest(http.MethodGet, "/app/review/audit?entity_type=workflow.approval&entity_id="+approval.ID, nil)
+	applyResponseCookies(approvalAuditReq, loginRecorder.Result().Cookies())
+	approvalAuditRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(approvalAuditRecorder, approvalAuditReq)
+	if approvalAuditRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected approval audit page status: got %d body=%s", approvalAuditRecorder.Code, approvalAuditRecorder.Body.String())
+	}
+	requireContains(t, approvalAuditRecorder.Body.String(), "/app/review/approvals?approval_id="+approval.ID)
+
+	recommendationAuditReq := httptest.NewRequest(http.MethodGet, "/app/review/audit?entity_type=ai.agent_recommendation&entity_id="+proposalListResponse.Items[0].RecommendationID, nil)
+	applyResponseCookies(recommendationAuditReq, loginRecorder.Result().Cookies())
+	recommendationAuditRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(recommendationAuditRecorder, recommendationAuditReq)
+	if recommendationAuditRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected recommendation audit page status: got %d body=%s", recommendationAuditRecorder.Code, recommendationAuditRecorder.Body.String())
+	}
+	requireContains(t, recommendationAuditRecorder.Body.String(), "/app/review/proposals?recommendation_id="+proposalListResponse.Items[0].RecommendationID)
 }
 
 func TestAgentAPIDecideApprovalIntegration(t *testing.T) {

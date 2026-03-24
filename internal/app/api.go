@@ -692,6 +692,7 @@ func (h *AgentAPIHandler) handleListProcessedProposals(w http.ResponseWriter, r 
 	}
 
 	items, err := h.reviewService.ListProcessedProposals(r.Context(), reporting.ListProcessedProposalsInput{
+		RecommendationID: strings.TrimSpace(r.URL.Query().Get("recommendation_id")),
 		Status:           strings.TrimSpace(r.URL.Query().Get("status")),
 		RequestID:        strings.TrimSpace(r.URL.Query().Get("request_id")),
 		RequestReference: strings.TrimSpace(r.URL.Query().Get("request_reference")),
@@ -774,10 +775,11 @@ func (h *AgentAPIHandler) handleListApprovalQueue(w http.ResponseWriter, r *http
 	}
 
 	items, err := h.reviewService.ListApprovalQueue(r.Context(), reporting.ListApprovalQueueInput{
-		QueueCode: strings.TrimSpace(r.URL.Query().Get("queue_code")),
-		Status:    strings.TrimSpace(r.URL.Query().Get("status")),
-		Limit:     parseLimit(r.URL.Query().Get("limit")),
-		Actor:     actor,
+		ApprovalID: strings.TrimSpace(r.URL.Query().Get("approval_id")),
+		QueueCode:  strings.TrimSpace(r.URL.Query().Get("queue_code")),
+		Status:     strings.TrimSpace(r.URL.Query().Get("status")),
+		Limit:      parseLimit(r.URL.Query().Get("limit")),
+		Actor:      actor,
 	})
 	if err != nil {
 		handleReviewError(w, err, "failed to list approval queue")
