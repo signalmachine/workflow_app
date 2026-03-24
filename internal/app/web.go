@@ -47,6 +47,16 @@ type webInboundDetailData struct {
 	Detail  reporting.InboundRequestDetail
 }
 
+type webInboundRequestsData struct {
+	Session          identityaccess.SessionContext
+	Notice           string
+	Error            string
+	Status           string
+	RequestReference string
+	StatusSummary    []reporting.InboundRequestStatusSummary
+	Requests         []reporting.InboundRequestReview
+}
+
 type webDocumentsData struct {
 	Session    identityaccess.SessionContext
 	Notice     string
@@ -201,6 +211,54 @@ func (h *AgentAPIHandler) handleWebAppDashboard(w http.ResponseWriter, r *http.R
 		ActivePath: webAppPath,
 		Session:    &sessionContext,
 		Dashboard:  &data,
+	})
+}
+
+func (h *AgentAPIHandler) handleWebInboundRequests(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != webInboundRequestsPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("Please sign in."), http.StatusSeeOther)
+		return
+	}
+	if h.reviewService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("review service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	data := webInboundRequestsData{
+		Session:          sessionContext,
+		Notice:           strings.TrimSpace(r.URL.Query().Get("notice")),
+		Error:            strings.TrimSpace(r.URL.Query().Get("error")),
+		Status:           strings.TrimSpace(r.URL.Query().Get("status")),
+		RequestReference: strings.TrimSpace(r.URL.Query().Get("request_reference")),
+	}
+	data.StatusSummary, err = h.reviewService.ListInboundRequestStatusSummary(r.Context(), sessionContext.Actor)
+	if err != nil {
+		data.Error = "failed to load inbound request summary"
+	}
+	if data.Requests, err = h.reviewService.ListInboundRequests(r.Context(), reporting.ListInboundRequestsInput{
+		Status:           data.Status,
+		RequestReference: data.RequestReference,
+		Limit:            50,
+		Actor:            sessionContext.Actor,
+	}); err != nil && data.Error == "" {
+		data.Error = "failed to load inbound requests"
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:           "workflow_app",
+		ActivePath:      webInboundRequestsPath,
+		Session:         &sessionContext,
+		InboundRequests: &data,
 	})
 }
 
@@ -827,7 +885,7 @@ func (h *AgentAPIHandler) handleWebInboundRequestDetail(w http.ResponseWriter, r
 
 	h.renderWebPage(w, webPageData{
 		Title:      "workflow_app",
-		ActivePath: webAppPath,
+		ActivePath: webInboundRequestsPath,
 		Session:    &sessionContext,
 		Detail: &webInboundDetailData{
 			Session: sessionContext,
@@ -898,6 +956,7 @@ type webPageData struct {
 	LoginPath       string
 	Session         *identityaccess.SessionContext
 	Dashboard       *webAppDashboardData
+	InboundRequests *webInboundRequestsData
 	Detail          *webInboundDetailData
 	Documents       *webDocumentsData
 	Accounting      *webAccountingData
@@ -1245,6 +1304,7 @@ const webAppHTML = `<!DOCTYPE html>
           <div class="meta">Signed in as {{.Session.UserEmail}} in {{.Session.OrgName}} ({{.Session.RoleCode}})</div>
           <div class="meta" style="margin-top:8px;">
             <a href="/app">Operations</a> |
+            <a href="/app/review/inbound-requests">Inbound requests</a> |
             <a href="/app/review/documents">Documents</a> |
             <a href="/app/review/accounting">Accounting</a> |
             <a href="/app/review/approvals">Approvals</a> |
@@ -1332,6 +1392,7 @@ const webAppHTML = `<!DOCTYPE html>
       <div class="grid">
         <section class="panel">
           <h2>Recent inbound requests</h2>
+          <p class="meta"><a href="/app/review/inbound-requests">Open full inbound-request review</a></p>
           <table>
             <thead>
               <tr>
@@ -1419,6 +1480,82 @@ const webAppHTML = `<!DOCTYPE html>
             </tr>
             {{else}}
             <tr><td colspan="4">No processed proposals available.</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+      </section>
+    </div>
+    {{end}}
+
+    {{with .InboundRequests}}
+    <div class="stack">
+      {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+      {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+
+      <section class="panel">
+        <h2>Inbound-request review</h2>
+        <form method="get" action="/app/review/inbound-requests" class="inline-form">
+          <input type="text" name="status" value="{{.Status}}" placeholder="status">
+          <input type="text" name="request_reference" value="{{.RequestReference}}" placeholder="REQ-... reference">
+          <button type="submit">Filter requests</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Request status summary</h2>
+        <div class="summary-list">
+          {{range .StatusSummary}}
+          <div class="summary-card">
+            <strong>{{.RequestCount}}</strong>
+            <span class="status-pill {{statusClass .Status}}">{{.Status}}</span>
+            <div class="meta">Messages: {{.MessageCount}} | Attachments: {{.AttachmentCount}}</div>
+            <div class="meta">Updated: {{formatTime .LatestUpdatedAt}}</div>
+            <div class="meta"><a href="/app/review/inbound-requests?status={{.Status}}">Open {{.Status}}</a></div>
+          </div>
+          {{else}}
+          <div class="summary-card">No inbound requests yet.</div>
+          {{end}}
+        </div>
+      </section>
+
+      <section class="panel">
+        <table>
+          <thead>
+            <tr>
+              <th>Reference</th>
+              <th>Status</th>
+              <th>Channel</th>
+              <th>Messages</th>
+              <th>AI</th>
+              <th>Updated</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .Requests}}
+            <tr>
+              <td>
+                <a href="/app/inbound-requests/{{.RequestReference}}">{{.RequestReference}}</a>
+                <div class="meta">{{.RequestID}}</div>
+              </td>
+              <td>
+                <span class="status-pill {{statusClass .Status}}">{{.Status}}</span>
+                {{if .CancelledAt.Valid}}<div class="meta">Cancelled: {{formatTime .CancelledAt.Time}}</div>{{end}}
+                {{if .FailedAt.Valid}}<div class="meta">Failed: {{formatTime .FailedAt.Time}}</div>{{end}}
+              </td>
+              <td>{{.Channel}}<div class="meta">{{.OriginType}}</div></td>
+              <td>{{.MessageCount}} messages / {{.AttachmentCount}} files</td>
+              <td>
+                {{if .LastRunID.Valid}}
+                <div><span class="status-pill {{statusClass .LastRunStatus.String}}">{{.LastRunStatus.String}}</span></div>
+                {{else}}
+                -
+                {{end}}
+                {{if .LastRecommendationStatus.Valid}}<div class="meta">{{.LastRecommendationStatus.String}}</div>{{end}}
+              </td>
+              <td>{{formatTime .UpdatedAt}}</td>
+            </tr>
+            {{else}}
+            <tr><td colspan="6">No inbound requests available for the selected filters.</td></tr>
             {{end}}
           </tbody>
         </table>

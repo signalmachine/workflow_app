@@ -459,6 +459,17 @@ LIMIT 1`,
 	requireContains(t, exactAccountingRecorder.Body.String(), "Post approved invoice with GST")
 	requireNotContains(t, exactAccountingRecorder.Body.String(), "Issue inventory to work order")
 
+	inboundRequestsReq := httptest.NewRequest(http.MethodGet, "/app/review/inbound-requests", nil)
+	applyResponseCookies(inboundRequestsReq, loginRecorder.Result().Cookies())
+	inboundRequestsRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(inboundRequestsRecorder, inboundRequestsReq)
+	if inboundRequestsRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected inbound requests page status: got %d body=%s", inboundRequestsRecorder.Code, inboundRequestsRecorder.Body.String())
+	}
+	requireContains(t, inboundRequestsRecorder.Body.String(), "Inbound-request review")
+	requireContains(t, inboundRequestsRecorder.Body.String(), "Request status summary")
+	requireContains(t, inboundRequestsRecorder.Body.String(), "No inbound requests")
+
 	inventoryReq := httptest.NewRequest(http.MethodGet, "/app/review/inventory", nil)
 	applyResponseCookies(inventoryReq, loginRecorder.Result().Cookies())
 	inventoryRecorder := httptest.NewRecorder()
@@ -1282,6 +1293,18 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	requireContains(t, proposalsRecorder.Body.String(), ai.RecommendationStatusApprovalRequested)
 	requireContains(t, proposalsRecorder.Body.String(), "/app/inbound-requests/"+request.RequestReference)
 	requireContains(t, proposalsRecorder.Body.String(), "/app/review/approvals?queue_code="+queueResponse.Items[0].QueueCode+"&amp;status=pending")
+
+	inboundRequestsReq := httptest.NewRequest(http.MethodGet, "/app/review/inbound-requests?request_reference="+request.RequestReference, nil)
+	applyResponseCookies(inboundRequestsReq, loginRecorder.Result().Cookies())
+	inboundRequestsRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(inboundRequestsRecorder, inboundRequestsReq)
+	if inboundRequestsRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected inbound requests review status: got %d body=%s", inboundRequestsRecorder.Code, inboundRequestsRecorder.Body.String())
+	}
+	requireContains(t, inboundRequestsRecorder.Body.String(), "Inbound-request review")
+	requireContains(t, inboundRequestsRecorder.Body.String(), request.RequestReference)
+	requireContains(t, inboundRequestsRecorder.Body.String(), ai.RunStatusCompleted)
+	requireContains(t, inboundRequestsRecorder.Body.String(), ai.RecommendationStatusApprovalRequested)
 
 	approvalsReq := httptest.NewRequest(http.MethodGet, "/app/review/approvals?queue_code="+queueResponse.Items[0].QueueCode+"&status=pending", nil)
 	applyResponseCookies(approvalsReq, loginRecorder.Result().Cookies())

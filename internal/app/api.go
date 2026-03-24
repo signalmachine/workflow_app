@@ -31,6 +31,7 @@ const (
 	webSubmitInboundPath       = "/app/inbound-requests"
 	webProcessNextQueuedPath   = "/app/agent/process-next-queued-inbound-request"
 	webInboundDetailPrefix     = "/app/inbound-requests/"
+	webInboundRequestsPath     = "/app/review/inbound-requests"
 	webApprovalDecisionPrefix  = "/app/approvals/"
 	webDocumentsPath           = "/app/review/documents"
 	webAccountingPath          = "/app/review/accounting"
@@ -206,6 +207,7 @@ func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(webSubmitInboundPath, handler.handleWebSubmitInboundRequest)
 	mux.HandleFunc(webProcessNextQueuedPath, handler.handleWebProcessNextQueuedInboundRequest)
 	mux.HandleFunc(webInboundDetailPrefix, handler.handleWebInboundRequestDetail)
+	mux.HandleFunc(webInboundRequestsPath, handler.handleWebInboundRequests)
 	mux.HandleFunc(webApprovalDecisionPrefix, handler.handleWebApprovalDecision)
 	mux.HandleFunc(webDocumentsPath, handler.handleWebDocuments)
 	mux.HandleFunc(webAccountingPath, handler.handleWebAccounting)
