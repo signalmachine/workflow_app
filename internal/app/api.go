@@ -34,6 +34,7 @@ const (
 	webApprovalDecisionPrefix  = "/app/approvals/"
 	webDocumentsPath           = "/app/review/documents"
 	webAccountingPath          = "/app/review/accounting"
+	webApprovalsPath           = "/app/review/approvals"
 	webProposalsPath           = "/app/review/proposals"
 	webInventoryPath           = "/app/review/inventory"
 	webWorkOrdersPath          = "/app/review/work-orders"
@@ -208,6 +209,7 @@ func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(webApprovalDecisionPrefix, handler.handleWebApprovalDecision)
 	mux.HandleFunc(webDocumentsPath, handler.handleWebDocuments)
 	mux.HandleFunc(webAccountingPath, handler.handleWebAccounting)
+	mux.HandleFunc(webApprovalsPath, handler.handleWebApprovals)
 	mux.HandleFunc(webProposalsPath, handler.handleWebProposals)
 	mux.HandleFunc(webInventoryPath, handler.handleWebInventory)
 	mux.HandleFunc(webWorkOrdersPath, handler.handleWebWorkOrders)

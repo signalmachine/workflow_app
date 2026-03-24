@@ -420,9 +420,11 @@ LIMIT 1`,
 	}
 	requireContains(t, documentsRecorder.Body.String(), "Document review")
 	requireContains(t, documentsRecorder.Body.String(), "Posted GST invoice")
+	requireContains(t, documentsRecorder.Body.String(), "/app/review/approvals")
 	requireContains(t, documentsRecorder.Body.String(), "/app/review/audit?entity_type=documents.document&amp;entity_id="+gstInvoiceDocumentID)
 	requireContains(t, documentsRecorder.Body.String(), "/app/review/work-orders?document_id="+workOrder.DocumentID)
 	requireContains(t, documentsRecorder.Body.String(), "/app/review/accounting?document_id="+gstInvoiceDocumentID)
+	requireContains(t, documentsRecorder.Body.String(), "/app/review/approvals?queue_code=")
 
 	exactDocumentsReq := httptest.NewRequest(http.MethodGet, "/app/review/documents?document_id="+gstInvoiceDocumentID, nil)
 	applyResponseCookies(exactDocumentsReq, loginRecorder.Result().Cookies())
@@ -1245,6 +1247,7 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 		Items []struct {
 			ApprovalID     string `json:"approval_id"`
 			ApprovalStatus string `json:"approval_status"`
+			QueueCode      string `json:"queue_code"`
 		} `json:"items"`
 	}
 	if err := json.Unmarshal(recorder.Body.Bytes(), &queueResponse); err != nil {
@@ -1278,6 +1281,18 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	requireContains(t, proposalsRecorder.Body.String(), request.RequestReference)
 	requireContains(t, proposalsRecorder.Body.String(), ai.RecommendationStatusApprovalRequested)
 	requireContains(t, proposalsRecorder.Body.String(), "/app/inbound-requests/"+request.RequestReference)
+	requireContains(t, proposalsRecorder.Body.String(), "/app/review/approvals?queue_code="+queueResponse.Items[0].QueueCode+"&amp;status=pending")
+
+	approvalsReq := httptest.NewRequest(http.MethodGet, "/app/review/approvals?queue_code="+queueResponse.Items[0].QueueCode+"&status=pending", nil)
+	applyResponseCookies(approvalsReq, loginRecorder.Result().Cookies())
+	approvalsRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(approvalsRecorder, approvalsReq)
+	if approvalsRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected approvals page status: got %d body=%s", approvalsRecorder.Code, approvalsRecorder.Body.String())
+	}
+	requireContains(t, approvalsRecorder.Body.String(), "Approval review")
+	requireContains(t, approvalsRecorder.Body.String(), queueResponse.Items[0].QueueCode)
+	requireContains(t, approvalsRecorder.Body.String(), "/app/review/documents?document_id=")
 }
 
 func TestAgentAPIDecideApprovalIntegration(t *testing.T) {

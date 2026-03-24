@@ -25,6 +25,7 @@ var webAppTemplate = template.Must(template.New("app").Funcs(template.FuncMap{
 	"prettyJSON":         prettyTemplateJSON,
 	"statusClass":        templateStatusClass,
 	"documentReviewHref": templateDocumentReviewHref,
+	"approvalQueueHref":  templateApprovalQueueHref,
 	"auditEntityHref":    templateAuditEntityHref,
 	"auditEntityLabel":   templateAuditEntityLabel,
 }).Parse(webAppHTML))
@@ -77,6 +78,15 @@ type webProposalsData struct {
 	RequestReference   string
 	StatusSummary      []reporting.ProcessedProposalStatusSummary
 	ProcessedProposals []reporting.ProcessedProposalReview
+}
+
+type webApprovalsData struct {
+	Session   identityaccess.SessionContext
+	Notice    string
+	Error     string
+	Status    string
+	QueueCode string
+	Approvals []reporting.ApprovalQueueEntry
 }
 
 type webInventoryData struct {
@@ -353,6 +363,51 @@ func (h *AgentAPIHandler) handleWebProposals(w http.ResponseWriter, r *http.Requ
 		ActivePath: webProposalsPath,
 		Session:    &sessionContext,
 		Proposals:  &data,
+	})
+}
+
+func (h *AgentAPIHandler) handleWebApprovals(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != webApprovalsPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("Please sign in."), http.StatusSeeOther)
+		return
+	}
+	if h.reviewService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("review service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	data := webApprovalsData{
+		Session:   sessionContext,
+		Notice:    strings.TrimSpace(r.URL.Query().Get("notice")),
+		Error:     strings.TrimSpace(r.URL.Query().Get("error")),
+		Status:    strings.TrimSpace(r.URL.Query().Get("status")),
+		QueueCode: strings.TrimSpace(r.URL.Query().Get("queue_code")),
+	}
+	data.Approvals, err = h.reviewService.ListApprovalQueue(r.Context(), reporting.ListApprovalQueueInput{
+		Status:    data.Status,
+		QueueCode: data.QueueCode,
+		Limit:     50,
+		Actor:     sessionContext.Actor,
+	})
+	if err != nil {
+		data.Error = "failed to load approval queue"
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:      "workflow_app",
+		ActivePath: webApprovalsPath,
+		Session:    &sessionContext,
+		Approvals:  &data,
 	})
 }
 
@@ -846,6 +901,7 @@ type webPageData struct {
 	Detail          *webInboundDetailData
 	Documents       *webDocumentsData
 	Accounting      *webAccountingData
+	Approvals       *webApprovalsData
 	Proposals       *webProposalsData
 	Inventory       *webInventoryData
 	WorkOrders      *webWorkOrdersData
@@ -931,6 +987,24 @@ func templateDocumentReviewHref(documentID string) string {
 		return webDocumentsPath
 	}
 	return webDocumentsPath + "?document_id=" + url.QueryEscape(documentID)
+}
+
+func templateApprovalQueueHref(queueCode, status string) string {
+	values := url.Values{}
+	if strings.TrimSpace(queueCode) != "" {
+		values.Set("queue_code", strings.TrimSpace(queueCode))
+	}
+	status = strings.ToLower(strings.TrimSpace(status))
+	switch status {
+	case "pending", "closed":
+		values.Set("status", status)
+	case "approved", "rejected":
+		values.Set("status", "closed")
+	}
+	if encoded := values.Encode(); encoded != "" {
+		return webApprovalsPath + "?" + encoded
+	}
+	return webApprovalsPath
 }
 
 func templateAuditEntityHref(entityType, entityID string) string {
@@ -1173,6 +1247,7 @@ const webAppHTML = `<!DOCTYPE html>
             <a href="/app">Operations</a> |
             <a href="/app/review/documents">Documents</a> |
             <a href="/app/review/accounting">Accounting</a> |
+            <a href="/app/review/approvals">Approvals</a> |
             <a href="/app/review/proposals">Proposals</a> |
             <a href="/app/review/inventory">Inventory</a> |
             <a href="/app/review/work-orders">Work orders</a> |
@@ -1285,6 +1360,7 @@ const webAppHTML = `<!DOCTYPE html>
 
         <section class="panel">
           <h2>Pending approvals</h2>
+          <p class="meta"><a href="/app/review/approvals?status=pending">Open full approval review</a></p>
           <table>
             <thead>
               <tr>
@@ -1350,6 +1426,75 @@ const webAppHTML = `<!DOCTYPE html>
     </div>
     {{end}}
 
+    {{with .Approvals}}
+    <div class="stack">
+      {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+      {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+      <section class="panel">
+        <h2>Approval review</h2>
+        <form method="get" action="/app/review/approvals" class="inline-form">
+          <input type="text" name="status" value="{{.Status}}" placeholder="pending or closed">
+          <input type="text" name="queue_code" value="{{.QueueCode}}" placeholder="queue code">
+          <button type="submit">Filter approvals</button>
+        </form>
+      </section>
+      <section class="panel">
+        <table>
+          <thead>
+            <tr>
+              <th>Queue</th>
+              <th>Document</th>
+              <th>Approval</th>
+              <th>Posting</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .Approvals}}
+            <tr>
+              <td>
+                <a href="{{approvalQueueHref .QueueCode .QueueStatus}}">{{.QueueCode}}</a>
+                <div class="meta">Enqueued: {{formatTime .EnqueuedAt}}</div>
+                <div class="meta"><span class="status-pill {{statusClass .QueueStatus}}">{{.QueueStatus}}</span></div>
+              </td>
+              <td>
+                <a href="/app/review/documents?document_id={{.DocumentID}}">{{.DocumentTitle}}</a>
+                <div class="meta">{{.DocumentTypeCode}} | <span class="status-pill {{statusClass .DocumentStatus}}">{{.DocumentStatus}}</span></div>
+                <div class="meta"><a href="/app/review/audit?entity_type=documents.document&amp;entity_id={{.DocumentID}}">Audit trail</a></div>
+              </td>
+              <td>
+                <div class="status-pill {{statusClass .ApprovalStatus}}">{{.ApprovalStatus}}</div>
+                <div class="meta">Requested: {{formatTime .RequestedAt}}</div>
+                {{if eq .QueueStatus "pending"}}
+                <form method="post" action="/app/approvals/{{.ApprovalID}}/decision" style="margin-top:8px;">
+                  <input type="hidden" name="return_to" value="{{approvalQueueHref $.Approvals.QueueCode $.Approvals.Status}}">
+                  <input type="text" name="decision_note" placeholder="Decision note">
+                  <div class="inline-form">
+                    <button type="submit" name="decision" value="approved">Approve</button>
+                    <button type="submit" name="decision" value="rejected" class="secondary">Reject</button>
+                  </div>
+                </form>
+                {{else}}
+                <div class="meta">Closed: {{if .ClosedAt.Valid}}{{formatTime .ClosedAt.Time}}{{else}}-{{end}}</div>
+                {{end}}
+              </td>
+              <td>
+                {{if .JournalEntryNumber.Valid}}
+                <a href="/app/review/accounting?document_id={{.DocumentID}}">Entry #{{.JournalEntryNumber.Int64}}</a>
+                <div class="meta">{{if .JournalEntryPostedAt.Valid}}{{formatTime .JournalEntryPostedAt.Time}}{{else}}Not posted{{end}}</div>
+                {{else}}
+                -
+                {{end}}
+              </td>
+            </tr>
+            {{else}}
+            <tr><td colspan="4">No approval queue rows available for the selected filters.</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+      </section>
+    </div>
+    {{end}}
+
     {{with .Proposals}}
     <div class="stack">
       {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
@@ -1401,7 +1546,7 @@ const webAppHTML = `<!DOCTYPE html>
               </td>
               <td>
                 {{if .ApprovalID.Valid}}
-                <div>{{.ApprovalQueueCode.String}}</div>
+                <div><a href="{{approvalQueueHref .ApprovalQueueCode.String .ApprovalStatus.String}}">{{.ApprovalQueueCode.String}}</a></div>
                 <div class="status-pill {{statusClass .ApprovalStatus.String}}">{{.ApprovalStatus.String}}</div>
                 {{else}}
                 -
@@ -1463,7 +1608,7 @@ const webAppHTML = `<!DOCTYPE html>
                 </div>
               </td>
               <td><span class="status-pill {{statusClass .Status}}">{{.Status}}</span></td>
-              <td>{{.ApprovalStatus.String}}</td>
+              <td>{{if .ApprovalQueueCode.Valid}}<a href="{{approvalQueueHref .ApprovalQueueCode.String .ApprovalStatus.String}}">{{.ApprovalStatus.String}}</a>{{else}}{{.ApprovalStatus.String}}{{end}}</td>
               <td>{{if .JournalEntryNumber.Valid}}<a href="/app/review/accounting?document_id={{.DocumentID}}">Entry #{{.JournalEntryNumber.Int64}}</a>{{else}}-{{end}}</td>
             </tr>
             {{else}}
