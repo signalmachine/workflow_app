@@ -24,6 +24,8 @@ var webAppTemplate = template.Must(template.New("app").Funcs(template.FuncMap{
 	"formatTime":            formatTemplateTime,
 	"prettyJSON":            prettyTemplateJSON,
 	"statusClass":           templateStatusClass,
+	"inboundRequestHref":    templateInboundRequestHref,
+	"inboundRequestReview":  templateInboundRequestReviewHref,
 	"documentReviewHref":    templateDocumentReviewHref,
 	"accountingEntryHref":   templateAccountingEntryHref,
 	"approvalReviewHref":    templateApprovalReviewHref,
@@ -1325,6 +1327,22 @@ func templateStatusClass(status string) string {
 	}
 }
 
+func templateInboundRequestHref(lookup string) string {
+	lookup = strings.TrimSpace(lookup)
+	if lookup == "" {
+		return webInboundRequestsPath
+	}
+	return webInboundDetailPrefix + url.PathEscape(lookup)
+}
+
+func templateInboundRequestReviewHref(requestReference string) string {
+	requestReference = strings.TrimSpace(requestReference)
+	if requestReference == "" {
+		return webInboundRequestsPath
+	}
+	return webInboundRequestsPath + "?request_reference=" + url.QueryEscape(requestReference)
+}
+
 func templateDocumentReviewHref(documentID string) string {
 	documentID = strings.TrimSpace(documentID)
 	if documentID == "" {
@@ -1411,7 +1429,7 @@ func templateAuditEntityHref(entityType, entityID string) string {
 	case "documents.document":
 		return templateDocumentReviewHref(entityID)
 	case "ai.inbound_request":
-		return webInboundDetailPrefix + url.PathEscape(entityID)
+		return templateInboundRequestHref(entityID)
 	case "workflow.approval":
 		return templateApprovalReviewHref(entityID)
 	case "ai.agent_recommendation":
@@ -1436,7 +1454,7 @@ func templateAuditEntityLabel(entityType string) string {
 	case "documents.document":
 		return "Open document"
 	case "ai.inbound_request":
-		return "Open inbound request"
+		return "Open inbound request detail"
 	case "workflow.approval":
 		return "Open approval review"
 	case "ai.agent_recommendation":
@@ -1756,7 +1774,7 @@ const webAppHTML = `<!DOCTYPE html>
             <tbody>
               {{range .InboundRequests}}
               <tr>
-                <td><a href="/app/inbound-requests/{{.RequestReference}}">{{.RequestReference}}</a></td>
+                <td><a href="{{inboundRequestHref .RequestReference}}">{{.RequestReference}}</a></td>
                 <td><span class="status-pill {{statusClass .Status}}">{{.Status}}</span></td>
                 <td>{{.Channel}}</td>
                 <td>{{.MessageCount}} messages / {{.AttachmentCount}} files</td>
@@ -1820,7 +1838,7 @@ const webAppHTML = `<!DOCTYPE html>
           <tbody>
             {{range .Proposals}}
             <tr>
-              <td><a href="/app/inbound-requests/{{.RequestReference}}">{{.RequestReference}}</a></td>
+              <td><a href="{{inboundRequestHref .RequestReference}}">{{.RequestReference}}</a></td>
               <td>
                 <span class="status-pill {{statusClass .RecommendationStatus}}">{{.RecommendationStatus}}</span>
                 <div>{{.Summary}}</div>
@@ -1884,7 +1902,7 @@ const webAppHTML = `<!DOCTYPE html>
             {{range .Requests}}
             <tr>
               <td>
-                <a href="/app/inbound-requests/{{.RequestReference}}">{{.RequestReference}}</a>
+                <a href="{{inboundRequestHref .RequestReference}}">{{.RequestReference}}</a>
                 <div class="meta">{{.RequestID}}</div>
               </td>
               <td>
@@ -2745,10 +2763,14 @@ const webAppHTML = `<!DOCTYPE html>
       {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
 
       <section class="panel">
-        <h2>Inbound request {{.Detail.Request.RequestReference}}</h2>
+          <h2>Inbound request {{.Detail.Request.RequestReference}}</h2>
         <div class="detail-block">
           <span class="status-pill {{statusClass .Detail.Request.Status}}">{{.Detail.Request.Status}}</span>
           <p class="meta">Channel: {{.Detail.Request.Channel}} | Origin: {{.Detail.Request.OriginType}} | Received: {{formatTime .Detail.Request.ReceivedAt}}</p>
+          <p class="meta">
+            <a href="{{inboundRequestReview .Detail.Request.RequestReference}}">Filtered request review</a> |
+            <a href="/app/review/audit?entity_type=ai.inbound_request&amp;entity_id={{.Detail.Request.RequestID}}">Audit trail</a>
+          </p>
         </div>
         <div class="detail-block">
           <h3>Metadata</h3>
@@ -2863,6 +2885,12 @@ const webAppHTML = `<!DOCTYPE html>
           <div class="detail-block">
             <strong>{{.Summary}}</strong>
             <div class="status-pill {{statusClass .Status}}">{{.Status}}</div>
+            <div class="meta">
+              <a href="{{proposalDetailHref .RecommendationID}}">Open exact proposal</a> |
+              <a href="/app/review/proposals?recommendation_id={{.RecommendationID}}">Filtered proposal review</a> |
+              <a href="/app/review/audit?entity_type=ai.agent_recommendation&amp;entity_id={{.RecommendationID}}">Audit trail</a>
+              {{if .ApprovalID.Valid}} | <a href="{{approvalReviewHref .ApprovalID.String}}">Exact approval</a>{{end}}
+            </div>
             <pre>{{prettyJSON .Payload}}</pre>
           </div>
           {{else}}
@@ -2874,12 +2902,19 @@ const webAppHTML = `<!DOCTYPE html>
           <h2>Proposals</h2>
           {{range .Detail.Proposals}}
           <div class="detail-block">
-            <strong>{{.Summary}}</strong>
+            <strong><a href="{{proposalDetailHref .RecommendationID}}">{{.Summary}}</a></strong>
             <div class="meta">Recommendation: {{.RecommendationStatus}} | Approval: {{.ApprovalStatus.String}}</div>
-            <div class="meta">Document: {{if .DocumentID.Valid}}<a href="{{documentReviewHref .DocumentID.String}}">{{.DocumentTitle.String}}</a>{{else}}{{.DocumentTitle.String}}{{end}}</div>
+            <div class="meta">
+              Request: <a href="{{inboundRequestReview .RequestReference}}">{{.RequestReference}}</a> |
+              Audit: <a href="/app/review/audit?entity_type=ai.agent_recommendation&amp;entity_id={{.RecommendationID}}">proposal trail</a>
+            </div>
+            <div class="meta">
+              Document: {{if .DocumentID.Valid}}<a href="{{documentReviewHref .DocumentID.String}}">{{.DocumentTitle.String}}</a>{{else}}{{.DocumentTitle.String}}{{end}}
+              {{if .ApprovalID.Valid}} | Approval: <a href="{{approvalReviewHref .ApprovalID.String}}">{{if .ApprovalQueueCode.Valid}}{{.ApprovalQueueCode.String}}{{else}}approval{{end}}</a>{{end}}
+            </div>
             {{if .ApprovalID.Valid}}
             <form method="post" action="/app/approvals/{{.ApprovalID.String}}/decision">
-              <input type="hidden" name="return_to" value="/app/inbound-requests/{{$.Detail.Request.RequestReference}}">
+              <input type="hidden" name="return_to" value="{{inboundRequestHref $.Detail.Request.RequestReference}}">
               <input type="text" name="decision_note" placeholder="Decision note">
               <div class="inline-form">
                 <button type="submit" name="decision" value="approved">Approve</button>
