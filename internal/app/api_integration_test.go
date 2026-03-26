@@ -436,7 +436,7 @@ LIMIT 1`,
 	requireContains(t, documentsRecorder.Body.String(), "/app/review/audit?entity_type=documents.document&amp;entity_id="+gstInvoiceDocumentID)
 	requireContains(t, documentsRecorder.Body.String(), "/app/review/work-orders?document_id="+workOrder.DocumentID)
 	requireContains(t, documentsRecorder.Body.String(), "/app/review/accounting/"+gstInvoiceJournalEntryID)
-	requireContains(t, documentsRecorder.Body.String(), "/app/review/approvals?queue_code=")
+	requireContains(t, documentsRecorder.Body.String(), "/app/review/approvals/")
 
 	exactDocumentsReq := httptest.NewRequest(http.MethodGet, "/app/review/documents/"+gstInvoiceDocumentID, nil)
 	applyResponseCookies(exactDocumentsReq, loginRecorder.Result().Cookies())

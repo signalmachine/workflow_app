@@ -266,6 +266,163 @@ func TestHandleWebWorkOrderDetailAddsFilteredReviewLink(t *testing.T) {
 	}
 }
 
+func TestHandleWebDocumentsAddsExactApprovalLink(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listDocuments: func(context.Context, reporting.ListDocumentsInput) ([]reporting.DocumentReview, error) {
+				return []reporting.DocumentReview{
+					{
+						DocumentID:        "doc-123",
+						TypeCode:          "invoice",
+						Title:             "Reviewable invoice",
+						Status:            "submitted",
+						ApprovalID:        sql.NullString{String: "approval-123", Valid: true},
+						ApprovalStatus:    sql.NullString{String: "pending", Valid: true},
+						ApprovalQueueCode: sql.NullString{String: "finance_review", Valid: true},
+					},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review/documents", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `/app/review/approvals/approval-123">finance_review</a>`) {
+		t.Fatalf("expected exact approval link in document review, body=%s", body)
+	}
+}
+
+func TestHandleWebProposalsAddsSummaryAndExactLinks(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listProcessedProposalStatusSummary: func(context.Context, identityaccess.Actor) ([]reporting.ProcessedProposalStatusSummary, error) {
+				return []reporting.ProcessedProposalStatusSummary{
+					{
+						RecommendationStatus: "approval_requested",
+						ProposalCount:        2,
+						RequestCount:         1,
+						DocumentCount:        1,
+						LatestCreatedAt:      time.Date(2026, 3, 26, 12, 0, 0, 0, time.UTC),
+					},
+				}, nil
+			},
+			listProcessedProposals: func(context.Context, reporting.ListProcessedProposalsInput) ([]reporting.ProcessedProposalReview, error) {
+				return []reporting.ProcessedProposalReview{
+					{
+						RequestReference:     "REQ-000123",
+						RequestStatus:        "processed",
+						RecommendationID:     "rec-123",
+						RecommendationStatus: "approval_requested",
+						Summary:              "Review continuity",
+						ApprovalID:           sql.NullString{String: "approval-123", Valid: true},
+						ApprovalStatus:       sql.NullString{String: "pending", Valid: true},
+						ApprovalQueueCode:    sql.NullString{String: "finance_review", Valid: true},
+						DocumentID:           sql.NullString{String: "doc-123", Valid: true},
+						DocumentTitle:        sql.NullString{String: "Invoice proposal", Valid: true},
+						DocumentTypeCode:     sql.NullString{String: "invoice", Valid: true},
+						DocumentStatus:       sql.NullString{String: "submitted", Valid: true},
+						CreatedAt:            time.Date(2026, 3, 26, 12, 0, 0, 0, time.UTC),
+					},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review/proposals", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `/app/review/proposals?status=approval_requested">Open approval_requested</a>`) {
+		t.Fatalf("expected status-summary filter link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/proposals/rec-123">Open exact proposal</a>`) {
+		t.Fatalf("expected exact proposal link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/approvals/approval-123">Open exact approval</a>`) {
+		t.Fatalf("expected exact approval link, body=%s", body)
+	}
+}
+
+func TestHandleWebAppDashboardAddsExactProposalAndApprovalLinks(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listProcessedProposals: func(context.Context, reporting.ListProcessedProposalsInput) ([]reporting.ProcessedProposalReview, error) {
+				return []reporting.ProcessedProposalReview{
+					{
+						RequestReference:     "REQ-000123",
+						RecommendationID:     "rec-123",
+						RecommendationStatus: "approval_requested",
+						Summary:              "Dashboard continuity",
+						ApprovalID:           sql.NullString{String: "approval-123", Valid: true},
+						ApprovalStatus:       sql.NullString{String: "pending", Valid: true},
+						ApprovalQueueCode:    sql.NullString{String: "finance_review", Valid: true},
+						DocumentID:           sql.NullString{String: "doc-123", Valid: true},
+						DocumentTitle:        sql.NullString{String: "Invoice proposal", Valid: true},
+					},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `/app/review/proposals/rec-123">Open exact proposal</a>`) {
+		t.Fatalf("expected dashboard exact proposal link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/approvals/approval-123">finance_review</a>`) {
+		t.Fatalf("expected dashboard exact approval link, body=%s", body)
+	}
+}
+
 func testSessionContext() identityaccess.SessionContext {
 	return identityaccess.SessionContext{
 		Actor: identityaccess.Actor{
@@ -286,18 +443,28 @@ func testSessionContext() identityaccess.SessionContext {
 }
 
 type stubOperatorReviewReader struct {
-	getDocumentReview  func(context.Context, reporting.GetDocumentReviewInput) (reporting.DocumentReview, error)
-	listInventoryStock func(context.Context, reporting.ListInventoryStockInput) ([]reporting.InventoryStockItem, error)
-	listAuditEvents    func(context.Context, reporting.LookupAuditEventsInput) ([]reporting.AuditEvent, error)
-	listWorkOrders     func(context.Context, reporting.ListWorkOrdersInput) ([]reporting.WorkOrderReview, error)
-	getWorkOrderReview func(context.Context, reporting.GetWorkOrderReviewInput) (reporting.WorkOrderReview, error)
+	listApprovalQueue                  func(context.Context, reporting.ListApprovalQueueInput) ([]reporting.ApprovalQueueEntry, error)
+	listDocuments                      func(context.Context, reporting.ListDocumentsInput) ([]reporting.DocumentReview, error)
+	getDocumentReview                  func(context.Context, reporting.GetDocumentReviewInput) (reporting.DocumentReview, error)
+	listInventoryStock                 func(context.Context, reporting.ListInventoryStockInput) ([]reporting.InventoryStockItem, error)
+	listAuditEvents                    func(context.Context, reporting.LookupAuditEventsInput) ([]reporting.AuditEvent, error)
+	listWorkOrders                     func(context.Context, reporting.ListWorkOrdersInput) ([]reporting.WorkOrderReview, error)
+	getWorkOrderReview                 func(context.Context, reporting.GetWorkOrderReviewInput) (reporting.WorkOrderReview, error)
+	listProcessedProposals             func(context.Context, reporting.ListProcessedProposalsInput) ([]reporting.ProcessedProposalReview, error)
+	listProcessedProposalStatusSummary func(context.Context, identityaccess.Actor) ([]reporting.ProcessedProposalStatusSummary, error)
 }
 
-func (s stubOperatorReviewReader) ListApprovalQueue(context.Context, reporting.ListApprovalQueueInput) ([]reporting.ApprovalQueueEntry, error) {
+func (s stubOperatorReviewReader) ListApprovalQueue(ctx context.Context, input reporting.ListApprovalQueueInput) ([]reporting.ApprovalQueueEntry, error) {
+	if s.listApprovalQueue != nil {
+		return s.listApprovalQueue(ctx, input)
+	}
 	return nil, nil
 }
 
-func (s stubOperatorReviewReader) ListDocuments(context.Context, reporting.ListDocumentsInput) ([]reporting.DocumentReview, error) {
+func (s stubOperatorReviewReader) ListDocuments(ctx context.Context, input reporting.ListDocumentsInput) ([]reporting.DocumentReview, error) {
+	if s.listDocuments != nil {
+		return s.listDocuments(ctx, input)
+	}
 	return nil, nil
 }
 
@@ -368,11 +535,17 @@ func (s stubOperatorReviewReader) ListInboundRequestStatusSummary(context.Contex
 	return nil, nil
 }
 
-func (s stubOperatorReviewReader) ListProcessedProposals(context.Context, reporting.ListProcessedProposalsInput) ([]reporting.ProcessedProposalReview, error) {
+func (s stubOperatorReviewReader) ListProcessedProposals(ctx context.Context, input reporting.ListProcessedProposalsInput) ([]reporting.ProcessedProposalReview, error) {
+	if s.listProcessedProposals != nil {
+		return s.listProcessedProposals(ctx, input)
+	}
 	return nil, nil
 }
 
-func (s stubOperatorReviewReader) ListProcessedProposalStatusSummary(context.Context, identityaccess.Actor) ([]reporting.ProcessedProposalStatusSummary, error) {
+func (s stubOperatorReviewReader) ListProcessedProposalStatusSummary(ctx context.Context, actor identityaccess.Actor) ([]reporting.ProcessedProposalStatusSummary, error) {
+	if s.listProcessedProposalStatusSummary != nil {
+		return s.listProcessedProposalStatusSummary(ctx, actor)
+	}
 	return nil, nil
 }
 

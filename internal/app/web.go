@@ -2175,8 +2175,16 @@ const webAppHTML = `<!DOCTYPE html>
               <td>
                 <span class="status-pill {{statusClass .RecommendationStatus}}">{{.RecommendationStatus}}</span>
                 <div>{{.Summary}}</div>
+                <div class="meta"><a href="{{proposalDetailHref .RecommendationID}}">Open exact proposal</a></div>
               </td>
-              <td>{{.ApprovalStatus.String}}</td>
+              <td>
+                {{if .ApprovalID.Valid}}
+                <a href="{{approvalReviewHref .ApprovalID.String}}">{{if .ApprovalQueueCode.Valid}}{{.ApprovalQueueCode.String}}{{else}}approval{{end}}</a>
+                <div class="status-pill {{statusClass .ApprovalStatus.String}}">{{.ApprovalStatus.String}}</div>
+                {{else}}
+                {{.ApprovalStatus.String}}
+                {{end}}
+              </td>
               <td>{{if .DocumentID.Valid}}<a href="{{documentReviewHref .DocumentID.String}}">{{.DocumentTitle.String}}</a>{{else}}-{{end}}</td>
             </tr>
             {{else}}
@@ -2415,6 +2423,7 @@ const webAppHTML = `<!DOCTYPE html>
             <span class="status-pill {{statusClass .RecommendationStatus}}">{{.RecommendationStatus}}</span>
             <div class="meta">Requests: {{.RequestCount}} | Documents: {{.DocumentCount}}</div>
             <div class="meta">Updated: {{formatTime .LatestCreatedAt}}</div>
+            <div class="meta"><a href="{{proposalReviewHref "" .RecommendationStatus ""}}">Open {{.RecommendationStatus}}</a></div>
           </div>
           {{else}}
           <div class="summary-card">No processed proposals yet.</div>
@@ -2551,7 +2560,16 @@ const webAppHTML = `<!DOCTYPE html>
                 </div>
               </td>
               <td><span class="status-pill {{statusClass .Status}}">{{.Status}}</span></td>
-              <td>{{if .ApprovalQueueCode.Valid}}<a href="{{approvalQueueHref .ApprovalQueueCode.String .ApprovalStatus.String}}">{{.ApprovalStatus.String}}</a>{{else}}{{.ApprovalStatus.String}}{{end}}</td>
+              <td>
+                {{if .ApprovalID.Valid}}
+                <a href="{{approvalReviewHref .ApprovalID.String}}">{{if .ApprovalQueueCode.Valid}}{{.ApprovalQueueCode.String}}{{else}}approval{{end}}</a>
+                {{if .ApprovalStatus.Valid}} | <span class="status-pill {{statusClass .ApprovalStatus.String}}">{{.ApprovalStatus.String}}</span>{{end}}
+                {{else if .ApprovalQueueCode.Valid}}
+                <a href="{{approvalQueueHref .ApprovalQueueCode.String .ApprovalStatus.String}}">{{.ApprovalStatus.String}}</a>
+                {{else}}
+                {{.ApprovalStatus.String}}
+                {{end}}
+              </td>
               <td>{{if .JournalEntryID.Valid}}<a href="{{accountingEntryHref .JournalEntryID.String}}">Entry #{{.JournalEntryNumber.Int64}}</a>{{else if .JournalEntryNumber.Valid}}<a href="/app/review/accounting?document_id={{.DocumentID}}">Entry #{{.JournalEntryNumber.Int64}}</a>{{else}}-{{end}}</td>
             </tr>
             {{else}}
