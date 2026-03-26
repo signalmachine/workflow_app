@@ -266,6 +266,109 @@ func TestHandleWebWorkOrderDetailAddsFilteredReviewLink(t *testing.T) {
 	}
 }
 
+func TestHandleWebInventoryDetailAddsFocusedContinuityLinks(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listInventoryMovements: func(context.Context, reporting.ListInventoryMovementsInput) ([]reporting.InventoryMovementReview, error) {
+				return []reporting.InventoryMovementReview{
+					{
+						MovementID:              "movement-123",
+						MovementNumber:          42,
+						DocumentID:              sql.NullString{String: "doc-123", Valid: true},
+						DocumentTitle:           sql.NullString{String: "Inventory issue", Valid: true},
+						DocumentNumber:          sql.NullString{String: "INV-42", Valid: true},
+						DocumentStatus:          sql.NullString{String: "posted", Valid: true},
+						ItemID:                  "item-123",
+						ItemSKU:                 "MAT-123",
+						ItemName:                "Copper pipe",
+						ItemRole:                "material",
+						MovementType:            "issue",
+						MovementPurpose:         "execution",
+						UsageClassification:     "billable",
+						SourceLocationID:        sql.NullString{String: "loc-src", Valid: true},
+						SourceLocationCode:      sql.NullString{String: "MAIN", Valid: true},
+						SourceLocationName:      sql.NullString{String: "Main store", Valid: true},
+						DestinationLocationID:   sql.NullString{String: "loc-dst", Valid: true},
+						DestinationLocationCode: sql.NullString{String: "VAN-1", Valid: true},
+						DestinationLocationName: sql.NullString{String: "Truck stock", Valid: true},
+						QuantityMilli:           500,
+						CreatedByUserID:         "user-123",
+						CreatedAt:               time.Date(2026, 3, 26, 12, 0, 0, 0, time.UTC),
+						ReferenceNote:           "WO issue",
+					},
+				}, nil
+			},
+			listInventoryReconciliation: func(context.Context, reporting.ListInventoryReconciliationInput) ([]reporting.InventoryReconciliationItem, error) {
+				return []reporting.InventoryReconciliationItem{
+					{
+						DocumentID:              "doc-123",
+						DocumentTypeCode:        "inventory_issue",
+						DocumentTitle:           "Inventory issue",
+						DocumentStatus:          "posted",
+						LineNumber:              1,
+						MovementID:              "movement-123",
+						MovementNumber:          42,
+						ItemID:                  "item-123",
+						ItemSKU:                 "MAT-123",
+						ItemName:                "Copper pipe",
+						WorkOrderID:             sql.NullString{String: "work-order-123", Valid: true},
+						WorkOrderCode:           sql.NullString{String: "WO-123", Valid: true},
+						ExecutionLinkStatus:     sql.NullString{String: "linked", Valid: true},
+						JournalEntryID:          sql.NullString{String: "entry-123", Valid: true},
+						JournalEntryNumber:      sql.NullInt64{Int64: 91, Valid: true},
+						AccountingHandoffStatus: sql.NullString{String: "posted", Valid: true},
+						MovementCreatedAt:       time.Date(2026, 3, 26, 12, 0, 0, 0, time.UTC),
+					},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review/inventory/movement-123", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `/app/review/inventory?item_id=item-123#movement-history">Item movement history</a>`) {
+		t.Fatalf("expected item movement history link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/inventory?item_id=item-123#stock-balances">Stock balances</a>`) {
+		t.Fatalf("expected item stock-balance link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/inventory?location_id=loc-src#movement-history">Location movements</a>`) {
+		t.Fatalf("expected source location movement link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/inventory?location_id=loc-dst#movement-history">Location movements</a>`) {
+		t.Fatalf("expected destination location movement link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/inventory?document_id=doc-123#reconciliation">Document reconciliation</a>`) {
+		t.Fatalf("expected document reconciliation link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/accounting?document_id=doc-123">Accounting review</a>`) {
+		t.Fatalf("expected accounting review link from source document block, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/work-orders/work-order-123">WO-123</a>`) {
+		t.Fatalf("expected work-order link in reconciliation rows, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/accounting/entry-123">Entry #91</a>`) {
+		t.Fatalf("expected accounting entry link in reconciliation rows, body=%s", body)
+	}
+}
+
 func TestHandleWebDocumentsAddsExactApprovalLink(t *testing.T) {
 	handler := NewAgentAPIHandlerWithDependencies(
 		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
@@ -447,6 +550,8 @@ type stubOperatorReviewReader struct {
 	listDocuments                      func(context.Context, reporting.ListDocumentsInput) ([]reporting.DocumentReview, error)
 	getDocumentReview                  func(context.Context, reporting.GetDocumentReviewInput) (reporting.DocumentReview, error)
 	listInventoryStock                 func(context.Context, reporting.ListInventoryStockInput) ([]reporting.InventoryStockItem, error)
+	listInventoryMovements             func(context.Context, reporting.ListInventoryMovementsInput) ([]reporting.InventoryMovementReview, error)
+	listInventoryReconciliation        func(context.Context, reporting.ListInventoryReconciliationInput) ([]reporting.InventoryReconciliationItem, error)
 	listAuditEvents                    func(context.Context, reporting.LookupAuditEventsInput) ([]reporting.AuditEvent, error)
 	listWorkOrders                     func(context.Context, reporting.ListWorkOrdersInput) ([]reporting.WorkOrderReview, error)
 	getWorkOrderReview                 func(context.Context, reporting.GetWorkOrderReviewInput) (reporting.WorkOrderReview, error)
@@ -494,11 +599,17 @@ func (s stubOperatorReviewReader) ListInventoryStock(ctx context.Context, input 
 	return nil, nil
 }
 
-func (s stubOperatorReviewReader) ListInventoryMovements(context.Context, reporting.ListInventoryMovementsInput) ([]reporting.InventoryMovementReview, error) {
+func (s stubOperatorReviewReader) ListInventoryMovements(ctx context.Context, input reporting.ListInventoryMovementsInput) ([]reporting.InventoryMovementReview, error) {
+	if s.listInventoryMovements != nil {
+		return s.listInventoryMovements(ctx, input)
+	}
 	return nil, nil
 }
 
-func (s stubOperatorReviewReader) ListInventoryReconciliation(context.Context, reporting.ListInventoryReconciliationInput) ([]reporting.InventoryReconciliationItem, error) {
+func (s stubOperatorReviewReader) ListInventoryReconciliation(ctx context.Context, input reporting.ListInventoryReconciliationInput) ([]reporting.InventoryReconciliationItem, error) {
+	if s.listInventoryReconciliation != nil {
+		return s.listInventoryReconciliation(ctx, input)
+	}
 	return nil, nil
 }
 

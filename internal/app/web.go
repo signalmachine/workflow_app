@@ -3065,17 +3065,43 @@ const webAppHTML = `<!DOCTYPE html>
         <h2>Inventory movement #{{.Review.MovementNumber}}</h2>
         <p class="meta">
           <a href="/app/review/inventory?movement_id={{.Review.MovementID}}">Filtered inventory view</a> |
-          <a href="/app/review/audit?entity_type=inventory_ops.movement&amp;entity_id={{.Review.MovementID}}">Audit trail</a>
+          <a href="/app/review/audit?entity_type=inventory_ops.movement&amp;entity_id={{.Review.MovementID}}">Audit trail</a> |
+          <a href="{{inventoryReviewHref "" .Review.ItemID "" "" "" false false "movement-history"}}">Item movement history</a>
+          {{if .Review.DocumentID.Valid}} | <a href="{{inventoryReviewHref "" "" "" .Review.DocumentID.String "" false false "reconciliation"}}">Document reconciliation</a>{{end}}
         </p>
         <div class="detail-grid">
           <div class="detail-block"><strong>Movement ID</strong><br>{{.Review.MovementID}}</div>
           <div class="detail-block"><strong>Movement type</strong><br>{{.Review.MovementType}}</div>
           <div class="detail-block"><strong>Purpose</strong><br>{{.Review.MovementPurpose}}</div>
           <div class="detail-block"><strong>Usage</strong><br>{{.Review.UsageClassification}}</div>
-          <div class="detail-block"><strong>Item</strong><br>{{.Review.ItemSKU}} | {{.Review.ItemName}}</div>
+          <div class="detail-block">
+            <strong>Item</strong><br>
+            {{.Review.ItemSKU}} | {{.Review.ItemName}}
+            <div class="meta">
+              <a href="{{inventoryReviewHref "" .Review.ItemID "" "" "" false false "stock-balances"}}">Stock balances</a> |
+              <a href="{{inventoryReviewHref "" .Review.ItemID "" "" "" false false "movement-history"}}">Item movements</a> |
+              <a href="{{inventoryReviewHref "" .Review.ItemID "" "" "" false false "reconciliation"}}">Item reconciliation</a>
+            </div>
+          </div>
           <div class="detail-block"><strong>Item role</strong><br>{{.Review.ItemRole}}</div>
-          <div class="detail-block"><strong>Source</strong><br>{{if .Review.SourceLocationCode.Valid}}{{.Review.SourceLocationCode.String}} | {{.Review.SourceLocationName.String}}{{else}}-{{end}}</div>
-          <div class="detail-block"><strong>Destination</strong><br>{{if .Review.DestinationLocationCode.Valid}}{{.Review.DestinationLocationCode.String}} | {{.Review.DestinationLocationName.String}}{{else}}-{{end}}</div>
+          <div class="detail-block">
+            <strong>Source</strong><br>
+            {{if .Review.SourceLocationCode.Valid}}
+            {{.Review.SourceLocationCode.String}} | {{.Review.SourceLocationName.String}}
+            <div class="meta"><a href="{{inventoryReviewHref "" "" .Review.SourceLocationID.String "" "" false false "movement-history"}}">Location movements</a></div>
+            {{else}}
+            -
+            {{end}}
+          </div>
+          <div class="detail-block">
+            <strong>Destination</strong><br>
+            {{if .Review.DestinationLocationCode.Valid}}
+            {{.Review.DestinationLocationCode.String}} | {{.Review.DestinationLocationName.String}}
+            <div class="meta"><a href="{{inventoryReviewHref "" "" .Review.DestinationLocationID.String "" "" false false "movement-history"}}">Location movements</a></div>
+            {{else}}
+            -
+            {{end}}
+          </div>
           <div class="detail-block"><strong>Quantity</strong><br>{{.Review.QuantityMilli}}</div>
           <div class="detail-block"><strong>Created</strong><br>{{formatTime .Review.CreatedAt}}</div>
           <div class="detail-block"><strong>Created by</strong><br>{{.Review.CreatedByUserID}}</div>
@@ -3087,6 +3113,10 @@ const webAppHTML = `<!DOCTYPE html>
           <a href="{{documentReviewHref .Review.DocumentID.String}}">{{if .Review.DocumentTitle.Valid}}{{.Review.DocumentTitle.String}}{{else}}Document{{end}}</a>
           {{if .Review.DocumentNumber.Valid}} | {{.Review.DocumentNumber.String}}{{end}}
           {{if .Review.DocumentStatus.Valid}} | {{.Review.DocumentStatus.String}}{{end}}
+          <div class="meta">
+            <a href="{{inventoryReviewHref "" "" "" .Review.DocumentID.String "" false false "reconciliation"}}">Document reconciliation</a> |
+            <a href="{{accountingReviewHref "" "" "" "" .Review.DocumentID.String "" "" "" "" ""}}">Accounting review</a>
+          </div>
         </div>
         {{end}}
       </section>
