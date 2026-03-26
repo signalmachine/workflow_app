@@ -2378,7 +2378,7 @@ const webAppHTML = `<!DOCTYPE html>
                   <a href="{{accountingEntryHref .Review.JournalEntryID.String}}">Entry #{{.Review.JournalEntryNumber.Int64}}</a>
                   {{if .Review.JournalEntryPostedAt.Valid}} | {{formatTime .Review.JournalEntryPostedAt.Time}}{{end}}
                   {{else if .Review.JournalEntryNumber.Valid}}
-                  <a href="{{accountingEntryHref .Review.JournalEntryID.String}}">Entry #{{.Review.JournalEntryNumber.Int64}}</a>
+                  <a href="/app/review/accounting?document_id={{.Review.DocumentID}}">Entry #{{.Review.JournalEntryNumber.Int64}}</a>
                   {{if .Review.JournalEntryPostedAt.Valid}} | {{formatTime .Review.JournalEntryPostedAt.Time}}{{end}}
                   {{else}}
                   -
