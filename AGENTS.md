@@ -16,6 +16,7 @@ For every Go coding session in this repository once the Go workspace exists:
 
 - `gopls` MCP is required and should be the default path through the session
 - start with Go workspace context
+- use the dedicated `mcp__gopls__...` tools such as `mcp__gopls__go_workspace` for Go workspace context rather than assuming `gopls` exposes `workspace://...` resources through `read_mcp_resource`
 - use `gopls` for workspace summary, symbol search, package context, references, safe renames, and diagnostics whenever it materially fits the task
 - if a session includes Go code changes, run diagnostics on edited files before completion
 - use vulnerability checks when dependencies or security-sensitive code change
