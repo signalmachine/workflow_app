@@ -90,6 +90,9 @@ Execution rule:
 
 1. treat this milestone as an umbrella for multiple small vertical slices, not as one monolithic web build
 2. prefer one usable end-to-end operator loop first, then widen surrounding web coverage incrementally on the same shared backend contracts
+3. Milestone 7 is primarily about connecting the existing core application engine and shared backend seams to a usable browser layer, not about adding unrelated new backend features
+4. backend corrections and narrow shared-backend enhancements are still required when the web layer proves a concrete need for correctness, continuity, or operator usability
+5. those backend changes must stay inside existing ownership boundaries and must not create a second truth owner, a separate web backend, or unrelated scope expansion
 
 ## 7. Success criteria
 

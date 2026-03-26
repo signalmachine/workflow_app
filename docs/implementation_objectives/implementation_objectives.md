@@ -175,6 +175,7 @@ Preferred thin-v1 web-implementation stance:
 2. prefer progressive enhancement such as `htmx` where it materially improves operator continuity while preserving server ownership of rendering and workflow state
 3. use small client-state helpers such as `Alpine.js` only where local interaction needs justify them
 4. avoid introducing a separate SPA architecture, Node dependency chain, or frontend-specific build pipeline in thin v1 unless the canonical planning set explicitly changes that decision
+5. when the promoted web layer proves a concrete need, backend corrections and narrow shared-backend enhancements should still be made, but they should stay in service of the same shared engine and must not become a pretext for unrelated backend feature expansion or a second web-specific backend
 
 ## 8. Data and database principles
 

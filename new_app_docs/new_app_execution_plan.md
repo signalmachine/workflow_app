@@ -316,6 +316,7 @@ Do not add CRM breadth, advanced projects, portal work, payroll, broad UI work, 
 Do not treat Milestone 6 as permission to add broad autonomy, broad chat UX, or multi-provider breadth.
 
 Do not treat Milestone 7 as permission to create a second backend for web versus mobile or to turn the product into a broad manual-entry ERP.
+During Milestone 7, backend corrections and narrow shared-backend enhancements are still required when the web layer proves a concrete need, but those changes must remain in service of browser-layer integration and operator continuity rather than unrelated new backend feature expansion.
 
 ## 10. Quality and sophistication rule
 

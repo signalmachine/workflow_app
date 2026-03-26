@@ -34,21 +34,22 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 ## 2. Immediate next steps
 
 1. continue Milestone 7 from the landed `/app` browser slices by improving operator continuity and focused exact drill-downs on top of the now-landed inbound-request, approval-detail, proposal-detail, document-detail, inventory, work-order, and audit review surfaces without splitting backend ownership
-2. keep widening the shared backend only in small slices where the web layer proves a concrete need, so web and later mobile still sit on one foundation
-3. extend the current coherent operator loop before scattering effort across unrelated pages
-4. keep the codebase centered on the approved first-class modules while allowing support-depth records such as `parties` and `contacts` where the canonical module-boundary doc explicitly permits them
-5. add attachments only where they support approval evidence, document support flows, or persisted inbound request intake
-6. use `new_app_v1_gap_review_from_current_codebase.md` as historical context only, not as the live list of remaining missing foundation areas
-7. use `new_app_implementation_defaults.md` as the default-rules reference during implementation
-8. use `new_app_foundation_coverage.md` as the v1 completion checklist and foundation coverage control
-9. keep Milestone 7 on the approved thin-v1 web stack: Go server-rendered HTML as the baseline, `htmx` where partial updates materially help, `Alpine.js` only for small local state, and no separate Node toolchain unless the canonical planning set changes
+2. keep Milestone 7 centered on browser-layer integration and operator continuity rather than unrelated new backend features
+3. keep widening or correcting the shared backend only in small slices where the web layer proves a concrete need for correctness, continuity, or usability, so web and later mobile still sit on one foundation
+4. extend the current coherent operator loop before scattering effort across unrelated pages
+5. keep the codebase centered on the approved first-class modules while allowing support-depth records such as `parties` and `contacts` where the canonical module-boundary doc explicitly permits them
+6. add attachments only where they support approval evidence, document support flows, or persisted inbound request intake
+7. use `new_app_v1_gap_review_from_current_codebase.md` as historical context only, not as the live list of remaining missing foundation areas
+8. use `new_app_implementation_defaults.md` as the default-rules reference during implementation
+9. use `new_app_foundation_coverage.md` as the v1 completion checklist and foundation coverage control
+10. keep Milestone 7 on the approved thin-v1 web stack: Go server-rendered HTML as the baseline, `htmx` where partial updates materially help, `Alpine.js` only for small local state, and no separate Node toolchain unless the canonical planning set changes
 
 ## 2.1 Planned next implementation order
 
 Recommended sequence:
 
 1. widen the landed `/app` browser slices so operators can move from request intake, full inbound-request review, approval work, and financial-document review into the now-landed inventory, work-order, and audit reporting surfaces on the same backend contracts, then tighten continuity and drill-downs
-2. widen the shared backend contract set only where that browser slice proves a concrete need, without creating a second truth owner
+2. widen or correct the shared backend contract set only where that browser slice proves a concrete need, without creating a second truth owner or unrelated backend feature scope
 3. continue the usable web application layer so operators can work through the browser on the same backend contracts that later mobile will reuse
 4. execute Milestone 7 through small end-to-end slices rather than broad monolithic pushes so implementation stays controllable and reviewable
 
