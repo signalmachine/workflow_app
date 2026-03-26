@@ -912,8 +912,10 @@ func (h *AgentAPIHandler) handleListControlAccountBalances(w http.ResponseWriter
 	}
 
 	items, err := h.reviewService.ListControlAccountBalances(r.Context(), reporting.ListControlAccountBalancesInput{
-		AsOf:  parseOptionalDate(r.URL.Query().Get("as_of")),
-		Actor: actor,
+		AsOf:        parseOptionalDate(r.URL.Query().Get("as_of")),
+		AccountID:   strings.TrimSpace(r.URL.Query().Get("account_id")),
+		ControlType: strings.TrimSpace(r.URL.Query().Get("control_type")),
+		Actor:       actor,
 	})
 	if err != nil {
 		handleReviewError(w, err, "failed to list control account balances")

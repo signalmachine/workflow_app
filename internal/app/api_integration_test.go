@@ -461,10 +461,16 @@ LIMIT 1`,
 	requireContains(t, accountingRecorder.Body.String(), "Accounting review")
 	requireContains(t, accountingRecorder.Body.String(), "Post approved invoice with GST")
 	requireContains(t, accountingRecorder.Body.String(), "GST18")
+	requireContains(t, accountingRecorder.Body.String(), "name=\"tax_type\"")
+	requireContains(t, accountingRecorder.Body.String(), "name=\"control_type\"")
+	requireContains(t, accountingRecorder.Body.String(), "name=\"account_id\"")
 	requireContains(t, accountingRecorder.Body.String(), "/app/review/documents/"+gstInvoiceDocumentID)
 	requireContains(t, accountingRecorder.Body.String(), "/app/review/accounting/"+gstInvoiceJournalEntryID)
 	requireContains(t, accountingRecorder.Body.String(), "/app/review/audit?entity_type=documents.document&amp;entity_id="+gstInvoiceDocumentID)
 	requireContains(t, accountingRecorder.Body.String(), "/app/review/audit?entity_type=accounting.journal_entry&amp;entity_id="+gstInvoiceJournalEntryID)
+	requireContains(t, accountingRecorder.Body.String(), "/app/review/accounting?account_id=")
+	requireContains(t, accountingRecorder.Body.String(), "/app/review/accounting?control_type=")
+	requireContains(t, accountingRecorder.Body.String(), "/app/review/accounting?tax_type=gst#tax-summaries")
 
 	exactAccountingReq := httptest.NewRequest(http.MethodGet, "/app/review/accounting?document_id="+gstInvoiceDocumentID, nil)
 	applyResponseCookies(exactAccountingReq, loginRecorder.Result().Cookies())
@@ -690,6 +696,16 @@ LIMIT 1`,
 	}
 	requireContains(t, apiBalanceRecorder.Body.String(), "\"account_code\":\"2101\"")
 
+	apiExactBalanceReq := httptest.NewRequest(http.MethodGet, "/api/review/accounting/control-account-balances?control_type=gst_output", nil)
+	applyResponseCookies(apiExactBalanceReq, loginRecorder.Result().Cookies())
+	apiExactBalanceRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(apiExactBalanceRecorder, apiExactBalanceReq)
+	if apiExactBalanceRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected filtered control balance api status: got %d body=%s", apiExactBalanceRecorder.Code, apiExactBalanceRecorder.Body.String())
+	}
+	requireContains(t, apiExactBalanceRecorder.Body.String(), "\"control_type\":\"gst_output\"")
+	requireNotContains(t, apiExactBalanceRecorder.Body.String(), "\"control_type\":\"tds_payable\"")
+
 	apiTaxReq := httptest.NewRequest(http.MethodGet, "/api/review/accounting/tax-summaries", nil)
 	applyResponseCookies(apiTaxReq, loginRecorder.Result().Cookies())
 	apiTaxRecorder := httptest.NewRecorder()
@@ -698,6 +714,16 @@ LIMIT 1`,
 		t.Fatalf("unexpected tax summary api status: got %d body=%s", apiTaxRecorder.Code, apiTaxRecorder.Body.String())
 	}
 	requireContains(t, apiTaxRecorder.Body.String(), "\"tax_code\":\"GST18\"")
+
+	apiExactTaxReq := httptest.NewRequest(http.MethodGet, "/api/review/accounting/tax-summaries?tax_type=gst", nil)
+	applyResponseCookies(apiExactTaxReq, loginRecorder.Result().Cookies())
+	apiExactTaxRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(apiExactTaxRecorder, apiExactTaxReq)
+	if apiExactTaxRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected filtered tax summary api status: got %d body=%s", apiExactTaxRecorder.Code, apiExactTaxRecorder.Body.String())
+	}
+	requireContains(t, apiExactTaxRecorder.Body.String(), "\"tax_type\":\"gst\"")
+	requireNotContains(t, apiExactTaxRecorder.Body.String(), "\"tax_type\":\"tds\"")
 
 	apiInventoryStockReq := httptest.NewRequest(http.MethodGet, "/api/review/inventory/stock", nil)
 	applyResponseCookies(apiInventoryStockReq, loginRecorder.Result().Cookies())

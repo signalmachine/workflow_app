@@ -274,8 +274,10 @@ type ControlAccountBalance struct {
 }
 
 type ListControlAccountBalancesInput struct {
-	AsOf  time.Time
-	Actor identityaccess.Actor
+	AsOf        time.Time
+	AccountID   string
+	ControlType string
+	Actor       identityaccess.Actor
 }
 
 type TaxSummary struct {
@@ -1598,10 +1600,14 @@ LEFT JOIN accounting.journal_entries e
 WHERE a.org_id = $1
   AND a.status = 'active'
   AND a.control_type <> 'none'
+  AND ($3 = '' OR a.id = $3::uuid)
+  AND ($4 = '' OR a.control_type = $4)
 GROUP BY a.id, a.code, a.name, a.account_class, a.control_type
 ORDER BY a.code ASC;`,
 		input.Actor.OrgID,
 		nullableDate(asOf, asOfSet),
+		strings.TrimSpace(input.AccountID),
+		strings.TrimSpace(input.ControlType),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("query control account balances: %w", err)

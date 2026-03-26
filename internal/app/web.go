@@ -27,6 +27,7 @@ var webAppTemplate = template.Must(template.New("app").Funcs(template.FuncMap{
 	"inboundRequestHref":    templateInboundRequestHref,
 	"inboundRequestReview":  templateInboundRequestReviewHref,
 	"documentReviewHref":    templateDocumentReviewHref,
+	"accountingReviewHref":  templateAccountingReviewHref,
 	"accountingEntryHref":   templateAccountingEntryHref,
 	"approvalReviewHref":    templateApprovalReviewHref,
 	"approvalQueueHref":     templateApprovalQueueHref,
@@ -91,6 +92,9 @@ type webAccountingData struct {
 	AsOf            string
 	EntryID         string
 	DocumentID      string
+	TaxType         string
+	ControlType     string
+	AccountID       string
 	JournalEntries  []reporting.JournalEntryReview
 	ControlBalances []reporting.ControlAccountBalance
 	TaxSummaries    []reporting.TaxSummary
@@ -431,14 +435,17 @@ func (h *AgentAPIHandler) handleWebAccounting(w http.ResponseWriter, r *http.Req
 	endOn := parseOptionalDate(r.URL.Query().Get("end_on"))
 	asOf := parseOptionalDate(r.URL.Query().Get("as_of"))
 	data := webAccountingData{
-		Session:    sessionContext,
-		Notice:     strings.TrimSpace(r.URL.Query().Get("notice")),
-		Error:      strings.TrimSpace(r.URL.Query().Get("error")),
-		StartOn:    formatDateInput(startOn),
-		EndOn:      formatDateInput(endOn),
-		AsOf:       formatDateInput(asOf),
-		EntryID:    strings.TrimSpace(r.URL.Query().Get("entry_id")),
-		DocumentID: strings.TrimSpace(r.URL.Query().Get("document_id")),
+		Session:     sessionContext,
+		Notice:      strings.TrimSpace(r.URL.Query().Get("notice")),
+		Error:       strings.TrimSpace(r.URL.Query().Get("error")),
+		StartOn:     formatDateInput(startOn),
+		EndOn:       formatDateInput(endOn),
+		AsOf:        formatDateInput(asOf),
+		EntryID:     strings.TrimSpace(r.URL.Query().Get("entry_id")),
+		DocumentID:  strings.TrimSpace(r.URL.Query().Get("document_id")),
+		TaxType:     strings.TrimSpace(r.URL.Query().Get("tax_type")),
+		ControlType: strings.TrimSpace(r.URL.Query().Get("control_type")),
+		AccountID:   strings.TrimSpace(r.URL.Query().Get("account_id")),
 	}
 
 	data.JournalEntries, err = h.reviewService.ListJournalEntries(r.Context(), reporting.ListJournalEntriesInput{
@@ -453,14 +460,17 @@ func (h *AgentAPIHandler) handleWebAccounting(w http.ResponseWriter, r *http.Req
 		data.Error = "failed to load journal entries"
 	}
 	if data.ControlBalances, err = h.reviewService.ListControlAccountBalances(r.Context(), reporting.ListControlAccountBalancesInput{
-		AsOf:  asOf,
-		Actor: sessionContext.Actor,
+		AsOf:        asOf,
+		AccountID:   data.AccountID,
+		ControlType: data.ControlType,
+		Actor:       sessionContext.Actor,
 	}); err != nil && data.Error == "" {
 		data.Error = "failed to load control account balances"
 	}
 	if data.TaxSummaries, err = h.reviewService.ListTaxSummaries(r.Context(), reporting.ListTaxSummariesInput{
 		StartOn: startOn,
 		EndOn:   endOn,
+		TaxType: data.TaxType,
 		Limit:   50,
 		Actor:   sessionContext.Actor,
 	}); err != nil && data.Error == "" {
@@ -1408,6 +1418,44 @@ func templateAccountingEntryHref(entryID string) string {
 		return webAccountingPath
 	}
 	return webAccountingDetailPrefix + url.PathEscape(entryID)
+}
+
+func templateAccountingReviewHref(startOn, endOn, asOf, entryID, documentID, taxType, controlType, accountID, anchor string) string {
+	values := url.Values{}
+	if strings.TrimSpace(startOn) != "" {
+		values.Set("start_on", strings.TrimSpace(startOn))
+	}
+	if strings.TrimSpace(endOn) != "" {
+		values.Set("end_on", strings.TrimSpace(endOn))
+	}
+	if strings.TrimSpace(asOf) != "" {
+		values.Set("as_of", strings.TrimSpace(asOf))
+	}
+	if strings.TrimSpace(entryID) != "" {
+		values.Set("entry_id", strings.TrimSpace(entryID))
+	}
+	if strings.TrimSpace(documentID) != "" {
+		values.Set("document_id", strings.TrimSpace(documentID))
+	}
+	if strings.TrimSpace(taxType) != "" {
+		values.Set("tax_type", strings.TrimSpace(taxType))
+	}
+	if strings.TrimSpace(controlType) != "" {
+		values.Set("control_type", strings.TrimSpace(controlType))
+	}
+	if strings.TrimSpace(accountID) != "" {
+		values.Set("account_id", strings.TrimSpace(accountID))
+	}
+
+	target := webAccountingPath
+	if encoded := values.Encode(); encoded != "" {
+		target += "?" + encoded
+	}
+	anchor = strings.TrimSpace(anchor)
+	if anchor != "" {
+		target += "#" + strings.TrimPrefix(anchor, "#")
+	}
+	return target
 }
 
 func templateApprovalReviewHref(approvalID string) string {
@@ -2365,6 +2413,7 @@ const webAppHTML = `<!DOCTYPE html>
     {{end}}
 
     {{with .Accounting}}
+    {{$accounting := .}}
     <div class="stack">
       {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
       {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
@@ -2376,11 +2425,26 @@ const webAppHTML = `<!DOCTYPE html>
           <input type="date" name="as_of" value="{{.AsOf}}">
           <input type="text" name="entry_id" value="{{.EntryID}}" placeholder="journal entry id">
           <input type="text" name="document_id" value="{{.DocumentID}}" placeholder="source document id">
+          <select name="tax_type">
+            <option value="">all tax types</option>
+            <option value="gst" {{if eq .TaxType "gst"}}selected{{end}}>gst</option>
+            <option value="tds" {{if eq .TaxType "tds"}}selected{{end}}>tds</option>
+          </select>
+          <select name="control_type">
+            <option value="">all control accounts</option>
+            <option value="receivable" {{if eq .ControlType "receivable"}}selected{{end}}>receivable</option>
+            <option value="payable" {{if eq .ControlType "payable"}}selected{{end}}>payable</option>
+            <option value="gst_input" {{if eq .ControlType "gst_input"}}selected{{end}}>gst_input</option>
+            <option value="gst_output" {{if eq .ControlType "gst_output"}}selected{{end}}>gst_output</option>
+            <option value="tds_receivable" {{if eq .ControlType "tds_receivable"}}selected{{end}}>tds_receivable</option>
+            <option value="tds_payable" {{if eq .ControlType "tds_payable"}}selected{{end}}>tds_payable</option>
+          </select>
+          <input type="text" name="account_id" value="{{.AccountID}}" placeholder="control account id">
           <button type="submit">Apply filters</button>
         </form>
       </section>
       <div class="grid">
-        <section class="panel">
+        <section class="panel" id="journal-entries">
           <h2>Journal entries</h2>
           <table>
             <thead>
@@ -2418,31 +2482,38 @@ const webAppHTML = `<!DOCTYPE html>
             </tbody>
           </table>
         </section>
-        <section class="panel">
+        <section class="panel" id="control-accounts">
           <h2>Control accounts</h2>
           <table>
             <thead>
               <tr>
                 <th>Code</th>
                 <th>Type</th>
+                <th>Last effective</th>
                 <th>Net</th>
               </tr>
             </thead>
             <tbody>
               {{range .ControlBalances}}
               <tr>
-                <td>{{.AccountCode}}</td>
-                <td>{{.ControlType}}</td>
+                <td>
+                  <a href="{{accountingReviewHref $accounting.StartOn $accounting.EndOn $accounting.AsOf $accounting.EntryID $accounting.DocumentID $accounting.TaxType .ControlType .AccountID "control-accounts"}}">{{.AccountCode}}</a>
+                  <div class="meta">{{.AccountName}}</div>
+                </td>
+                <td>
+                  <a href="{{accountingReviewHref $accounting.StartOn $accounting.EndOn $accounting.AsOf $accounting.EntryID $accounting.DocumentID $accounting.TaxType .ControlType "" "control-accounts"}}">{{.ControlType}}</a>
+                </td>
+                <td>{{if .LastEffectiveOn.Valid}}{{formatTime .LastEffectiveOn.Time}}{{else}}-{{end}}</td>
                 <td>{{.NetMinor}}</td>
               </tr>
               {{else}}
-              <tr><td colspan="3">No control accounts available.</td></tr>
+              <tr><td colspan="4">No control accounts available.</td></tr>
               {{end}}
             </tbody>
           </table>
         </section>
       </div>
-      <section class="panel">
+      <section class="panel" id="tax-summaries">
         <h2>Tax summaries</h2>
         <table>
           <thead>
@@ -2450,19 +2521,28 @@ const webAppHTML = `<!DOCTYPE html>
               <th>Tax code</th>
               <th>Type</th>
               <th>Entries</th>
+              <th>Linked control accounts</th>
               <th>Net</th>
             </tr>
           </thead>
           <tbody>
             {{range .TaxSummaries}}
             <tr>
-              <td>{{.TaxCode}}</td>
-              <td>{{.TaxType}}</td>
+              <td>
+                {{.TaxCode}}
+                <div class="meta">{{.TaxName}}</div>
+              </td>
+              <td><a href="{{accountingReviewHref $accounting.StartOn $accounting.EndOn $accounting.AsOf $accounting.EntryID $accounting.DocumentID .TaxType $accounting.ControlType $accounting.AccountID "tax-summaries"}}">{{.TaxType}}</a></td>
               <td>{{.EntryCount}}</td>
+              <td>
+                {{if .ReceivableAccountID.Valid}}<a href="{{accountingReviewHref $accounting.StartOn $accounting.EndOn $accounting.AsOf $accounting.EntryID $accounting.DocumentID $accounting.TaxType "" .ReceivableAccountID.String "control-accounts"}}">{{.ReceivableAccountCode.String}}</a>{{else}}-{{end}}
+                /
+                {{if .PayableAccountID.Valid}}<a href="{{accountingReviewHref $accounting.StartOn $accounting.EndOn $accounting.AsOf $accounting.EntryID $accounting.DocumentID $accounting.TaxType "" .PayableAccountID.String "control-accounts"}}">{{.PayableAccountCode.String}}</a>{{else}}-{{end}}
+              </td>
               <td>{{.NetMinor}}</td>
             </tr>
             {{else}}
-            <tr><td colspan="4">No tax summaries available.</td></tr>
+            <tr><td colspan="5">No tax summaries available.</td></tr>
             {{end}}
           </tbody>
         </table>

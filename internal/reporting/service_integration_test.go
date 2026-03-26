@@ -591,6 +591,18 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 	if got := findControlAccountBalance(t, controlBalances, tdsPayable.Code).NetMinor; got != 1000 {
 		t.Fatalf("unexpected TDS control balance: %d", got)
 	}
+	filteredControlBalances, err := reportingService.ListControlAccountBalances(ctx, reporting.ListControlAccountBalancesInput{
+		AsOf:        tdsPostedAt,
+		AccountID:   gstOutput.ID,
+		ControlType: accounting.ControlTypeGSTOutput,
+		Actor:       admin,
+	})
+	if err != nil {
+		t.Fatalf("list filtered control account balances: %v", err)
+	}
+	if len(filteredControlBalances) != 1 || filteredControlBalances[0].AccountID != gstOutput.ID || filteredControlBalances[0].ControlType != accounting.ControlTypeGSTOutput {
+		t.Fatalf("unexpected filtered control balances: %+v", filteredControlBalances)
+	}
 
 	taxSummaries, err := reportingService.ListTaxSummaries(ctx, reporting.ListTaxSummariesInput{
 		StartOn: startedAt,
@@ -617,6 +629,19 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 	}
 	if tdsSummary.DocumentCount != 1 || !tdsSummary.LastEffectiveOn.Valid || tdsSummary.LastEffectiveOn.Time.Format(time.DateOnly) != tdsPostedAt.Format(time.DateOnly) {
 		t.Fatalf("unexpected TDS summary timing: %+v", tdsSummary)
+	}
+	gstTaxSummaries, err := reportingService.ListTaxSummaries(ctx, reporting.ListTaxSummariesInput{
+		StartOn: startedAt,
+		EndOn:   tdsPostedAt,
+		TaxType: accounting.TaxTypeGST,
+		Limit:   20,
+		Actor:   admin,
+	})
+	if err != nil {
+		t.Fatalf("list filtered gst tax summaries: %v", err)
+	}
+	if len(gstTaxSummaries) != 1 || gstTaxSummaries[0].TaxCode != gst18.Code {
+		t.Fatalf("unexpected filtered GST tax summaries: %+v", gstTaxSummaries)
 	}
 
 	auditEvents, err := reportingService.LookupAuditEvents(ctx, reporting.LookupAuditEventsInput{
