@@ -25,7 +25,9 @@ var webAppTemplate = template.Must(template.New("app").Funcs(template.FuncMap{
 	"prettyJSON":         prettyTemplateJSON,
 	"statusClass":        templateStatusClass,
 	"documentReviewHref": templateDocumentReviewHref,
+	"approvalReviewHref": templateApprovalReviewHref,
 	"approvalQueueHref":  templateApprovalQueueHref,
+	"proposalDetailHref": templateProposalDetailHref,
 	"proposalReviewHref": templateProposalReviewHref,
 	"auditEntityHref":    templateAuditEntityHref,
 	"auditEntityLabel":   templateAuditEntityLabel,
@@ -99,6 +101,13 @@ type webProposalsData struct {
 	ProcessedProposals []reporting.ProcessedProposalReview
 }
 
+type webProposalDetailData struct {
+	Session identityaccess.SessionContext
+	Notice  string
+	Error   string
+	Review  reporting.ProcessedProposalReview
+}
+
 type webApprovalsData struct {
 	Session    identityaccess.SessionContext
 	Notice     string
@@ -107,6 +116,13 @@ type webApprovalsData struct {
 	Status     string
 	QueueCode  string
 	Approvals  []reporting.ApprovalQueueEntry
+}
+
+type webApprovalDetailData struct {
+	Session identityaccess.SessionContext
+	Notice  string
+	Error   string
+	Entry   reporting.ApprovalQueueEntry
 }
 
 type webInventoryData struct {
@@ -479,6 +495,50 @@ func (h *AgentAPIHandler) handleWebProposals(w http.ResponseWriter, r *http.Requ
 	})
 }
 
+func (h *AgentAPIHandler) handleWebProposalDetail(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+	recommendationID, ok := parseChildPath(webProposalsPath, r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("Please sign in."), http.StatusSeeOther)
+		return
+	}
+	if h.reviewService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("review service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	proposals, err := h.reviewService.ListProcessedProposals(r.Context(), reporting.ListProcessedProposalsInput{
+		RecommendationID: recommendationID,
+		Limit:            2,
+		Actor:            sessionContext.Actor,
+	})
+	if err != nil || len(proposals) == 0 {
+		http.Redirect(w, r, webProposalsPath+"?error="+url.QueryEscape("failed to load proposal"), http.StatusSeeOther)
+		return
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:      "workflow_app",
+		ActivePath: webProposalsPath,
+		Session:    &sessionContext,
+		ProposalDetail: &webProposalDetailData{
+			Session: sessionContext,
+			Notice:  strings.TrimSpace(r.URL.Query().Get("notice")),
+			Error:   strings.TrimSpace(r.URL.Query().Get("error")),
+			Review:  proposals[0],
+		},
+	})
+}
+
 func (h *AgentAPIHandler) handleWebApprovals(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != webApprovalsPath {
 		http.NotFound(w, r)
@@ -523,6 +583,50 @@ func (h *AgentAPIHandler) handleWebApprovals(w http.ResponseWriter, r *http.Requ
 		ActivePath: webApprovalsPath,
 		Session:    &sessionContext,
 		Approvals:  &data,
+	})
+}
+
+func (h *AgentAPIHandler) handleWebApprovalDetail(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+	approvalID, ok := parseChildPath(webApprovalsPath, r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("Please sign in."), http.StatusSeeOther)
+		return
+	}
+	if h.reviewService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("review service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	entries, err := h.reviewService.ListApprovalQueue(r.Context(), reporting.ListApprovalQueueInput{
+		ApprovalID: approvalID,
+		Limit:      2,
+		Actor:      sessionContext.Actor,
+	})
+	if err != nil || len(entries) == 0 {
+		http.Redirect(w, r, webApprovalsPath+"?error="+url.QueryEscape("failed to load approval"), http.StatusSeeOther)
+		return
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:      "workflow_app",
+		ActivePath: webApprovalsPath,
+		Session:    &sessionContext,
+		ApprovalDetail: &webApprovalDetailData{
+			Session: sessionContext,
+			Notice:  strings.TrimSpace(r.URL.Query().Get("notice")),
+			Error:   strings.TrimSpace(r.URL.Query().Get("error")),
+			Entry:   entries[0],
+		},
 	})
 }
 
@@ -1019,7 +1123,9 @@ type webPageData struct {
 	DocumentDetail  *webDocumentDetailData
 	Accounting      *webAccountingData
 	Approvals       *webApprovalsData
+	ApprovalDetail  *webApprovalDetailData
 	Proposals       *webProposalsData
+	ProposalDetail  *webProposalDetailData
 	Inventory       *webInventoryData
 	WorkOrders      *webWorkOrdersData
 	WorkOrderDetail *webWorkOrderDetailData
@@ -1106,6 +1212,14 @@ func templateDocumentReviewHref(documentID string) string {
 	return webDocumentDetailPrefix + url.PathEscape(documentID)
 }
 
+func templateApprovalReviewHref(approvalID string) string {
+	approvalID = strings.TrimSpace(approvalID)
+	if approvalID == "" {
+		return webApprovalsPath
+	}
+	return webApprovalDetailPrefix + url.PathEscape(approvalID)
+}
+
 func templateApprovalQueueHref(queueCode, status string) string {
 	values := url.Values{}
 	if strings.TrimSpace(queueCode) != "" {
@@ -1141,6 +1255,14 @@ func templateProposalReviewHref(recommendationID, status, requestReference strin
 	return webProposalsPath
 }
 
+func templateProposalDetailHref(recommendationID string) string {
+	recommendationID = strings.TrimSpace(recommendationID)
+	if recommendationID == "" {
+		return webProposalsPath
+	}
+	return webProposalDetailPrefix + url.PathEscape(recommendationID)
+}
+
 func templateAuditEntityHref(entityType, entityID string) string {
 	entityType = strings.TrimSpace(entityType)
 	entityID = strings.TrimSpace(entityID)
@@ -1154,9 +1276,9 @@ func templateAuditEntityHref(entityType, entityID string) string {
 	case "ai.inbound_request":
 		return webInboundDetailPrefix + url.PathEscape(entityID)
 	case "workflow.approval":
-		return webApprovalsPath + "?approval_id=" + url.QueryEscape(entityID)
+		return templateApprovalReviewHref(entityID)
 	case "ai.agent_recommendation":
-		return webProposalsPath + "?recommendation_id=" + url.QueryEscape(entityID)
+		return templateProposalDetailHref(entityID)
 	case "work_orders.work_order":
 		return webWorkOrdersPath + "/" + url.PathEscape(entityID)
 	case "inventory_ops.item":
@@ -1720,6 +1842,62 @@ const webAppHTML = `<!DOCTYPE html>
     </div>
     {{end}}
 
+    {{with .ApprovalDetail}}
+    <div class="stack">
+      {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+      {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+      <section class="panel">
+        <h2>Approval {{.Entry.ApprovalID}}</h2>
+        <div class="detail-block">
+          <span class="status-pill {{statusClass .Entry.ApprovalStatus}}">{{.Entry.ApprovalStatus}}</span>
+          <p><strong>{{.Entry.DocumentTitle}}</strong></p>
+          <p class="meta">{{.Entry.QueueCode}} | queue {{.Entry.QueueStatus}} | requested {{formatTime .Entry.RequestedAt}}</p>
+          <p class="meta">
+            <a href="{{approvalQueueHref .Entry.QueueCode .Entry.QueueStatus}}">Filtered queue view</a> |
+            <a href="{{documentReviewHref .Entry.DocumentID}}">Open document</a> |
+            <a href="/app/review/audit?entity_type=workflow.approval&amp;entity_id={{.Entry.ApprovalID}}">Audit trail</a>
+          </p>
+        </div>
+      </section>
+      <div class="grid">
+        <section class="panel">
+          <h2>Decision</h2>
+          <table>
+            <tbody>
+              <tr><th>Queue status</th><td><span class="status-pill {{statusClass .Entry.QueueStatus}}">{{.Entry.QueueStatus}}</span></td></tr>
+              <tr><th>Requested by</th><td>{{.Entry.RequestedByUserID}}</td></tr>
+              <tr><th>Requested at</th><td>{{formatTime .Entry.RequestedAt}}</td></tr>
+              <tr><th>Decided by</th><td>{{if .Entry.DecidedByUserID.Valid}}{{.Entry.DecidedByUserID.String}}{{else}}-{{end}}</td></tr>
+              <tr><th>Decided at</th><td>{{if .Entry.DecidedAt.Valid}}{{formatTime .Entry.DecidedAt.Time}}{{else}}-{{end}}</td></tr>
+            </tbody>
+          </table>
+          {{if eq .Entry.QueueStatus "pending"}}
+          <form method="post" action="/app/approvals/{{.Entry.ApprovalID}}/decision" style="margin-top:12px;">
+            <input type="hidden" name="return_to" value="{{approvalReviewHref .Entry.ApprovalID}}">
+            <input type="text" name="decision_note" placeholder="Decision note">
+            <div class="inline-form">
+              <button type="submit" name="decision" value="approved">Approve</button>
+              <button type="submit" name="decision" value="rejected" class="secondary">Reject</button>
+            </div>
+          </form>
+          {{end}}
+        </section>
+        <section class="panel">
+          <h2>Linked record</h2>
+          <table>
+            <tbody>
+              <tr><th>Document</th><td><a href="{{documentReviewHref .Entry.DocumentID}}">{{.Entry.DocumentTitle}}</a></td></tr>
+              <tr><th>Type</th><td>{{.Entry.DocumentTypeCode}}</td></tr>
+              <tr><th>Status</th><td><span class="status-pill {{statusClass .Entry.DocumentStatus}}">{{.Entry.DocumentStatus}}</span></td></tr>
+              <tr><th>Document number</th><td>{{if .Entry.DocumentNumber.Valid}}{{.Entry.DocumentNumber.String}}{{else}}-{{end}}</td></tr>
+              <tr><th>Posting</th><td>{{if .Entry.JournalEntryNumber.Valid}}<a href="/app/review/accounting?document_id={{.Entry.DocumentID}}">Entry #{{.Entry.JournalEntryNumber.Int64}}</a>{{else}}-{{end}}</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </div>
+    </div>
+    {{end}}
+
     {{with .Proposals}}
     <div class="stack">
       {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
@@ -1769,13 +1947,13 @@ const webAppHTML = `<!DOCTYPE html>
                 <span class="status-pill {{statusClass .RecommendationStatus}}">{{.RecommendationStatus}}</span>
                 <div>{{.Summary}}</div>
                 <div class="meta">Created: {{formatTime .CreatedAt}}</div>
-                <div class="meta"><a href="{{proposalReviewHref .RecommendationID .RecommendationStatus .RequestReference}}">Open exact proposal</a></div>
+                <div class="meta"><a href="{{proposalDetailHref .RecommendationID}}">Open exact proposal</a></div>
               </td>
               <td>
                 {{if .ApprovalID.Valid}}
                 <div><a href="{{approvalQueueHref .ApprovalQueueCode.String .ApprovalStatus.String}}">{{.ApprovalQueueCode.String}}</a></div>
                 <div class="status-pill {{statusClass .ApprovalStatus.String}}">{{.ApprovalStatus.String}}</div>
-                <div class="meta"><a href="/app/review/approvals?approval_id={{.ApprovalID.String}}">Open exact approval</a></div>
+                <div class="meta"><a href="{{approvalReviewHref .ApprovalID.String}}">Open exact approval</a></div>
                 {{else}}
                 -
                 {{end}}
@@ -1795,6 +1973,48 @@ const webAppHTML = `<!DOCTYPE html>
           </tbody>
         </table>
       </section>
+    </div>
+    {{end}}
+
+    {{with .ProposalDetail}}
+    <div class="stack">
+      {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+      {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+      <section class="panel">
+        <h2>Proposal {{.Review.RecommendationID}}</h2>
+        <div class="detail-block">
+          <span class="status-pill {{statusClass .Review.RecommendationStatus}}">{{.Review.RecommendationStatus}}</span>
+          <p><strong>{{.Review.Summary}}</strong></p>
+          <p class="meta">Request <a href="/app/inbound-requests/{{.Review.RequestReference}}">{{.Review.RequestReference}}</a> | run {{.Review.RunID}} | created {{formatTime .Review.CreatedAt}}</p>
+          <p class="meta">
+            <a href="{{proposalReviewHref .Review.RecommendationID .Review.RecommendationStatus .Review.RequestReference}}">Filtered proposal view</a> |
+            <a href="/app/review/audit?entity_type=ai.agent_recommendation&amp;entity_id={{.Review.RecommendationID}}">Audit trail</a>
+          </p>
+        </div>
+      </section>
+      <div class="grid">
+        <section class="panel">
+          <h2>Control chain</h2>
+          <table>
+            <tbody>
+              <tr><th>Request</th><td><a href="/app/inbound-requests/{{.Review.RequestReference}}">{{.Review.RequestReference}}</a> | <span class="status-pill {{statusClass .Review.RequestStatus}}">{{.Review.RequestStatus}}</span></td></tr>
+              <tr><th>Approval</th><td>{{if .Review.ApprovalID.Valid}}<a href="{{approvalReviewHref .Review.ApprovalID.String}}">{{if .Review.ApprovalQueueCode.Valid}}{{.Review.ApprovalQueueCode.String}}{{else}}approval{{end}}</a>{{if .Review.ApprovalStatus.Valid}} | <span class="status-pill {{statusClass .Review.ApprovalStatus.String}}">{{.Review.ApprovalStatus.String}}</span>{{end}}{{else}}-{{end}}</td></tr>
+              <tr><th>Document</th><td>{{if .Review.DocumentID.Valid}}<a href="{{documentReviewHref .Review.DocumentID.String}}">{{.Review.DocumentTitle.String}}</a>{{if .Review.DocumentStatus.Valid}} | <span class="status-pill {{statusClass .Review.DocumentStatus.String}}">{{.Review.DocumentStatus.String}}</span>{{end}}{{else}}-{{end}}</td></tr>
+            </tbody>
+          </table>
+        </section>
+        <section class="panel">
+          <h2>Identifiers</h2>
+          <table>
+            <tbody>
+              <tr><th>Recommendation</th><td>{{.Review.RecommendationID}}</td></tr>
+              <tr><th>Run</th><td>{{.Review.RunID}}</td></tr>
+              <tr><th>Type</th><td>{{.Review.RecommendationType}}</td></tr>
+              <tr><th>Document number</th><td>{{if .Review.DocumentNumber.Valid}}{{.Review.DocumentNumber.String}}{{else}}-{{end}}</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </div>
     </div>
     {{end}}
 
@@ -1875,7 +2095,7 @@ const webAppHTML = `<!DOCTYPE html>
                 <th>Approval</th>
                 <td>
                   {{if .Review.ApprovalID.Valid}}
-                  <a href="/app/review/approvals?approval_id={{.Review.ApprovalID.String}}">{{if .Review.ApprovalQueueCode.Valid}}{{.Review.ApprovalQueueCode.String}}{{else}}approval{{end}}</a>
+                  <a href="{{approvalReviewHref .Review.ApprovalID.String}}">{{if .Review.ApprovalQueueCode.Valid}}{{.Review.ApprovalQueueCode.String}}{{else}}approval{{end}}</a>
                   {{if .Review.ApprovalStatus.Valid}} | <span class="status-pill {{statusClass .Review.ApprovalStatus.String}}">{{.Review.ApprovalStatus.String}}</span>{{end}}
                   {{else}}
                   -

@@ -439,6 +439,7 @@ LIMIT 1`,
 	requireContains(t, exactDocumentsRecorder.Body.String(), gstInvoiceDocumentID)
 	requireContains(t, exactDocumentsRecorder.Body.String(), "/app/review/documents?document_id="+gstInvoiceDocumentID)
 	requireContains(t, exactDocumentsRecorder.Body.String(), "/app/review/accounting?document_id="+gstInvoiceDocumentID)
+	requireContains(t, exactDocumentsRecorder.Body.String(), "/app/review/approvals/")
 
 	accountingReq := httptest.NewRequest(http.MethodGet, "/app/review/accounting", nil)
 	applyResponseCookies(accountingReq, loginRecorder.Result().Cookies())
@@ -1330,7 +1331,8 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	requireContains(t, proposalsRecorder.Body.String(), ai.RecommendationStatusApprovalRequested)
 	requireContains(t, proposalsRecorder.Body.String(), "/app/inbound-requests/"+request.RequestReference)
 	requireContains(t, proposalsRecorder.Body.String(), "/app/review/approvals?queue_code="+queueResponse.Items[0].QueueCode+"&amp;status=pending")
-	requireContains(t, proposalsRecorder.Body.String(), "/app/review/approvals?approval_id="+approval.ID)
+	requireContains(t, proposalsRecorder.Body.String(), "/app/review/approvals/"+approval.ID)
+	requireContains(t, proposalsRecorder.Body.String(), "/app/review/proposals/"+proposalListResponse.Items[0].RecommendationID)
 
 	inboundRequestsReq := httptest.NewRequest(http.MethodGet, "/app/review/inbound-requests?request_reference="+request.RequestReference, nil)
 	applyResponseCookies(inboundRequestsReq, loginRecorder.Result().Cookies())
@@ -1355,23 +1357,27 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	requireContains(t, approvalsRecorder.Body.String(), queueResponse.Items[0].QueueCode)
 	requireContains(t, approvalsRecorder.Body.String(), "/app/review/documents/")
 
-	exactApprovalsReq := httptest.NewRequest(http.MethodGet, "/app/review/approvals?approval_id="+approval.ID, nil)
+	exactApprovalsReq := httptest.NewRequest(http.MethodGet, "/app/review/approvals/"+approval.ID, nil)
 	applyResponseCookies(exactApprovalsReq, loginRecorder.Result().Cookies())
 	exactApprovalsRecorder := httptest.NewRecorder()
 	handler.ServeHTTP(exactApprovalsRecorder, exactApprovalsReq)
 	if exactApprovalsRecorder.Code != http.StatusOK {
 		t.Fatalf("unexpected exact approvals page status: got %d body=%s", exactApprovalsRecorder.Code, exactApprovalsRecorder.Body.String())
 	}
+	requireContains(t, exactApprovalsRecorder.Body.String(), "Approval "+approval.ID)
 	requireContains(t, exactApprovalsRecorder.Body.String(), approval.ID)
+	requireContains(t, exactApprovalsRecorder.Body.String(), "/app/review/audit?entity_type=workflow.approval&amp;entity_id="+approval.ID)
 
-	exactProposalsReq := httptest.NewRequest(http.MethodGet, "/app/review/proposals?recommendation_id="+proposalListResponse.Items[0].RecommendationID, nil)
+	exactProposalsReq := httptest.NewRequest(http.MethodGet, "/app/review/proposals/"+proposalListResponse.Items[0].RecommendationID, nil)
 	applyResponseCookies(exactProposalsReq, loginRecorder.Result().Cookies())
 	exactProposalsRecorder := httptest.NewRecorder()
 	handler.ServeHTTP(exactProposalsRecorder, exactProposalsReq)
 	if exactProposalsRecorder.Code != http.StatusOK {
 		t.Fatalf("unexpected exact proposals page status: got %d body=%s", exactProposalsRecorder.Code, exactProposalsRecorder.Body.String())
 	}
+	requireContains(t, exactProposalsRecorder.Body.String(), "Proposal "+proposalListResponse.Items[0].RecommendationID)
 	requireContains(t, exactProposalsRecorder.Body.String(), proposalListResponse.Items[0].RecommendationID)
+	requireContains(t, exactProposalsRecorder.Body.String(), "/app/review/audit?entity_type=ai.agent_recommendation&amp;entity_id="+proposalListResponse.Items[0].RecommendationID)
 
 	inboundAuditReq := httptest.NewRequest(http.MethodGet, "/app/review/audit?entity_type=ai.inbound_request&entity_id="+request.ID, nil)
 	applyResponseCookies(inboundAuditReq, loginRecorder.Result().Cookies())
@@ -1389,7 +1395,7 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	if approvalAuditRecorder.Code != http.StatusOK {
 		t.Fatalf("unexpected approval audit page status: got %d body=%s", approvalAuditRecorder.Code, approvalAuditRecorder.Body.String())
 	}
-	requireContains(t, approvalAuditRecorder.Body.String(), "/app/review/approvals?approval_id="+approval.ID)
+	requireContains(t, approvalAuditRecorder.Body.String(), "/app/review/approvals/"+approval.ID)
 
 	recommendationAuditReq := httptest.NewRequest(http.MethodGet, "/app/review/audit?entity_type=ai.agent_recommendation&entity_id="+proposalListResponse.Items[0].RecommendationID, nil)
 	applyResponseCookies(recommendationAuditReq, loginRecorder.Result().Cookies())
@@ -1398,7 +1404,7 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	if recommendationAuditRecorder.Code != http.StatusOK {
 		t.Fatalf("unexpected recommendation audit page status: got %d body=%s", recommendationAuditRecorder.Code, recommendationAuditRecorder.Body.String())
 	}
-	requireContains(t, recommendationAuditRecorder.Body.String(), "/app/review/proposals?recommendation_id="+proposalListResponse.Items[0].RecommendationID)
+	requireContains(t, recommendationAuditRecorder.Body.String(), "/app/review/proposals/"+proposalListResponse.Items[0].RecommendationID)
 }
 
 func TestAgentAPIDecideApprovalIntegration(t *testing.T) {
