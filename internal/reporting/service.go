@@ -303,6 +303,7 @@ type ListTaxSummariesInput struct {
 	StartOn time.Time
 	EndOn   time.Time
 	TaxType string
+	TaxCode string
 	Limit   int
 	Actor   identityaccess.Actor
 }
@@ -1692,6 +1693,7 @@ LEFT JOIN accounting.journal_entries e
 WHERE tc.org_id = $1
   AND tc.status = 'active'
   AND ($4 = '' OR tc.tax_type = $4)
+  AND ($5 = '' OR tc.code = $5)
 GROUP BY
 	tc.tax_type,
 	tc.code,
@@ -1704,11 +1706,12 @@ GROUP BY
 	pa.code,
 	pa.name
 ORDER BY tc.tax_type ASC, tc.code ASC
-LIMIT $5;`,
+LIMIT $6;`,
 		input.Actor.OrgID,
 		nullableDate(startOn, startSet),
 		nullableDate(endOn, endSet),
 		input.TaxType,
+		strings.TrimSpace(input.TaxCode),
 		normalizeLimit(input.Limit),
 	)
 	if err != nil {

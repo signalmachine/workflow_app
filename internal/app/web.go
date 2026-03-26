@@ -29,6 +29,8 @@ var webAppTemplate = template.Must(template.New("app").Funcs(template.FuncMap{
 	"documentReviewHref":    templateDocumentReviewHref,
 	"accountingReviewHref":  templateAccountingReviewHref,
 	"accountingEntryHref":   templateAccountingEntryHref,
+	"controlAccountHref":    templateControlAccountHref,
+	"taxSummaryHref":        templateTaxSummaryHref,
 	"approvalReviewHref":    templateApprovalReviewHref,
 	"approvalQueueHref":     templateApprovalQueueHref,
 	"proposalDetailHref":    templateProposalDetailHref,
@@ -94,6 +96,7 @@ type webAccountingData struct {
 	EntryID         string
 	DocumentID      string
 	TaxType         string
+	TaxCode         string
 	ControlType     string
 	AccountID       string
 	JournalEntries  []reporting.JournalEntryReview
@@ -106,6 +109,26 @@ type webAccountingDetailData struct {
 	Notice  string
 	Error   string
 	Review  reporting.JournalEntryReview
+}
+
+type webControlAccountDetailData struct {
+	Session          identityaccess.SessionContext
+	Notice           string
+	Error            string
+	StartOn          string
+	EndOn            string
+	AsOf             string
+	Balance          reporting.ControlAccountBalance
+	RelatedSummaries []reporting.TaxSummary
+}
+
+type webTaxSummaryDetailData struct {
+	Session identityaccess.SessionContext
+	Notice  string
+	Error   string
+	StartOn string
+	EndOn   string
+	Summary reporting.TaxSummary
 }
 
 type webProposalsData struct {
@@ -445,6 +468,7 @@ func (h *AgentAPIHandler) handleWebAccounting(w http.ResponseWriter, r *http.Req
 		EntryID:     strings.TrimSpace(r.URL.Query().Get("entry_id")),
 		DocumentID:  strings.TrimSpace(r.URL.Query().Get("document_id")),
 		TaxType:     strings.TrimSpace(r.URL.Query().Get("tax_type")),
+		TaxCode:     strings.TrimSpace(r.URL.Query().Get("tax_code")),
 		ControlType: strings.TrimSpace(r.URL.Query().Get("control_type")),
 		AccountID:   strings.TrimSpace(r.URL.Query().Get("account_id")),
 	}
@@ -472,6 +496,7 @@ func (h *AgentAPIHandler) handleWebAccounting(w http.ResponseWriter, r *http.Req
 		StartOn: startOn,
 		EndOn:   endOn,
 		TaxType: data.TaxType,
+		TaxCode: data.TaxCode,
 		Limit:   50,
 		Actor:   sessionContext.Actor,
 	}); err != nil && data.Error == "" {
@@ -483,6 +508,129 @@ func (h *AgentAPIHandler) handleWebAccounting(w http.ResponseWriter, r *http.Req
 		ActivePath: webAccountingPath,
 		Session:    &sessionContext,
 		Accounting: &data,
+	})
+}
+
+func (h *AgentAPIHandler) handleWebControlAccountDetail(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+	accountID, ok := parseChildPath(webAccountingControlsPath, r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("Please sign in."), http.StatusSeeOther)
+		return
+	}
+	if h.reviewService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("review service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	startOn := parseOptionalDate(r.URL.Query().Get("start_on"))
+	endOn := parseOptionalDate(r.URL.Query().Get("end_on"))
+	asOf := parseOptionalDate(r.URL.Query().Get("as_of"))
+
+	balances, err := h.reviewService.ListControlAccountBalances(r.Context(), reporting.ListControlAccountBalancesInput{
+		AsOf:      asOf,
+		AccountID: accountID,
+		Actor:     sessionContext.Actor,
+	})
+	if err != nil || len(balances) == 0 {
+		http.Redirect(w, r, webAccountingPath+"?error="+url.QueryEscape("failed to load control account"), http.StatusSeeOther)
+		return
+	}
+
+	summaries, err := h.reviewService.ListTaxSummaries(r.Context(), reporting.ListTaxSummariesInput{
+		StartOn: startOn,
+		EndOn:   endOn,
+		Limit:   50,
+		Actor:   sessionContext.Actor,
+	})
+	if err != nil {
+		http.Redirect(w, r, webAccountingPath+"?error="+url.QueryEscape("failed to load related tax summaries"), http.StatusSeeOther)
+		return
+	}
+
+	related := make([]reporting.TaxSummary, 0, len(summaries))
+	for _, summary := range summaries {
+		if (summary.ReceivableAccountID.Valid && summary.ReceivableAccountID.String == accountID) ||
+			(summary.PayableAccountID.Valid && summary.PayableAccountID.String == accountID) {
+			related = append(related, summary)
+		}
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:      "workflow_app",
+		ActivePath: webAccountingPath,
+		Session:    &sessionContext,
+		ControlAccountDetail: &webControlAccountDetailData{
+			Session:          sessionContext,
+			Notice:           strings.TrimSpace(r.URL.Query().Get("notice")),
+			Error:            strings.TrimSpace(r.URL.Query().Get("error")),
+			StartOn:          formatDateInput(startOn),
+			EndOn:            formatDateInput(endOn),
+			AsOf:             formatDateInput(asOf),
+			Balance:          balances[0],
+			RelatedSummaries: related,
+		},
+	})
+}
+
+func (h *AgentAPIHandler) handleWebTaxSummaryDetail(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+	taxCode, ok := parseChildPath(webAccountingTaxesPath, r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("Please sign in."), http.StatusSeeOther)
+		return
+	}
+	if h.reviewService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("review service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	startOn := parseOptionalDate(r.URL.Query().Get("start_on"))
+	endOn := parseOptionalDate(r.URL.Query().Get("end_on"))
+
+	summaries, err := h.reviewService.ListTaxSummaries(r.Context(), reporting.ListTaxSummariesInput{
+		StartOn: startOn,
+		EndOn:   endOn,
+		TaxType: strings.TrimSpace(r.URL.Query().Get("tax_type")),
+		TaxCode: taxCode,
+		Limit:   2,
+		Actor:   sessionContext.Actor,
+	})
+	if err != nil || len(summaries) == 0 {
+		http.Redirect(w, r, webAccountingPath+"?error="+url.QueryEscape("failed to load tax summary"), http.StatusSeeOther)
+		return
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:      "workflow_app",
+		ActivePath: webAccountingPath,
+		Session:    &sessionContext,
+		TaxSummaryDetail: &webTaxSummaryDetailData{
+			Session: sessionContext,
+			Notice:  strings.TrimSpace(r.URL.Query().Get("notice")),
+			Error:   strings.TrimSpace(r.URL.Query().Get("error")),
+			StartOn: formatDateInput(startOn),
+			EndOn:   formatDateInput(endOn),
+			Summary: summaries[0],
+		},
 	})
 }
 
@@ -1291,30 +1439,32 @@ func (h *AgentAPIHandler) handleWebApprovalDecision(w http.ResponseWriter, r *ht
 }
 
 type webPageData struct {
-	Title            string
-	ActivePath       string
-	Notice           string
-	Error            string
-	ShowLogin        bool
-	LoginPath        string
-	Session          *identityaccess.SessionContext
-	Dashboard        *webAppDashboardData
-	InboundRequests  *webInboundRequestsData
-	Detail           *webInboundDetailData
-	Documents        *webDocumentsData
-	DocumentDetail   *webDocumentDetailData
-	Accounting       *webAccountingData
-	AccountingDetail *webAccountingDetailData
-	Approvals        *webApprovalsData
-	ApprovalDetail   *webApprovalDetailData
-	Proposals        *webProposalsData
-	ProposalDetail   *webProposalDetailData
-	Inventory        *webInventoryData
-	InventoryDetail  *webInventoryDetailData
-	WorkOrders       *webWorkOrdersData
-	WorkOrderDetail  *webWorkOrderDetailData
-	Audit            *webAuditData
-	AuditDetail      *webAuditDetailData
+	Title                string
+	ActivePath           string
+	Notice               string
+	Error                string
+	ShowLogin            bool
+	LoginPath            string
+	Session              *identityaccess.SessionContext
+	Dashboard            *webAppDashboardData
+	InboundRequests      *webInboundRequestsData
+	Detail               *webInboundDetailData
+	Documents            *webDocumentsData
+	DocumentDetail       *webDocumentDetailData
+	Accounting           *webAccountingData
+	AccountingDetail     *webAccountingDetailData
+	ControlAccountDetail *webControlAccountDetailData
+	TaxSummaryDetail     *webTaxSummaryDetailData
+	Approvals            *webApprovalsData
+	ApprovalDetail       *webApprovalDetailData
+	Proposals            *webProposalsData
+	ProposalDetail       *webProposalDetailData
+	Inventory            *webInventoryData
+	InventoryDetail      *webInventoryDetailData
+	WorkOrders           *webWorkOrdersData
+	WorkOrderDetail      *webWorkOrderDetailData
+	Audit                *webAuditData
+	AuditDetail          *webAuditDetailData
 }
 
 func (h *AgentAPIHandler) renderWebPage(w http.ResponseWriter, data webPageData) {
@@ -1421,7 +1571,7 @@ func templateAccountingEntryHref(entryID string) string {
 	return webAccountingDetailPrefix + url.PathEscape(entryID)
 }
 
-func templateAccountingReviewHref(startOn, endOn, asOf, entryID, documentID, taxType, controlType, accountID, anchor string) string {
+func templateAccountingReviewHref(startOn, endOn, asOf, entryID, documentID, taxType, taxCode, controlType, accountID, anchor string) string {
 	values := url.Values{}
 	if strings.TrimSpace(startOn) != "" {
 		values.Set("start_on", strings.TrimSpace(startOn))
@@ -1441,6 +1591,9 @@ func templateAccountingReviewHref(startOn, endOn, asOf, entryID, documentID, tax
 	if strings.TrimSpace(taxType) != "" {
 		values.Set("tax_type", strings.TrimSpace(taxType))
 	}
+	if strings.TrimSpace(taxCode) != "" {
+		values.Set("tax_code", strings.TrimSpace(taxCode))
+	}
 	if strings.TrimSpace(controlType) != "" {
 		values.Set("control_type", strings.TrimSpace(controlType))
 	}
@@ -1457,6 +1610,22 @@ func templateAccountingReviewHref(startOn, endOn, asOf, entryID, documentID, tax
 		target += "#" + strings.TrimPrefix(anchor, "#")
 	}
 	return target
+}
+
+func templateControlAccountHref(accountID string) string {
+	accountID = strings.TrimSpace(accountID)
+	if accountID == "" {
+		return webAccountingPath + "#control-accounts"
+	}
+	return webAccountingControlsPath + "/" + url.PathEscape(accountID)
+}
+
+func templateTaxSummaryHref(taxCode string) string {
+	taxCode = strings.TrimSpace(taxCode)
+	if taxCode == "" {
+		return webAccountingPath + "#tax-summaries"
+	}
+	return webAccountingTaxesPath + "/" + url.PathEscape(taxCode)
 }
 
 func templateApprovalReviewHref(approvalID string) string {
@@ -2466,6 +2635,7 @@ const webAppHTML = `<!DOCTYPE html>
             <option value="gst" {{if eq .TaxType "gst"}}selected{{end}}>gst</option>
             <option value="tds" {{if eq .TaxType "tds"}}selected{{end}}>tds</option>
           </select>
+          <input type="text" name="tax_code" value="{{.TaxCode}}" placeholder="tax code">
           <select name="control_type">
             <option value="">all control accounts</option>
             <option value="receivable" {{if eq .ControlType "receivable"}}selected{{end}}>receivable</option>
@@ -2533,11 +2703,11 @@ const webAppHTML = `<!DOCTYPE html>
               {{range .ControlBalances}}
               <tr>
                 <td>
-                  <a href="{{accountingReviewHref $accounting.StartOn $accounting.EndOn $accounting.AsOf $accounting.EntryID $accounting.DocumentID $accounting.TaxType .ControlType .AccountID "control-accounts"}}">{{.AccountCode}}</a>
+                  <a href="{{controlAccountHref .AccountID}}">{{.AccountCode}}</a>
                   <div class="meta">{{.AccountName}}</div>
                 </td>
                 <td>
-                  <a href="{{accountingReviewHref $accounting.StartOn $accounting.EndOn $accounting.AsOf $accounting.EntryID $accounting.DocumentID $accounting.TaxType .ControlType "" "control-accounts"}}">{{.ControlType}}</a>
+                  <a href="{{accountingReviewHref $accounting.StartOn $accounting.EndOn $accounting.AsOf $accounting.EntryID $accounting.DocumentID $accounting.TaxType $accounting.TaxCode .ControlType "" "control-accounts"}}">{{.ControlType}}</a>
                 </td>
                 <td>{{if .LastEffectiveOn.Valid}}{{formatTime .LastEffectiveOn.Time}}{{else}}-{{end}}</td>
                 <td>{{.NetMinor}}</td>
@@ -2565,15 +2735,15 @@ const webAppHTML = `<!DOCTYPE html>
             {{range .TaxSummaries}}
             <tr>
               <td>
-                {{.TaxCode}}
+                <a href="{{taxSummaryHref .TaxCode}}">{{.TaxCode}}</a>
                 <div class="meta">{{.TaxName}}</div>
               </td>
-              <td><a href="{{accountingReviewHref $accounting.StartOn $accounting.EndOn $accounting.AsOf $accounting.EntryID $accounting.DocumentID .TaxType $accounting.ControlType $accounting.AccountID "tax-summaries"}}">{{.TaxType}}</a></td>
+              <td><a href="{{accountingReviewHref $accounting.StartOn $accounting.EndOn $accounting.AsOf $accounting.EntryID $accounting.DocumentID .TaxType .TaxCode $accounting.ControlType $accounting.AccountID "tax-summaries"}}">{{.TaxType}}</a></td>
               <td>{{.EntryCount}}</td>
               <td>
-                {{if .ReceivableAccountID.Valid}}<a href="{{accountingReviewHref $accounting.StartOn $accounting.EndOn $accounting.AsOf $accounting.EntryID $accounting.DocumentID $accounting.TaxType "" .ReceivableAccountID.String "control-accounts"}}">{{.ReceivableAccountCode.String}}</a>{{else}}-{{end}}
+                {{if .ReceivableAccountID.Valid}}<a href="{{controlAccountHref .ReceivableAccountID.String}}">{{.ReceivableAccountCode.String}}</a>{{else}}-{{end}}
                 /
-                {{if .PayableAccountID.Valid}}<a href="{{accountingReviewHref $accounting.StartOn $accounting.EndOn $accounting.AsOf $accounting.EntryID $accounting.DocumentID $accounting.TaxType "" .PayableAccountID.String "control-accounts"}}">{{.PayableAccountCode.String}}</a>{{else}}-{{end}}
+                {{if .PayableAccountID.Valid}}<a href="{{controlAccountHref .PayableAccountID.String}}">{{.PayableAccountCode.String}}</a>{{else}}-{{end}}
               </td>
               <td>{{.NetMinor}}</td>
             </tr>
@@ -2628,6 +2798,103 @@ const webAppHTML = `<!DOCTYPE html>
               <tr><th>Document type</th><td>{{if .Review.DocumentTypeCode.Valid}}{{.Review.DocumentTypeCode.String}}{{else}}-{{end}}</td></tr>
               <tr><th>Document filter</th><td>{{if .Review.SourceDocumentID.Valid}}<a href="/app/review/accounting?document_id={{.Review.SourceDocumentID.String}}">All entries for source document</a>{{else}}-{{end}}</td></tr>
               <tr><th>Original entry</th><td>{{if .Review.ReversalOfEntryID.Valid}}<a href="{{accountingEntryHref .Review.ReversalOfEntryID.String}}">{{.Review.ReversalOfEntryID.String}}</a>{{else}}-{{end}}</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </div>
+    </div>
+    {{end}}
+
+    {{with .ControlAccountDetail}}
+    <div class="stack">
+      {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+      {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+      <section class="panel">
+        <h2>Control account {{.Balance.AccountCode}}</h2>
+        <div class="detail-block">
+          <span class="status-pill {{statusClass .Balance.ControlType}}">{{.Balance.ControlType}}</span>
+          <p><strong>{{.Balance.AccountName}}</strong></p>
+          <p class="meta">{{.Balance.AccountID}}</p>
+          <p class="meta">
+            <a href="{{accountingReviewHref .StartOn .EndOn .AsOf "" "" "" "" .Balance.ControlType .Balance.AccountID "control-accounts"}}">Filtered accounting view</a>
+          </p>
+        </div>
+      </section>
+      <div class="grid">
+        <section class="panel">
+          <h2>Balance detail</h2>
+          <table>
+            <tbody>
+              <tr><th>Account class</th><td>{{.Balance.AccountClass}}</td></tr>
+              <tr><th>Total debit</th><td>{{.Balance.TotalDebitMinor}}</td></tr>
+              <tr><th>Total credit</th><td>{{.Balance.TotalCreditMinor}}</td></tr>
+              <tr><th>Net</th><td>{{.Balance.NetMinor}}</td></tr>
+              <tr><th>Last effective</th><td>{{if .Balance.LastEffectiveOn.Valid}}{{formatTime .Balance.LastEffectiveOn.Time}}{{else}}-{{end}}</td></tr>
+            </tbody>
+          </table>
+        </section>
+        <section class="panel">
+          <h2>Linked tax summaries</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Tax code</th>
+                <th>Type</th>
+                <th>Net</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{range .RelatedSummaries}}
+              <tr>
+                <td><a href="{{taxSummaryHref .TaxCode}}">{{.TaxCode}}</a></td>
+                <td>{{.TaxType}}</td>
+                <td>{{.NetMinor}}</td>
+              </tr>
+              {{else}}
+              <tr><td colspan="3">No linked tax summaries reference this control account.</td></tr>
+              {{end}}
+            </tbody>
+          </table>
+        </section>
+      </div>
+    </div>
+    {{end}}
+
+    {{with .TaxSummaryDetail}}
+    <div class="stack">
+      {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+      {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+      <section class="panel">
+        <h2>Tax summary {{.Summary.TaxCode}}</h2>
+        <div class="detail-block">
+          <span class="status-pill {{statusClass .Summary.TaxType}}">{{.Summary.TaxType}}</span>
+          <p><strong>{{.Summary.TaxName}}</strong></p>
+          <p class="meta">Rate: {{.Summary.RateBasisPoints}} bps</p>
+          <p class="meta">
+            <a href="{{accountingReviewHref .StartOn .EndOn "" "" "" .Summary.TaxType .Summary.TaxCode "" "" "tax-summaries"}}">Filtered accounting view</a>
+          </p>
+        </div>
+      </section>
+      <div class="grid">
+        <section class="panel">
+          <h2>Summary totals</h2>
+          <table>
+            <tbody>
+              <tr><th>Entry count</th><td>{{.Summary.EntryCount}}</td></tr>
+              <tr><th>Document count</th><td>{{.Summary.DocumentCount}}</td></tr>
+              <tr><th>Total debit</th><td>{{.Summary.TotalDebitMinor}}</td></tr>
+              <tr><th>Total credit</th><td>{{.Summary.TotalCreditMinor}}</td></tr>
+              <tr><th>Net</th><td>{{.Summary.NetMinor}}</td></tr>
+              <tr><th>Last effective</th><td>{{if .Summary.LastEffectiveOn.Valid}}{{formatTime .Summary.LastEffectiveOn.Time}}{{else}}-{{end}}</td></tr>
+            </tbody>
+          </table>
+        </section>
+        <section class="panel">
+          <h2>Linked control accounts</h2>
+          <table>
+            <tbody>
+              <tr><th>Receivable</th><td>{{if .Summary.ReceivableAccountID.Valid}}<a href="{{controlAccountHref .Summary.ReceivableAccountID.String}}">{{.Summary.ReceivableAccountCode.String}}</a>{{else}}-{{end}}</td></tr>
+              <tr><th>Payable</th><td>{{if .Summary.PayableAccountID.Valid}}<a href="{{controlAccountHref .Summary.PayableAccountID.String}}">{{.Summary.PayableAccountCode.String}}</a>{{else}}-{{end}}</td></tr>
             </tbody>
           </table>
         </section>

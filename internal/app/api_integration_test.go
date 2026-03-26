@@ -10,6 +10,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -462,15 +463,24 @@ LIMIT 1`,
 	requireContains(t, accountingRecorder.Body.String(), "Post approved invoice with GST")
 	requireContains(t, accountingRecorder.Body.String(), "GST18")
 	requireContains(t, accountingRecorder.Body.String(), "name=\"tax_type\"")
+	requireContains(t, accountingRecorder.Body.String(), "name=\"tax_code\"")
 	requireContains(t, accountingRecorder.Body.String(), "name=\"control_type\"")
 	requireContains(t, accountingRecorder.Body.String(), "name=\"account_id\"")
 	requireContains(t, accountingRecorder.Body.String(), "/app/review/documents/"+gstInvoiceDocumentID)
 	requireContains(t, accountingRecorder.Body.String(), "/app/review/accounting/"+gstInvoiceJournalEntryID)
+	requireContains(t, accountingRecorder.Body.String(), "/app/review/accounting/control-accounts/")
+	requireContains(t, accountingRecorder.Body.String(), "/app/review/accounting/tax-summaries/GST18")
 	requireContains(t, accountingRecorder.Body.String(), "/app/review/audit?entity_type=documents.document&amp;entity_id="+gstInvoiceDocumentID)
 	requireContains(t, accountingRecorder.Body.String(), "/app/review/audit?entity_type=accounting.journal_entry&amp;entity_id="+gstInvoiceJournalEntryID)
-	requireContains(t, accountingRecorder.Body.String(), "/app/review/accounting?account_id=")
+	requireContains(t, accountingRecorder.Body.String(), "/app/review/accounting/control-accounts/")
 	requireContains(t, accountingRecorder.Body.String(), "/app/review/accounting?control_type=")
-	requireContains(t, accountingRecorder.Body.String(), "/app/review/accounting?tax_type=gst#tax-summaries")
+	requireContains(t, accountingRecorder.Body.String(), "/app/review/accounting?tax_code=GST18&amp;tax_type=gst#tax-summaries")
+
+	controlAccountMatch := regexp.MustCompile(`/app/review/accounting/control-accounts/([^"?&]+)">2101</a>`).FindStringSubmatch(accountingRecorder.Body.String())
+	if len(controlAccountMatch) != 2 {
+		t.Fatalf("expected control-account detail link in accounting page body=%s", accountingRecorder.Body.String())
+	}
+	gstOutputAccountID := controlAccountMatch[1]
 
 	exactAccountingReq := httptest.NewRequest(http.MethodGet, "/app/review/accounting?document_id="+gstInvoiceDocumentID, nil)
 	applyResponseCookies(exactAccountingReq, loginRecorder.Result().Cookies())
@@ -494,6 +504,28 @@ LIMIT 1`,
 	requireContains(t, exactAccountingDetailRecorder.Body.String(), "/app/review/accounting?entry_id="+gstInvoiceJournalEntryID)
 	requireContains(t, exactAccountingDetailRecorder.Body.String(), "/app/review/audit?entity_type=accounting.journal_entry&amp;entity_id="+gstInvoiceJournalEntryID)
 	requireContains(t, exactAccountingDetailRecorder.Body.String(), "/app/review/documents/"+gstInvoiceDocumentID)
+
+	controlAccountDetailReq := httptest.NewRequest(http.MethodGet, "/app/review/accounting/control-accounts/"+gstOutputAccountID, nil)
+	applyResponseCookies(controlAccountDetailReq, loginRecorder.Result().Cookies())
+	controlAccountDetailRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(controlAccountDetailRecorder, controlAccountDetailReq)
+	if controlAccountDetailRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected control-account detail page status: got %d body=%s", controlAccountDetailRecorder.Code, controlAccountDetailRecorder.Body.String())
+	}
+	requireContains(t, controlAccountDetailRecorder.Body.String(), "Control account 2101")
+	requireContains(t, controlAccountDetailRecorder.Body.String(), "/app/review/accounting?account_id="+gstOutputAccountID)
+	requireContains(t, controlAccountDetailRecorder.Body.String(), "/app/review/accounting/tax-summaries/GST18")
+
+	taxSummaryDetailReq := httptest.NewRequest(http.MethodGet, "/app/review/accounting/tax-summaries/GST18", nil)
+	applyResponseCookies(taxSummaryDetailReq, loginRecorder.Result().Cookies())
+	taxSummaryDetailRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(taxSummaryDetailRecorder, taxSummaryDetailReq)
+	if taxSummaryDetailRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected tax-summary detail page status: got %d body=%s", taxSummaryDetailRecorder.Code, taxSummaryDetailRecorder.Body.String())
+	}
+	requireContains(t, taxSummaryDetailRecorder.Body.String(), "Tax summary GST18")
+	requireContains(t, taxSummaryDetailRecorder.Body.String(), "/app/review/accounting?tax_code=GST18&amp;tax_type=gst#tax-summaries")
+	requireContains(t, taxSummaryDetailRecorder.Body.String(), "/app/review/accounting/control-accounts/"+gstOutputAccountID)
 
 	inboundRequestsReq := httptest.NewRequest(http.MethodGet, "/app/review/inbound-requests", nil)
 	applyResponseCookies(inboundRequestsReq, loginRecorder.Result().Cookies())
@@ -724,6 +756,16 @@ LIMIT 1`,
 	}
 	requireContains(t, apiExactTaxRecorder.Body.String(), "\"tax_type\":\"gst\"")
 	requireNotContains(t, apiExactTaxRecorder.Body.String(), "\"tax_type\":\"tds\"")
+
+	apiExactTaxCodeReq := httptest.NewRequest(http.MethodGet, "/api/review/accounting/tax-summaries?tax_code=GST18", nil)
+	applyResponseCookies(apiExactTaxCodeReq, loginRecorder.Result().Cookies())
+	apiExactTaxCodeRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(apiExactTaxCodeRecorder, apiExactTaxCodeReq)
+	if apiExactTaxCodeRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected exact tax-code api status: got %d body=%s", apiExactTaxCodeRecorder.Code, apiExactTaxCodeRecorder.Body.String())
+	}
+	requireContains(t, apiExactTaxCodeRecorder.Body.String(), "\"tax_code\":\"GST18\"")
+	requireNotContains(t, apiExactTaxCodeRecorder.Body.String(), "\"tax_code\":\"TDS1\"")
 
 	apiInventoryStockReq := httptest.NewRequest(http.MethodGet, "/api/review/inventory/stock", nil)
 	applyResponseCookies(apiInventoryStockReq, loginRecorder.Result().Cookies())

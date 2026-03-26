@@ -36,6 +36,8 @@ const (
 	webDocumentsPath           = "/app/review/documents"
 	webDocumentDetailPrefix    = "/app/review/documents/"
 	webAccountingPath          = "/app/review/accounting"
+	webAccountingControlsPath  = "/app/review/accounting/control-accounts"
+	webAccountingTaxesPath     = "/app/review/accounting/tax-summaries"
 	webAccountingDetailPrefix  = "/app/review/accounting/"
 	webApprovalsPath           = "/app/review/approvals"
 	webApprovalDetailPrefix    = "/app/review/approvals/"
@@ -219,6 +221,8 @@ func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(webDocumentsPath, handler.handleWebDocuments)
 	mux.HandleFunc(webDocumentDetailPrefix, handler.handleWebDocumentDetail)
 	mux.HandleFunc(webAccountingPath, handler.handleWebAccounting)
+	mux.HandleFunc(webAccountingControlsPath+"/", handler.handleWebControlAccountDetail)
+	mux.HandleFunc(webAccountingTaxesPath+"/", handler.handleWebTaxSummaryDetail)
 	mux.HandleFunc(webAccountingDetailPrefix, handler.handleWebAccountingDetail)
 	mux.HandleFunc(webApprovalsPath, handler.handleWebApprovals)
 	mux.HandleFunc(webApprovalDetailPrefix, handler.handleWebApprovalDetail)
@@ -955,6 +959,7 @@ func (h *AgentAPIHandler) handleListTaxSummaries(w http.ResponseWriter, r *http.
 		StartOn: parseOptionalDate(r.URL.Query().Get("start_on")),
 		EndOn:   parseOptionalDate(r.URL.Query().Get("end_on")),
 		TaxType: strings.TrimSpace(r.URL.Query().Get("tax_type")),
+		TaxCode: strings.TrimSpace(r.URL.Query().Get("tax_code")),
 		Limit:   parseLimit(r.URL.Query().Get("limit")),
 		Actor:   actor,
 	})
