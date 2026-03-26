@@ -631,6 +631,18 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 	if len(auditEvents) == 0 {
 		t.Fatal("expected work order audit events")
 	}
+
+	exactAuditEvent, err := reportingService.LookupAuditEvents(ctx, reporting.LookupAuditEventsInput{
+		EventID: auditEvents[0].ID,
+		Limit:   5,
+		Actor:   admin,
+	})
+	if err != nil {
+		t.Fatalf("lookup exact audit event: %v", err)
+	}
+	if len(exactAuditEvent) != 1 || exactAuditEvent[0].ID != auditEvents[0].ID {
+		t.Fatalf("unexpected exact audit event result: %+v", exactAuditEvent)
+	}
 }
 
 func createLedgerAccount(t *testing.T, ctx context.Context, service *accounting.Service, input accounting.CreateLedgerAccountInput) accounting.LedgerAccount {

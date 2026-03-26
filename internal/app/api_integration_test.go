@@ -583,6 +583,7 @@ LIMIT 1`,
 	requireContains(t, auditRecorder.Body.String(), "Audit lookup")
 	requireContains(t, auditRecorder.Body.String(), "work_orders.work_order_created")
 	requireContains(t, auditRecorder.Body.String(), "/app/review/work-orders/"+workOrder.ID)
+	requireContains(t, auditRecorder.Body.String(), "/app/review/audit/")
 
 	movementAuditReq := httptest.NewRequest(http.MethodGet, "/app/review/audit?entity_type=inventory_ops.movement&entity_id="+issueMovementID, nil)
 	applyResponseCookies(movementAuditReq, loginRecorder.Result().Cookies())
@@ -601,6 +602,36 @@ LIMIT 1`,
 		t.Fatalf("unexpected journal audit page status: got %d body=%s", journalAuditRecorder.Code, journalAuditRecorder.Body.String())
 	}
 	requireContains(t, journalAuditRecorder.Body.String(), "/app/review/accounting/"+gstInvoiceJournalEntryID)
+
+	listAuditAPIReq := httptest.NewRequest(http.MethodGet, "/api/review/audit-events?entity_type=work_orders.work_order&entity_id="+workOrder.ID, nil)
+	applyResponseCookies(listAuditAPIReq, loginRecorder.Result().Cookies())
+	listAuditAPIRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(listAuditAPIRecorder, listAuditAPIReq)
+	if listAuditAPIRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected audit api status: got %d body=%s", listAuditAPIRecorder.Code, listAuditAPIRecorder.Body.String())
+	}
+	var auditListResponse struct {
+		Items []struct {
+			ID string `json:"id"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(listAuditAPIRecorder.Body.Bytes(), &auditListResponse); err != nil {
+		t.Fatalf("unmarshal audit api response: %v", err)
+	}
+	if len(auditListResponse.Items) == 0 {
+		t.Fatal("expected audit api items")
+	}
+
+	exactAuditReq := httptest.NewRequest(http.MethodGet, "/app/review/audit/"+auditListResponse.Items[0].ID, nil)
+	applyResponseCookies(exactAuditReq, loginRecorder.Result().Cookies())
+	exactAuditRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(exactAuditRecorder, exactAuditReq)
+	if exactAuditRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected exact audit page status: got %d body=%s", exactAuditRecorder.Code, exactAuditRecorder.Body.String())
+	}
+	requireContains(t, exactAuditRecorder.Body.String(), "Audit event "+auditListResponse.Items[0].ID)
+	requireContains(t, exactAuditRecorder.Body.String(), "Filtered audit view")
+	requireContains(t, exactAuditRecorder.Body.String(), "/app/review/work-orders/"+workOrder.ID)
 
 	apiDocumentsReq := httptest.NewRequest(http.MethodGet, "/api/review/documents", nil)
 	applyResponseCookies(apiDocumentsReq, loginRecorder.Result().Cookies())
@@ -741,6 +772,27 @@ LIMIT 1`,
 		t.Fatalf("unexpected audit api status: got %d body=%s", apiAuditRecorder.Code, apiAuditRecorder.Body.String())
 	}
 	requireContains(t, apiAuditRecorder.Body.String(), "\"event_type\":\"work_orders.work_order_created\"")
+
+	var apiAuditListResponse struct {
+		Items []struct {
+			ID string `json:"id"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(apiAuditRecorder.Body.Bytes(), &apiAuditListResponse); err != nil {
+		t.Fatalf("unmarshal exact audit seed response: %v", err)
+	}
+	if len(apiAuditListResponse.Items) == 0 {
+		t.Fatal("expected audit api items for exact filter")
+	}
+
+	apiExactAuditReq := httptest.NewRequest(http.MethodGet, "/api/review/audit-events?event_id="+apiAuditListResponse.Items[0].ID, nil)
+	applyResponseCookies(apiExactAuditReq, loginRecorder.Result().Cookies())
+	apiExactAuditRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(apiExactAuditRecorder, apiExactAuditReq)
+	if apiExactAuditRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected exact audit api status: got %d body=%s", apiExactAuditRecorder.Code, apiExactAuditRecorder.Body.String())
+	}
+	requireContains(t, apiExactAuditRecorder.Body.String(), "\"id\":\""+apiAuditListResponse.Items[0].ID+"\"")
 }
 
 func TestAgentAPISessionLoginRejectsUnknownMembership(t *testing.T) {

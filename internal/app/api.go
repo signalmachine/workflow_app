@@ -45,6 +45,7 @@ const (
 	webInventoryDetailPrefix   = "/app/review/inventory/"
 	webWorkOrdersPath          = "/app/review/work-orders"
 	webAuditPath               = "/app/review/audit"
+	webAuditDetailPrefix       = "/app/review/audit/"
 	agentProcessNextQueuedPath = "/api/agent/process-next-queued-inbound-request"
 	submitInboundRequestPath   = "/api/inbound-requests"
 	attachmentContentPrefix    = "/api/attachments/"
@@ -228,6 +229,7 @@ func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(webWorkOrdersPath, handler.handleWebWorkOrders)
 	mux.HandleFunc(webWorkOrdersPath+"/", handler.handleWebWorkOrderDetail)
 	mux.HandleFunc(webAuditPath, handler.handleWebAudit)
+	mux.HandleFunc(webAuditDetailPrefix, handler.handleWebAuditDetail)
 	mux.HandleFunc(sessionLoginPath, handler.handleSessionLogin)
 	mux.HandleFunc(sessionCurrentPath, handler.handleCurrentSession)
 	mux.HandleFunc(sessionLogoutPath, handler.handleSessionLogout)
@@ -1190,6 +1192,7 @@ func (h *AgentAPIHandler) handleLookupAuditEvents(w http.ResponseWriter, r *http
 	}
 
 	items, err := h.reviewService.LookupAuditEvents(r.Context(), reporting.LookupAuditEventsInput{
+		EventID:    strings.TrimSpace(r.URL.Query().Get("event_id")),
 		EntityType: strings.TrimSpace(r.URL.Query().Get("entity_type")),
 		EntityID:   strings.TrimSpace(r.URL.Query().Get("entity_id")),
 		Limit:      parseLimit(r.URL.Query().Get("limit")),

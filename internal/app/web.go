@@ -33,6 +33,7 @@ var webAppTemplate = template.Must(template.New("app").Funcs(template.FuncMap{
 	"proposalDetailHref":    templateProposalDetailHref,
 	"proposalReviewHref":    templateProposalReviewHref,
 	"inventoryMovementHref": templateInventoryMovementHref,
+	"auditEventHref":        templateAuditEventHref,
 	"auditEntityHref":       templateAuditEntityHref,
 	"auditEntityLabel":      templateAuditEntityLabel,
 }).Parse(webAppHTML))
@@ -181,9 +182,17 @@ type webAuditData struct {
 	Session    identityaccess.SessionContext
 	Notice     string
 	Error      string
+	EventID    string
 	EntityType string
 	EntityID   string
 	Events     []reporting.AuditEvent
+}
+
+type webAuditDetailData struct {
+	Session identityaccess.SessionContext
+	Notice  string
+	Error   string
+	Event   reporting.AuditEvent
 }
 
 func (h *AgentAPIHandler) handleRoot(w http.ResponseWriter, r *http.Request) {
@@ -936,10 +945,12 @@ func (h *AgentAPIHandler) handleWebAudit(w http.ResponseWriter, r *http.Request)
 		Session:    sessionContext,
 		Notice:     strings.TrimSpace(r.URL.Query().Get("notice")),
 		Error:      strings.TrimSpace(r.URL.Query().Get("error")),
+		EventID:    strings.TrimSpace(r.URL.Query().Get("event_id")),
 		EntityType: strings.TrimSpace(r.URL.Query().Get("entity_type")),
 		EntityID:   strings.TrimSpace(r.URL.Query().Get("entity_id")),
 	}
 	data.Events, err = h.reviewService.LookupAuditEvents(r.Context(), reporting.LookupAuditEventsInput{
+		EventID:    data.EventID,
 		EntityType: data.EntityType,
 		EntityID:   data.EntityID,
 		Limit:      100,
@@ -954,6 +965,45 @@ func (h *AgentAPIHandler) handleWebAudit(w http.ResponseWriter, r *http.Request)
 		ActivePath: webAuditPath,
 		Session:    &sessionContext,
 		Audit:      &data,
+	})
+}
+
+func (h *AgentAPIHandler) handleWebAuditDetail(w http.ResponseWriter, r *http.Request) {
+	eventID, ok := parseChildPath(webAuditPath, r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("Please sign in."), http.StatusSeeOther)
+		return
+	}
+	if h.reviewService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("review service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	events, err := h.reviewService.LookupAuditEvents(r.Context(), reporting.LookupAuditEventsInput{
+		EventID: eventID,
+		Limit:   1,
+		Actor:   sessionContext.Actor,
+	})
+	if err != nil || len(events) == 0 {
+		http.Redirect(w, r, webAuditPath+"?error="+url.QueryEscape("failed to load audit event"), http.StatusSeeOther)
+		return
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:       "workflow_app",
+		ActivePath:  webAuditPath,
+		Session:     &sessionContext,
+		AuditDetail: &webAuditDetailData{Session: sessionContext, Event: events[0]},
 	})
 }
 
@@ -1253,6 +1303,7 @@ type webPageData struct {
 	WorkOrders       *webWorkOrdersData
 	WorkOrderDetail  *webWorkOrderDetailData
 	Audit            *webAuditData
+	AuditDetail      *webAuditDetailData
 }
 
 func (h *AgentAPIHandler) renderWebPage(w http.ResponseWriter, data webPageData) {
@@ -1416,6 +1467,14 @@ func templateInventoryMovementHref(movementID string) string {
 		return webInventoryPath
 	}
 	return webInventoryDetailPrefix + url.PathEscape(movementID)
+}
+
+func templateAuditEventHref(eventID string) string {
+	eventID = strings.TrimSpace(eventID)
+	if eventID == "" {
+		return webAuditPath
+	}
+	return webAuditDetailPrefix + url.PathEscape(eventID)
 }
 
 func templateAuditEntityHref(entityType, entityID string) string {
@@ -2720,6 +2779,7 @@ const webAppHTML = `<!DOCTYPE html>
       <section class="panel">
         <h2>Audit lookup</h2>
         <form method="get" action="/app/review/audit" class="inline-form">
+          <input type="text" name="event_id" value="{{.EventID}}" placeholder="event id">
           <input type="text" name="entity_type" value="{{.EntityType}}" placeholder="entity type">
           <input type="text" name="entity_id" value="{{.EntityID}}" placeholder="entity id">
           <button type="submit">Search audit</button>
@@ -2739,7 +2799,10 @@ const webAppHTML = `<!DOCTYPE html>
             {{range .Events}}
             <tr>
               <td>{{formatTime .OccurredAt}}</td>
-              <td>{{.EventType}}</td>
+              <td>
+                <strong><a href="{{auditEventHref .ID}}">{{.EventType}}</a></strong>
+                <div class="meta">{{.ID}}</div>
+              </td>
               <td>
                 {{.EntityType}} / {{.EntityID}}
                 {{if auditEntityHref .EntityType .EntityID}}
@@ -2753,6 +2816,34 @@ const webAppHTML = `<!DOCTYPE html>
             {{end}}
           </tbody>
         </table>
+      </section>
+    </div>
+    {{end}}
+
+    {{with .AuditDetail}}
+    <div class="stack">
+      {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+      {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+      <section class="panel">
+        <h2>Audit event {{.Event.ID}}</h2>
+        <p class="meta">
+          <a href="/app/review/audit?event_id={{.Event.ID}}">Filtered audit view</a>
+          {{if auditEntityHref .Event.EntityType .Event.EntityID}} |
+          <a href="{{auditEntityHref .Event.EntityType .Event.EntityID}}">{{auditEntityLabel .Event.EntityType}}</a>
+          {{end}}
+        </p>
+        <table>
+          <tbody>
+            <tr><th>Occurred</th><td>{{formatTime .Event.OccurredAt}}</td></tr>
+            <tr><th>Event type</th><td>{{.Event.EventType}}</td></tr>
+            <tr><th>Entity</th><td>{{.Event.EntityType}} / {{.Event.EntityID}}</td></tr>
+            <tr><th>Actor user</th><td>{{if .Event.ActorUserID.Valid}}{{.Event.ActorUserID.String}}{{else}}-{{end}}</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="panel">
+        <h3>Payload</h3>
+        <pre>{{prettyJSON .Event.Payload}}</pre>
       </section>
     </div>
     {{end}}

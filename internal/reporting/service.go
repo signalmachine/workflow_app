@@ -322,6 +322,7 @@ type AuditEvent struct {
 }
 
 type LookupAuditEventsInput struct {
+	EventID    string
 	EntityType string
 	EntityID   string
 	Limit      int
@@ -1764,11 +1765,13 @@ SELECT
 	occurred_at
 FROM platform.audit_events
 WHERE org_id = $1
-  AND ($2 = '' OR entity_type = $2)
-  AND ($3 = '' OR entity_id = $3)
+  AND ($2 = '' OR id::text = $2)
+  AND ($3 = '' OR entity_type = $3)
+  AND ($4 = '' OR entity_id = $4)
 ORDER BY occurred_at DESC, id DESC
-LIMIT $4;`,
+LIMIT $5;`,
 		input.Actor.OrgID,
+		strings.TrimSpace(input.EventID),
 		strings.TrimSpace(input.EntityType),
 		strings.TrimSpace(input.EntityID),
 		normalizeLimit(input.Limit),
