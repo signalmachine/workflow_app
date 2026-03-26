@@ -57,6 +57,8 @@ Contributors should push back on weaker architectural or implementation choices,
 
 During implementation, if a codebase review surfaces drift, an issue, an inconsistency, or a conflict, contributors should report it and either fix it in the same change when appropriate or document it in the canonical implementation plan docs for a future session rather than leaving it as silent drift.
 
+When working primarily in a non-backend layer such as the web UI, browser application flow, or AI-agent layer, contributors should still fix backend bugs, missing support seams, inconsistencies, or narrow capability gaps that materially block correctness, continuity, or usability. Those backend changes should stay within existing ownership boundaries and should remain in service of the active implementation slice rather than becoming unrelated backend feature expansion.
+
 ## Architecture & Scope Guardrails
 
 `workflow_app` is intentionally AI-agent-first, database-first, and centered on documents, ledgers, and execution context. Do not let CRM, portal, or broad manual-entry UI concerns become the center of gravity again. If a capability can wait until v2 without weakening the foundation, put it under `new_app_docs/app_v2_plans/` instead of expanding v1. Thin v1 means narrow breadth, not weak modeling or low quality.
