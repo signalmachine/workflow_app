@@ -522,6 +522,17 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 	if len(workOrderList) == 0 || workOrderList[0].WorkOrderID != workOrderResult.WorkOrder.ID {
 		t.Fatalf("unexpected work order list: %+v", workOrderList)
 	}
+	exactWorkOrderList, err := reportingService.ListWorkOrders(ctx, reporting.ListWorkOrdersInput{
+		WorkOrderID: workOrderResult.WorkOrder.ID,
+		Limit:       20,
+		Actor:       operator,
+	})
+	if err != nil {
+		t.Fatalf("list exact work order review: %v", err)
+	}
+	if len(exactWorkOrderList) != 1 || exactWorkOrderList[0].WorkOrderID != workOrderResult.WorkOrder.ID {
+		t.Fatalf("unexpected exact work order list: %+v", exactWorkOrderList)
+	}
 
 	journalReviews, err := reportingService.ListJournalEntries(ctx, reporting.ListJournalEntriesInput{
 		StartOn: startedAt,

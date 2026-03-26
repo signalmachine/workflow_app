@@ -178,6 +178,94 @@ func TestHandleWebAuditDetailLinksInventoryEntitiesToStockBalances(t *testing.T)
 	}
 }
 
+func TestHandleWebWorkOrdersPassesExactWorkOrderFilter(t *testing.T) {
+	var captured reporting.ListWorkOrdersInput
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listWorkOrders: func(_ context.Context, input reporting.ListWorkOrdersInput) ([]reporting.WorkOrderReview, error) {
+				captured = input
+				return []reporting.WorkOrderReview{{
+					WorkOrderID:   "work-order-123",
+					WorkOrderCode: "WO-123",
+					Title:         "Filtered work order",
+					DocumentID:    "doc-123",
+					Status:        "open",
+				}}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review/work-orders?work_order_id=work-order-123", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if captured.WorkOrderID != "work-order-123" {
+		t.Fatalf("expected exact work-order filter, got %+v", captured)
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `name="work_order_id" value="work-order-123"`) {
+		t.Fatalf("expected work-order filter value in form, body=%s", body)
+	}
+}
+
+func TestHandleWebWorkOrderDetailAddsFilteredReviewLink(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			getWorkOrderReview: func(context.Context, reporting.GetWorkOrderReviewInput) (reporting.WorkOrderReview, error) {
+				return reporting.WorkOrderReview{
+					WorkOrderID:    "work-order-123",
+					WorkOrderCode:  "WO-123",
+					Title:          "Filtered work order",
+					Summary:        "Review continuity",
+					Status:         "in_progress",
+					DocumentID:     "doc-123",
+					DocumentStatus: "approved",
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review/work-orders/work-order-123", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `/app/review/work-orders?work_order_id=work-order-123">Filtered list view</a>`) {
+		t.Fatalf("expected filtered work-order review link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/accounting?document_id=doc-123">Accounting review</a>`) {
+		t.Fatalf("expected accounting review link, body=%s", body)
+	}
+}
+
 func testSessionContext() identityaccess.SessionContext {
 	return identityaccess.SessionContext{
 		Actor: identityaccess.Actor{
@@ -201,6 +289,8 @@ type stubOperatorReviewReader struct {
 	getDocumentReview  func(context.Context, reporting.GetDocumentReviewInput) (reporting.DocumentReview, error)
 	listInventoryStock func(context.Context, reporting.ListInventoryStockInput) ([]reporting.InventoryStockItem, error)
 	listAuditEvents    func(context.Context, reporting.LookupAuditEventsInput) ([]reporting.AuditEvent, error)
+	listWorkOrders     func(context.Context, reporting.ListWorkOrdersInput) ([]reporting.WorkOrderReview, error)
+	getWorkOrderReview func(context.Context, reporting.GetWorkOrderReviewInput) (reporting.WorkOrderReview, error)
 }
 
 func (s stubOperatorReviewReader) ListApprovalQueue(context.Context, reporting.ListApprovalQueueInput) ([]reporting.ApprovalQueueEntry, error) {
@@ -245,11 +335,17 @@ func (s stubOperatorReviewReader) ListInventoryReconciliation(context.Context, r
 	return nil, nil
 }
 
-func (s stubOperatorReviewReader) ListWorkOrders(context.Context, reporting.ListWorkOrdersInput) ([]reporting.WorkOrderReview, error) {
+func (s stubOperatorReviewReader) ListWorkOrders(ctx context.Context, input reporting.ListWorkOrdersInput) ([]reporting.WorkOrderReview, error) {
+	if s.listWorkOrders != nil {
+		return s.listWorkOrders(ctx, input)
+	}
 	return nil, nil
 }
 
-func (s stubOperatorReviewReader) GetWorkOrderReview(context.Context, reporting.GetWorkOrderReviewInput) (reporting.WorkOrderReview, error) {
+func (s stubOperatorReviewReader) GetWorkOrderReview(ctx context.Context, input reporting.GetWorkOrderReviewInput) (reporting.WorkOrderReview, error) {
+	if s.getWorkOrderReview != nil {
+		return s.getWorkOrderReview(ctx, input)
+	}
 	return reporting.WorkOrderReview{}, nil
 }
 

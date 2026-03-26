@@ -35,6 +35,7 @@ var webAppTemplate = template.Must(template.New("app").Funcs(template.FuncMap{
 	"approvalQueueHref":     templateApprovalQueueHref,
 	"proposalDetailHref":    templateProposalDetailHref,
 	"proposalReviewHref":    templateProposalReviewHref,
+	"workOrderReviewHref":   templateWorkOrderReviewHref,
 	"inventoryReviewHref":   templateInventoryReviewHref,
 	"inventoryMovementHref": templateInventoryMovementHref,
 	"auditEventHref":        templateAuditEventHref,
@@ -191,12 +192,13 @@ type webInventoryDetailData struct {
 }
 
 type webWorkOrdersData struct {
-	Session    identityaccess.SessionContext
-	Notice     string
-	Error      string
-	Status     string
-	DocumentID string
-	WorkOrders []reporting.WorkOrderReview
+	Session     identityaccess.SessionContext
+	Notice      string
+	Error       string
+	WorkOrderID string
+	Status      string
+	DocumentID  string
+	WorkOrders  []reporting.WorkOrderReview
 }
 
 type webWorkOrderDetailData struct {
@@ -1013,17 +1015,19 @@ func (h *AgentAPIHandler) handleWebWorkOrders(w http.ResponseWriter, r *http.Req
 	}
 
 	data := webWorkOrdersData{
-		Session:    sessionContext,
-		Notice:     strings.TrimSpace(r.URL.Query().Get("notice")),
-		Error:      strings.TrimSpace(r.URL.Query().Get("error")),
-		Status:     strings.TrimSpace(r.URL.Query().Get("status")),
-		DocumentID: strings.TrimSpace(r.URL.Query().Get("document_id")),
+		Session:     sessionContext,
+		Notice:      strings.TrimSpace(r.URL.Query().Get("notice")),
+		Error:       strings.TrimSpace(r.URL.Query().Get("error")),
+		WorkOrderID: strings.TrimSpace(r.URL.Query().Get("work_order_id")),
+		Status:      strings.TrimSpace(r.URL.Query().Get("status")),
+		DocumentID:  strings.TrimSpace(r.URL.Query().Get("document_id")),
 	}
 	data.WorkOrders, err = h.reviewService.ListWorkOrders(r.Context(), reporting.ListWorkOrdersInput{
-		Status:     data.Status,
-		DocumentID: data.DocumentID,
-		Limit:      50,
-		Actor:      sessionContext.Actor,
+		WorkOrderID: data.WorkOrderID,
+		Status:      data.Status,
+		DocumentID:  data.DocumentID,
+		Limit:       50,
+		Actor:       sessionContext.Actor,
 	})
 	if err != nil {
 		data.Error = "failed to load work orders"
@@ -1677,6 +1681,23 @@ func templateProposalDetailHref(recommendationID string) string {
 		return webProposalsPath
 	}
 	return webProposalDetailPrefix + url.PathEscape(recommendationID)
+}
+
+func templateWorkOrderReviewHref(workOrderID, status, documentID string) string {
+	values := url.Values{}
+	if strings.TrimSpace(workOrderID) != "" {
+		values.Set("work_order_id", strings.TrimSpace(workOrderID))
+	}
+	if strings.TrimSpace(status) != "" {
+		values.Set("status", strings.TrimSpace(status))
+	}
+	if strings.TrimSpace(documentID) != "" {
+		values.Set("document_id", strings.TrimSpace(documentID))
+	}
+	if encoded := values.Encode(); encoded != "" {
+		return webWorkOrdersPath + "?" + encoded
+	}
+	return webWorkOrdersPath
 }
 
 func templateInventoryReviewHref(movementID, itemID, locationID, documentID, movementType string, onlyPendingAccounting, onlyPendingExecution bool, anchor string) string {
@@ -3089,6 +3110,7 @@ const webAppHTML = `<!DOCTYPE html>
       <section class="panel">
         <h2>Work-order review</h2>
         <form method="get" action="/app/review/work-orders" class="inline-form">
+          <input type="text" name="work_order_id" value="{{.WorkOrderID}}" placeholder="work order id">
           <input type="text" name="status" value="{{.Status}}" placeholder="status">
           <input type="text" name="document_id" value="{{.DocumentID}}" placeholder="document id">
           <button type="submit">Filter work orders</button>
@@ -3141,7 +3163,9 @@ const webAppHTML = `<!DOCTYPE html>
           <p>{{.Review.Title}}</p>
           <p class="meta">{{.Review.Summary}}</p>
           <p class="meta">
+            <a href="{{workOrderReviewHref .Review.WorkOrderID "" ""}}">Filtered list view</a> |
             <a href="{{documentReviewHref .Review.DocumentID}}">Source document</a> |
+            <a href="{{accountingReviewHref "" "" "" "" .Review.DocumentID "" "" "" "" ""}}">Accounting review</a> |
             <a href="/app/review/audit?entity_type=work_orders.work_order&amp;entity_id={{.Review.WorkOrderID}}">Audit trail</a>
           </p>
         </div>

@@ -597,6 +597,16 @@ LIMIT 1`,
 		t.Fatalf("unexpected exact work orders page status: got %d body=%s", exactWorkOrdersRecorder.Code, exactWorkOrdersRecorder.Body.String())
 	}
 	requireContains(t, exactWorkOrdersRecorder.Body.String(), "WO-RPT-1001")
+	requireContains(t, exactWorkOrdersRecorder.Body.String(), `name="work_order_id"`)
+
+	exactWorkOrderIDReq := httptest.NewRequest(http.MethodGet, "/app/review/work-orders?work_order_id="+workOrder.ID, nil)
+	applyResponseCookies(exactWorkOrderIDReq, loginRecorder.Result().Cookies())
+	exactWorkOrderIDRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(exactWorkOrderIDRecorder, exactWorkOrderIDReq)
+	if exactWorkOrderIDRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected exact work-order-id page status: got %d body=%s", exactWorkOrderIDRecorder.Code, exactWorkOrderIDRecorder.Body.String())
+	}
+	requireContains(t, exactWorkOrderIDRecorder.Body.String(), "WO-RPT-1001")
 
 	workOrderDetailReq := httptest.NewRequest(http.MethodGet, "/app/review/work-orders/"+workOrder.ID, nil)
 	applyResponseCookies(workOrderDetailReq, loginRecorder.Result().Cookies())
@@ -607,6 +617,7 @@ LIMIT 1`,
 	}
 	requireContains(t, workOrderDetailRecorder.Body.String(), "Work order WO-RPT-1001")
 	requireContains(t, workOrderDetailRecorder.Body.String(), "Review execution chain")
+	requireContains(t, workOrderDetailRecorder.Body.String(), "/app/review/work-orders?work_order_id="+workOrder.ID)
 	requireContains(t, workOrderDetailRecorder.Body.String(), "/app/review/documents/")
 	requireContains(t, workOrderDetailRecorder.Body.String(), "/app/review/audit?entity_type=work_orders.work_order&amp;entity_id="+workOrder.ID)
 	requireContains(t, workOrderDetailRecorder.Body.String(), "/app/review/accounting?document_id="+workOrder.DocumentID)
@@ -822,6 +833,15 @@ LIMIT 1`,
 		t.Fatalf("unexpected exact work orders api status: got %d body=%s", apiExactWorkOrdersRecorder.Code, apiExactWorkOrdersRecorder.Body.String())
 	}
 	requireContains(t, apiExactWorkOrdersRecorder.Body.String(), "\"document_id\":\""+workOrder.DocumentID+"\"")
+
+	apiExactWorkOrderIDReq := httptest.NewRequest(http.MethodGet, "/api/review/work-orders?work_order_id="+workOrder.ID, nil)
+	applyResponseCookies(apiExactWorkOrderIDReq, loginRecorder.Result().Cookies())
+	apiExactWorkOrderIDRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(apiExactWorkOrderIDRecorder, apiExactWorkOrderIDReq)
+	if apiExactWorkOrderIDRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected exact work-order-id api status: got %d body=%s", apiExactWorkOrderIDRecorder.Code, apiExactWorkOrderIDRecorder.Body.String())
+	}
+	requireContains(t, apiExactWorkOrderIDRecorder.Body.String(), "\"work_order_id\":\""+workOrder.ID+"\"")
 
 	apiWorkOrderDetailReq := httptest.NewRequest(http.MethodGet, "/api/review/work-orders/"+workOrder.ID, nil)
 	applyResponseCookies(apiWorkOrderDetailReq, loginRecorder.Result().Cookies())
