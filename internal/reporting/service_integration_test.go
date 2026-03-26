@@ -560,6 +560,21 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 		t.Fatalf("unexpected filtered journal review: %+v", filteredJournalReviews[0])
 	}
 
+	exactJournalReviews, err := reportingService.ListJournalEntries(ctx, reporting.ListJournalEntriesInput{
+		EntryID: gstEntry.ID,
+		Limit:   20,
+		Actor:   admin,
+	})
+	if err != nil {
+		t.Fatalf("list exact journal reviews: %v", err)
+	}
+	if len(exactJournalReviews) != 1 {
+		t.Fatalf("expected one exact journal review, got %d", len(exactJournalReviews))
+	}
+	if exactJournalReviews[0].EntryID != gstEntry.ID || !exactJournalReviews[0].SourceDocumentID.Valid || exactJournalReviews[0].SourceDocumentID.String != gstInvoiceDoc.ID {
+		t.Fatalf("unexpected exact journal review: %+v", exactJournalReviews[0])
+	}
+
 	controlBalances, err := reportingService.ListControlAccountBalances(ctx, reporting.ListControlAccountBalancesInput{
 		AsOf:  tdsPostedAt,
 		Actor: admin,

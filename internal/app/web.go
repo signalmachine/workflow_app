@@ -21,16 +21,17 @@ import (
 )
 
 var webAppTemplate = template.Must(template.New("app").Funcs(template.FuncMap{
-	"formatTime":         formatTemplateTime,
-	"prettyJSON":         prettyTemplateJSON,
-	"statusClass":        templateStatusClass,
-	"documentReviewHref": templateDocumentReviewHref,
-	"approvalReviewHref": templateApprovalReviewHref,
-	"approvalQueueHref":  templateApprovalQueueHref,
-	"proposalDetailHref": templateProposalDetailHref,
-	"proposalReviewHref": templateProposalReviewHref,
-	"auditEntityHref":    templateAuditEntityHref,
-	"auditEntityLabel":   templateAuditEntityLabel,
+	"formatTime":          formatTemplateTime,
+	"prettyJSON":          prettyTemplateJSON,
+	"statusClass":         templateStatusClass,
+	"documentReviewHref":  templateDocumentReviewHref,
+	"accountingEntryHref": templateAccountingEntryHref,
+	"approvalReviewHref":  templateApprovalReviewHref,
+	"approvalQueueHref":   templateApprovalQueueHref,
+	"proposalDetailHref":  templateProposalDetailHref,
+	"proposalReviewHref":  templateProposalReviewHref,
+	"auditEntityHref":     templateAuditEntityHref,
+	"auditEntityLabel":    templateAuditEntityLabel,
 }).Parse(webAppHTML))
 
 type webAppDashboardData struct {
@@ -84,10 +85,18 @@ type webAccountingData struct {
 	StartOn         string
 	EndOn           string
 	AsOf            string
+	EntryID         string
 	DocumentID      string
 	JournalEntries  []reporting.JournalEntryReview
 	ControlBalances []reporting.ControlAccountBalance
 	TaxSummaries    []reporting.TaxSummary
+}
+
+type webAccountingDetailData struct {
+	Session identityaccess.SessionContext
+	Notice  string
+	Error   string
+	Review  reporting.JournalEntryReview
 }
 
 type webProposalsData struct {
@@ -408,12 +417,14 @@ func (h *AgentAPIHandler) handleWebAccounting(w http.ResponseWriter, r *http.Req
 		StartOn:    formatDateInput(startOn),
 		EndOn:      formatDateInput(endOn),
 		AsOf:       formatDateInput(asOf),
+		EntryID:    strings.TrimSpace(r.URL.Query().Get("entry_id")),
 		DocumentID: strings.TrimSpace(r.URL.Query().Get("document_id")),
 	}
 
 	data.JournalEntries, err = h.reviewService.ListJournalEntries(r.Context(), reporting.ListJournalEntriesInput{
 		StartOn:    startOn,
 		EndOn:      endOn,
+		EntryID:    data.EntryID,
 		DocumentID: data.DocumentID,
 		Limit:      50,
 		Actor:      sessionContext.Actor,
@@ -441,6 +452,50 @@ func (h *AgentAPIHandler) handleWebAccounting(w http.ResponseWriter, r *http.Req
 		ActivePath: webAccountingPath,
 		Session:    &sessionContext,
 		Accounting: &data,
+	})
+}
+
+func (h *AgentAPIHandler) handleWebAccountingDetail(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+	entryID, ok := parseChildPath(webAccountingPath, r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("Please sign in."), http.StatusSeeOther)
+		return
+	}
+	if h.reviewService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("review service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	entries, err := h.reviewService.ListJournalEntries(r.Context(), reporting.ListJournalEntriesInput{
+		EntryID: entryID,
+		Limit:   2,
+		Actor:   sessionContext.Actor,
+	})
+	if err != nil || len(entries) == 0 {
+		http.Redirect(w, r, webAccountingPath+"?error="+url.QueryEscape("failed to load journal entry"), http.StatusSeeOther)
+		return
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:      "workflow_app",
+		ActivePath: webAccountingPath,
+		Session:    &sessionContext,
+		AccountingDetail: &webAccountingDetailData{
+			Session: sessionContext,
+			Notice:  strings.TrimSpace(r.URL.Query().Get("notice")),
+			Error:   strings.TrimSpace(r.URL.Query().Get("error")),
+			Review:  entries[0],
+		},
 	})
 }
 
@@ -1109,27 +1164,28 @@ func (h *AgentAPIHandler) handleWebApprovalDecision(w http.ResponseWriter, r *ht
 }
 
 type webPageData struct {
-	Title           string
-	ActivePath      string
-	Notice          string
-	Error           string
-	ShowLogin       bool
-	LoginPath       string
-	Session         *identityaccess.SessionContext
-	Dashboard       *webAppDashboardData
-	InboundRequests *webInboundRequestsData
-	Detail          *webInboundDetailData
-	Documents       *webDocumentsData
-	DocumentDetail  *webDocumentDetailData
-	Accounting      *webAccountingData
-	Approvals       *webApprovalsData
-	ApprovalDetail  *webApprovalDetailData
-	Proposals       *webProposalsData
-	ProposalDetail  *webProposalDetailData
-	Inventory       *webInventoryData
-	WorkOrders      *webWorkOrdersData
-	WorkOrderDetail *webWorkOrderDetailData
-	Audit           *webAuditData
+	Title            string
+	ActivePath       string
+	Notice           string
+	Error            string
+	ShowLogin        bool
+	LoginPath        string
+	Session          *identityaccess.SessionContext
+	Dashboard        *webAppDashboardData
+	InboundRequests  *webInboundRequestsData
+	Detail           *webInboundDetailData
+	Documents        *webDocumentsData
+	DocumentDetail   *webDocumentDetailData
+	Accounting       *webAccountingData
+	AccountingDetail *webAccountingDetailData
+	Approvals        *webApprovalsData
+	ApprovalDetail   *webApprovalDetailData
+	Proposals        *webProposalsData
+	ProposalDetail   *webProposalDetailData
+	Inventory        *webInventoryData
+	WorkOrders       *webWorkOrdersData
+	WorkOrderDetail  *webWorkOrderDetailData
+	Audit            *webAuditData
 }
 
 func (h *AgentAPIHandler) renderWebPage(w http.ResponseWriter, data webPageData) {
@@ -1212,6 +1268,14 @@ func templateDocumentReviewHref(documentID string) string {
 	return webDocumentDetailPrefix + url.PathEscape(documentID)
 }
 
+func templateAccountingEntryHref(entryID string) string {
+	entryID = strings.TrimSpace(entryID)
+	if entryID == "" {
+		return webAccountingPath
+	}
+	return webAccountingDetailPrefix + url.PathEscape(entryID)
+}
+
 func templateApprovalReviewHref(approvalID string) string {
 	approvalID = strings.TrimSpace(approvalID)
 	if approvalID == "" {
@@ -1279,6 +1343,8 @@ func templateAuditEntityHref(entityType, entityID string) string {
 		return templateApprovalReviewHref(entityID)
 	case "ai.agent_recommendation":
 		return templateProposalDetailHref(entityID)
+	case "accounting.journal_entry":
+		return templateAccountingEntryHref(entityID)
 	case "work_orders.work_order":
 		return webWorkOrdersPath + "/" + url.PathEscape(entityID)
 	case "inventory_ops.item":
@@ -1302,6 +1368,8 @@ func templateAuditEntityLabel(entityType string) string {
 		return "Open approval review"
 	case "ai.agent_recommendation":
 		return "Open proposal review"
+	case "accounting.journal_entry":
+		return "Open journal entry"
 	case "work_orders.work_order":
 		return "Open work order"
 	case "inventory_ops.item":
@@ -1825,7 +1893,10 @@ const webAppHTML = `<!DOCTYPE html>
                 {{end}}
               </td>
               <td>
-                {{if .JournalEntryNumber.Valid}}
+                {{if .JournalEntryID.Valid}}
+                <a href="{{accountingEntryHref .JournalEntryID.String}}">Entry #{{.JournalEntryNumber.Int64}}</a>
+                <div class="meta">{{if .JournalEntryPostedAt.Valid}}{{formatTime .JournalEntryPostedAt.Time}}{{else}}Not posted{{end}}</div>
+                {{else if .JournalEntryNumber.Valid}}
                 <a href="/app/review/accounting?document_id={{.DocumentID}}">Entry #{{.JournalEntryNumber.Int64}}</a>
                 <div class="meta">{{if .JournalEntryPostedAt.Valid}}{{formatTime .JournalEntryPostedAt.Time}}{{else}}Not posted{{end}}</div>
                 {{else}}
@@ -1890,7 +1961,7 @@ const webAppHTML = `<!DOCTYPE html>
               <tr><th>Type</th><td>{{.Entry.DocumentTypeCode}}</td></tr>
               <tr><th>Status</th><td><span class="status-pill {{statusClass .Entry.DocumentStatus}}">{{.Entry.DocumentStatus}}</span></td></tr>
               <tr><th>Document number</th><td>{{if .Entry.DocumentNumber.Valid}}{{.Entry.DocumentNumber.String}}{{else}}-{{end}}</td></tr>
-              <tr><th>Posting</th><td>{{if .Entry.JournalEntryNumber.Valid}}<a href="/app/review/accounting?document_id={{.Entry.DocumentID}}">Entry #{{.Entry.JournalEntryNumber.Int64}}</a>{{else}}-{{end}}</td></tr>
+              <tr><th>Posting</th><td>{{if .Entry.JournalEntryID.Valid}}<a href="{{accountingEntryHref .Entry.JournalEntryID.String}}">Entry #{{.Entry.JournalEntryNumber.Int64}}</a>{{else if .Entry.JournalEntryNumber.Valid}}<a href="/app/review/accounting?document_id={{.Entry.DocumentID}}">Entry #{{.Entry.JournalEntryNumber.Int64}}</a>{{else}}-{{end}}</td></tr>
             </tbody>
           </table>
         </section>
@@ -2057,7 +2128,7 @@ const webAppHTML = `<!DOCTYPE html>
               </td>
               <td><span class="status-pill {{statusClass .Status}}">{{.Status}}</span></td>
               <td>{{if .ApprovalQueueCode.Valid}}<a href="{{approvalQueueHref .ApprovalQueueCode.String .ApprovalStatus.String}}">{{.ApprovalStatus.String}}</a>{{else}}{{.ApprovalStatus.String}}{{end}}</td>
-              <td>{{if .JournalEntryNumber.Valid}}<a href="/app/review/accounting?document_id={{.DocumentID}}">Entry #{{.JournalEntryNumber.Int64}}</a>{{else}}-{{end}}</td>
+              <td>{{if .JournalEntryID.Valid}}<a href="{{accountingEntryHref .JournalEntryID.String}}">Entry #{{.JournalEntryNumber.Int64}}</a>{{else if .JournalEntryNumber.Valid}}<a href="/app/review/accounting?document_id={{.DocumentID}}">Entry #{{.JournalEntryNumber.Int64}}</a>{{else}}-{{end}}</td>
             </tr>
             {{else}}
             <tr><td colspan="5">No documents available for the selected filters.</td></tr>
@@ -2105,8 +2176,11 @@ const webAppHTML = `<!DOCTYPE html>
               <tr>
                 <th>Accounting</th>
                 <td>
-                  {{if .Review.JournalEntryNumber.Valid}}
-                  <a href="/app/review/accounting?document_id={{.Review.DocumentID}}">Entry #{{.Review.JournalEntryNumber.Int64}}</a>
+                  {{if .Review.JournalEntryID.Valid}}
+                  <a href="{{accountingEntryHref .Review.JournalEntryID.String}}">Entry #{{.Review.JournalEntryNumber.Int64}}</a>
+                  {{if .Review.JournalEntryPostedAt.Valid}} | {{formatTime .Review.JournalEntryPostedAt.Time}}{{end}}
+                  {{else if .Review.JournalEntryNumber.Valid}}
+                  <a href="{{accountingEntryHref .Review.JournalEntryID.String}}">Entry #{{.Review.JournalEntryNumber.Int64}}</a>
                   {{if .Review.JournalEntryPostedAt.Valid}} | {{formatTime .Review.JournalEntryPostedAt.Time}}{{end}}
                   {{else}}
                   -
@@ -2150,6 +2224,7 @@ const webAppHTML = `<!DOCTYPE html>
           <input type="date" name="start_on" value="{{.StartOn}}">
           <input type="date" name="end_on" value="{{.EndOn}}">
           <input type="date" name="as_of" value="{{.AsOf}}">
+          <input type="text" name="entry_id" value="{{.EntryID}}" placeholder="journal entry id">
           <input type="text" name="document_id" value="{{.DocumentID}}" placeholder="source document id">
           <button type="submit">Apply filters</button>
         </form>
@@ -2167,14 +2242,15 @@ const webAppHTML = `<!DOCTYPE html>
               </tr>
             </thead>
             <tbody>
-              {{range .JournalEntries}}
-              <tr>
-                <td>
-                  #{{.EntryNumber}}
+            {{range .JournalEntries}}
+            <tr>
+              <td>
+                  <a href="{{accountingEntryHref .EntryID}}">#{{.EntryNumber}}</a>
                   <div class="meta">{{.EntryKind}} | {{formatTime .PostedAt}}</div>
-                </td>
-                <td>{{.TaxScopeCode}}</td>
-                <td>
+                  <div class="meta"><a href="/app/review/audit?entity_type=accounting.journal_entry&amp;entity_id={{.EntryID}}">Audit trail</a></div>
+              </td>
+              <td>{{.TaxScopeCode}}</td>
+              <td>
                   {{.Summary}}
                   {{if .SourceDocumentID.Valid}}
                   <div class="meta">
@@ -2241,6 +2317,55 @@ const webAppHTML = `<!DOCTYPE html>
           </tbody>
         </table>
       </section>
+    </div>
+    {{end}}
+
+    {{with .AccountingDetail}}
+    <div class="stack">
+      {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+      {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+      <section class="panel">
+        <h2>Journal entry #{{.Review.EntryNumber}}</h2>
+        <div class="detail-block">
+          <span class="status-pill {{statusClass .Review.EntryKind}}">{{.Review.EntryKind}}</span>
+          <p><strong>{{.Review.Summary}}</strong></p>
+          <p class="meta">{{.Review.EntryID}}</p>
+          <p class="meta">Effective: {{formatTime .Review.EffectiveOn}} | Posted: {{formatTime .Review.PostedAt}} | Tax scope: {{.Review.TaxScopeCode}}</p>
+          <p class="meta">
+            <a href="/app/review/accounting?entry_id={{.Review.EntryID}}">Filtered accounting view</a> |
+            <a href="/app/review/audit?entity_type=accounting.journal_entry&amp;entity_id={{.Review.EntryID}}">Audit trail</a>
+            {{if .Review.SourceDocumentID.Valid}} | <a href="{{documentReviewHref .Review.SourceDocumentID.String}}">Source document</a>{{end}}
+          </p>
+        </div>
+      </section>
+      <div class="grid">
+        <section class="panel">
+          <h2>Posting detail</h2>
+          <table>
+            <tbody>
+              <tr><th>Entry kind</th><td>{{.Review.EntryKind}}</td></tr>
+              <tr><th>Currency</th><td>{{.Review.CurrencyCode}}</td></tr>
+              <tr><th>Lines</th><td>{{.Review.LineCount}}</td></tr>
+              <tr><th>Debit total</th><td>{{.Review.TotalDebitMinor}}</td></tr>
+              <tr><th>Credit total</th><td>{{.Review.TotalCreditMinor}}</td></tr>
+              <tr><th>Posted by</th><td>{{.Review.PostedByUserID}}</td></tr>
+              <tr><th>Created</th><td>{{formatTime .Review.CreatedAt}}</td></tr>
+              <tr><th>Reversal</th><td>{{if .Review.ReversalOfEntryID.Valid}}<a href="{{accountingEntryHref .Review.ReversalOfEntryID.String}}">Reversal of prior entry</a>{{else if .Review.HasReversal}}Reversed by a later entry{{else}}-{{end}}</td></tr>
+            </tbody>
+          </table>
+        </section>
+        <section class="panel">
+          <h2>Control chain</h2>
+          <table>
+            <tbody>
+              <tr><th>Source document</th><td>{{if .Review.SourceDocumentID.Valid}}<a href="{{documentReviewHref .Review.SourceDocumentID.String}}">{{if .Review.DocumentNumber.Valid}}{{.Review.DocumentNumber.String}}{{else}}{{.Review.DocumentTypeCode.String}}{{end}}</a>{{if .Review.DocumentStatus.Valid}} | <span class="status-pill {{statusClass .Review.DocumentStatus.String}}">{{.Review.DocumentStatus.String}}</span>{{end}}{{else}}-{{end}}</td></tr>
+              <tr><th>Document type</th><td>{{if .Review.DocumentTypeCode.Valid}}{{.Review.DocumentTypeCode.String}}{{else}}-{{end}}</td></tr>
+              <tr><th>Document filter</th><td>{{if .Review.SourceDocumentID.Valid}}<a href="/app/review/accounting?document_id={{.Review.SourceDocumentID.String}}">All entries for source document</a>{{else}}-{{end}}</td></tr>
+              <tr><th>Original entry</th><td>{{if .Review.ReversalOfEntryID.Valid}}<a href="{{accountingEntryHref .Review.ReversalOfEntryID.String}}">{{.Review.ReversalOfEntryID.String}}</a>{{else}}-{{end}}</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </div>
     </div>
     {{end}}
 
@@ -2340,7 +2465,7 @@ const webAppHTML = `<!DOCTYPE html>
               </td>
               <td>{{.ItemSKU}} | {{.ItemName}}</td>
               <td>{{if .WorkOrderID.Valid}}<a href="/app/review/work-orders/{{.WorkOrderID.String}}">{{.WorkOrderCode.String}}</a>{{else}}-{{end}} / {{if .ExecutionLinkStatus.Valid}}{{.ExecutionLinkStatus.String}}{{else}}-{{end}}</td>
-              <td>{{if .JournalEntryNumber.Valid}}<a href="/app/review/accounting?document_id={{.DocumentID}}">Entry #{{.JournalEntryNumber.Int64}}</a>{{else}}-{{end}} / {{if .AccountingHandoffStatus.Valid}}{{.AccountingHandoffStatus.String}}{{else}}-{{end}}</td>
+              <td>{{if .JournalEntryID.Valid}}<a href="{{accountingEntryHref .JournalEntryID.String}}">Entry #{{.JournalEntryNumber.Int64}}</a>{{else if .JournalEntryNumber.Valid}}<a href="/app/review/accounting?document_id={{.DocumentID}}">Entry #{{.JournalEntryNumber.Int64}}</a>{{else}}-{{end}} / {{if .AccountingHandoffStatus.Valid}}{{.AccountingHandoffStatus.String}}{{else}}-{{end}}</td>
             </tr>
             {{else}}
             <tr><td colspan="4">No reconciliation rows available.</td></tr>

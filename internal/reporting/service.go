@@ -255,6 +255,7 @@ type JournalEntryReview struct {
 type ListJournalEntriesInput struct {
 	StartOn    time.Time
 	EndOn      time.Time
+	EntryID    string
 	DocumentID string
 	Limit      int
 	Actor      identityaccess.Actor
@@ -1494,7 +1495,8 @@ LEFT JOIN documents.documents d
 WHERE e.org_id = $1
   AND ($2::date IS NULL OR e.effective_on >= $2::date)
   AND ($3::date IS NULL OR e.effective_on <= $3::date)
-  AND ($4 = '' OR e.source_document_id = $4::uuid)
+  AND ($4 = '' OR e.id = $4::uuid)
+  AND ($5 = '' OR e.source_document_id = $5::uuid)
 GROUP BY
 	e.id,
 	e.entry_number,
@@ -1513,10 +1515,11 @@ GROUP BY
 	d.number_value,
 	d.status
 ORDER BY e.effective_on DESC, e.entry_number DESC
-LIMIT $5;`,
+LIMIT $6;`,
 		input.Actor.OrgID,
 		nullableDate(startOn, startSet),
 		nullableDate(endOn, endSet),
+		strings.TrimSpace(input.EntryID),
 		strings.TrimSpace(input.DocumentID),
 		normalizeLimit(input.Limit),
 	)

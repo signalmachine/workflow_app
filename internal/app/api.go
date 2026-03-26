@@ -36,6 +36,7 @@ const (
 	webDocumentsPath           = "/app/review/documents"
 	webDocumentDetailPrefix    = "/app/review/documents/"
 	webAccountingPath          = "/app/review/accounting"
+	webAccountingDetailPrefix  = "/app/review/accounting/"
 	webApprovalsPath           = "/app/review/approvals"
 	webApprovalDetailPrefix    = "/app/review/approvals/"
 	webProposalsPath           = "/app/review/proposals"
@@ -216,6 +217,7 @@ func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(webDocumentsPath, handler.handleWebDocuments)
 	mux.HandleFunc(webDocumentDetailPrefix, handler.handleWebDocumentDetail)
 	mux.HandleFunc(webAccountingPath, handler.handleWebAccounting)
+	mux.HandleFunc(webAccountingDetailPrefix, handler.handleWebAccountingDetail)
 	mux.HandleFunc(webApprovalsPath, handler.handleWebApprovals)
 	mux.HandleFunc(webApprovalDetailPrefix, handler.handleWebApprovalDetail)
 	mux.HandleFunc(webProposalsPath, handler.handleWebProposals)
@@ -866,6 +868,7 @@ func (h *AgentAPIHandler) handleListJournalEntries(w http.ResponseWriter, r *htt
 	items, err := h.reviewService.ListJournalEntries(r.Context(), reporting.ListJournalEntriesInput{
 		StartOn:    parseOptionalDate(r.URL.Query().Get("start_on")),
 		EndOn:      parseOptionalDate(r.URL.Query().Get("end_on")),
+		EntryID:    strings.TrimSpace(r.URL.Query().Get("entry_id")),
 		DocumentID: strings.TrimSpace(r.URL.Query().Get("document_id")),
 		Limit:      parseLimit(r.URL.Query().Get("limit")),
 		Actor:      actor,
