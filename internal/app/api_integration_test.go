@@ -504,6 +504,7 @@ LIMIT 1`,
 	requireContains(t, inventoryRecorder.Body.String(), "Inventory review")
 	requireContains(t, inventoryRecorder.Body.String(), "RPT-MAT-1")
 	requireContains(t, inventoryRecorder.Body.String(), "Inventory issue")
+	requireContains(t, inventoryRecorder.Body.String(), "/app/review/inventory/"+issueMovementID)
 	requireContains(t, inventoryRecorder.Body.String(), "/app/review/work-orders/"+workOrder.ID)
 	requireContains(t, inventoryRecorder.Body.String(), "/app/review/documents/")
 	requireContains(t, inventoryRecorder.Body.String(), "/app/review/audit?entity_type=inventory_ops.movement&amp;entity_id=")
@@ -519,6 +520,19 @@ LIMIT 1`,
 	requireContains(t, exactInventoryRecorder.Body.String(), issueMovementID)
 	requireContains(t, exactInventoryRecorder.Body.String(), "Inventory issue")
 	requireNotContains(t, exactInventoryRecorder.Body.String(), "Inventory receipt")
+
+	inventoryDetailReq := httptest.NewRequest(http.MethodGet, "/app/review/inventory/"+issueMovementID, nil)
+	applyResponseCookies(inventoryDetailReq, loginRecorder.Result().Cookies())
+	inventoryDetailRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(inventoryDetailRecorder, inventoryDetailReq)
+	if inventoryDetailRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected inventory detail page status: got %d body=%s", inventoryDetailRecorder.Code, inventoryDetailRecorder.Body.String())
+	}
+	requireContains(t, inventoryDetailRecorder.Body.String(), "Inventory movement #")
+	requireContains(t, inventoryDetailRecorder.Body.String(), "Filtered inventory view")
+	requireContains(t, inventoryDetailRecorder.Body.String(), "/app/review/audit?entity_type=inventory_ops.movement&amp;entity_id="+issueMovementID)
+	requireContains(t, inventoryDetailRecorder.Body.String(), "/app/review/documents/")
+	requireContains(t, inventoryDetailRecorder.Body.String(), "/app/review/accounting/")
 
 	workOrdersReq := httptest.NewRequest(http.MethodGet, "/app/review/work-orders", nil)
 	applyResponseCookies(workOrdersReq, loginRecorder.Result().Cookies())
@@ -571,7 +585,7 @@ LIMIT 1`,
 	if movementAuditRecorder.Code != http.StatusOK {
 		t.Fatalf("unexpected movement audit page status: got %d body=%s", movementAuditRecorder.Code, movementAuditRecorder.Body.String())
 	}
-	requireContains(t, movementAuditRecorder.Body.String(), "/app/review/inventory?movement_id="+issueMovementID)
+	requireContains(t, movementAuditRecorder.Body.String(), "/app/review/inventory/"+issueMovementID)
 
 	journalAuditReq := httptest.NewRequest(http.MethodGet, "/app/review/audit?entity_type=accounting.journal_entry&entity_id="+gstInvoiceJournalEntryID, nil)
 	applyResponseCookies(journalAuditReq, loginRecorder.Result().Cookies())

@@ -21,17 +21,18 @@ import (
 )
 
 var webAppTemplate = template.Must(template.New("app").Funcs(template.FuncMap{
-	"formatTime":          formatTemplateTime,
-	"prettyJSON":          prettyTemplateJSON,
-	"statusClass":         templateStatusClass,
-	"documentReviewHref":  templateDocumentReviewHref,
-	"accountingEntryHref": templateAccountingEntryHref,
-	"approvalReviewHref":  templateApprovalReviewHref,
-	"approvalQueueHref":   templateApprovalQueueHref,
-	"proposalDetailHref":  templateProposalDetailHref,
-	"proposalReviewHref":  templateProposalReviewHref,
-	"auditEntityHref":     templateAuditEntityHref,
-	"auditEntityLabel":    templateAuditEntityLabel,
+	"formatTime":            formatTemplateTime,
+	"prettyJSON":            prettyTemplateJSON,
+	"statusClass":           templateStatusClass,
+	"documentReviewHref":    templateDocumentReviewHref,
+	"accountingEntryHref":   templateAccountingEntryHref,
+	"approvalReviewHref":    templateApprovalReviewHref,
+	"approvalQueueHref":     templateApprovalQueueHref,
+	"proposalDetailHref":    templateProposalDetailHref,
+	"proposalReviewHref":    templateProposalReviewHref,
+	"inventoryMovementHref": templateInventoryMovementHref,
+	"auditEntityHref":       templateAuditEntityHref,
+	"auditEntityLabel":      templateAuditEntityLabel,
 }).Parse(webAppHTML))
 
 type webAppDashboardData struct {
@@ -148,6 +149,14 @@ type webInventoryData struct {
 	Stock                 []reporting.InventoryStockItem
 	Movements             []reporting.InventoryMovementReview
 	Reconciliation        []reporting.InventoryReconciliationItem
+}
+
+type webInventoryDetailData struct {
+	Session        identityaccess.SessionContext
+	Notice         string
+	Error          string
+	Review         reporting.InventoryMovementReview
+	Reconciliation []reporting.InventoryReconciliationItem
 }
 
 type webWorkOrdersData struct {
@@ -758,6 +767,61 @@ func (h *AgentAPIHandler) handleWebInventory(w http.ResponseWriter, r *http.Requ
 	})
 }
 
+func (h *AgentAPIHandler) handleWebInventoryDetail(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+	movementID, ok := parseChildPath(webInventoryPath, r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("Please sign in."), http.StatusSeeOther)
+		return
+	}
+	if h.reviewService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("review service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	movements, err := h.reviewService.ListInventoryMovements(r.Context(), reporting.ListInventoryMovementsInput{
+		MovementID: movementID,
+		Limit:      2,
+		Actor:      sessionContext.Actor,
+	})
+	if err != nil || len(movements) == 0 {
+		http.Redirect(w, r, webInventoryPath+"?error="+url.QueryEscape("failed to load inventory movement"), http.StatusSeeOther)
+		return
+	}
+
+	reconciliation, err := h.reviewService.ListInventoryReconciliation(r.Context(), reporting.ListInventoryReconciliationInput{
+		MovementID: movementID,
+		Limit:      20,
+		Actor:      sessionContext.Actor,
+	})
+	if err != nil {
+		http.Redirect(w, r, webInventoryPath+"?error="+url.QueryEscape("failed to load inventory reconciliation"), http.StatusSeeOther)
+		return
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:      "workflow_app",
+		ActivePath: webInventoryPath,
+		Session:    &sessionContext,
+		InventoryDetail: &webInventoryDetailData{
+			Session:        sessionContext,
+			Notice:         strings.TrimSpace(r.URL.Query().Get("notice")),
+			Error:          strings.TrimSpace(r.URL.Query().Get("error")),
+			Review:         movements[0],
+			Reconciliation: reconciliation,
+		},
+	})
+}
+
 func (h *AgentAPIHandler) handleWebWorkOrders(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != webWorkOrdersPath {
 		http.NotFound(w, r)
@@ -1183,6 +1247,7 @@ type webPageData struct {
 	Proposals        *webProposalsData
 	ProposalDetail   *webProposalDetailData
 	Inventory        *webInventoryData
+	InventoryDetail  *webInventoryDetailData
 	WorkOrders       *webWorkOrdersData
 	WorkOrderDetail  *webWorkOrderDetailData
 	Audit            *webAuditData
@@ -1327,6 +1392,14 @@ func templateProposalDetailHref(recommendationID string) string {
 	return webProposalDetailPrefix + url.PathEscape(recommendationID)
 }
 
+func templateInventoryMovementHref(movementID string) string {
+	movementID = strings.TrimSpace(movementID)
+	if movementID == "" {
+		return webInventoryPath
+	}
+	return webInventoryDetailPrefix + url.PathEscape(movementID)
+}
+
 func templateAuditEntityHref(entityType, entityID string) string {
 	entityType = strings.TrimSpace(entityType)
 	entityID = strings.TrimSpace(entityID)
@@ -1352,7 +1425,7 @@ func templateAuditEntityHref(entityType, entityID string) string {
 	case "inventory_ops.location":
 		return webInventoryPath + "?location_id=" + url.QueryEscape(entityID)
 	case "inventory_ops.movement":
-		return webInventoryPath + "?movement_id=" + url.QueryEscape(entityID)
+		return templateInventoryMovementHref(entityID)
 	default:
 		return ""
 	}
@@ -1377,7 +1450,7 @@ func templateAuditEntityLabel(entityType string) string {
 	case "inventory_ops.location":
 		return "Filter inventory by location"
 	case "inventory_ops.movement":
-		return "Open movement review"
+		return "Open movement detail"
 	default:
 		return ""
 	}
@@ -2426,7 +2499,7 @@ const webAppHTML = `<!DOCTYPE html>
             {{range .Movements}}
             <tr>
               <td>
-                #{{.MovementNumber}} | {{.MovementType}}
+                <a href="{{inventoryMovementHref .MovementID}}">#{{.MovementNumber}} | {{.MovementType}}</a>
                 <div class="meta"><a href="/app/review/audit?entity_type=inventory_ops.movement&amp;entity_id={{.MovementID}}">Audit trail</a></div>
               </td>
               <td>
@@ -2469,6 +2542,70 @@ const webAppHTML = `<!DOCTYPE html>
             </tr>
             {{else}}
             <tr><td colspan="4">No reconciliation rows available.</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+      </section>
+    </div>
+    {{end}}
+
+    {{with .InventoryDetail}}
+    <div class="stack">
+      {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+      {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+      <section class="panel">
+        <h2>Inventory movement #{{.Review.MovementNumber}}</h2>
+        <p class="meta">
+          <a href="/app/review/inventory?movement_id={{.Review.MovementID}}">Filtered inventory view</a> |
+          <a href="/app/review/audit?entity_type=inventory_ops.movement&amp;entity_id={{.Review.MovementID}}">Audit trail</a>
+        </p>
+        <div class="detail-grid">
+          <div class="detail-block"><strong>Movement ID</strong><br>{{.Review.MovementID}}</div>
+          <div class="detail-block"><strong>Movement type</strong><br>{{.Review.MovementType}}</div>
+          <div class="detail-block"><strong>Purpose</strong><br>{{.Review.MovementPurpose}}</div>
+          <div class="detail-block"><strong>Usage</strong><br>{{.Review.UsageClassification}}</div>
+          <div class="detail-block"><strong>Item</strong><br>{{.Review.ItemSKU}} | {{.Review.ItemName}}</div>
+          <div class="detail-block"><strong>Item role</strong><br>{{.Review.ItemRole}}</div>
+          <div class="detail-block"><strong>Source</strong><br>{{if .Review.SourceLocationCode.Valid}}{{.Review.SourceLocationCode.String}} | {{.Review.SourceLocationName.String}}{{else}}-{{end}}</div>
+          <div class="detail-block"><strong>Destination</strong><br>{{if .Review.DestinationLocationCode.Valid}}{{.Review.DestinationLocationCode.String}} | {{.Review.DestinationLocationName.String}}{{else}}-{{end}}</div>
+          <div class="detail-block"><strong>Quantity</strong><br>{{.Review.QuantityMilli}}</div>
+          <div class="detail-block"><strong>Created</strong><br>{{formatTime .Review.CreatedAt}}</div>
+          <div class="detail-block"><strong>Created by</strong><br>{{.Review.CreatedByUserID}}</div>
+          <div class="detail-block"><strong>Reference note</strong><br>{{if .Review.ReferenceNote}}{{.Review.ReferenceNote}}{{else}}-{{end}}</div>
+        </div>
+        {{if .Review.DocumentID.Valid}}
+        <div class="detail-block">
+          <strong>Source document</strong><br>
+          <a href="{{documentReviewHref .Review.DocumentID.String}}">{{if .Review.DocumentTitle.Valid}}{{.Review.DocumentTitle.String}}{{else}}Document{{end}}</a>
+          {{if .Review.DocumentNumber.Valid}} | {{.Review.DocumentNumber.String}}{{end}}
+          {{if .Review.DocumentStatus.Valid}} | {{.Review.DocumentStatus.String}}{{end}}
+        </div>
+        {{end}}
+      </section>
+      <section class="panel">
+        <h2>Reconciliation links</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Document line</th>
+              <th>Execution</th>
+              <th>Accounting</th>
+              <th>Movement timing</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .Reconciliation}}
+            <tr>
+              <td>
+                <a href="{{documentReviewHref .DocumentID}}">{{.DocumentTitle}}</a> line {{.LineNumber}}
+                <div class="meta">{{.DocumentTypeCode}} | {{.DocumentStatus}}</div>
+              </td>
+              <td>{{if .WorkOrderID.Valid}}<a href="/app/review/work-orders/{{.WorkOrderID.String}}">{{.WorkOrderCode.String}}</a>{{else}}-{{end}} / {{if .ExecutionLinkStatus.Valid}}{{.ExecutionLinkStatus.String}}{{else}}-{{end}}</td>
+              <td>{{if .JournalEntryID.Valid}}<a href="{{accountingEntryHref .JournalEntryID.String}}">Entry #{{.JournalEntryNumber.Int64}}</a>{{else if .JournalEntryNumber.Valid}}<a href="/app/review/accounting?document_id={{.DocumentID}}">Entry #{{.JournalEntryNumber.Int64}}</a>{{else}}-{{end}} / {{if .AccountingHandoffStatus.Valid}}{{.AccountingHandoffStatus.String}}{{else}}-{{end}}</td>
+              <td>{{formatTime .MovementCreatedAt}}</td>
+            </tr>
+            {{else}}
+            <tr><td colspan="4">No reconciliation rows available for this movement.</td></tr>
             {{end}}
           </tbody>
         </table>
