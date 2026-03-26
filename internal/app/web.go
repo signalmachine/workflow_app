@@ -33,6 +33,7 @@ var webAppTemplate = template.Must(template.New("app").Funcs(template.FuncMap{
 	"approvalQueueHref":     templateApprovalQueueHref,
 	"proposalDetailHref":    templateProposalDetailHref,
 	"proposalReviewHref":    templateProposalReviewHref,
+	"inventoryReviewHref":   templateInventoryReviewHref,
 	"inventoryMovementHref": templateInventoryMovementHref,
 	"auditEventHref":        templateAuditEventHref,
 	"auditEntityHref":       templateAuditEntityHref,
@@ -1509,6 +1510,41 @@ func templateProposalDetailHref(recommendationID string) string {
 	return webProposalDetailPrefix + url.PathEscape(recommendationID)
 }
 
+func templateInventoryReviewHref(movementID, itemID, locationID, documentID, movementType string, onlyPendingAccounting, onlyPendingExecution bool, anchor string) string {
+	values := url.Values{}
+	if strings.TrimSpace(movementID) != "" {
+		values.Set("movement_id", strings.TrimSpace(movementID))
+	}
+	if strings.TrimSpace(itemID) != "" {
+		values.Set("item_id", strings.TrimSpace(itemID))
+	}
+	if strings.TrimSpace(locationID) != "" {
+		values.Set("location_id", strings.TrimSpace(locationID))
+	}
+	if strings.TrimSpace(documentID) != "" {
+		values.Set("document_id", strings.TrimSpace(documentID))
+	}
+	if strings.TrimSpace(movementType) != "" {
+		values.Set("movement_type", strings.TrimSpace(movementType))
+	}
+	if onlyPendingAccounting {
+		values.Set("only_pending_accounting", "true")
+	}
+	if onlyPendingExecution {
+		values.Set("only_pending_execution", "true")
+	}
+
+	target := webInventoryPath
+	if encoded := values.Encode(); encoded != "" {
+		target += "?" + encoded
+	}
+	anchor = strings.TrimSpace(anchor)
+	if anchor != "" {
+		target += "#" + strings.TrimPrefix(anchor, "#")
+	}
+	return target
+}
+
 func templateInventoryMovementHref(movementID string) string {
 	movementID = strings.TrimSpace(movementID)
 	if movementID == "" {
@@ -1546,9 +1582,9 @@ func templateAuditEntityHref(entityType, entityID string) string {
 	case "work_orders.work_order":
 		return webWorkOrdersPath + "/" + url.PathEscape(entityID)
 	case "inventory_ops.item":
-		return webInventoryPath + "?item_id=" + url.QueryEscape(entityID)
+		return templateInventoryReviewHref("", entityID, "", "", "", false, false, "stock-balances")
 	case "inventory_ops.location":
-		return webInventoryPath + "?location_id=" + url.QueryEscape(entityID)
+		return templateInventoryReviewHref("", "", entityID, "", "", false, false, "stock-balances")
 	case "inventory_ops.movement":
 		return templateInventoryMovementHref(entityID)
 	default:
@@ -1571,9 +1607,9 @@ func templateAuditEntityLabel(entityType string) string {
 	case "work_orders.work_order":
 		return "Open work order"
 	case "inventory_ops.item":
-		return "Filter inventory by item"
+		return "Open inventory item review"
 	case "inventory_ops.location":
-		return "Filter inventory by location"
+		return "Open inventory location review"
 	case "inventory_ops.movement":
 		return "Open movement detail"
 	default:
@@ -2616,7 +2652,7 @@ const webAppHTML = `<!DOCTYPE html>
           <button type="submit">Apply filters</button>
         </form>
       </section>
-      <section class="panel">
+      <section class="panel" id="stock-balances">
         <h2>Stock balances</h2>
         <table>
           <thead>
@@ -2630,9 +2666,18 @@ const webAppHTML = `<!DOCTYPE html>
           <tbody>
             {{range .Stock}}
             <tr>
-              <td>{{.ItemSKU}} | {{.ItemName}}</td>
+              <td>
+                <a href="{{inventoryReviewHref "" .ItemID .LocationID "" "" false false "stock-balances"}}">{{.ItemSKU}} | {{.ItemName}}</a>
+                <div class="meta">
+                  <a href="{{inventoryReviewHref "" .ItemID .LocationID "" "" false false "movement-history"}}">Movement history</a> |
+                  <a href="{{inventoryReviewHref "" .ItemID "" "" "" false false "reconciliation"}}">Reconciliation</a>
+                </div>
+              </td>
               <td>{{.ItemRole}}</td>
-              <td>{{.LocationCode}} | {{.LocationName}}</td>
+              <td>
+                <a href="{{inventoryReviewHref "" .ItemID .LocationID "" "" false false "stock-balances"}}">{{.LocationCode}} | {{.LocationName}}</a>
+                <div class="meta"><a href="{{inventoryReviewHref "" "" .LocationID "" "" false false "movement-history"}}">Location movements</a></div>
+              </td>
               <td>{{.OnHandMilli}}</td>
             </tr>
             {{else}}
@@ -2641,7 +2686,7 @@ const webAppHTML = `<!DOCTYPE html>
           </tbody>
         </table>
       </section>
-      <section class="panel">
+      <section class="panel" id="movement-history">
         <h2>Movement history</h2>
         <table>
           <thead>
@@ -2661,7 +2706,7 @@ const webAppHTML = `<!DOCTYPE html>
               </td>
               <td>
                 {{.ItemSKU}} | {{.ItemName}}
-                <div class="meta"><a href="/app/review/inventory?item_id={{.ItemID}}">Filter by item</a></div>
+                <div class="meta"><a href="{{inventoryReviewHref "" .ItemID "" "" "" false false "movement-history"}}">Filter by item</a></div>
               </td>
               <td>{{if .SourceLocationCode.Valid}}{{.SourceLocationCode.String}}{{else}}-{{end}} -> {{if .DestinationLocationCode.Valid}}{{.DestinationLocationCode.String}}{{else}}-{{end}}</td>
               <td>
@@ -2675,7 +2720,7 @@ const webAppHTML = `<!DOCTYPE html>
           </tbody>
         </table>
       </section>
-      <section class="panel">
+      <section class="panel" id="reconciliation">
         <h2>Reconciliation</h2>
         <table>
           <thead>

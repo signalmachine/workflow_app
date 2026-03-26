@@ -78,8 +78,129 @@ func TestHandleWebDocumentDetailFallsBackToDocumentScopedAccountingLink(t *testi
 	}
 }
 
+func TestHandleWebInventoryAddsStockContinuityLinks(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listInventoryStock: func(context.Context, reporting.ListInventoryStockInput) ([]reporting.InventoryStockItem, error) {
+				return []reporting.InventoryStockItem{
+					{
+						ItemID:       "item-123",
+						ItemSKU:      "RPT-MAT-1",
+						ItemName:     "Reporting material",
+						ItemRole:     "material",
+						LocationID:   "loc-123",
+						LocationCode: "MAIN",
+						LocationName: "Main store",
+						LocationRole: "warehouse",
+						OnHandMilli:  1200,
+					},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review/inventory", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, `/app/review/inventory?item_id=item-123&amp;location_id=loc-123#stock-balances`) {
+		t.Fatalf("expected stock-balance anchor link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/inventory?item_id=item-123&amp;location_id=loc-123#movement-history`) {
+		t.Fatalf("expected movement-history link from stock row, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/inventory?item_id=item-123#reconciliation`) {
+		t.Fatalf("expected reconciliation link from stock row, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/inventory?location_id=loc-123#movement-history`) {
+		t.Fatalf("expected location movement link from stock row, body=%s", body)
+	}
+}
+
+func TestHandleWebAuditDetailLinksInventoryEntitiesToStockBalances(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listAuditEvents: func(context.Context, reporting.LookupAuditEventsInput) ([]reporting.AuditEvent, error) {
+				return []reporting.AuditEvent{
+					{
+						ID:         "audit-123",
+						EventType:  "inventory_ops.item_reviewed",
+						EntityType: "inventory_ops.item",
+						EntityID:   "item-123",
+						OccurredAt: time.Date(2026, 3, 26, 12, 0, 0, 0, time.UTC),
+					},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review/audit/audit-123", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, `/app/review/inventory?item_id=item-123#stock-balances`) {
+		t.Fatalf("expected item-scoped stock-balance link, body=%s", body)
+	}
+	if !strings.Contains(body, `Open inventory item review`) {
+		t.Fatalf("expected updated inventory audit label, body=%s", body)
+	}
+}
+
+func testSessionContext() identityaccess.SessionContext {
+	return identityaccess.SessionContext{
+		Actor: identityaccess.Actor{
+			OrgID:     "org-123",
+			UserID:    "user-123",
+			SessionID: "00000000-0000-4000-8000-000000000123",
+		},
+		RoleCode:  identityaccess.RoleOperator,
+		OrgSlug:   "acme",
+		UserEmail: "operator@example.com",
+		Session: identityaccess.Session{
+			ID:        "00000000-0000-4000-8000-000000000123",
+			OrgID:     "org-123",
+			UserID:    "user-123",
+			ExpiresAt: time.Now().UTC().Add(24 * time.Hour),
+		},
+	}
+}
+
 type stubOperatorReviewReader struct {
-	getDocumentReview func(context.Context, reporting.GetDocumentReviewInput) (reporting.DocumentReview, error)
+	getDocumentReview  func(context.Context, reporting.GetDocumentReviewInput) (reporting.DocumentReview, error)
+	listInventoryStock func(context.Context, reporting.ListInventoryStockInput) ([]reporting.InventoryStockItem, error)
+	listAuditEvents    func(context.Context, reporting.LookupAuditEventsInput) ([]reporting.AuditEvent, error)
 }
 
 func (s stubOperatorReviewReader) ListApprovalQueue(context.Context, reporting.ListApprovalQueueInput) ([]reporting.ApprovalQueueEntry, error) {
@@ -109,7 +230,10 @@ func (s stubOperatorReviewReader) ListTaxSummaries(context.Context, reporting.Li
 	return nil, nil
 }
 
-func (s stubOperatorReviewReader) ListInventoryStock(context.Context, reporting.ListInventoryStockInput) ([]reporting.InventoryStockItem, error) {
+func (s stubOperatorReviewReader) ListInventoryStock(ctx context.Context, input reporting.ListInventoryStockInput) ([]reporting.InventoryStockItem, error) {
+	if s.listInventoryStock != nil {
+		return s.listInventoryStock(ctx, input)
+	}
 	return nil, nil
 }
 
@@ -129,7 +253,10 @@ func (s stubOperatorReviewReader) GetWorkOrderReview(context.Context, reporting.
 	return reporting.WorkOrderReview{}, nil
 }
 
-func (s stubOperatorReviewReader) LookupAuditEvents(context.Context, reporting.LookupAuditEventsInput) ([]reporting.AuditEvent, error) {
+func (s stubOperatorReviewReader) LookupAuditEvents(ctx context.Context, input reporting.LookupAuditEventsInput) ([]reporting.AuditEvent, error) {
+	if s.listAuditEvents != nil {
+		return s.listAuditEvents(ctx, input)
+	}
 	return nil, nil
 }
 
