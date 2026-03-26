@@ -34,6 +34,7 @@ const (
 	webInboundRequestsPath     = "/app/review/inbound-requests"
 	webApprovalDecisionPrefix  = "/app/approvals/"
 	webDocumentsPath           = "/app/review/documents"
+	webDocumentDetailPrefix    = "/app/review/documents/"
 	webAccountingPath          = "/app/review/accounting"
 	webApprovalsPath           = "/app/review/approvals"
 	webProposalsPath           = "/app/review/proposals"
@@ -83,6 +84,7 @@ type inboundRequestSubmitter interface {
 type operatorReviewReader interface {
 	ListApprovalQueue(ctx context.Context, input reporting.ListApprovalQueueInput) ([]reporting.ApprovalQueueEntry, error)
 	ListDocuments(ctx context.Context, input reporting.ListDocumentsInput) ([]reporting.DocumentReview, error)
+	GetDocumentReview(ctx context.Context, input reporting.GetDocumentReviewInput) (reporting.DocumentReview, error)
 	ListJournalEntries(ctx context.Context, input reporting.ListJournalEntriesInput) ([]reporting.JournalEntryReview, error)
 	ListControlAccountBalances(ctx context.Context, input reporting.ListControlAccountBalancesInput) ([]reporting.ControlAccountBalance, error)
 	ListTaxSummaries(ctx context.Context, input reporting.ListTaxSummariesInput) ([]reporting.TaxSummary, error)
@@ -210,6 +212,7 @@ func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(webInboundRequestsPath, handler.handleWebInboundRequests)
 	mux.HandleFunc(webApprovalDecisionPrefix, handler.handleWebApprovalDecision)
 	mux.HandleFunc(webDocumentsPath, handler.handleWebDocuments)
+	mux.HandleFunc(webDocumentDetailPrefix, handler.handleWebDocumentDetail)
 	mux.HandleFunc(webAccountingPath, handler.handleWebAccounting)
 	mux.HandleFunc(webApprovalsPath, handler.handleWebApprovals)
 	mux.HandleFunc(webProposalsPath, handler.handleWebProposals)

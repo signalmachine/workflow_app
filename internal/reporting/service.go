@@ -14,6 +14,7 @@ import (
 
 var (
 	ErrInvalidReviewFilter = errors.New("invalid review filter")
+	ErrDocumentNotFound    = errors.New("document not found")
 	ErrWorkOrderNotFound   = errors.New("work order not found")
 )
 
@@ -76,6 +77,11 @@ type ListDocumentsInput struct {
 	TypeCode   string
 	Status     string
 	Limit      int
+	Actor      identityaccess.Actor
+}
+
+type GetDocumentReviewInput struct {
+	DocumentID string
 	Actor      identityaccess.Actor
 }
 
@@ -721,6 +727,26 @@ LIMIT $5;`,
 	}
 
 	return reviews, nil
+}
+
+func (s *Service) GetDocumentReview(ctx context.Context, input GetDocumentReviewInput) (DocumentReview, error) {
+	documentID := strings.TrimSpace(input.DocumentID)
+	if documentID == "" {
+		return DocumentReview{}, ErrInvalidReviewFilter
+	}
+
+	reviews, err := s.ListDocuments(ctx, ListDocumentsInput{
+		DocumentID: documentID,
+		Limit:      1,
+		Actor:      input.Actor,
+	})
+	if err != nil {
+		return DocumentReview{}, err
+	}
+	if len(reviews) == 0 {
+		return DocumentReview{}, ErrDocumentNotFound
+	}
+	return reviews[0], nil
 }
 
 func (s *Service) ListInventoryStock(ctx context.Context, input ListInventoryStockInput) ([]InventoryStockItem, error) {

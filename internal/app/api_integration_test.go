@@ -420,21 +420,25 @@ LIMIT 1`,
 	}
 	requireContains(t, documentsRecorder.Body.String(), "Document review")
 	requireContains(t, documentsRecorder.Body.String(), "Posted GST invoice")
+	requireContains(t, documentsRecorder.Body.String(), "/app/review/documents/"+gstInvoiceDocumentID)
 	requireContains(t, documentsRecorder.Body.String(), "/app/review/approvals")
 	requireContains(t, documentsRecorder.Body.String(), "/app/review/audit?entity_type=documents.document&amp;entity_id="+gstInvoiceDocumentID)
 	requireContains(t, documentsRecorder.Body.String(), "/app/review/work-orders?document_id="+workOrder.DocumentID)
 	requireContains(t, documentsRecorder.Body.String(), "/app/review/accounting?document_id="+gstInvoiceDocumentID)
 	requireContains(t, documentsRecorder.Body.String(), "/app/review/approvals?queue_code=")
 
-	exactDocumentsReq := httptest.NewRequest(http.MethodGet, "/app/review/documents?document_id="+gstInvoiceDocumentID, nil)
+	exactDocumentsReq := httptest.NewRequest(http.MethodGet, "/app/review/documents/"+gstInvoiceDocumentID, nil)
 	applyResponseCookies(exactDocumentsReq, loginRecorder.Result().Cookies())
 	exactDocumentsRecorder := httptest.NewRecorder()
 	handler.ServeHTTP(exactDocumentsRecorder, exactDocumentsReq)
 	if exactDocumentsRecorder.Code != http.StatusOK {
-		t.Fatalf("unexpected exact documents page status: got %d body=%s", exactDocumentsRecorder.Code, exactDocumentsRecorder.Body.String())
+		t.Fatalf("unexpected document detail page status: got %d body=%s", exactDocumentsRecorder.Code, exactDocumentsRecorder.Body.String())
 	}
+	requireContains(t, exactDocumentsRecorder.Body.String(), "Control chain")
 	requireContains(t, exactDocumentsRecorder.Body.String(), "Posted GST invoice")
 	requireContains(t, exactDocumentsRecorder.Body.String(), gstInvoiceDocumentID)
+	requireContains(t, exactDocumentsRecorder.Body.String(), "/app/review/documents?document_id="+gstInvoiceDocumentID)
+	requireContains(t, exactDocumentsRecorder.Body.String(), "/app/review/accounting?document_id="+gstInvoiceDocumentID)
 
 	accountingReq := httptest.NewRequest(http.MethodGet, "/app/review/accounting", nil)
 	applyResponseCookies(accountingReq, loginRecorder.Result().Cookies())
@@ -446,7 +450,7 @@ LIMIT 1`,
 	requireContains(t, accountingRecorder.Body.String(), "Accounting review")
 	requireContains(t, accountingRecorder.Body.String(), "Post approved invoice with GST")
 	requireContains(t, accountingRecorder.Body.String(), "GST18")
-	requireContains(t, accountingRecorder.Body.String(), "/app/review/documents?document_id="+gstInvoiceDocumentID)
+	requireContains(t, accountingRecorder.Body.String(), "/app/review/documents/"+gstInvoiceDocumentID)
 	requireContains(t, accountingRecorder.Body.String(), "/app/review/audit?entity_type=documents.document&amp;entity_id="+gstInvoiceDocumentID)
 
 	exactAccountingReq := httptest.NewRequest(http.MethodGet, "/app/review/accounting?document_id="+gstInvoiceDocumentID, nil)
@@ -481,7 +485,7 @@ LIMIT 1`,
 	requireContains(t, inventoryRecorder.Body.String(), "RPT-MAT-1")
 	requireContains(t, inventoryRecorder.Body.String(), "Inventory issue")
 	requireContains(t, inventoryRecorder.Body.String(), "/app/review/work-orders/"+workOrder.ID)
-	requireContains(t, inventoryRecorder.Body.String(), "/app/review/documents?document_id=")
+	requireContains(t, inventoryRecorder.Body.String(), "/app/review/documents/")
 	requireContains(t, inventoryRecorder.Body.String(), "/app/review/audit?entity_type=inventory_ops.movement&amp;entity_id=")
 	requireContains(t, inventoryRecorder.Body.String(), "/app/review/accounting?document_id=")
 
@@ -505,7 +509,7 @@ LIMIT 1`,
 	}
 	requireContains(t, workOrdersRecorder.Body.String(), "Work-order review")
 	requireContains(t, workOrdersRecorder.Body.String(), "WO-RPT-1001")
-	requireContains(t, workOrdersRecorder.Body.String(), "/app/review/documents?document_id="+workOrder.DocumentID)
+	requireContains(t, workOrdersRecorder.Body.String(), "/app/review/documents/"+workOrder.DocumentID)
 
 	exactWorkOrdersReq := httptest.NewRequest(http.MethodGet, "/app/review/work-orders?document_id="+workOrder.DocumentID, nil)
 	applyResponseCookies(exactWorkOrdersReq, loginRecorder.Result().Cookies())
@@ -525,7 +529,7 @@ LIMIT 1`,
 	}
 	requireContains(t, workOrderDetailRecorder.Body.String(), "Work order WO-RPT-1001")
 	requireContains(t, workOrderDetailRecorder.Body.String(), "Review execution chain")
-	requireContains(t, workOrderDetailRecorder.Body.String(), "/app/review/documents?document_id=")
+	requireContains(t, workOrderDetailRecorder.Body.String(), "/app/review/documents/")
 	requireContains(t, workOrderDetailRecorder.Body.String(), "/app/review/audit?entity_type=work_orders.work_order&amp;entity_id="+workOrder.ID)
 	requireContains(t, workOrderDetailRecorder.Body.String(), "/app/review/accounting?document_id="+workOrder.DocumentID)
 
@@ -1349,7 +1353,7 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	}
 	requireContains(t, approvalsRecorder.Body.String(), "Approval review")
 	requireContains(t, approvalsRecorder.Body.String(), queueResponse.Items[0].QueueCode)
-	requireContains(t, approvalsRecorder.Body.String(), "/app/review/documents?document_id=")
+	requireContains(t, approvalsRecorder.Body.String(), "/app/review/documents/")
 
 	exactApprovalsReq := httptest.NewRequest(http.MethodGet, "/app/review/approvals?approval_id="+approval.ID, nil)
 	applyResponseCookies(exactApprovalsReq, loginRecorder.Result().Cookies())
