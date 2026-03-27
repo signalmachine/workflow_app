@@ -167,7 +167,7 @@ Closeout result:
 1. the final end-to-end pass against the browser exit criteria found one real late-stage continuity blocker: exact inbound-request detail and filtered inbound-request review were not carrying persisted cancellation and failure reasons forward even though the dashboard already surfaced them
 2. that blocker is now fixed on the shared browser surface without adding a second backend or widening scope
 3. browser integration coverage now exercises parked-request lifecycle management plus browser visibility for draft, queued, processing, failed, cancelled, processed, and completed request states
-4. Milestone 7 is therefore complete, and the next active implementation target is Milestone 8 client-neutral backend hardening
+4. Milestone 7 is therefore complete, and the completed Milestone 8 follow-up now hands later backend auth work to the additive plan captured in `non_browser_auth_evolution_plan.md`
 
 ## 10. Post-Milestone-7 handoff
 
@@ -177,7 +177,7 @@ That follow-up milestone should:
 
 1. harden shared `/api/...` contracts already exercised by the browser layer
 2. standardize request-status, review-read, approval-action, and attachment semantics where later non-browser clients would otherwise inherit browser-only assumptions
-3. define the next auth-evolution path for non-browser clients without destabilizing the finished browser-session flow
+3. define the next auth-evolution path for non-browser clients without destabilizing the finished browser-session flow, now captured in `non_browser_auth_evolution_plan.md`
 4. avoid turning that backend hardening into either a second backend or a stealth mobile-product build
 
 Planned-slice control rule:

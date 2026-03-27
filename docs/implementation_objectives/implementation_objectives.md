@@ -1,6 +1,6 @@
 # workflow_app Implementation Objectives
 
-Date: 2026-03-22
+Date: 2026-03-27
 Status: High-level multi-version implementation summary
 Purpose: capture the high-level rules, principles, objectives, requirements, specifications, and invariants that implementation work should preserve across the application across v1, v2, and later versions.
 
@@ -354,16 +354,18 @@ Current high-level client rules:
 2. `/api/...` may remain a same-shape pre-production alias for the current version
 3. v1 changes should remain additive and backward-compatible
 4. request validation should happen before persistence calls
-5. device-scoped sessions and refresh-token rotation are the intended mobile-auth model
-6. retry-prone writes should use idempotent boundaries where duplicates would be harmful
-7. list endpoints intended for mobile use should support pagination and incremental-sync-friendly shapes
-8. attachment transport should use explicit bounded upload/download contracts
-9. notification registration and delivery bookkeeping are backend responsibilities
-10. the current mobile stance is online-first unless a later canonical decision changes it
-11. the first planned mobile client may use Flutter, but backend decisions must remain client-agnostic
-12. if thin v1 needs real browser-based user testing, the minimum promoted client slice should be persist-first request ingest, queued AI processing, and review-oriented web support rather than broad operational UI
-13. the queued persisted-request model should also be usable by non-human upstream systems so integrations do not require a second intake architecture
-14. Milestone 7 should preserve the shared backend seam for later mobile reuse, but dedicated client-neutral backend hardening belongs after the Milestone 7 browser completion slices rather than replacing them mid-milestone
+5. browser-session cookies remain the active thin-v1 browser auth path
+6. the intended next non-browser auth model is additive device-scoped bearer-session support on the same `identityaccess.sessions` foundation, with opaque short-lived access tokens plus refresh-token rotation
+7. the legacy UUID actor-header path is temporary pre-production automation compatibility, not the intended long-term client auth contract
+8. retry-prone writes should use idempotent boundaries where duplicates would be harmful
+9. list endpoints intended for mobile use should support pagination and incremental-sync-friendly shapes
+10. attachment transport should use explicit bounded upload/download contracts
+11. notification registration and delivery bookkeeping are backend responsibilities
+12. the current mobile stance is online-first unless a later canonical decision changes it
+13. the first planned mobile client may use Flutter, but backend decisions must remain client-agnostic
+14. if thin v1 needs real browser-based user testing, the minimum promoted client slice should be persist-first request ingest, queued AI processing, and review-oriented web support rather than broad operational UI
+15. the queued persisted-request model should also be usable by non-human upstream systems so integrations do not require a second intake architecture
+16. Milestone 7 should preserve the shared backend seam for later mobile reuse, but dedicated client-neutral backend hardening belongs after the Milestone 7 browser completion slices rather than replacing them mid-milestone
 
 ## 19. Reporting objectives
 

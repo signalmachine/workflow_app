@@ -313,7 +313,7 @@ Current implementation checkpoint:
 19. the latest dashboard refinement slice now turns `/app` into a stronger operator starting surface for parked, failed, cancelled, and in-flight requests by adding status-specific entry cues, operator-priority summary ordering, richer failure and cancellation context in recent-request rows, and tighter exact draft or lifecycle or execution continuations on the same shared backend seam
 20. the final Milestone 7 closeout sweep is now complete, and it found one real late-stage browser continuity blocker: exact inbound-request detail and filtered inbound-request review were not carrying persisted cancellation and failure reasons forward even though the dashboard already surfaced them
 21. that blocker is now fixed, and browser integration coverage now exercises parked-request lifecycle management plus browser visibility for draft, queued, processing, failed, cancelled, processed, and completed request states
-22. this milestone is therefore complete, and the next active implementation target is Milestone 8 client-neutral backend hardening for later lightweight mobile reuse
+22. this milestone is therefore complete, and the next active implementation target was Milestone 8 client-neutral backend hardening for later lightweight mobile reuse
 23. detailed sequencing, slice scope, and control rules are captured in `web_application_layer_plan.md`
 24. residual browser work should now be treated as regression fixes or later UX refinement rather than as an active milestone plan
 25. the active thin-v1 web-stack direction remains explicit: keep Go server-rendered HTML as the primary rendering model, prefer `htmx` where partial updates materially improve operator continuity, use `Alpine.js` only for small local state, and avoid introducing a Node toolchain unless the canonical planning set changes
@@ -344,6 +344,13 @@ Planned implementation stance:
 1. Milestone 8 follows Milestone 7 rather than competing with its remaining browser work
 2. the first Milestone 8 slices should focus on backend hardening and contract discipline, not mobile-product build-out
 3. dedicated mobile UX, full mobile auth-product depth, push notifications, offline behavior, and broader multimodal client work remain outside this milestone unless a later canonical update promotes them
+
+Current implementation checkpoint:
+
+1. the first four Milestone 8 slices are implemented on the shared `/api/...` seam through lifecycle, review-read, attachment, and approval-action contract hardening
+2. the fifth planned slice is now completed in `non_browser_auth_evolution_plan.md`
+3. that auth plan keeps browser-session cookies as the active v1 auth path, treats the UUID actor-header path as temporary automation compatibility rather than the long-term client contract, and defines the next additive bearer-session path for lightweight non-browser clients on the same session foundation
+4. Milestone 8 is therefore complete as a bounded client-neutral hardening milestone, and the next backend auth work should begin with the first additive token-session implementation slice from that plan rather than reopening Milestone 8 as an open-ended bucket
 
 ## 10. Execution warning
 

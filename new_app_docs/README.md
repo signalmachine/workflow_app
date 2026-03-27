@@ -38,8 +38,9 @@ Read these in order:
 9. `inbound_request_and_attachment_foundation_plan.md`
 10. `ai_provider_execution_plan.md`
 11. `web_application_layer_plan.md`
-12. `new_app_tracker.md`
-13. `app_v2_plans/README.md`
+12. `non_browser_auth_evolution_plan.md`
+13. `new_app_tracker.md`
+14. `app_v2_plans/README.md`
 
 ## Reset decision
 
