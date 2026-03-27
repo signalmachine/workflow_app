@@ -1635,9 +1635,84 @@ func TestAgentAPISubmitInboundRequestIntegration(t *testing.T) {
 	if got := downloadRecorder.Header().Get("Content-Type"); got != "text/plain" {
 		t.Fatalf("unexpected content type: %s", got)
 	}
+	if got := downloadRecorder.Header().Get("Cache-Control"); got != "private, no-store" {
+		t.Fatalf("unexpected cache control: %s", got)
+	}
+	if got := downloadRecorder.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Fatalf("unexpected nosniff header: %s", got)
+	}
+	if got := downloadRecorder.Header().Get("Content-Disposition"); !strings.Contains(got, `attachment; filename="pump-note.txt"`) {
+		t.Fatalf("unexpected content disposition: %s", got)
+	}
 	if got := downloadRecorder.Body.String(); got != "urgent pump failure details" {
 		t.Fatalf("unexpected attachment payload: %q", got)
 	}
+}
+
+func TestAgentAPISubmitInboundRequestRejectsInvalidAttachmentMediaType(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	session := startSession(t, ctx, db, orgID, operatorUserID)
+
+	handler := app.NewAgentAPIHandlerWithServices(nil, app.NewSubmissionService(db))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/inbound-requests", bytes.NewBufferString(`{
+		"channel":"browser",
+		"message":{"text_content":"Attachment upload should fail."},
+		"attachments":[{"original_file_name":"broken.txt","media_type":"not a media type","content_base64":"`+base64.StdEncoding.EncodeToString([]byte("broken"))+`"}]
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Workflow-Org-ID", orgID)
+	req.Header.Set("X-Workflow-User-ID", operatorUserID)
+	req.Header.Set("X-Workflow-Session-ID", session.ID)
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	var requestCount int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM ai.inbound_requests WHERE org_id = $1`, orgID).Scan(&requestCount); err != nil {
+		t.Fatalf("count inbound requests: %v", err)
+	}
+	if requestCount != 0 {
+		t.Fatalf("expected failed submission cleanup, found %d requests", requestCount)
+	}
+}
+
+func TestAgentAPIDownloadAttachmentRejectsMalformedAttachmentID(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	session := startSession(t, ctx, db, orgID, operatorUserID)
+
+	handler := app.NewAgentAPIHandlerWithServices(nil, app.NewSubmissionService(db))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/attachments/not-a-uuid/content", nil)
+	req.Header.Set("X-Workflow-Org-ID", orgID)
+	req.Header.Set("X-Workflow-User-ID", operatorUserID)
+	req.Header.Set("X-Workflow-Session-ID", session.ID)
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	requireContains(t, recorder.Body.String(), `"error":"invalid attachment"`)
 }
 
 func TestAgentAPISubmitInboundRequestRejectsInvalidAttachmentContent(t *testing.T) {
@@ -2299,6 +2374,55 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 		t.Fatalf("unexpected recommendation audit page status: got %d body=%s", recommendationAuditRecorder.Code, recommendationAuditRecorder.Body.String())
 	}
 	requireContains(t, recommendationAuditRecorder.Body.String(), "/app/review/proposals/"+proposalListResponse.Items[0].RecommendationID)
+}
+
+func TestAgentAPIReviewSurfacesRejectInvalidExactIDFiltersIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	session := startSession(t, ctx, db, orgID, operatorUserID)
+
+	handler := app.NewAgentAPIHandler(db)
+
+	testCases := []struct {
+		name string
+		path string
+	}{
+		{name: "approval queue", path: "/api/review/approval-queue?approval_id=not-a-uuid"},
+		{name: "documents", path: "/api/review/documents?document_id=not-a-uuid"},
+		{name: "journal entries", path: "/api/review/accounting/journal-entries?entry_id=not-a-uuid"},
+		{name: "control balances", path: "/api/review/accounting/control-account-balances?account_id=not-a-uuid"},
+		{name: "inventory stock", path: "/api/review/inventory/stock?item_id=not-a-uuid"},
+		{name: "inventory movements", path: "/api/review/inventory/movements?movement_id=not-a-uuid"},
+		{name: "inventory reconciliation", path: "/api/review/inventory/reconciliation?document_id=not-a-uuid"},
+		{name: "work order list", path: "/api/review/work-orders?work_order_id=not-a-uuid"},
+		{name: "work order detail", path: "/api/review/work-orders/not-a-uuid"},
+		{name: "processed proposals", path: "/api/review/processed-proposals?recommendation_id=not-a-uuid"},
+		{name: "processed proposals request", path: "/api/review/processed-proposals?request_id=not-a-uuid"},
+		{name: "inbound request detail", path: "/api/review/inbound-requests/not-a-uuid"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			req.Header.Set("X-Workflow-Org-ID", orgID)
+			req.Header.Set("X-Workflow-User-ID", operatorUserID)
+			req.Header.Set("X-Workflow-Session-ID", session.ID)
+
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, req)
+
+			if recorder.Code != http.StatusBadRequest {
+				t.Fatalf("unexpected status for %s: got %d body=%s", tc.path, recorder.Code, recorder.Body.String())
+			}
+			requireContains(t, recorder.Body.String(), `"error":"invalid review filter"`)
+		})
+	}
 }
 
 func TestAgentAPIDecideApprovalIntegration(t *testing.T) {

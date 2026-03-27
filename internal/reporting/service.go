@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ var (
 	ErrInvalidReviewFilter = errors.New("invalid review filter")
 	ErrDocumentNotFound    = errors.New("document not found")
 	ErrWorkOrderNotFound   = errors.New("work order not found")
+	reviewUUIDPattern      = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 )
 
 type ApprovalQueueEntry struct {
@@ -575,6 +577,9 @@ func (s *Service) ListApprovalQueue(ctx context.Context, input ListApprovalQueue
 	if input.Status != "" && input.Status != "pending" && input.Status != "closed" {
 		return nil, ErrInvalidReviewFilter
 	}
+	if err := validateOptionalUUIDFilters(input.ApprovalID); err != nil {
+		return nil, err
+	}
 
 	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
 	if err != nil {
@@ -702,6 +707,9 @@ LIMIT $5;`,
 func (s *Service) ListDocuments(ctx context.Context, input ListDocumentsInput) ([]DocumentReview, error) {
 	if input.Status != "" && !isValidDocumentStatus(input.Status) {
 		return nil, ErrInvalidReviewFilter
+	}
+	if err := validateOptionalUUIDFilters(input.DocumentID); err != nil {
+		return nil, err
 	}
 
 	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
@@ -843,6 +851,9 @@ func (s *Service) GetDocumentReview(ctx context.Context, input GetDocumentReview
 	if documentID == "" {
 		return DocumentReview{}, ErrInvalidReviewFilter
 	}
+	if err := validateOptionalUUIDFilters(documentID); err != nil {
+		return DocumentReview{}, err
+	}
 
 	reviews, err := s.ListDocuments(ctx, ListDocumentsInput{
 		DocumentID: documentID,
@@ -859,6 +870,10 @@ func (s *Service) GetDocumentReview(ctx context.Context, input GetDocumentReview
 }
 
 func (s *Service) ListInventoryStock(ctx context.Context, input ListInventoryStockInput) ([]InventoryStockItem, error) {
+	if err := validateOptionalUUIDFilters(input.ItemID, input.LocationID); err != nil {
+		return nil, err
+	}
+
 	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
 	if err != nil {
 		return nil, err
@@ -958,6 +973,9 @@ LIMIT $5;`,
 func (s *Service) ListInventoryMovements(ctx context.Context, input ListInventoryMovementsInput) ([]InventoryMovementReview, error) {
 	if input.MovementType != "" && input.MovementType != "receipt" && input.MovementType != "issue" && input.MovementType != "adjustment" {
 		return nil, ErrInvalidReviewFilter
+	}
+	if err := validateOptionalUUIDFilters(input.MovementID, input.ItemID, input.LocationID, input.DocumentID); err != nil {
+		return nil, err
 	}
 
 	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
@@ -1128,6 +1146,10 @@ LIMIT $7;`,
 }
 
 func (s *Service) ListInventoryReconciliation(ctx context.Context, input ListInventoryReconciliationInput) ([]InventoryReconciliationItem, error) {
+	if err := validateOptionalUUIDFilters(input.MovementID, input.ItemID, input.DocumentID); err != nil {
+		return nil, err
+	}
+
 	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
 	if err != nil {
 		return nil, err
@@ -1334,6 +1356,9 @@ func (s *Service) GetWorkOrderReview(ctx context.Context, input GetWorkOrderRevi
 	if strings.TrimSpace(input.WorkOrderID) == "" {
 		return WorkOrderReview{}, ErrInvalidReviewFilter
 	}
+	if err := validateOptionalUUIDFilters(input.WorkOrderID); err != nil {
+		return WorkOrderReview{}, err
+	}
 
 	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
 	if err != nil {
@@ -1532,6 +1557,9 @@ WHERE wo.org_id = $1
 func (s *Service) ListWorkOrders(ctx context.Context, input ListWorkOrdersInput) ([]WorkOrderReview, error) {
 	if input.Status != "" && input.Status != "open" && input.Status != "in_progress" && input.Status != "completed" && input.Status != "cancelled" {
 		return nil, ErrInvalidReviewFilter
+	}
+	if err := validateOptionalUUIDFilters(input.WorkOrderID, input.DocumentID); err != nil {
+		return nil, err
 	}
 
 	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
@@ -1744,6 +1772,10 @@ LIMIT $5;`,
 }
 
 func (s *Service) ListJournalEntries(ctx context.Context, input ListJournalEntriesInput) ([]JournalEntryReview, error) {
+	if err := validateOptionalUUIDFilters(input.EntryID, input.DocumentID); err != nil {
+		return nil, err
+	}
+
 	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
 	if err != nil {
 		return nil, err
@@ -1917,6 +1949,10 @@ LIMIT $6;`,
 }
 
 func (s *Service) ListControlAccountBalances(ctx context.Context, input ListControlAccountBalancesInput) ([]ControlAccountBalance, error) {
+	if err := validateOptionalUUIDFilters(input.AccountID); err != nil {
+		return nil, err
+	}
+
 	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
 	if err != nil {
 		return nil, err
@@ -2815,6 +2851,9 @@ func (s *Service) ListProcessedProposals(ctx context.Context, input ListProcesse
 	if input.Status != "" && !isValidRecommendationStatus(input.Status) {
 		return nil, ErrInvalidReviewFilter
 	}
+	if err := validateOptionalUUIDFilters(input.RecommendationID); err != nil {
+		return nil, err
+	}
 
 	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
 	if err != nil {
@@ -3108,6 +3147,9 @@ func normalizeInboundRequestLookupTx(ctx context.Context, tx *sql.Tx, orgID, req
 	trimmedRunID := strings.TrimSpace(runID)
 	trimmedDelegationID := strings.TrimSpace(delegationID)
 	trimmedStepID := strings.TrimSpace(stepID)
+	if err := validateOptionalUUIDFilters(trimmedID, trimmedRunID, trimmedDelegationID, trimmedStepID); err != nil {
+		return "", err
+	}
 	provided := 0
 	for _, value := range []string{trimmedID, trimmedReference, trimmedRunID, trimmedDelegationID, trimmedStepID} {
 		if value != "" {
@@ -3182,6 +3224,19 @@ WHERE ar.org_id = $1
 	default:
 		return "", nil
 	}
+}
+
+func validateOptionalUUIDFilters(values ...string) error {
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if !reviewUUIDPattern.MatchString(trimmed) {
+			return ErrInvalidReviewFilter
+		}
+	}
+	return nil
 }
 
 func (s *Service) beginAuthorizedRead(ctx context.Context, actor identityaccess.Actor) (*sql.Tx, error) {

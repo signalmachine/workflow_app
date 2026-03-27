@@ -780,6 +780,8 @@ func (h *AgentAPIHandler) handleDownloadAttachment(w http.ResponseWriter, r *htt
 	})
 	if err != nil {
 		switch {
+		case errors.Is(err, attachments.ErrInvalidAttachment):
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid attachment"})
 		case errors.Is(err, attachments.ErrAttachmentNotFound):
 			writeJSON(w, http.StatusNotFound, errorResponse{Error: "attachment not found"})
 		case errors.Is(err, identityaccess.ErrUnauthorized):
@@ -797,6 +799,8 @@ func (h *AgentAPIHandler) handleDownloadAttachment(w http.ResponseWriter, r *htt
 	w.Header().Set("Content-Type", attachment.MediaType)
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(attachment.Content)))
 	w.Header().Set("Content-Disposition", contentDisposition(fileName))
+	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(attachment.Content)
 }

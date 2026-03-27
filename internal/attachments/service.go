@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"mime"
+	"regexp"
 	"strings"
 	"time"
 
@@ -19,6 +21,7 @@ var (
 	ErrInvalidAttachment  = errors.New("invalid attachment")
 	ErrInvalidLink        = errors.New("invalid attachment link")
 	ErrInvalidDerivative  = errors.New("invalid attachment derivative")
+	attachmentUUIDPattern = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 )
 
 const (
@@ -244,8 +247,17 @@ func (s *Service) GetAttachmentContent(ctx context.Context, attachmentID string,
 func createAttachmentTx(ctx context.Context, tx *sql.Tx, input CreateAttachmentInput) (Attachment, error) {
 	name := strings.TrimSpace(input.OriginalFileName)
 	mediaType := strings.TrimSpace(input.MediaType)
-	if name == "" || mediaType == "" || len(input.Content) > MaxAttachmentBytes {
+	if name == "" || mediaType == "" || len(input.Content) > MaxAttachmentBytes || strings.ContainsAny(name, "\r\n") {
 		return Attachment{}, ErrInvalidAttachment
+	}
+	parsedMediaType, params, err := mime.ParseMediaType(mediaType)
+	if err != nil || strings.TrimSpace(parsedMediaType) == "" {
+		return Attachment{}, ErrInvalidAttachment
+	}
+	if formatted := mime.FormatMediaType(parsedMediaType, params); formatted != "" {
+		mediaType = formatted
+	} else {
+		mediaType = parsedMediaType
 	}
 
 	checksum := sha256.Sum256(input.Content)
@@ -386,8 +398,9 @@ RETURNING
 }
 
 func getAttachmentContentTx(ctx context.Context, tx *sql.Tx, orgID, attachmentID string) (AttachmentContent, error) {
-	if strings.TrimSpace(attachmentID) == "" {
-		return AttachmentContent{}, ErrAttachmentNotFound
+	trimmedID := strings.TrimSpace(attachmentID)
+	if trimmedID == "" || !attachmentUUIDPattern.MatchString(trimmedID) {
+		return AttachmentContent{}, ErrInvalidAttachment
 	}
 
 	const statement = `
@@ -408,7 +421,7 @@ WHERE org_id = $1
   AND id = $2;`
 
 	var attachment AttachmentContent
-	err := tx.QueryRowContext(ctx, statement, orgID, strings.TrimSpace(attachmentID)).Scan(
+	err := tx.QueryRowContext(ctx, statement, orgID, trimmedID).Scan(
 		&attachment.ID,
 		&attachment.OrgID,
 		&attachment.StorageBackend,
