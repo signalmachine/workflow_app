@@ -215,11 +215,56 @@ func TestHandleWebAuditDetailLinksAIRunEntitiesToInboundRequestDetail(t *testing
 	}
 
 	body := recorder.Body.String()
-	if !strings.Contains(body, `/app/inbound-requests/run:run-123`) {
+	if !strings.Contains(body, `/app/inbound-requests/run:run-123#run-run-123`) {
 		t.Fatalf("expected AI run inbound-request detail link, body=%s", body)
 	}
 	if !strings.Contains(body, `Open inbound request execution detail`) {
 		t.Fatalf("expected AI run audit label, body=%s", body)
+	}
+}
+
+func TestHandleWebAuditDetailLinksAIDelegationEntitiesToExactInboundRequestSection(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listAuditEvents: func(context.Context, reporting.LookupAuditEventsInput) ([]reporting.AuditEvent, error) {
+				return []reporting.AuditEvent{
+					{
+						ID:         "audit-123",
+						EventType:  "ai.delegation_completed",
+						EntityType: "ai.agent_delegation",
+						EntityID:   "delegation-123",
+						OccurredAt: time.Date(2026, 3, 26, 12, 0, 0, 0, time.UTC),
+					},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review/audit/audit-123", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, `/app/inbound-requests/delegation:delegation-123#delegation-delegation-123`) {
+		t.Fatalf("expected AI delegation inbound-request detail link, body=%s", body)
+	}
+	if !strings.Contains(body, `Open inbound request delegation detail`) {
+		t.Fatalf("expected AI delegation audit label, body=%s", body)
 	}
 }
 
@@ -263,6 +308,70 @@ func TestHandleWebInboundRequestDetailResolvesAIRunLookup(t *testing.T) {
 	}
 	if captured.RunID != "run-123" || captured.RequestID != "" || captured.RequestReference != "" || captured.DelegationID != "" {
 		t.Fatalf("unexpected inbound request detail lookup: %+v", captured)
+	}
+}
+
+func TestHandleWebInboundRequestDetailAddsAnchoredExecutionSections(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			getInboundRequestDetail: func(_ context.Context, input reporting.GetInboundRequestDetailInput) (reporting.InboundRequestDetail, error) {
+				return reporting.InboundRequestDetail{
+					Request: reporting.InboundRequestReview{
+						RequestID:        "request-123",
+						RequestReference: "REQ-000123",
+						Status:           "processed",
+						ReceivedAt:       time.Date(2026, 3, 26, 12, 0, 0, 0, time.UTC),
+						CreatedAt:        time.Date(2026, 3, 26, 12, 0, 0, 0, time.UTC),
+						UpdatedAt:        time.Date(2026, 3, 26, 12, 5, 0, 0, time.UTC),
+					},
+					Runs: []reporting.AIRunReview{{
+						RunID:          "run-123",
+						AgentRole:      "coordinator",
+						CapabilityCode: "intake.process",
+						Status:         "completed",
+						Summary:        "Completed request processing",
+					}},
+					Delegations: []reporting.AIDelegationReview{{
+						DelegationID:        "delegation-123",
+						ParentRunID:         "run-123",
+						ChildRunID:          "run-456",
+						CapabilityCode:      "reporting.read",
+						Reason:              "Read downstream context",
+						ChildAgentRole:      "specialist",
+						ChildCapabilityCode: "reporting.read",
+						ChildRunStatus:      "completed",
+						CreatedAt:           time.Date(2026, 3, 26, 12, 1, 0, 0, time.UTC),
+					}},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/inbound-requests/REQ-000123", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, `id="run-run-123"`) {
+		t.Fatalf("expected anchored run section, body=%s", body)
+	}
+	if !strings.Contains(body, `id="delegation-delegation-123"`) {
+		t.Fatalf("expected anchored delegation section, body=%s", body)
 	}
 }
 

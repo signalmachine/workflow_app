@@ -25,6 +25,8 @@ var webAppTemplate = template.Must(template.New("app").Funcs(template.FuncMap{
 	"prettyJSON":            prettyTemplateJSON,
 	"statusClass":           templateStatusClass,
 	"inboundRequestHref":    templateInboundRequestHref,
+	"runSectionID":          templateAIRunSectionID,
+	"delegationSectionID":   templateAIDelegationSectionID,
 	"inboundRequestReview":  templateInboundRequestReviewHref,
 	"documentReviewHref":    templateDocumentReviewHref,
 	"accountingReviewHref":  templateAccountingReviewHref,
@@ -1556,6 +1558,55 @@ func templateInboundRequestHref(lookup string) string {
 	return webInboundDetailPrefix + url.PathEscape(lookup)
 }
 
+func templateInboundRequestSectionHref(lookup, sectionID string) string {
+	target := templateInboundRequestHref(lookup)
+	sectionID = strings.TrimSpace(sectionID)
+	if sectionID == "" {
+		return target
+	}
+	return target + "#" + sectionID
+}
+
+func templateAIRunSectionID(runID string) string {
+	return templateSectionID("run", runID)
+}
+
+func templateAIDelegationSectionID(delegationID string) string {
+	return templateSectionID("delegation", delegationID)
+}
+
+func templateSectionID(prefix, value string) string {
+	prefix = strings.ToLower(strings.TrimSpace(prefix))
+	if prefix == "" {
+		prefix = "section"
+	}
+	var builder strings.Builder
+	builder.Grow(len(prefix) + len(value) + 1)
+	builder.WriteString(prefix)
+	builder.WriteByte('-')
+	lastDash := true
+	for _, r := range strings.TrimSpace(value) {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			builder.WriteRune(r)
+			lastDash = false
+		case r >= 'A' && r <= 'Z':
+			builder.WriteRune(r + ('a' - 'A'))
+			lastDash = false
+		default:
+			if !lastDash {
+				builder.WriteByte('-')
+				lastDash = true
+			}
+		}
+	}
+	result := strings.TrimSuffix(builder.String(), "-")
+	if result == prefix {
+		return prefix
+	}
+	return result
+}
+
 func templateInboundRequestReviewHref(requestReference string) string {
 	requestReference = strings.TrimSpace(requestReference)
 	if requestReference == "" {
@@ -1773,9 +1824,9 @@ func templateAuditEntityHref(entityType, entityID string) string {
 	case "ai.agent_recommendation":
 		return templateProposalDetailHref(entityID)
 	case "ai.agent_run":
-		return templateInboundRequestHref("run:" + entityID)
+		return templateInboundRequestSectionHref("run:"+entityID, templateAIRunSectionID(entityID))
 	case "ai.agent_delegation":
-		return templateInboundRequestHref("delegation:" + entityID)
+		return templateInboundRequestSectionHref("delegation:"+entityID, templateAIDelegationSectionID(entityID))
 	case "accounting.journal_entry":
 		return templateAccountingEntryHref(entityID)
 	case "work_orders.work_order":
@@ -3380,10 +3431,11 @@ const webAppHTML = `<!DOCTYPE html>
         <section class="panel">
           <h2>AI runs</h2>
           {{range .Detail.Runs}}
-          <div class="detail-block">
+          <div class="detail-block" id="{{runSectionID .RunID}}">
             <div><strong>{{.AgentRole}}</strong> / {{.CapabilityCode}}</div>
             <div class="status-pill {{statusClass .Status}}">{{.Status}}</div>
             <p>{{.Summary}}</p>
+            <div class="meta">{{.RunID}}</div>
           </div>
           {{else}}
           <p>No AI runs yet.</p>
@@ -3433,8 +3485,9 @@ const webAppHTML = `<!DOCTYPE html>
         <section class="panel">
           <h2>Delegations</h2>
           {{range .Detail.Delegations}}
-          <div class="detail-block">
+          <div class="detail-block" id="{{delegationSectionID .DelegationID}}">
             <strong>{{.CapabilityCode}}</strong>
+            <div class="meta">Delegation: {{.DelegationID}}</div>
             <div class="meta">Parent run: {{.ParentRunID}}</div>
             <div class="meta">Child run: {{.ChildRunID}} | {{.ChildAgentRole}} / {{.ChildCapabilityCode}}</div>
             {{if .RequestedByStepID.Valid}}<div class="meta">Requested by step: {{.RequestedByStepID.String}}</div>{{end}}
