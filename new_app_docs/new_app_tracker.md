@@ -41,9 +41,21 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 
 ## 2. Immediate next steps
 
+The next session should start with an explicit closeout-and-decision pass rather than assuming another implementation slice already exists.
+
+Planned next-session order:
+
+1. rerun `set -a; source .env; set +a; go test -p 1 ./...` and do not treat the current checkpoint as fully verified until one full repository pass completes cleanly or a concrete blocker is documented
+2. review the live codebase against `new_app_foundation_coverage.md`, this tracker, and the active implementation docs to decide whether thin v1 is now complete at the current foundation depth
+3. if that review finds no material foundation gap, document thin-v1 checkpoint completion explicitly rather than inventing more implementation by momentum
+4. if that review finds a real remaining gap, promote exactly one bounded next slice into this tracker before writing code
+5. if a new slice is promoted, keep it client-neutral and foundation-justified; do not reopen Milestone 7 browser expansion or reintroduce UUID actor-header compatibility
+
+Standing guardrails for that next session:
+
 1. treat Milestone 8 as complete and keep it closed as a bounded backend-hardening milestone rather than reopening it as an open-ended bucket
 2. treat the additive bearer-session and queued-agent auth-retirement slices as complete unless follow-up verification exposes a concrete defect
-3. if backend auth work continues next, do not reintroduce UUID actor-header compatibility; promote only new client-neutral auth work that materially improves correctness or reuse
+3. if backend auth work continues later, do not reintroduce UUID actor-header compatibility; promote only new client-neutral auth work that materially improves correctness or reuse
 4. keep widening or correcting the shared backend only in client-neutral slices that strengthen correctness, continuity, or reuse rather than creating a browser-specific versus mobile-specific split
 5. if later work exposes a browser-layer regression or a newly discovered residual Milestone 7 blocker, document it explicitly and fix it narrowly rather than reopening broad browser-surface expansion
 6. keep the codebase centered on the approved first-class modules while allowing support-depth records such as `parties` and `contacts` where the canonical module-boundary doc explicitly permits them
@@ -57,9 +69,13 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 
 Recommended sequence:
 
-1. treat the queued-agent auth retirement follow-up as complete and keep UUID actor headers retired
-2. keep each new slice bounded to one shared-backend concern rather than mixing browser-expansion work back into completed Milestone 8 work
-3. keep richer draft-attachment editing beyond the landed additive upload flow as residual only if later evidence proves it materially necessary
+1. first close the remaining repository-wide verification gap by getting one completed full-suite run or by documenting the exact blocker
+2. then perform a deliberate thin-v1 completion review against `new_app_foundation_coverage.md` and the completed milestone docs
+3. only after that review decide between:
+4. checkpoint closeout if the foundation checklist is satisfied and remaining work is breadth or UX depth rather than missing structure
+5. one newly promoted bounded implementation slice if the review finds a real remaining foundation or client-neutral shared-backend gap
+6. keep each newly promoted slice bounded to one shared-backend concern rather than mixing browser-expansion work back into completed Milestone 8 work
+7. keep richer draft-attachment editing beyond the landed additive upload flow as residual only if later evidence proves it materially necessary
 
 Reason:
 
@@ -72,6 +88,20 @@ Reason:
 7. the queued-agent UUID actor-header compatibility seam is now retired, so later auth work should not preserve or widen that temporary path again
 8. the browser milestone is therefore complete enough that the next meaningful work is no longer web-surface expansion; it is shared-backend hardening for later lightweight mobile reuse
 9. residual browser work should now be treated as regression fixes or later UX refinement rather than as an active milestone plan
+10. the current remaining uncertainty is no longer an obvious missing implementation slice; it is whether verification and the foundation checklist support declaring a thin-v1 checkpoint complete
+
+## 2.1.1 Next-session decision gate
+
+The next session should end its opening review by choosing exactly one of these outcomes:
+
+1. thin-v1 checkpoint complete
+Result:
+the full repository verification has completed cleanly or any residual blocker is explicitly understood and accepted, the foundation checklist still matches the implemented codebase, and no material missing foundation slice remains
+2. promote one more bounded slice
+Result:
+the review finds a real remaining gap that is still foundation work or client-neutral shared-backend hardening, and that slice is written into this tracker before implementation begins
+
+Do not leave the next session in an implicit middle state where the repo is treated as both complete and not complete at the same time.
 
 ## 2.2 Milestone 8 planned slices
 
