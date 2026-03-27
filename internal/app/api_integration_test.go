@@ -10,6 +10,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"regexp"
 	"strings"
 	"testing"
@@ -367,6 +368,419 @@ func TestAgentBrowserAppFlowIntegration(t *testing.T) {
 	if approvalStatus != "approved" {
 		t.Fatalf("unexpected approval status: %s", approvalStatus)
 	}
+}
+
+func TestAgentBrowserDraftLifecycleIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	orgSlug, userEmail := loadOrgSlugAndUserEmail(t, ctx, db, orgID, operatorUserID)
+
+	handler := app.NewAgentAPIHandler(db)
+
+	loginReq := httptest.NewRequest(
+		http.MethodPost,
+		"/app/login",
+		strings.NewReader("org_slug="+orgSlug+"&email="+userEmail+"&device_label=browser-draft"),
+	)
+	loginReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	loginRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(loginRecorder, loginReq)
+	if loginRecorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected web login status: got %d body=%s", loginRecorder.Code, loginRecorder.Body.String())
+	}
+
+	saveDraftReq := newMultipartRequest(t, http.MethodPost, "/app/inbound-requests", map[string]string{
+		"submitter_label": "front desk",
+		"message_text":    "Initial draft request from browser flow.",
+		"intent":          "save_draft",
+	}, map[string]multipartUpload{
+		"attachments": {
+			FileName:    "draft-note.txt",
+			ContentType: "text/plain",
+			Content:     []byte("draft attachment body"),
+		},
+	})
+	applyResponseCookies(saveDraftReq, loginRecorder.Result().Cookies())
+	saveDraftRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(saveDraftRecorder, saveDraftReq)
+	if saveDraftRecorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected save-draft status: got %d body=%s", saveDraftRecorder.Code, saveDraftRecorder.Body.String())
+	}
+
+	draftDetailPath := saveDraftRecorder.Result().Header.Get("Location")
+	requireContains(t, draftDetailPath, "/app/inbound-requests/REQ-")
+	requireContains(t, draftDetailPath, "notice=Draft+saved.")
+
+	draftDetailReq := httptest.NewRequest(http.MethodGet, draftDetailPath, nil)
+	applyResponseCookies(draftDetailReq, loginRecorder.Result().Cookies())
+	draftDetailRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(draftDetailRecorder, draftDetailReq)
+	if draftDetailRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected draft detail status: got %d body=%s", draftDetailRecorder.Code, draftDetailRecorder.Body.String())
+	}
+
+	draftDetailBody := draftDetailRecorder.Body.String()
+	requireContains(t, draftDetailBody, "Edit draft")
+	requireContains(t, draftDetailBody, "draft-note.txt")
+	requireContains(t, draftDetailBody, "Delete draft")
+	requireContains(t, draftDetailBody, "Initial draft request from browser flow.")
+
+	requestID := requireHiddenInputValue(t, draftDetailBody, "request_id")
+	messageID := requireHiddenInputValue(t, draftDetailBody, "message_id")
+	requestReference := requireRequestReferenceFromPath(t, draftDetailPath)
+
+	queueReq := newMultipartRequest(t, http.MethodPost, "/app/inbound-requests", map[string]string{
+		"request_id":      requestID,
+		"message_id":      messageID,
+		"submitter_label": "front desk",
+		"message_text":    "Updated and queued from draft.",
+		"intent":          "queue",
+		"return_to":       "/app/inbound-requests/" + requestReference,
+	}, nil)
+	applyResponseCookies(queueReq, loginRecorder.Result().Cookies())
+	queueRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(queueRecorder, queueReq)
+	if queueRecorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected queue status: got %d body=%s", queueRecorder.Code, queueRecorder.Body.String())
+	}
+
+	queuedDetailPath := queueRecorder.Result().Header.Get("Location")
+	requireContains(t, queuedDetailPath, "/app/inbound-requests/"+requestReference)
+	requireContains(t, queuedDetailPath, "notice=Inbound+request+queued.")
+
+	queuedDetailReq := httptest.NewRequest(http.MethodGet, queuedDetailPath, nil)
+	applyResponseCookies(queuedDetailReq, loginRecorder.Result().Cookies())
+	queuedDetailRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(queuedDetailRecorder, queuedDetailReq)
+	if queuedDetailRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected queued detail status: got %d body=%s", queuedDetailRecorder.Code, queuedDetailRecorder.Body.String())
+	}
+
+	queuedDetailBody := queuedDetailRecorder.Body.String()
+	requireContains(t, queuedDetailBody, "Queued request actions")
+	requireContains(t, queuedDetailBody, "Cancel request")
+	requireContains(t, queuedDetailBody, "Return to draft")
+	requireContains(t, queuedDetailBody, "Updated and queued from draft.")
+
+	cancelBody := strings.NewReader("reason=operator+paused+request&return_to=" + url.QueryEscape("/app/inbound-requests/"+requestReference))
+	cancelReq := httptest.NewRequest(http.MethodPost, "/app/inbound-requests/"+requestID+"/cancel", cancelBody)
+	cancelReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	applyResponseCookies(cancelReq, loginRecorder.Result().Cookies())
+	cancelRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(cancelRecorder, cancelReq)
+	if cancelRecorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected cancel status: got %d body=%s", cancelRecorder.Code, cancelRecorder.Body.String())
+	}
+
+	cancelledDetailPath := cancelRecorder.Result().Header.Get("Location")
+	requireContains(t, cancelledDetailPath, "/app/inbound-requests/"+requestReference)
+	requireContains(t, cancelledDetailPath, "notice=Inbound+request+cancelled.")
+
+	cancelledDetailReq := httptest.NewRequest(http.MethodGet, cancelledDetailPath, nil)
+	applyResponseCookies(cancelledDetailReq, loginRecorder.Result().Cookies())
+	cancelledDetailRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(cancelledDetailRecorder, cancelledDetailReq)
+	if cancelledDetailRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected cancelled detail status: got %d body=%s", cancelledDetailRecorder.Code, cancelledDetailRecorder.Body.String())
+	}
+
+	cancelledDetailBody := cancelledDetailRecorder.Body.String()
+	requireContains(t, cancelledDetailBody, "Cancelled request actions")
+	requireContains(t, cancelledDetailBody, "Amend back to draft")
+	requireContains(t, cancelledDetailBody, "operator paused request")
+
+	amendReq := httptest.NewRequest(http.MethodPost, "/app/inbound-requests/"+requestID+"/amend", strings.NewReader("return_to="+url.QueryEscape("/app/inbound-requests/"+requestReference)))
+	amendReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	applyResponseCookies(amendReq, loginRecorder.Result().Cookies())
+	amendRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(amendRecorder, amendReq)
+	if amendRecorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected amend status: got %d body=%s", amendRecorder.Code, amendRecorder.Body.String())
+	}
+
+	amendedDetailPath := amendRecorder.Result().Header.Get("Location")
+	requireContains(t, amendedDetailPath, "/app/inbound-requests/"+requestReference)
+	requireContains(t, amendedDetailPath, "notice=Inbound+request+returned+to+draft.")
+
+	amendedDetailReq := httptest.NewRequest(http.MethodGet, amendedDetailPath, nil)
+	applyResponseCookies(amendedDetailReq, loginRecorder.Result().Cookies())
+	amendedDetailRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(amendedDetailRecorder, amendedDetailReq)
+	if amendedDetailRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected amended detail status: got %d body=%s", amendedDetailRecorder.Code, amendedDetailRecorder.Body.String())
+	}
+
+	amendedDetailBody := amendedDetailRecorder.Body.String()
+	requireContains(t, amendedDetailBody, "Edit draft")
+	requireContains(t, amendedDetailBody, "Updated and queued from draft.")
+
+	deleteReq := httptest.NewRequest(http.MethodPost, "/app/inbound-requests/"+requestID+"/delete", strings.NewReader("return_to="+url.QueryEscape("/app/inbound-requests/"+requestReference)))
+	deleteReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	applyResponseCookies(deleteReq, loginRecorder.Result().Cookies())
+	deleteRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(deleteRecorder, deleteReq)
+	if deleteRecorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected delete status: got %d body=%s", deleteRecorder.Code, deleteRecorder.Body.String())
+	}
+
+	inboundListPath := deleteRecorder.Result().Header.Get("Location")
+	requireContains(t, inboundListPath, "/app/review/inbound-requests")
+	requireContains(t, inboundListPath, "notice=Draft+deleted.")
+
+	inboundListReq := httptest.NewRequest(http.MethodGet, inboundListPath, nil)
+	applyResponseCookies(inboundListReq, loginRecorder.Result().Cookies())
+	inboundListRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(inboundListRecorder, inboundListReq)
+	if inboundListRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected inbound list status: got %d body=%s", inboundListRecorder.Code, inboundListRecorder.Body.String())
+	}
+
+	inboundListBody := inboundListRecorder.Body.String()
+	requireContains(t, inboundListBody, "Draft deleted.")
+	requireNotContains(t, inboundListBody, requestReference)
+
+	var remaining int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM ai.inbound_requests WHERE id = $1`, requestID).Scan(&remaining); err != nil {
+		t.Fatalf("count remaining requests: %v", err)
+	}
+	if remaining != 0 {
+		t.Fatalf("expected deleted draft to be removed, found %d", remaining)
+	}
+}
+
+func TestAgentBrowserDashboardStatusCoverageIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	orgSlug, userEmail := loadOrgSlugAndUserEmail(t, ctx, db, orgID, operatorUserID)
+	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
+	intakeService := intake.NewService(db)
+
+	draft, err := intakeService.CreateDraft(ctx, intake.CreateDraftInput{
+		OriginType: intake.OriginHuman,
+		Channel:    "browser",
+		Metadata:   map[string]any{"submitter_label": "draft-test"},
+		Actor:      operator,
+	})
+	if err != nil {
+		t.Fatalf("create draft request: %v", err)
+	}
+	if _, err := intakeService.AddMessage(ctx, intake.AddMessageInput{
+		RequestID:   draft.ID,
+		MessageRole: intake.MessageRoleRequest,
+		TextContent: "Draft request for browser status coverage.",
+		Actor:       operator,
+	}); err != nil {
+		t.Fatalf("add draft message: %v", err)
+	}
+
+	processing := createQueuedRequest(t, ctx, db, operator, "Processing request for browser status coverage.")
+	processing, err = intakeService.ClaimNextQueued(ctx, intake.ClaimNextQueuedInput{
+		Channel: "browser",
+		Actor:   operator,
+	})
+	if err != nil {
+		t.Fatalf("claim processing request: %v", err)
+	}
+
+	failed := createQueuedRequest(t, ctx, db, operator, "Failed request for browser status coverage.")
+	failed, err = intakeService.ClaimNextQueued(ctx, intake.ClaimNextQueuedInput{
+		Channel: "browser",
+		Actor:   operator,
+	})
+	if err != nil {
+		t.Fatalf("claim failed request: %v", err)
+	}
+	failed, err = intakeService.AdvanceRequest(ctx, intake.AdvanceRequestInput{
+		RequestID:     failed.ID,
+		Status:        intake.StatusFailed,
+		FailureReason: "provider timeout during browser review",
+		Actor:         operator,
+	})
+	if err != nil {
+		t.Fatalf("advance failed request: %v", err)
+	}
+
+	cancelled := createQueuedRequest(t, ctx, db, operator, "Cancelled request for browser status coverage.")
+	cancelled, err = intakeService.CancelRequest(ctx, intake.CancelRequestInput{
+		RequestID: cancelled.ID,
+		Reason:    "operator withdrew before processing",
+		Actor:     operator,
+	})
+	if err != nil {
+		t.Fatalf("cancel request: %v", err)
+	}
+
+	processed := createQueuedRequest(t, ctx, db, operator, "Processed request for browser status coverage.")
+	processed, err = intakeService.ClaimNextQueued(ctx, intake.ClaimNextQueuedInput{
+		Channel: "browser",
+		Actor:   operator,
+	})
+	if err != nil {
+		t.Fatalf("claim processed request: %v", err)
+	}
+	processed, err = intakeService.AdvanceRequest(ctx, intake.AdvanceRequestInput{
+		RequestID: processed.ID,
+		Status:    intake.StatusProcessed,
+		Actor:     operator,
+	})
+	if err != nil {
+		t.Fatalf("advance processed request: %v", err)
+	}
+
+	completed := createQueuedRequest(t, ctx, db, operator, "Completed request for browser status coverage.")
+	completed, err = intakeService.ClaimNextQueued(ctx, intake.ClaimNextQueuedInput{
+		Channel: "browser",
+		Actor:   operator,
+	})
+	if err != nil {
+		t.Fatalf("claim completed request: %v", err)
+	}
+	completed, err = intakeService.AdvanceRequest(ctx, intake.AdvanceRequestInput{
+		RequestID: completed.ID,
+		Status:    intake.StatusCompleted,
+		Actor:     operator,
+	})
+	if err != nil {
+		t.Fatalf("advance completed request: %v", err)
+	}
+
+	queued := createQueuedRequest(t, ctx, db, operator, "Queued request for browser status coverage.")
+
+	handler := app.NewAgentAPIHandler(db)
+	loginReq := httptest.NewRequest(
+		http.MethodPost,
+		"/app/login",
+		strings.NewReader("org_slug="+orgSlug+"&email="+userEmail+"&device_label=browser-status"),
+	)
+	loginReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	loginRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(loginRecorder, loginReq)
+	if loginRecorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected web login status: got %d body=%s", loginRecorder.Code, loginRecorder.Body.String())
+	}
+
+	dashboardReq := httptest.NewRequest(http.MethodGet, "/app", nil)
+	applyResponseCookies(dashboardReq, loginRecorder.Result().Cookies())
+	dashboardRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(dashboardRecorder, dashboardReq)
+	if dashboardRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected dashboard status: got %d body=%s", dashboardRecorder.Code, dashboardRecorder.Body.String())
+	}
+
+	dashboardBody := dashboardRecorder.Body.String()
+	requireContains(t, dashboardBody, "/app/review/inbound-requests?status=draft")
+	requireContains(t, dashboardBody, "/app/review/inbound-requests?status=queued")
+	requireContains(t, dashboardBody, "/app/review/inbound-requests?status=processing")
+	requireContains(t, dashboardBody, "/app/review/inbound-requests?status=failed")
+	requireContains(t, dashboardBody, "/app/review/inbound-requests?status=cancelled")
+	requireContains(t, dashboardBody, "/app/review/inbound-requests?status=processed")
+	requireContains(t, dashboardBody, "/app/review/inbound-requests?status=completed")
+	requireContains(t, dashboardBody, "provider timeout during browser review")
+	requireContains(t, dashboardBody, "operator withdrew before processing")
+	requireContains(t, dashboardBody, "Continue drafts")
+	requireContains(t, dashboardBody, "Open queued requests")
+	requireContains(t, dashboardBody, "Watch in-flight requests")
+	requireContains(t, dashboardBody, "Review failures")
+	requireContains(t, dashboardBody, "Recover cancellations")
+	requireContains(t, dashboardBody, "Review outcomes")
+
+	completedReq := httptest.NewRequest(http.MethodGet, "/app/review/inbound-requests?status=completed", nil)
+	applyResponseCookies(completedReq, loginRecorder.Result().Cookies())
+	completedRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(completedRecorder, completedReq)
+	if completedRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected completed review status: got %d body=%s", completedRecorder.Code, completedRecorder.Body.String())
+	}
+
+	completedBody := completedRecorder.Body.String()
+	requireContains(t, completedBody, "Inbound-request review")
+	requireContains(t, completedBody, completed.RequestReference)
+	requireContains(t, completedBody, "completed")
+
+	failedReq := httptest.NewRequest(http.MethodGet, "/app/review/inbound-requests?status=failed", nil)
+	applyResponseCookies(failedReq, loginRecorder.Result().Cookies())
+	failedRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(failedRecorder, failedReq)
+	if failedRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected failed review status: got %d body=%s", failedRecorder.Code, failedRecorder.Body.String())
+	}
+
+	failedBody := failedRecorder.Body.String()
+	requireContains(t, failedBody, failed.RequestReference)
+	requireContains(t, failedBody, "provider timeout during browser review")
+
+	cancelledReq := httptest.NewRequest(http.MethodGet, "/app/review/inbound-requests?status=cancelled", nil)
+	applyResponseCookies(cancelledReq, loginRecorder.Result().Cookies())
+	cancelledRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(cancelledRecorder, cancelledReq)
+	if cancelledRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected cancelled review status: got %d body=%s", cancelledRecorder.Code, cancelledRecorder.Body.String())
+	}
+
+	cancelledBody := cancelledRecorder.Body.String()
+	requireContains(t, cancelledBody, cancelled.RequestReference)
+	requireContains(t, cancelledBody, "Manage lifecycle")
+
+	processingReq := httptest.NewRequest(http.MethodGet, "/app/review/inbound-requests?status=processing", nil)
+	applyResponseCookies(processingReq, loginRecorder.Result().Cookies())
+	processingRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(processingRecorder, processingReq)
+	if processingRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected processing review status: got %d body=%s", processingRecorder.Code, processingRecorder.Body.String())
+	}
+
+	processingBody := processingRecorder.Body.String()
+	requireContains(t, processingBody, processing.RequestReference)
+	requireContains(t, processingBody, "processing")
+
+	queuedReq := httptest.NewRequest(http.MethodGet, "/app/review/inbound-requests?status=queued", nil)
+	applyResponseCookies(queuedReq, loginRecorder.Result().Cookies())
+	queuedRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(queuedRecorder, queuedReq)
+	if queuedRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected queued review status: got %d body=%s", queuedRecorder.Code, queuedRecorder.Body.String())
+	}
+
+	queuedBody := queuedRecorder.Body.String()
+	requireContains(t, queuedBody, queued.RequestReference)
+	requireContains(t, queuedBody, "Manage lifecycle")
+
+	processedReq := httptest.NewRequest(http.MethodGet, "/app/review/inbound-requests?status=processed", nil)
+	applyResponseCookies(processedReq, loginRecorder.Result().Cookies())
+	processedRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(processedRecorder, processedReq)
+	if processedRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected processed review status: got %d body=%s", processedRecorder.Code, processedRecorder.Body.String())
+	}
+
+	processedBody := processedRecorder.Body.String()
+	requireContains(t, processedBody, processed.RequestReference)
+	requireContains(t, processedBody, "processed")
+
+	draftReq := httptest.NewRequest(http.MethodGet, "/app/review/inbound-requests?status=draft", nil)
+	applyResponseCookies(draftReq, loginRecorder.Result().Cookies())
+	draftRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(draftRecorder, draftReq)
+	if draftRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected draft review status: got %d body=%s", draftRecorder.Code, draftRecorder.Body.String())
+	}
+
+	draftBody := draftRecorder.Body.String()
+	requireContains(t, draftBody, draft.RequestReference)
+	requireContains(t, draftBody, "Continue draft")
 }
 
 func TestAgentBrowserReportingIntegration(t *testing.T) {
@@ -1893,6 +2307,28 @@ func requireNotContains(t *testing.T, body, unwanted string) {
 	if strings.Contains(body, unwanted) {
 		t.Fatalf("expected response not to contain %q, body=%s", unwanted, body)
 	}
+}
+
+func requireHiddenInputValue(t *testing.T, body, name string) string {
+	t.Helper()
+
+	pattern := regexp.MustCompile(`name="` + regexp.QuoteMeta(name) + `" value="([^"]+)"`)
+	matches := pattern.FindStringSubmatch(body)
+	if len(matches) != 2 {
+		t.Fatalf("expected hidden input %q in body=%s", name, body)
+	}
+	return matches[1]
+}
+
+func requireRequestReferenceFromPath(t *testing.T, path string) string {
+	t.Helper()
+
+	pattern := regexp.MustCompile(`/app/inbound-requests/([^?]+)`)
+	matches := pattern.FindStringSubmatch(path)
+	if len(matches) != 2 {
+		t.Fatalf("expected inbound-request detail path, got %q", path)
+	}
+	return matches[1]
 }
 
 func createPendingApproval(t *testing.T, ctx context.Context, documentService *documents.Service, workflowService *workflow.Service, actor identityaccess.Actor) (workflow.Approval, documents.Document) {

@@ -1,7 +1,7 @@
 # workflow_app Web Application Layer Plan
 
 Date: 2026-03-27
-Status: Planned v1 implementation slice
+Status: Completed v1 implementation slice
 Purpose: define the promoted web-layer work required so `workflow_app` is usable as an application in v1 rather than only through service-layer seams, minimal API contracts, or direct developer tooling.
 
 ## 1. Promotion decision
@@ -108,7 +108,7 @@ This slice is complete only when:
 
 ## 8. Current implementation checkpoint
 
-The first Milestone 7 browser slice is now landed.
+Milestone 7 is now complete.
 
 Current checkpoint:
 
@@ -154,29 +154,20 @@ Current checkpoint:
 40. the latest lifecycle slice now promotes parked-request management into the browser and shared backend seam: operators can save new requests as drafts, continue draft editing, add draft attachments, queue drafts, cancel queued pre-processing requests, return queued or cancelled requests to draft, and hard-delete unprocessed drafts through `/app`, while the shared backend seam now also exposes matching draft-save plus queue, cancel, amend, and delete actions over `/api/inbound-requests` and `/api/inbound-requests/{request_id}/{action}`
 41. the latest continuity slice now extends exact accounting detail plus exact inventory-movement and reconciliation stops back upstream into the originating `REQ-...` request, exact proposal detail, exact approval detail, and anchored AI run when the linked source document already carries that provenance on the shared reporting seam, so downstream posting and inventory-control review no longer stall one click short of the intake and AI execution trail
 42. the latest dashboard refinement slice now turns the `/app` home surface into a stronger operator starting point for draft, queued, processing, failed, cancelled, and completed request states by replacing generic request-summary language with status-specific continuation cues, sorting those summary cards into operator-priority order, surfacing failure and cancellation reasons directly in recent-request rows, and tightening recent-request actions into exact draft or lifecycle or execution or recovery continuations on the same shared backend seam
-43. any additional mobile-readiness work that goes beyond that narrow browser-era seam hygiene should move into the post-Milestone-7 client-neutral backend hardening milestone rather than being folded silently into the remaining browser passes
+43. the final closeout sweep found one real late-stage continuity blocker: exact inbound-request detail and filtered inbound-request review were not carrying persisted cancellation and failure timestamps plus reasons forward even though the dashboard already surfaced them
+44. that blocker is now fixed, and browser integration coverage now exercises both the parked-request lifecycle and browser visibility for draft, queued, processing, failed, cancelled, processed, and completed request states
+45. any additional mobile-readiness work that goes beyond that narrow browser-era seam hygiene should move into the post-Milestone-7 client-neutral backend hardening milestone rather than being folded silently into the remaining browser passes
 
 ## 9. Remaining slice analysis
 
-A full Milestone 7 review of the current browser code and canonical docs shows that the remaining required work is no longer broad page build-out.
+The Milestone 7 closeout sweep is now complete.
 
-It is now a bounded set of coherent slices where either:
+Closeout result:
 
-1. the service and reporting foundation already exists below the browser layer but is not yet promoted into the web flow, or
-2. an exact browser stop still breaks the intended request -> AI -> proposal -> approval -> document -> posting or execution chain one step too early
-
-The current planned remaining Milestone 7 slice is:
-
-1. `Milestone 7 consistency and closeout sweep`
-
-   Why this slice is still required:
-   1. the milestone is now late-stage enough that one explicit end-to-end pass is needed against the actual exit criteria
-   2. late-stage browser continuity work often exposes one or two residual blockers only when the full operator path is reviewed after the main slices land
-
-   Scope for this slice:
-   1. review the landed browser surfaces against Milestone 7 exit criteria and the current canonical docs
-   2. fix any narrow residual continuity or usability blocker that materially prevents milestone completion
-3. update canonical docs to either mark Milestone 7 complete or record the exact residual blocker if completion is still not justified
+1. the final end-to-end pass against the browser exit criteria found one real late-stage continuity blocker: exact inbound-request detail and filtered inbound-request review were not carrying persisted cancellation and failure reasons forward even though the dashboard already surfaced them
+2. that blocker is now fixed on the shared browser surface without adding a second backend or widening scope
+3. browser integration coverage now exercises parked-request lifecycle management plus browser visibility for draft, queued, processing, failed, cancelled, processed, and completed request states
+4. Milestone 7 is therefore complete, and the next active implementation target is Milestone 8 client-neutral backend hardening
 
 ## 10. Post-Milestone-7 handoff
 
@@ -191,6 +182,6 @@ That follow-up milestone should:
 
 Planned-slice control rule:
 
-1. treat the active slices above as the current explicit Milestone 7 plan
-2. if later implementation reveals an additional concrete blocker, document it explicitly as residual Milestone 7 work rather than silently expanding the planned list
-3. do not use the possibility of later residual work as a reason to defer the planned slices above
+1. treat the active slices above as the current explicit implementation plan
+2. if later implementation reveals a concrete browser regression, document it explicitly as residual Milestone 7 follow-up rather than silently reopening Milestone 7 as a broad work bucket
+3. do not use the possibility of later residual browser work as a reason to defer Milestone 8

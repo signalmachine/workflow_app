@@ -26,33 +26,31 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 | Milestone 4 execution foundation | done | `work_orders` now includes first-class work-order records, append-only execution status history, transactional consumption of pending inventory execution links into work-order material-usage truth, workflow-owned work-order tasks with one accountable worker, workforce-owned labor capture with cost snapshots, and centralized accounting consumption of both labor and work-order-linked inventory handoffs covered by integration tests |
 | Milestone 5 review and reporting surfaces | done | `reporting` now exposes approval queue, document, accounting journal review, control-account balance review, GST/TDS tax summaries, inventory stock, inventory movement review, inventory reconciliation review, work-order, audit lookup, inbound-request, and processed-proposal review surfaces covered by integration tests; stable inbound-request references now exist for operator tracking and submission acknowledgments, inbound-request list filtering now supports exact `REQ-...` reference lookup, request detail and processed-proposal reads resolve by stable `REQ-...` reference inside the authorized reporting read path instead of depending on raw UUID-only lookup, inbound-request review now also surfaces persisted cancellation and failure reasons with their timestamps for operator troubleshooting plus submitter, session, metadata, attachment provenance, AI step and delegation detail, AI artifact detail, and recommendation payload context, and queue-oriented reporting summaries now provide status-count rollups for inbound requests and processed proposals, so remaining v1 work has moved from reporting polish to provider-backed AI execution and the web layer |
 | Milestone 6 provider-backed AI execution | done | `internal/ai` now includes optional OpenAI provider configuration loading, the official OpenAI Go SDK, a Responses-API-backed provider adapter, and a coordinator flow that can claim one queued inbound request, assemble request, attachment, and derived-text context, run a hard-capped tool loop, enforce per-capability tool policy, auto-execute the first reporting read tool when policy allows, optionally route the result through one allowlisted specialist capability with a durable child run and delegation record, persist the resulting coordinator and specialist steps with tool-execution metadata, write a provider brief artifact and operator-review recommendation, and mark the request `processed` or `failed` without bypassing existing control boundaries. `internal/app` now exposes a shared backend seam over that path plus submission, attachment transport, operator review, approval decisions, and browser-usable session auth: `POST /api/session/login` now starts an org-scoped browser session from org slug plus user email and sets the session cookies, `GET /api/session` resolves the active browser session, `POST /api/session/logout` revokes that session, `POST /api/agent/process-next-queued-inbound-request` processes the next queued request, `POST /api/inbound-requests` persists the initial request message plus optional inline attachments and queues the request in one backend workflow, `GET /api/attachments/{attachment_id}/content` serves persisted attachment bytes back through the same auth boundary, `GET /api/review/inbound-requests`, `GET /api/review/inbound-request-status-summary`, `GET /api/review/inbound-requests/{request_reference_or_id}`, `GET /api/review/processed-proposals`, `GET /api/review/processed-proposal-status-summary`, and `GET /api/review/approval-queue` surface browser-usable operator review reads backed by `reporting`, and `POST /api/approvals/{approval_id}/decision` routes approval actions through the existing workflow control boundary. `cmd/verify-agent` still provides opt-in live-provider verification on the same seam, `cmd/app` serves the widened runnable API surface, and provider-gated plus API integration coverage now exists; see `ai_provider_execution_plan.md` |
-| Milestone 7 usable web application layer | in_progress | the `/app` browser surface now covers the first operator loop plus downstream review continuity on the same shared backend seam. In addition to the already-landed sign-in, request submission, queue processing, approval actions, and document or accounting or inventory or work-order or audit review surfaces, the latest landed slices now include browser inbound-request lifecycle management, stronger dashboard and browser-entry continuity for parked or failed or cancelled or in-flight requests, and downstream provenance continuity for exact accounting and inventory stops: operators can save new requests as drafts, continue draft editing, add draft attachments, queue a draft from the browser, cancel queued pre-processing requests, return queued or cancelled requests to draft for amendment, hard-delete unprocessed drafts, and now use the dashboard itself as a stronger starting surface for those parked and recovery states, while exact journal-entry, inventory-movement, and reconciliation review continue back upstream into the originating request, proposal, approval, and anchored AI run when the linked source document carries that provenance. The shared backend seam now also exposes the matching draft-save plus queue, cancel, amend, and delete actions over `/api/inbound-requests` and `/api/inbound-requests/{request_id}/{action}` and returns the same provenance-rich review records through the existing accounting and inventory review paths. Remaining Milestone 7 work is now concentrated on the final Milestone 7 consistency or closeout sweep, with richer draft-attachment editing beyond additive upload recorded as residual only if later refinement proves it necessary. |
+| Milestone 7 usable web application layer | done | the `/app` browser surface now covers the first operator loop plus downstream review continuity on the same shared backend seam. In addition to the already-landed sign-in, request submission, queue processing, approval actions, and document or accounting or inventory or work-order or audit review surfaces, the final closeout sweep is now complete: operators can save new requests as drafts, continue draft editing, add draft attachments, queue a draft from the browser, cancel queued pre-processing requests, return queued or cancelled requests to draft for amendment, hard-delete unprocessed drafts, and use the dashboard plus full inbound-request review as strong browser entry points for parked, failed, cancelled, in-flight, processed, and completed requests. The closeout sweep also fixed the last browser continuity gap by carrying persisted cancellation and failure timestamps plus reasons through exact inbound-request detail and filtered inbound-request review, and browser integration coverage now exercises both parked-request lifecycle management and full request-status visibility. Milestone 8 is now the active next implementation target. |
 | Minimum thin-v1 party and contact support depth | done | `parties` support records now cover external party identity plus support-depth contacts with tenant-safe service boundaries and integration tests |
 | Remaining thin-v1 adopted-document gaps | done | thin v1 adopted document-family ownership is now implemented for work-order, invoice, and payment or receipt document families through module-owned one-to-one payload bridges keyed by `document_id`; see `adopted_document_ownership_remediation_plan.md` |
 | Minimum thin-v1 inbound-request and browser-ingress foundation | done | persist-first inbound requests, request messages, PostgreSQL-backed attachments, transcription derivatives, queue claim and status transitions, stable `REQ-...` references, draft editing and hard deletion, queued-request amend-back-to-draft support, AI run causation, and reporting-visible inbound-request and processed-proposal review now exist for thin-v1 browser testing at the service and reporting-read-model level; see `inbound_request_and_attachment_foundation_plan.md` |
 
 ## 2. Immediate next steps
 
-1. execute the remaining final Milestone 7 consistency or closeout sweep in `web_application_layer_plan.md` rather than reopening generic continuity work
-2. keep Milestone 7 centered on browser-layer integration and operator continuity rather than unrelated new backend features
-3. keep widening or correcting the shared backend only in workflow-bounded slices where the web layer proves a concrete need for correctness, continuity, or usability, so web and later mobile still sit on one foundation
-4. treat the current remaining Milestone 7 work as the final consistency or closeout sweep, while keeping richer draft-attachment editing as residual only if that sweep proves it materially necessary
-5. if implementation of those planned slices exposes an additional concrete blocker, inconsistency, or missing operator seam, document it explicitly as residual Milestone 7 work instead of silently folding it into scope
-6. keep the codebase centered on the approved first-class modules while allowing support-depth records such as `parties` and `contacts` where the canonical module-boundary doc explicitly permits them
-7. add attachments only where they support approval evidence, document support flows, or persisted inbound request intake
-8. use `new_app_v1_gap_review_from_current_codebase.md` as historical context only, not as the live list of remaining missing foundation areas
-9. use `new_app_implementation_defaults.md` as the default-rules reference during implementation
-10. use `new_app_foundation_coverage.md` as the v1 completion checklist and foundation coverage control
-11. keep Milestone 7 on the approved thin-v1 web stack: Go server-rendered HTML as the baseline, `htmx` where partial updates materially help, `Alpine.js` only for small local state, and no separate Node toolchain unless the canonical planning set changes
-12. treat mobile-readiness work during Milestone 7 as narrow shared-backend hygiene only, not as a reason to delay the remaining browser slices
+1. start Milestone 8 client-neutral backend hardening now that Milestone 7 browser closeout is complete
+2. keep Milestone 8 centered on shared `/api/...` contract discipline, request-status semantics, review-read consistency, approval-action semantics, and attachment behavior that later lightweight mobile clients will inherit
+3. keep widening or correcting the shared backend only in client-neutral slices that strengthen correctness, continuity, or reuse rather than creating a browser-specific versus mobile-specific split
+4. if Milestone 8 work exposes a browser-layer regression or a newly discovered residual Milestone 7 blocker, document it explicitly and fix it narrowly rather than reopening broad browser-surface expansion
+5. keep the codebase centered on the approved first-class modules while allowing support-depth records such as `parties` and `contacts` where the canonical module-boundary doc explicitly permits them
+6. add attachments only where they support approval evidence, document support flows, or persisted inbound request intake
+7. use `new_app_v1_gap_review_from_current_codebase.md` as historical context only, not as the live list of remaining missing foundation areas
+8. use `new_app_implementation_defaults.md` as the default-rules reference during implementation
+9. use `new_app_foundation_coverage.md` as the v1 completion checklist and foundation coverage control
+10. keep the thin-v1 web stack unchanged during Milestone 8 unless the canonical planning set explicitly changes it
 
 ## 2.1 Planned next implementation order
 
 Recommended sequence:
 
-1. finish Milestone 7 with one explicit consistency and closeout sweep across the landed browser surfaces, updating docs either to mark the milestone complete or to record any residual blocker discovered during that sweep
-2. keep that sweep focused on real operator continuity, exit-criteria validation, and narrow blocker fixes rather than new browser-surface expansion
-3. treat richer draft-attachment editing beyond the landed additive upload flow as residual Milestone 7 work only if the closeout sweep proves that refinement is materially required for milestone completion
+1. start Milestone 8 with one explicit hardening pass across the shared `/api/...` contracts already exercised by the finished browser layer
+2. keep that pass focused on real client-neutral semantics, exit-criteria validation, and narrow hardening fixes rather than new browser-surface expansion
+3. keep richer draft-attachment editing beyond the landed additive upload flow as residual only if later evidence proves it materially necessary
 
 Reason:
 
@@ -60,9 +58,9 @@ Reason:
 2. inbound request intake, attachment support, queue claim semantics, and reporting-visible AI causation now sit on top of the stabilized document-adoption model
 3. the reporting foundation is complete enough for thin-v1 review and browser-ready read seams, and the provider-backed coordinator plus browser-session auth now make the shared backend usable from a real browser client
 4. the landed coordinator slice includes a hard-capped tool loop with policy-enforced read-tool execution plus bounded specialist delegation while keeping the default contributor workflow provider-independent
-5. shared backend contracts, a focused live-provider verification command, queued-request processing, request submission, attachment transport, operator review, approval action, and browser-usable session auth now exist for driving the live path outside direct service calls, and the landed browser slices have now proven that seam with operator login, intake, queue processing, detail review, approval actions, plus downstream document, accounting, inventory, work-order, and audit review
-6. a code-and-doc review of the current browser surface shows that the remaining must-have work is no longer broad page build-out; it is a bounded set of identifiable slices where either the backend foundation already exists below the browser layer but is not yet surfaced there, or an exact-detail page still breaks the intended request -> AI -> proposal -> approval -> document -> posting or execution continuity
-7. the remaining web milestone should therefore continue as a short sequence of larger related workflow slices rather than opportunistic one-off patches, with residual gaps discovered during those slices documented separately instead of expanding the planned list silently
+5. shared backend contracts, a focused live-provider verification command, queued-request processing, request submission, attachment transport, operator review, approval action, and browser-usable session auth now exist for driving the live path outside direct service calls, and the landed browser slices plus the final closeout sweep now prove that seam with operator login, intake, parked-request lifecycle management, full request-status visibility, detail review, approval actions, plus downstream document, accounting, inventory, work-order, and audit review
+6. the browser milestone is therefore complete enough that the next meaningful work is no longer web-surface expansion; it is shared-backend hardening for later lightweight mobile reuse
+7. residual browser work should now be treated as regression fixes or later UX refinement rather than as an active milestone plan
 
 ## 2.2 Milestone 8 preview
 
@@ -83,26 +81,19 @@ Milestone 8 guardrails:
 
 ## 2.3 Remaining Milestone 7 slice analysis
 
-The current Milestone 7 codebase is now late-stage enough that the remaining work should be treated as an explicit planned list rather than a generic continuity bucket.
+The Milestone 7 closeout sweep is now complete.
 
-The following slice is the current planned remaining Milestone 7 implementation set:
+Closeout result:
 
-1. `Milestone 7 consistency and closeout sweep`
-
-   Required because:
-   1. the milestone is now close enough to completion that one final structured pass is needed to verify the web layer against the actual exit criteria rather than continuing indefinitely on ad hoc refinements
-   2. late-stage browser continuity work often exposes one or two residual gaps only when the full operator path is reviewed end to end
-
-   Slice contents:
-   1. review all landed browser surfaces against Milestone 7 exit criteria and current canonical docs
-   2. fix any narrow residual continuity or usability blockers that materially prevent milestone completion
-   3. update canonical docs to either mark Milestone 7 complete or record the precise residual blocker if completion is still not justified
+1. the final structured pass against the browser exit criteria found one real late-stage continuity blocker: exact inbound-request detail and filtered inbound-request review were not carrying persisted cancellation and failure reasons forward even though the dashboard already surfaced them
+2. that blocker is now fixed, and browser integration coverage now exercises parked-request lifecycle management plus browser visibility for draft, queued, processing, failed, cancelled, processed, and completed request states
+3. Milestone 7 is therefore complete, and the next active implementation slice is Milestone 8 client-neutral backend hardening
 
 Planned-slice control rule:
 
-1. treat the active slices above as the current explicit Milestone 7 plan
-2. if later implementation reveals an additional concrete missing seam, record it explicitly as residual Milestone 7 work instead of silently expanding this planned list
-3. do not use the existence of possible later residual work as a reason to defer the planned slices above
+1. treat the active slices above as the current explicit implementation plan
+2. if later implementation reveals a concrete browser regression, record it explicitly as residual Milestone 7 follow-up rather than silently reopening Milestone 7 as a broad work bucket
+3. do not use the possibility of later residual browser work as a reason to defer Milestone 8
 
 ## 3. Scope guardrail
 

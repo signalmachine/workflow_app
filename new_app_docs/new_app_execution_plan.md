@@ -311,13 +311,12 @@ Current implementation checkpoint:
 17. exact inbound-request detail now also resolves `step:<agent-step-id>` through those same shared browser and API seams, and audit review now links `ai.agent_run_step` plus `ai.agent_step` entities back into the exact inbound-request step block so step-level execution audit can land on the precise persisted step rather than only the broader request page
 18. the earlier Milestone 7 slices for browser inbound-request lifecycle management and downstream provenance continuity for exact accounting and inventory stops are now landed on the shared backend seam plus `/app`
 19. the latest dashboard refinement slice now turns `/app` into a stronger operator starting surface for parked, failed, cancelled, and in-flight requests by adding status-specific entry cues, operator-priority summary ordering, richer failure and cancellation context in recent-request rows, and tighter exact draft or lifecycle or execution continuations on the same shared backend seam
-20. a full Milestone 7 review now shows that the remaining required work has narrowed further to one final closeout slice rather than a generic continuity bucket
-21. this milestone therefore remains in progress, but it is now in a late-stage phase where the main question is completing that final browser closeout sweep cleanly rather than discovering broad missing browser surface areas
-22. detailed sequencing, slice scope, and control rules are captured in `web_application_layer_plan.md`
-23. this milestone should continue as a sequence of coherent workflow slices rather than either many tiny continuity patches or one monolithic delivery
-24. Milestone 7 should still carry narrow client-neutral backend hygiene where it directly protects the shared backend seam, for example keeping operator-critical actions available through `/api/...`, avoiding new browser-only workflow assumptions, and preserving client-neutral semantics for request-processing status, review reads, approval actions, and attachment access
-25. each Milestone 7 pass should preferably close a larger related browser workflow or downstream control chain on the shared backend seams, and the only remaining planned pass is now the final browser closeout sweep, without letting later mobile concerns displace that remaining work
-26. the active thin-v1 web-stack direction is now explicit: keep Go server-rendered HTML as the primary rendering model, prefer `htmx` where partial updates materially improve operator continuity, use `Alpine.js` only for small local state, and avoid introducing a Node toolchain unless the canonical planning set changes
+20. the final Milestone 7 closeout sweep is now complete, and it found one real late-stage browser continuity blocker: exact inbound-request detail and filtered inbound-request review were not carrying persisted cancellation and failure reasons forward even though the dashboard already surfaced them
+21. that blocker is now fixed, and browser integration coverage now exercises parked-request lifecycle management plus browser visibility for draft, queued, processing, failed, cancelled, processed, and completed request states
+22. this milestone is therefore complete, and the next active implementation target is Milestone 8 client-neutral backend hardening for later lightweight mobile reuse
+23. detailed sequencing, slice scope, and control rules are captured in `web_application_layer_plan.md`
+24. residual browser work should now be treated as regression fixes or later UX refinement rather than as an active milestone plan
+25. the active thin-v1 web-stack direction remains explicit: keep Go server-rendered HTML as the primary rendering model, prefer `htmx` where partial updates materially improve operator continuity, use `Alpine.js` only for small local state, and avoid introducing a Node toolchain unless the canonical planning set changes
 
 ## 9. Milestone 8: Client-neutral backend hardening for later mobile reuse
 

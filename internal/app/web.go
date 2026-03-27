@@ -2839,7 +2839,9 @@ const webAppHTML = `<!DOCTYPE html>
               <td>
                 <span class="status-pill {{statusClass .Status}}">{{.Status}}</span>
                 {{if .CancelledAt.Valid}}<div class="meta">Cancelled: {{formatTime .CancelledAt.Time}}</div>{{end}}
+                {{if .CancellationReason}}<div class="meta">{{.CancellationReason}}</div>{{end}}
                 {{if .FailedAt.Valid}}<div class="meta">Failed: {{formatTime .FailedAt.Time}}</div>{{end}}
+                {{if .FailureReason}}<div class="meta">{{.FailureReason}}</div>{{end}}
                 {{if or (eq .Status "queued") (eq .Status "cancelled")}}<div class="meta"><a href="{{inboundRequestHref .RequestReference}}">Manage lifecycle</a></div>{{end}}
               </td>
               <td>{{.Channel}}<div class="meta">{{.OriginType}}</div></td>
@@ -4170,14 +4172,18 @@ const webAppHTML = `<!DOCTYPE html>
 
       <section class="panel">
           <h2>Inbound request {{.Detail.Request.RequestReference}}</h2>
-        <div class="detail-block">
-          <span class="status-pill {{statusClass .Detail.Request.Status}}">{{.Detail.Request.Status}}</span>
-          <p class="meta">Channel: {{.Detail.Request.Channel}} | Origin: {{.Detail.Request.OriginType}} | Received: {{formatTime .Detail.Request.ReceivedAt}}</p>
-          <p class="meta">
-            <a href="{{inboundRequestReview .Detail.Request.RequestReference}}">Filtered request review</a> |
-            <a href="/app/review/audit?entity_type=ai.inbound_request&amp;entity_id={{.Detail.Request.RequestID}}">Audit trail</a>
-          </p>
-        </div>
+                <div class="detail-block">
+                  <span class="status-pill {{statusClass .Detail.Request.Status}}">{{.Detail.Request.Status}}</span>
+                  <p class="meta">Channel: {{.Detail.Request.Channel}} | Origin: {{.Detail.Request.OriginType}} | Received: {{formatTime .Detail.Request.ReceivedAt}}</p>
+                  {{if .Detail.Request.CancelledAt.Valid}}<p class="meta">Cancelled: {{formatTime .Detail.Request.CancelledAt.Time}}</p>{{end}}
+                  {{if .Detail.Request.CancellationReason}}<p class="meta">{{.Detail.Request.CancellationReason}}</p>{{end}}
+                  {{if .Detail.Request.FailedAt.Valid}}<p class="meta">Failed: {{formatTime .Detail.Request.FailedAt.Time}}</p>{{end}}
+                  {{if .Detail.Request.FailureReason}}<p class="meta">{{.Detail.Request.FailureReason}}</p>{{end}}
+                  <p class="meta">
+                    <a href="{{inboundRequestReview .Detail.Request.RequestReference}}">Filtered request review</a> |
+                    <a href="/app/review/audit?entity_type=ai.inbound_request&amp;entity_id={{.Detail.Request.RequestID}}">Audit trail</a>
+                  </p>
+                </div>
         {{if eq .Detail.Request.Status "draft"}}
         <div class="detail-block">
           <h3>Edit draft</h3>
