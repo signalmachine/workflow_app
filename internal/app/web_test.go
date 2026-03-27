@@ -78,6 +78,58 @@ func TestHandleWebDocumentDetailFallsBackToDocumentScopedAccountingLink(t *testi
 	}
 }
 
+func TestHandleWebDocumentDetailAddsUpstreamProposalContinuity(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			getDocumentReview: func(context.Context, reporting.GetDocumentReviewInput) (reporting.DocumentReview, error) {
+				return reporting.DocumentReview{
+					DocumentID:           "doc-123",
+					TypeCode:             "invoice",
+					Title:                "Posted invoice",
+					Status:               "posted",
+					CreatedByUserID:      "user-123",
+					CreatedAt:            time.Date(2026, 3, 27, 8, 0, 0, 0, time.UTC),
+					UpdatedAt:            time.Date(2026, 3, 27, 8, 30, 0, 0, time.UTC),
+					RequestReference:     sql.NullString{String: "REQ-000123", Valid: true},
+					RecommendationID:     sql.NullString{String: "rec-123", Valid: true},
+					RecommendationStatus: sql.NullString{String: "approval_requested", Valid: true},
+					RunID:                sql.NullString{String: "run-123", Valid: true},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review/documents/doc-123", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, `/app/inbound-requests/REQ-000123">REQ-000123</a>`) {
+		t.Fatalf("expected request continuity link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/proposals/rec-123">Proposal</a>`) {
+		t.Fatalf("expected proposal continuity link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/inbound-requests/run:run-123#run-run-123">AI run</a>`) {
+		t.Fatalf("expected AI run continuity link, body=%s", body)
+	}
+}
+
 func TestHandleWebInventoryAddsStockContinuityLinks(t *testing.T) {
 	handler := NewAgentAPIHandlerWithDependencies(
 		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
@@ -897,6 +949,113 @@ func TestHandleWebDocumentsAddsExactApprovalLink(t *testing.T) {
 	body := recorder.Body.String()
 	if !strings.Contains(body, `/app/review/approvals/approval-123">finance_review</a>`) {
 		t.Fatalf("expected exact approval link in document review, body=%s", body)
+	}
+}
+
+func TestHandleWebDocumentsAddUpstreamRequestAndProposalLinks(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listDocuments: func(context.Context, reporting.ListDocumentsInput) ([]reporting.DocumentReview, error) {
+				return []reporting.DocumentReview{
+					{
+						DocumentID:        "doc-123",
+						TypeCode:          "invoice",
+						Title:             "Reviewable invoice",
+						Status:            "submitted",
+						RequestReference:  sql.NullString{String: "REQ-000123", Valid: true},
+						RecommendationID:  sql.NullString{String: "rec-123", Valid: true},
+						ApprovalID:        sql.NullString{String: "approval-123", Valid: true},
+						ApprovalStatus:    sql.NullString{String: "pending", Valid: true},
+						ApprovalQueueCode: sql.NullString{String: "finance_review", Valid: true},
+					},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review/documents", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `/app/inbound-requests/REQ-000123">REQ-000123</a>`) {
+		t.Fatalf("expected request link in document review, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/proposals/rec-123">Proposal</a>`) {
+		t.Fatalf("expected proposal link in document review, body=%s", body)
+	}
+}
+
+func TestHandleWebApprovalDetailAddsUpstreamProposalContinuity(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listApprovalQueue: func(context.Context, reporting.ListApprovalQueueInput) ([]reporting.ApprovalQueueEntry, error) {
+				return []reporting.ApprovalQueueEntry{
+					{
+						ApprovalID:           "approval-123",
+						QueueCode:            "finance_review",
+						QueueStatus:          "pending",
+						ApprovalStatus:       "pending",
+						RequestedAt:          time.Date(2026, 3, 27, 11, 0, 0, 0, time.UTC),
+						RequestedByUserID:    "user-123",
+						DocumentID:           "doc-123",
+						DocumentTypeCode:     "invoice",
+						DocumentTitle:        "Invoice proposal",
+						DocumentStatus:       "submitted",
+						RequestReference:     sql.NullString{String: "REQ-000123", Valid: true},
+						RecommendationID:     sql.NullString{String: "rec-123", Valid: true},
+						RecommendationStatus: sql.NullString{String: "approval_requested", Valid: true},
+						RunID:                sql.NullString{String: "run-123", Valid: true},
+					},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review/approvals/approval-123", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `/app/inbound-requests/REQ-000123">REQ-000123</a>`) {
+		t.Fatalf("expected request continuity link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/proposals/rec-123">Proposal</a>`) {
+		t.Fatalf("expected proposal continuity link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/inbound-requests/run:run-123#run-run-123">AI run</a>`) {
+		t.Fatalf("expected AI run continuity link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/proposals/rec-123">approval_requested</a>`) {
+		t.Fatalf("expected proposal status link in linked-record table, body=%s", body)
 	}
 }
 

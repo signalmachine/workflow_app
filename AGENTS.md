@@ -88,6 +88,9 @@ For planning-only work, validation is document-focused: check heading structure,
 For implementation work:
 
 - every behavior change should include tests appropriate to the change
+- if any verification command fails, investigate the cause before proceeding
+- do not continue past a failing check without either fixing the issue and rerunning the relevant verification successfully, or documenting the blocker explicitly in the same change
+- if a failure is caused by using a non-standard command path for this repository, rerun verification using the documented repository command before treating it as a product defect
 - run `go build ./...` before closing out the task
 - run `set -a; source .env; set +a; go test -p 1 ./...` before closing out the task when code or persistence behavior changed
 - database-backed tests in this repository are expected to run with the configured test database loaded from `.env`; do not treat direct `go test` runs without that environment as the normal verification path, even when the tests are not explicitly labeled as integration-only

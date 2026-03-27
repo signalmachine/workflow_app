@@ -35,6 +35,11 @@ type ApprovalQueueEntry struct {
 	DocumentTitle        string
 	DocumentNumber       sql.NullString
 	DocumentStatus       string
+	RequestID            sql.NullString
+	RequestReference     sql.NullString
+	RecommendationID     sql.NullString
+	RecommendationStatus sql.NullString
+	RunID                sql.NullString
 	JournalEntryID       sql.NullString
 	JournalEntryNumber   sql.NullInt64
 	JournalEntryPostedAt sql.NullTime
@@ -67,6 +72,11 @@ type DocumentReview struct {
 	ApprovalQueueCode    sql.NullString
 	ApprovalRequestedAt  sql.NullTime
 	ApprovalDecidedAt    sql.NullTime
+	RequestID            sql.NullString
+	RequestReference     sql.NullString
+	RecommendationID     sql.NullString
+	RecommendationStatus sql.NullString
+	RunID                sql.NullString
 	JournalEntryID       sql.NullString
 	JournalEntryNumber   sql.NullInt64
 	JournalEntryPostedAt sql.NullTime
@@ -558,6 +568,11 @@ SELECT
 	d.title,
 	d.number_value,
 	d.status,
+	rec.request_id,
+	rec.request_reference,
+	rec.recommendation_id,
+	rec.recommendation_status,
+	rec.run_id,
 	je.id,
 	je.entry_number,
 	je.posted_at
@@ -568,6 +583,25 @@ JOIN workflow.approvals a
 JOIN documents.documents d
 	ON d.id = a.document_id
    AND d.org_id = aqe.org_id
+LEFT JOIN LATERAL (
+	SELECT
+		r.id AS request_id,
+		r.request_reference,
+		rec.id AS recommendation_id,
+		rec.status AS recommendation_status,
+		rec.run_id
+	FROM ai.agent_recommendations rec
+	JOIN ai.agent_runs ar
+		ON ar.id = rec.run_id
+	   AND ar.org_id = aqe.org_id
+	JOIN ai.inbound_requests r
+		ON r.id = ar.inbound_request_id
+	   AND r.org_id = aqe.org_id
+	WHERE rec.org_id = aqe.org_id
+	  AND rec.approval_id = a.id
+	ORDER BY rec.created_at DESC, rec.id DESC
+	LIMIT 1
+) rec ON TRUE
 LEFT JOIN accounting.journal_entries je
 	ON je.org_id = aqe.org_id
    AND je.source_document_id = d.id
@@ -609,6 +643,11 @@ LIMIT $5;`,
 			&entry.DocumentTitle,
 			&entry.DocumentNumber,
 			&entry.DocumentStatus,
+			&entry.RequestID,
+			&entry.RequestReference,
+			&entry.RecommendationID,
+			&entry.RecommendationStatus,
+			&entry.RunID,
 			&entry.JournalEntryID,
 			&entry.JournalEntryNumber,
 			&entry.JournalEntryPostedAt,
@@ -659,6 +698,11 @@ SELECT
 	a.queue_code,
 	a.requested_at,
 	a.decided_at,
+	rec.request_id,
+	rec.request_reference,
+	rec.recommendation_id,
+	rec.recommendation_status,
+	rec.run_id,
 	je.id,
 	je.entry_number,
 	je.posted_at
@@ -676,6 +720,25 @@ LEFT JOIN LATERAL (
 	ORDER BY requested_at DESC, id DESC
 	LIMIT 1
 ) a ON TRUE
+LEFT JOIN LATERAL (
+	SELECT
+		r.id AS request_id,
+		r.request_reference,
+		rec.id AS recommendation_id,
+		rec.status AS recommendation_status,
+		rec.run_id
+	FROM ai.agent_recommendations rec
+	JOIN ai.agent_runs ar
+		ON ar.id = rec.run_id
+	   AND ar.org_id = d.org_id
+	JOIN ai.inbound_requests r
+		ON r.id = ar.inbound_request_id
+	   AND r.org_id = d.org_id
+	WHERE rec.org_id = d.org_id
+	  AND rec.approval_id = a.id
+	ORDER BY rec.created_at DESC, rec.id DESC
+	LIMIT 1
+) rec ON TRUE
 LEFT JOIN accounting.journal_entries je
 	ON je.org_id = d.org_id
    AND je.source_document_id = d.id
@@ -719,6 +782,11 @@ LIMIT $5;`,
 			&review.ApprovalQueueCode,
 			&review.ApprovalRequestedAt,
 			&review.ApprovalDecidedAt,
+			&review.RequestID,
+			&review.RequestReference,
+			&review.RecommendationID,
+			&review.RecommendationStatus,
+			&review.RunID,
 			&review.JournalEntryID,
 			&review.JournalEntryNumber,
 			&review.JournalEntryPostedAt,

@@ -2585,6 +2585,13 @@ const webAppHTML = `<!DOCTYPE html>
                 <a href="{{approvalQueueHref .QueueCode .QueueStatus}}">{{.QueueCode}}</a>
                 <div class="meta">Enqueued: {{formatTime .EnqueuedAt}}</div>
                 <div class="meta"><span class="status-pill {{statusClass .QueueStatus}}">{{.QueueStatus}}</span></div>
+                {{if .RequestReference.Valid}}
+                <div class="meta">
+                  <a href="{{inboundRequestHref .RequestReference.String}}">{{.RequestReference.String}}</a>
+                  {{if .RecommendationID.Valid}} | <a href="{{proposalDetailHref .RecommendationID.String}}">Proposal</a>{{end}}
+                  {{if .RunID.Valid}} | <a href="{{inboundSectionHref (printf "run:%s" .RunID.String) (runSectionID .RunID.String)}}">AI run</a>{{end}}
+                </div>
+                {{end}}
               </td>
               <td>
                 <a href="{{documentReviewHref .DocumentID}}">{{.DocumentTitle}}</a>
@@ -2642,6 +2649,9 @@ const webAppHTML = `<!DOCTYPE html>
             <a href="{{approvalQueueHref .Entry.QueueCode .Entry.QueueStatus}}">Filtered queue view</a> |
             <a href="{{documentReviewHref .Entry.DocumentID}}">Open document</a> |
             <a href="/app/review/audit?entity_type=workflow.approval&amp;entity_id={{.Entry.ApprovalID}}">Audit trail</a>
+            {{if .Entry.RequestReference.Valid}} | <a href="{{inboundRequestHref .Entry.RequestReference.String}}">{{.Entry.RequestReference.String}}</a>{{end}}
+            {{if .Entry.RecommendationID.Valid}} | <a href="{{proposalDetailHref .Entry.RecommendationID.String}}">Proposal</a>{{end}}
+            {{if .Entry.RunID.Valid}} | <a href="{{inboundSectionHref (printf "run:%s" .Entry.RunID.String) (runSectionID .Entry.RunID.String)}}">AI run</a>{{end}}
           </p>
         </div>
       </section>
@@ -2676,6 +2686,9 @@ const webAppHTML = `<!DOCTYPE html>
               <tr><th>Type</th><td>{{.Entry.DocumentTypeCode}}</td></tr>
               <tr><th>Status</th><td><span class="status-pill {{statusClass .Entry.DocumentStatus}}">{{.Entry.DocumentStatus}}</span></td></tr>
               <tr><th>Document number</th><td>{{if .Entry.DocumentNumber.Valid}}{{.Entry.DocumentNumber.String}}{{else}}-{{end}}</td></tr>
+              <tr><th>Request</th><td>{{if .Entry.RequestReference.Valid}}<a href="{{inboundRequestHref .Entry.RequestReference.String}}">{{.Entry.RequestReference.String}}</a>{{else}}-{{end}}</td></tr>
+              <tr><th>Proposal</th><td>{{if .Entry.RecommendationID.Valid}}<a href="{{proposalDetailHref .Entry.RecommendationID.String}}">{{if .Entry.RecommendationStatus.Valid}}{{.Entry.RecommendationStatus.String}}{{else}}proposal{{end}}</a>{{else}}-{{end}}</td></tr>
+              <tr><th>AI run</th><td>{{if .Entry.RunID.Valid}}<a href="{{inboundSectionHref (printf "run:%s" .Entry.RunID.String) (runSectionID .Entry.RunID.String)}}">{{.Entry.RunID.String}}</a>{{else}}-{{end}}</td></tr>
               <tr><th>Posting</th><td>{{if .Entry.JournalEntryID.Valid}}<a href="{{accountingEntryHref .Entry.JournalEntryID.String}}">Entry #{{.Entry.JournalEntryNumber.Int64}}</a>{{else if .Entry.JournalEntryNumber.Valid}}<a href="/app/review/accounting?document_id={{.Entry.DocumentID}}">Entry #{{.Entry.JournalEntryNumber.Int64}}</a>{{else}}-{{end}}</td></tr>
             </tbody>
           </table>
@@ -2840,6 +2853,8 @@ const webAppHTML = `<!DOCTYPE html>
                   <a href="/app/review/audit?entity_type=documents.document&amp;entity_id={{.DocumentID}}">Audit trail</a>
                   {{if eq .TypeCode "work_order"}} | <a href="/app/review/work-orders?document_id={{.DocumentID}}">Execution review</a>{{end}}
                   {{if or (eq .TypeCode "inventory_receipt") (eq .TypeCode "inventory_issue") (eq .TypeCode "inventory_adjustment")}} | <a href="/app/review/inventory?document_id={{.DocumentID}}">Inventory review</a>{{end}}
+                  {{if .RequestReference.Valid}} | <a href="{{inboundRequestHref .RequestReference.String}}">{{.RequestReference.String}}</a>{{end}}
+                  {{if .RecommendationID.Valid}} | <a href="{{proposalDetailHref .RecommendationID.String}}">Proposal</a>{{end}}
                 </div>
               </td>
               <td><span class="status-pill {{statusClass .Status}}">{{.Status}}</span></td>
@@ -2879,6 +2894,9 @@ const webAppHTML = `<!DOCTYPE html>
             <a href="/app/review/documents?document_id={{.Review.DocumentID}}">Filtered list view</a> |
             <a href="/app/review/audit?entity_type=documents.document&amp;entity_id={{.Review.DocumentID}}">Audit trail</a>
             {{if .Review.SourceDocumentID.Valid}} | <a href="{{documentReviewHref .Review.SourceDocumentID.String}}">Source document</a>{{end}}
+            {{if .Review.RequestReference.Valid}} | <a href="{{inboundRequestHref .Review.RequestReference.String}}">{{.Review.RequestReference.String}}</a>{{end}}
+            {{if .Review.RecommendationID.Valid}} | <a href="{{proposalDetailHref .Review.RecommendationID.String}}">Proposal</a>{{end}}
+            {{if .Review.RunID.Valid}} | <a href="{{inboundSectionHref (printf "run:%s" .Review.RunID.String) (runSectionID .Review.RunID.String)}}">AI run</a>{{end}}
           </p>
         </div>
       </section>
@@ -2897,6 +2915,18 @@ const webAppHTML = `<!DOCTYPE html>
                   -
                   {{end}}
                 </td>
+              </tr>
+              <tr>
+                <th>Request</th>
+                <td>{{if .Review.RequestReference.Valid}}<a href="{{inboundRequestHref .Review.RequestReference.String}}">{{.Review.RequestReference.String}}</a>{{else}}-{{end}}</td>
+              </tr>
+              <tr>
+                <th>Proposal</th>
+                <td>{{if .Review.RecommendationID.Valid}}<a href="{{proposalDetailHref .Review.RecommendationID.String}}">{{if .Review.RecommendationStatus.Valid}}{{.Review.RecommendationStatus.String}}{{else}}proposal{{end}}</a>{{else}}-{{end}}</td>
+              </tr>
+              <tr>
+                <th>AI run</th>
+                <td>{{if .Review.RunID.Valid}}<a href="{{inboundSectionHref (printf "run:%s" .Review.RunID.String) (runSectionID .Review.RunID.String)}}">{{.Review.RunID.String}}</a>{{else}}-{{end}}</td>
               </tr>
               <tr>
                 <th>Accounting</th>
