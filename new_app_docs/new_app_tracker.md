@@ -36,7 +36,7 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 1. execute the explicitly identified remaining Milestone 7 slices in `web_application_layer_plan.md` rather than continuing with generic continuity work
 2. keep Milestone 7 centered on browser-layer integration and operator continuity rather than unrelated new backend features
 3. keep widening or correcting the shared backend only in workflow-bounded slices where the web layer proves a concrete need for correctness, continuity, or usability, so web and later mobile still sit on one foundation
-4. treat the current remaining work as two active planned slices: dashboard-and-entry-point refinement and a final Milestone 7 consistency or closeout sweep, while keeping richer draft-attachment editing as residual only if those slices prove it materially necessary
+4. treat the current remaining Milestone 7 work as two active planned slices: dashboard-and-entry-point refinement and a final Milestone 7 consistency or closeout sweep, while keeping richer draft-attachment editing as residual only if those slices prove it materially necessary
 5. if implementation of those planned slices exposes an additional concrete blocker, inconsistency, or missing operator seam, document it explicitly as residual Milestone 7 work instead of silently folding it into scope
 6. keep the codebase centered on the approved first-class modules while allowing support-depth records such as `parties` and `contacts` where the canonical module-boundary doc explicitly permits them
 7. add attachments only where they support approval evidence, document support flows, or persisted inbound request intake
@@ -44,6 +44,7 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 9. use `new_app_implementation_defaults.md` as the default-rules reference during implementation
 10. use `new_app_foundation_coverage.md` as the v1 completion checklist and foundation coverage control
 11. keep Milestone 7 on the approved thin-v1 web stack: Go server-rendered HTML as the baseline, `htmx` where partial updates materially help, `Alpine.js` only for small local state, and no separate Node toolchain unless the canonical planning set changes
+12. treat mobile-readiness work during Milestone 7 as narrow shared-backend hygiene only, not as a reason to delay the remaining browser slices
 
 ## 2.1 Planned next implementation order
 
@@ -63,33 +64,30 @@ Reason:
 6. a code-and-doc review of the current browser surface shows that the remaining must-have work is no longer broad page build-out; it is a bounded set of identifiable slices where either the backend foundation already exists below the browser layer but is not yet surfaced there, or an exact-detail page still breaks the intended request -> AI -> proposal -> approval -> document -> posting or execution continuity
 7. the remaining web milestone should therefore continue as a short sequence of larger related workflow slices rather than opportunistic one-off patches, with residual gaps discovered during those slices documented separately instead of expanding the planned list silently
 
-## 2.2 Remaining Milestone 7 slice analysis
+## 2.2 Milestone 8 preview
+
+Milestone 8 should follow Milestone 7 rather than compete with its remaining browser work.
+
+Planned Milestone 8 focus:
+
+1. client-neutral backend hardening for later lightweight mobile reuse on the same backend foundation
+2. explicit contract discipline for shared `/api/...` paths already exercised by the web layer
+3. standardization of request-status, review-read, approval-action, and attachment semantics where later non-browser clients would otherwise inherit browser-specific assumptions
+4. next-step auth-evolution planning for non-browser clients without replacing the active browser-session model prematurely
+
+Milestone 8 guardrails:
+
+1. do not let Milestone 8 erase or defer the still-pending Milestone 7 browser work
+2. do not treat Milestone 8 as the mobile-product build milestone
+3. keep mobile UX, full mobile auth-product depth, push behavior, offline behavior, and broader multimodal client breadth outside Milestone 8 unless the canonical planning set is later updated explicitly
+
+## 2.3 Remaining Milestone 7 slice analysis
 
 The current Milestone 7 codebase is now late-stage enough that the remaining work should be treated as an explicit planned list rather than a generic continuity bucket.
 
 The following slices are the current planned remaining Milestone 7 implementation set:
 
-1. `browser inbound-request lifecycle management`
-
-   Required because:
-   1. draft editing, draft hard deletion, queued cancellation, and queued or cancelled amend-back-to-draft handling are already implemented below the browser layer and are called out in the canonical docs
-   2. the current web layer only supports immediate request submission into the queue plus downstream review after the fact
-   3. thin-v1 operator usability is still incomplete while parked-request management depends on service-level or developer-only access
-
-   Slice contents:
-   1. browser and shared-backend support for creating or saving a request as `draft`
-   2. browser editing of draft request messages and draft-scoped attachments
-   3. browser queue submission from draft
-   4. browser cancel for queued pre-processing requests
-   5. browser amend-back-to-draft for queued or cancelled pre-processing requests
-   6. browser hard delete for unprocessed drafts only
-7. request-list, request-detail, and dashboard continuity for those parked-request actions
-
-   Current implementation note:
-   1. the first lifecycle-management pass is now landed on the shared backend seam plus `/app`: operators can save drafts, continue draft editing, add draft attachments, queue drafts, cancel queued requests, return queued or cancelled requests to draft, and hard-delete unprocessed drafts from the browser
-   2. later Milestone 7 work should treat richer draft-attachment editing beyond additive upload as residual refinement only if it proves necessary during dashboard refinement or the closeout sweep
-
-2. `dashboard and browser entry-point refinement`
+1. `dashboard and browser entry-point refinement`
 
    Required because:
    1. the current dashboard is already usable for queue submission, queue processing, recent requests, approvals, and proposals
@@ -101,7 +99,7 @@ The following slices are the current planned remaining Milestone 7 implementatio
    2. tighten failed or cancelled request recovery entry points after the lifecycle slice lands
    3. remove any remaining dead-end or weak-return states on the main browser starting surfaces
 
-3. `Milestone 7 consistency and closeout sweep`
+2. `Milestone 7 consistency and closeout sweep`
 
    Required because:
    1. the milestone is now close enough to completion that one final structured pass is needed to verify the web layer against the actual exit criteria rather than continuing indefinitely on ad hoc refinements

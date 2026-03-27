@@ -309,14 +309,43 @@ Current implementation checkpoint:
 15. inventory item and location review now also have dedicated browser detail stops at `/app/review/inventory/items/{item_id}` and `/app/review/inventory/locations/{location_id}` on top of the already-landed stock and movement seams, and stock rows, movement detail, plus audit-page item or location entities now continue into those exact item and location pages instead of stopping at anchored list filters
 16. exact inbound-request detail now also resolves `run:<agent-run-id>` and `delegation:<delegation-id>` through the already-landed `/app/inbound-requests/{request_reference_or_id}` and `/api/review/inbound-requests/{request_reference_or_id}` seams, and audit review now links `ai.agent_run` plus `ai.agent_delegation` entities back into the exact inbound-request execution trail so provider-execution audit events no longer dead-end on generic audit results
 17. exact inbound-request detail now also resolves `step:<agent-step-id>` through those same shared browser and API seams, and audit review now links `ai.agent_run_step` plus `ai.agent_step` entities back into the exact inbound-request step block so step-level execution audit can land on the precise persisted step rather than only the broader request page
-18. a full Milestone 7 review now shows that the remaining required work has narrowed to an explicit set of slices rather than a generic continuity bucket: browser inbound-request lifecycle management, downstream provenance continuity for accounting and inventory exact-detail surfaces, dashboard and browser entry-point refinement, and one final Milestone 7 consistency or closeout sweep
-19. this milestone therefore remains in progress, but it is now in a late-stage phase where the main question is completing those planned slices cleanly rather than discovering broad missing browser surface areas
-20. detailed sequencing, slice scope, and control rules are captured in `web_application_layer_plan.md`
-21. this milestone should continue as a sequence of coherent workflow slices rather than either many tiny continuity patches or one monolithic delivery
-22. each Milestone 7 pass should preferably close a larger related browser workflow or downstream control chain on the shared backend seams, for example parked-request lifecycle management or downstream posting-and-execution provenance continuity
-23. the active thin-v1 web-stack direction is now explicit: keep Go server-rendered HTML as the primary rendering model, prefer `htmx` where partial updates materially improve operator continuity, use `Alpine.js` only for small local state, and avoid introducing a Node toolchain unless the canonical planning set changes
+18. the earlier Milestone 7 slices for browser inbound-request lifecycle management and downstream provenance continuity for exact accounting and inventory stops are now landed on the shared backend seam plus `/app`
+19. a full Milestone 7 review now shows that the remaining required work has narrowed further to two active slices rather than a generic continuity bucket: dashboard and browser entry-point refinement, followed by one final Milestone 7 consistency or closeout sweep
+20. this milestone therefore remains in progress, but it is now in a late-stage phase where the main question is completing those remaining browser slices cleanly rather than discovering broad missing browser surface areas
+21. detailed sequencing, slice scope, and control rules are captured in `web_application_layer_plan.md`
+22. this milestone should continue as a sequence of coherent workflow slices rather than either many tiny continuity patches or one monolithic delivery
+23. Milestone 7 should still carry narrow client-neutral backend hygiene where it directly protects the shared backend seam, for example keeping operator-critical actions available through `/api/...`, avoiding new browser-only workflow assumptions, and preserving client-neutral semantics for request-processing status, review reads, approval actions, and attachment access
+24. each Milestone 7 pass should preferably close a larger related browser workflow or downstream control chain on the shared backend seams, for example dashboard refinement or the final browser closeout sweep, without letting later mobile concerns displace the remaining browser work
+25. the active thin-v1 web-stack direction is now explicit: keep Go server-rendered HTML as the primary rendering model, prefer `htmx` where partial updates materially improve operator continuity, use `Alpine.js` only for small local state, and avoid introducing a Node toolchain unless the canonical planning set changes
 
-## 9. Execution warning
+## 9. Milestone 8: Client-neutral backend hardening for later mobile reuse
+
+Goal:
+
+1. preserve one backend foundation that the completed web layer and a later lightweight mobile client can both reuse cleanly
+
+Scope:
+
+1. harden client-neutral API contracts already exercised by the web layer
+2. standardize async request-processing and review-state semantics where needed for non-browser clients
+3. harden attachment upload, download, and transport expectations for later non-browser use
+4. define the next auth-evolution path for non-browser clients without replacing the active browser-session model prematurely
+5. introduce explicit API-shape and compatibility discipline where later mobile use would otherwise inherit browser-specific assumptions
+
+Exit criteria:
+
+1. operator-critical workflows remain available through shared `/api/...` contracts rather than only browser-form paths
+2. browser and later mobile clients still sit on one backend foundation rather than diverging into separate backends
+3. shared backend contracts preserve client-neutral request, status, approval, attachment, and review semantics clearly enough that a lightweight mobile client can be added without backend rework
+4. any auth-evolution work completed in this milestone remains additive to the browser-session path rather than destabilizing the finished Milestone 7 browser layer
+
+Planned implementation stance:
+
+1. Milestone 8 follows Milestone 7 rather than competing with its remaining browser work
+2. the first Milestone 8 slices should focus on backend hardening and contract discipline, not mobile-product build-out
+3. dedicated mobile UX, full mobile auth-product depth, push notifications, offline behavior, and broader multimodal client work remain outside this milestone unless a later canonical update promotes them
+
+## 10. Execution warning
 
 Do not add CRM breadth, advanced projects, portal work, payroll, broad UI work, or advanced agent-autonomy features during milestones 0 through 5.
 
@@ -325,7 +354,9 @@ Do not treat Milestone 6 as permission to add broad autonomy, broad chat UX, or 
 Do not treat Milestone 7 as permission to create a second backend for web versus mobile or to turn the product into a broad manual-entry ERP.
 During Milestone 7, backend corrections and narrow shared-backend enhancements are still required when the web layer proves a concrete need, but those changes must remain in service of browser-layer integration and operator continuity rather than unrelated new backend feature expansion.
 
-## 10. Quality and sophistication rule
+Do not treat Milestone 8 as permission to build the mobile product itself, fork the backend into web-specific versus mobile-specific truth models, or let backend hardening erase the still-required Milestone 7 browser completion criteria.
+
+## 11. Quality and sophistication rule
 
 `workflow_app` is allowed to be thin in breadth, but it is not allowed to be weak in foundation design.
 

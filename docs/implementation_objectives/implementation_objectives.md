@@ -179,6 +179,8 @@ Preferred thin-v1 web-implementation stance:
 5. when the promoted web layer proves a concrete need, backend corrections and narrow shared-backend enhancements should still be made, but they should stay in service of the same shared engine and must not become a pretext for unrelated backend feature expansion or a second web-specific backend
 6. the same principle applies when work is centered on other non-backend layers such as the AI-agent layer: backend bugs, missing support seams, and narrow capability gaps should still be corrected when they materially block the active slice, but they should remain tied to that slice rather than expanding backend scope opportunistically
 7. during Milestone 7 execution, prefer larger coherent browser-workflow slices over many tiny continuity patches, while still keeping each slice bounded to one related operator path rather than mixing unrelated areas into one delivery
+8. during Milestone 7, mobile-readiness work should stay limited to the client-neutral backend hygiene needed to keep the shared seam reusable later, and it should not displace the still-pending browser slices
+9. the broader client-neutral backend hardening needed for a later lightweight mobile client should follow as a post-Milestone-7 backend milestone rather than replacing the Milestone 7 browser finish work
 
 ## 8. Data and database principles
 
@@ -359,6 +361,7 @@ Current high-level client rules:
 11. the first planned mobile client may use Flutter, but backend decisions must remain client-agnostic
 12. if thin v1 needs real browser-based user testing, the minimum promoted client slice should be persist-first request ingest, queued AI processing, and review-oriented web support rather than broad operational UI
 13. the queued persisted-request model should also be usable by non-human upstream systems so integrations do not require a second intake architecture
+14. Milestone 7 should preserve the shared backend seam for later mobile reuse, but dedicated client-neutral backend hardening belongs after the Milestone 7 browser completion slices rather than replacing them mid-milestone
 
 ## 19. Reporting objectives
 

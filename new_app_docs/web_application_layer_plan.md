@@ -94,6 +94,8 @@ Execution rule:
 4. Milestone 7 is primarily about connecting the existing core application engine and shared backend seams to a usable browser layer, not about adding unrelated new backend features
 5. backend corrections and narrow shared-backend enhancements are still required when the web layer proves a concrete need for correctness, continuity, or operator usability
 6. those backend changes must stay inside existing ownership boundaries and must not create a second truth owner, a separate web backend, or unrelated scope expansion
+7. mobile-readiness work during Milestone 7 should stay limited to narrow shared-backend hygiene that protects the same client-neutral seam the browser already uses
+8. do not let later lightweight mobile-client plans displace the still-pending Milestone 7 browser slices
 
 ## 7. Success criteria
 
@@ -152,6 +154,7 @@ Current checkpoint:
 40. the latest lifecycle slice now promotes parked-request management into the browser and shared backend seam: operators can save new requests as drafts, continue draft editing, add draft attachments, queue drafts, cancel queued pre-processing requests, return queued or cancelled requests to draft, and hard-delete unprocessed drafts through `/app`, while the shared backend seam now also exposes matching draft-save plus queue, cancel, amend, and delete actions over `/api/inbound-requests` and `/api/inbound-requests/{request_id}/{action}`
 41. the latest continuity slice now extends exact accounting detail plus exact inventory-movement and reconciliation stops back upstream into the originating `REQ-...` request, exact proposal detail, exact approval detail, and anchored AI run when the linked source document already carries that provenance on the shared reporting seam, so downstream posting and inventory-control review no longer stall one click short of the intake and AI execution trail
 42. the remaining Milestone 7 work is now dashboard and browser entry-point refinement plus a final closeout sweep on top of those landed review, lifecycle, and provenance surfaces without creating a second backend or reviving broad manual-entry UI scope
+43. any additional mobile-readiness work that goes beyond that narrow browser-era seam hygiene should move into the post-Milestone-7 client-neutral backend hardening milestone rather than being folded silently into the remaining browser passes
 
 ## 9. Remaining slice analysis
 
@@ -185,7 +188,18 @@ The current planned remaining Milestone 7 slices are:
    Scope for this slice:
    1. review the landed browser surfaces against Milestone 7 exit criteria and the current canonical docs
    2. fix any narrow residual continuity or usability blocker that materially prevents milestone completion
-   3. update canonical docs to either mark Milestone 7 complete or record the exact residual blocker if completion is still not justified
+3. update canonical docs to either mark Milestone 7 complete or record the exact residual blocker if completion is still not justified
+
+## 10. Post-Milestone-7 handoff
+
+After Milestone 7 completes, the next planned backend-focused milestone should be client-neutral hardening for later lightweight mobile reuse.
+
+That follow-up milestone should:
+
+1. harden shared `/api/...` contracts already exercised by the browser layer
+2. standardize request-status, review-read, approval-action, and attachment semantics where later non-browser clients would otherwise inherit browser-only assumptions
+3. define the next auth-evolution path for non-browser clients without destabilizing the finished browser-session flow
+4. avoid turning that backend hardening into either a second backend or a stealth mobile-product build
 
 Planned-slice control rule:
 
