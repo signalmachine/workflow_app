@@ -1520,16 +1520,21 @@ func TestAgentAPIProcessNextQueuedInboundRequestIntegration(t *testing.T) {
 		t.Fatalf("new agent processor: %v", err)
 	}
 
-	handler := app.NewAgentAPIHandlerWithProcessorLoader(func() (app.ProcessNextQueuedInboundRequester, error) {
-		return processor, nil
-	})
+	handler := app.NewAgentAPIHandlerWithDependencies(
+		func() (app.ProcessNextQueuedInboundRequester, error) {
+			return processor, nil
+		},
+		nil,
+		nil,
+		nil,
+		identityaccess.NewService(db),
+	)
+	accessToken := issueBearerAccessToken(t, ctx, db, handler, orgID, operatorUserID)
 
 	body := bytes.NewBufferString(`{"channel":"browser"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/agent/process-next-queued-inbound-request", body)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Workflow-Org-ID", orgID)
-	req.Header.Set("X-Workflow-User-ID", operatorUserID)
-	req.Header.Set("X-Workflow-Session-ID", session.ID)
+	applyBearer(req, accessToken)
 
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
@@ -1578,22 +1583,27 @@ func TestAgentAPIProcessNextQueuedInboundRequestReturnsNotProcessedWhenQueueEmpt
 	defer cancel()
 
 	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
-	session := startSession(t, ctx, db, orgID, operatorUserID)
+	_ = startSession(t, ctx, db, orgID, operatorUserID)
 
 	processor, err := app.NewAgentProcessor(db, fakeCoordinatorProvider{})
 	if err != nil {
 		t.Fatalf("new agent processor: %v", err)
 	}
 
-	handler := app.NewAgentAPIHandlerWithProcessorLoader(func() (app.ProcessNextQueuedInboundRequester, error) {
-		return processor, nil
-	})
+	handler := app.NewAgentAPIHandlerWithDependencies(
+		func() (app.ProcessNextQueuedInboundRequester, error) {
+			return processor, nil
+		},
+		nil,
+		nil,
+		nil,
+		identityaccess.NewService(db),
+	)
+	accessToken := issueBearerAccessToken(t, ctx, db, handler, orgID, operatorUserID)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/agent/process-next-queued-inbound-request", bytes.NewBufferString(`{"channel":"browser"}`))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Workflow-Org-ID", orgID)
-	req.Header.Set("X-Workflow-User-ID", operatorUserID)
-	req.Header.Set("X-Workflow-Session-ID", session.ID)
+	applyBearer(req, accessToken)
 
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
@@ -1631,15 +1641,19 @@ func TestAgentAPIProcessNextQueuedInboundRequestUnauthorized(t *testing.T) {
 		t.Fatalf("new agent processor: %v", err)
 	}
 
-	handler := app.NewAgentAPIHandlerWithProcessorLoader(func() (app.ProcessNextQueuedInboundRequester, error) {
-		return processor, nil
-	})
+	handler := app.NewAgentAPIHandlerWithDependencies(
+		func() (app.ProcessNextQueuedInboundRequester, error) {
+			return processor, nil
+		},
+		nil,
+		nil,
+		nil,
+		identityaccess.NewService(db),
+	)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/agent/process-next-queued-inbound-request", bytes.NewBufferString(`{"channel":"browser"}`))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Workflow-Org-ID", orgID)
-	req.Header.Set("X-Workflow-User-ID", operatorUserID)
-	req.Header.Set("X-Workflow-Session-ID", "00000000-0000-4000-8000-000000000001")
+	applyBearer(req, "invalid-access-token")
 
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
@@ -1668,10 +1682,14 @@ func TestAgentAPIProcessNextQueuedInboundRequestReturnsProviderConfigurationErro
 	}
 }
 
-func TestAgentAPIProcessNextQueuedInboundRequestRequiresHeaders(t *testing.T) {
-	handler := app.NewAgentAPIHandlerWithProcessorLoader(func() (app.ProcessNextQueuedInboundRequester, error) {
+func TestAgentAPIProcessNextQueuedInboundRequestRequiresAuthentication(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	handler := app.NewAgentAPIHandlerWithDependencies(func() (app.ProcessNextQueuedInboundRequester, error) {
 		return nil, nil
-	})
+	}, nil, nil, nil, identityaccess.NewService(db))
 
 	req := httptest.NewRequest(http.MethodPost, "/api/agent/process-next-queued-inbound-request", bytes.NewBufferString(`{"channel":"browser"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -1679,26 +1697,36 @@ func TestAgentAPIProcessNextQueuedInboundRequestRequiresHeaders(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
 
-	if recorder.Code != http.StatusBadRequest {
+	if recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
 	}
 }
 
-func TestAgentAPIProcessNextQueuedInboundRequestRejectsMalformedHeaders(t *testing.T) {
-	handler := app.NewAgentAPIHandlerWithProcessorLoader(func() (app.ProcessNextQueuedInboundRequester, error) {
+func TestAgentAPIProcessNextQueuedInboundRequestRejectsHeaderOnlyAuthWhenSessionAuthExists(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	session := startSession(t, ctx, db, orgID, operatorUserID)
+
+	handler := app.NewAgentAPIHandlerWithDependencies(func() (app.ProcessNextQueuedInboundRequester, error) {
 		return nil, nil
-	})
+	}, nil, nil, nil, identityaccess.NewService(db))
 
 	req := httptest.NewRequest(http.MethodPost, "/api/agent/process-next-queued-inbound-request", bytes.NewBufferString(`{"channel":"browser"}`))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Workflow-Org-ID", "not-a-uuid")
-	req.Header.Set("X-Workflow-User-ID", "also-not-a-uuid")
-	req.Header.Set("X-Workflow-Session-ID", "still-not-a-uuid")
+	req.Header.Set("X-Workflow-Org-ID", orgID)
+	req.Header.Set("X-Workflow-User-ID", operatorUserID)
+	req.Header.Set("X-Workflow-Session-ID", session.ID)
 
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
 
-	if recorder.Code != http.StatusBadRequest {
+	if recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
 	}
 }
@@ -2850,6 +2878,35 @@ func issueBrowserSessionCookies(t *testing.T, ctx context.Context, db *sql.DB, h
 	}
 
 	return loginRecorder.Result().Cookies()
+}
+
+func issueBearerAccessToken(t *testing.T, ctx context.Context, db *sql.DB, handler http.Handler, orgID, userID string) string {
+	t.Helper()
+
+	orgSlug, userEmail := loadOrgSlugAndUserEmail(t, ctx, db, orgID, userID)
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/session/token", bytes.NewBufferString(`{
+		"org_slug":"`+orgSlug+`",
+		"email":"`+userEmail+`",
+		"device_label":"integration-token"
+	}`))
+	loginReq.Header.Set("Content-Type", "application/json")
+
+	loginRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(loginRecorder, loginReq)
+	if loginRecorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected token login status: got %d body=%s", loginRecorder.Code, loginRecorder.Body.String())
+	}
+
+	var response struct {
+		AccessToken string `json:"access_token"`
+	}
+	if err := json.Unmarshal(loginRecorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode token login response: %v", err)
+	}
+	if strings.TrimSpace(response.AccessToken) == "" {
+		t.Fatalf("expected access token in response: %s", loginRecorder.Body.String())
+	}
+	return response.AccessToken
 }
 
 func applyResponseCookies(req *http.Request, cookies []*http.Cookie) {

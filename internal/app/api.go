@@ -531,8 +531,12 @@ func (h *AgentAPIHandler) handleProcessNextQueuedInboundRequest(w http.ResponseW
 		return
 	}
 
-	actor, err := h.automationActorFromRequest(r)
+	actor, err := h.actorFromRequest(r)
 	if err != nil {
+		if errors.Is(err, identityaccess.ErrUnauthorized) {
+			writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
+			return
+		}
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
@@ -1681,13 +1685,6 @@ func (h *AgentAPIHandler) actorFromRequest(r *http.Request) (identityaccess.Acto
 		return identityaccess.Actor{}, err
 	}
 	return sessionContext.Actor, nil
-}
-
-func (h *AgentAPIHandler) automationActorFromRequest(r *http.Request) (identityaccess.Actor, error) {
-	if actor, err := actorFromHeaders(r); err == nil {
-		return actor, nil
-	}
-	return h.actorFromRequest(r)
 }
 
 func actorFromHeaders(r *http.Request) (identityaccess.Actor, error) {
