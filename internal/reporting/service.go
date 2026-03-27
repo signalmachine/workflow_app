@@ -505,6 +505,7 @@ type GetInboundRequestDetailInput struct {
 	RequestReference string
 	RunID            string
 	DelegationID     string
+	StepID           string
 	Actor            identityaccess.Actor
 }
 
@@ -1978,6 +1979,7 @@ func (s *Service) GetInboundRequestDetail(ctx context.Context, input GetInboundR
 		input.RequestReference,
 		input.RunID,
 		input.DelegationID,
+		input.StepID,
 	)
 	if err != nil {
 		_ = tx.Rollback()
@@ -2481,7 +2483,7 @@ func (s *Service) ListProcessedProposals(ctx context.Context, input ListProcesse
 		return nil, err
 	}
 
-	requestID, err := normalizeInboundRequestLookupTx(ctx, tx, input.Actor.OrgID, input.RequestID, input.RequestReference, "", "")
+	requestID, err := normalizeInboundRequestLookupTx(ctx, tx, input.Actor.OrgID, input.RequestID, input.RequestReference, "", "", "")
 	if err != nil {
 		_ = tx.Rollback()
 		return nil, err
@@ -2762,13 +2764,14 @@ LIMIT 200;`
 	return proposals, nil
 }
 
-func normalizeInboundRequestLookupTx(ctx context.Context, tx *sql.Tx, orgID, requestID, requestReference, runID, delegationID string) (string, error) {
+func normalizeInboundRequestLookupTx(ctx context.Context, tx *sql.Tx, orgID, requestID, requestReference, runID, delegationID, stepID string) (string, error) {
 	trimmedID := strings.TrimSpace(requestID)
 	trimmedReference := strings.TrimSpace(requestReference)
 	trimmedRunID := strings.TrimSpace(runID)
 	trimmedDelegationID := strings.TrimSpace(delegationID)
+	trimmedStepID := strings.TrimSpace(stepID)
 	provided := 0
-	for _, value := range []string{trimmedID, trimmedReference, trimmedRunID, trimmedDelegationID} {
+	for _, value := range []string{trimmedID, trimmedReference, trimmedRunID, trimmedDelegationID, trimmedStepID} {
 		if value != "" {
 			provided++
 		}
@@ -2820,6 +2823,22 @@ WHERE parent.org_id = $1
 				return "", sql.ErrNoRows
 			}
 			return "", fmt.Errorf("resolve inbound request delegation: %w", err)
+		}
+		return resolvedID, nil
+	case trimmedStepID != "":
+		var resolvedID string
+		err := tx.QueryRowContext(ctx, `
+SELECT ar.inbound_request_id
+FROM ai.agent_run_steps st
+JOIN ai.agent_runs ar
+  ON ar.id = st.run_id
+WHERE ar.org_id = $1
+  AND st.id = $2;`, orgID, trimmedStepID).Scan(&resolvedID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return "", sql.ErrNoRows
+			}
+			return "", fmt.Errorf("resolve inbound request step: %w", err)
 		}
 		return resolvedID, nil
 	default:

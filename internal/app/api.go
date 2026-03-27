@@ -630,16 +630,7 @@ func (h *AgentAPIHandler) handleGetInboundRequestDetail(w http.ResponseWriter, r
 	}
 
 	input := reporting.GetInboundRequestDetailInput{Actor: actor}
-	switch {
-	case strings.HasPrefix(strings.ToLower(lookup), "run:"):
-		input.RunID = strings.TrimSpace(lookup[len("run:"):])
-	case strings.HasPrefix(strings.ToLower(lookup), "delegation:"):
-		input.DelegationID = strings.TrimSpace(lookup[len("delegation:"):])
-	case strings.HasPrefix(strings.ToUpper(lookup), "REQ-"):
-		input.RequestReference = lookup
-	default:
-		input.RequestID = lookup
-	}
+	populateInboundRequestDetailLookup(&input, lookup)
 
 	detail, err := h.reviewService.GetInboundRequestDetail(r.Context(), input)
 	if err != nil {
@@ -648,6 +639,24 @@ func (h *AgentAPIHandler) handleGetInboundRequestDetail(w http.ResponseWriter, r
 	}
 
 	writeJSON(w, http.StatusOK, mapInboundRequestDetail(detail))
+}
+
+func populateInboundRequestDetailLookup(input *reporting.GetInboundRequestDetailInput, lookup string) {
+	if input == nil {
+		return
+	}
+	switch {
+	case strings.HasPrefix(strings.ToLower(lookup), "run:"):
+		input.RunID = strings.TrimSpace(lookup[len("run:"):])
+	case strings.HasPrefix(strings.ToLower(lookup), "delegation:"):
+		input.DelegationID = strings.TrimSpace(lookup[len("delegation:"):])
+	case strings.HasPrefix(strings.ToLower(lookup), "step:"):
+		input.StepID = strings.TrimSpace(lookup[len("step:"):])
+	case strings.HasPrefix(strings.ToUpper(lookup), "REQ-"):
+		input.RequestReference = lookup
+	default:
+		input.RequestID = lookup
+	}
 }
 
 func (h *AgentAPIHandler) handleListInboundRequestStatusSummary(w http.ResponseWriter, r *http.Request) {

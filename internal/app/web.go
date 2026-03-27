@@ -1370,16 +1370,7 @@ func (h *AgentAPIHandler) handleWebInboundRequestDetail(w http.ResponseWriter, r
 	}
 
 	input := reporting.GetInboundRequestDetailInput{Actor: sessionContext.Actor}
-	switch {
-	case strings.HasPrefix(strings.ToLower(lookup), "run:"):
-		input.RunID = strings.TrimSpace(lookup[len("run:"):])
-	case strings.HasPrefix(strings.ToLower(lookup), "delegation:"):
-		input.DelegationID = strings.TrimSpace(lookup[len("delegation:"):])
-	case strings.HasPrefix(strings.ToUpper(lookup), "REQ-"):
-		input.RequestReference = lookup
-	default:
-		input.RequestID = lookup
-	}
+	populateInboundRequestDetailLookup(&input, lookup)
 
 	detail, err := h.reviewService.GetInboundRequestDetail(r.Context(), input)
 	if err != nil {
@@ -1839,6 +1830,8 @@ func templateAuditEntityHref(entityType, entityID string) string {
 		return templateProposalDetailHref(entityID)
 	case "ai.agent_run":
 		return templateInboundRequestSectionHref("run:"+entityID, templateAIRunSectionID(entityID))
+	case "ai.agent_step", "ai.agent_run_step":
+		return templateInboundRequestSectionHref("step:"+entityID, templateAIStepSectionID(entityID))
 	case "ai.agent_delegation":
 		return templateInboundRequestSectionHref("delegation:"+entityID, templateAIDelegationSectionID(entityID))
 	case "accounting.journal_entry":
@@ -1868,6 +1861,8 @@ func templateAuditEntityLabel(entityType string) string {
 		return "Open proposal review"
 	case "ai.agent_run":
 		return "Open inbound request execution detail"
+	case "ai.agent_step", "ai.agent_run_step":
+		return "Open inbound request step detail"
 	case "ai.agent_delegation":
 		return "Open inbound request delegation detail"
 	case "accounting.journal_entry":
@@ -3471,7 +3466,10 @@ const webAppHTML = `<!DOCTYPE html>
               <a href="{{pageSectionHref (runSectionID .RunID)}}">Run {{.RunID}}</a>
             </div>
             <div class="status-pill {{statusClass .Status}}">{{.Status}}</div>
-            <div class="meta">Step: {{.StepID}} | Created: {{formatTime .CreatedAt}}</div>
+            <div class="meta">
+              Step: {{.StepID}} | Created: {{formatTime .CreatedAt}} |
+              <a href="/app/review/audit?entity_type=ai.agent_run_step&amp;entity_id={{.StepID}}">Audit trail</a>
+            </div>
             <details style="margin-top:10px;">
               <summary>Step payloads</summary>
               <div class="detail-block">
