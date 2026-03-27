@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strings"
@@ -49,6 +50,7 @@ var webAppTemplate = template.Must(template.New("app").Funcs(template.FuncMap{
 	"auditEventHref":        templateAuditEventHref,
 	"auditEntityHref":       templateAuditEntityHref,
 	"auditEntityLabel":      templateAuditEntityLabel,
+	"inboundActionHref":     templateInboundActionHref,
 }).Parse(webAppHTML))
 
 type webAppDashboardData struct {
@@ -62,10 +64,13 @@ type webAppDashboardData struct {
 }
 
 type webInboundDetailData struct {
-	Session identityaccess.SessionContext
-	Notice  string
-	Error   string
-	Detail  reporting.InboundRequestDetail
+	Session                identityaccess.SessionContext
+	Notice                 string
+	Error                  string
+	Detail                 reporting.InboundRequestDetail
+	EditableMessageID      string
+	EditableMessageText    string
+	EditableSubmitterLabel string
 }
 
 type webInboundRequestsData struct {
@@ -1413,55 +1418,89 @@ func (h *AgentAPIHandler) handleWebSubmitInboundRequest(w http.ResponseWriter, r
 		return
 	}
 
-	var files []SubmitInboundRequestAttachmentInput
-	if r.MultipartForm != nil {
-		for _, fileHeader := range r.MultipartForm.File["attachments"] {
-			file, openErr := fileHeader.Open()
-			if openErr != nil {
-				http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("failed to read attachment"), http.StatusSeeOther)
-				return
-			}
-
-			content, readErr := io.ReadAll(file)
-			_ = file.Close()
-			if readErr != nil {
-				http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("failed to read attachment"), http.StatusSeeOther)
-				return
-			}
-			if len(content) == 0 {
-				continue
-			}
-
-			mediaType := strings.TrimSpace(fileHeader.Header.Get("Content-Type"))
-			if mediaType == "" {
-				mediaType = "application/octet-stream"
-			}
-
-			files = append(files, SubmitInboundRequestAttachmentInput{
-				OriginalFileName: fileHeader.Filename,
-				MediaType:        mediaType,
-				ContentBase64:    base64.StdEncoding.EncodeToString(content),
-				LinkRole:         attachments.LinkRoleEvidence,
-			})
-		}
-	}
-
-	result, err := h.submissionService.SubmitInboundRequest(r.Context(), SubmitInboundRequestInput{
-		OriginType:     intake.OriginHuman,
-		Channel:        "browser",
-		Metadata:       map[string]any{"submitter_label": strings.TrimSpace(r.FormValue("submitter_label"))},
-		MessageRole:    intake.MessageRoleRequest,
-		MessageText:    strings.TrimSpace(r.FormValue("message_text")),
-		Attachments:    files,
-		QueueForReview: true,
-		Actor:          actor,
-	})
+	files, err := parseMultipartAttachments(r.MultipartForm)
 	if err != nil {
-		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("failed to submit inbound request"), http.StatusSeeOther)
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("failed to read attachment"), http.StatusSeeOther)
 		return
 	}
 
-	http.Redirect(w, r, webInboundDetailPrefix+url.PathEscape(result.Request.RequestReference)+"?notice="+url.QueryEscape("Inbound request submitted."), http.StatusSeeOther)
+	intent := strings.TrimSpace(r.FormValue("intent"))
+	requestID := strings.TrimSpace(r.FormValue("request_id"))
+	messageID := strings.TrimSpace(r.FormValue("message_id"))
+	returnTo := sanitizeWebReturnPath(r.FormValue("return_to"))
+	if returnTo == "" {
+		if requestID != "" {
+			returnTo = webInboundDetailPrefix + url.PathEscape(requestID)
+		} else {
+			returnTo = webAppPath
+		}
+	}
+
+	switch intent {
+	case "save_draft":
+		result, err := h.submissionService.SaveInboundDraft(r.Context(), SaveInboundDraftInput{
+			RequestID:   requestID,
+			MessageID:   messageID,
+			OriginType:  intake.OriginHuman,
+			Channel:     "browser",
+			Metadata:    map[string]any{"submitter_label": strings.TrimSpace(r.FormValue("submitter_label"))},
+			MessageRole: intake.MessageRoleRequest,
+			MessageText: strings.TrimSpace(r.FormValue("message_text")),
+			Attachments: files,
+			Actor:       actor,
+		})
+		if err != nil {
+			http.Redirect(w, r, appendWebMessage(returnTo, "error", "failed to save inbound draft"), http.StatusSeeOther)
+			return
+		}
+		http.Redirect(w, r, webInboundDetailPrefix+url.PathEscape(result.Request.RequestReference)+"?notice="+url.QueryEscape("Draft saved."), http.StatusSeeOther)
+		return
+	default:
+		if requestID != "" {
+			saved, err := h.submissionService.SaveInboundDraft(r.Context(), SaveInboundDraftInput{
+				RequestID:   requestID,
+				MessageID:   messageID,
+				OriginType:  intake.OriginHuman,
+				Channel:     "browser",
+				Metadata:    map[string]any{"submitter_label": strings.TrimSpace(r.FormValue("submitter_label"))},
+				MessageRole: intake.MessageRoleRequest,
+				MessageText: strings.TrimSpace(r.FormValue("message_text")),
+				Attachments: files,
+				Actor:       actor,
+			})
+			if err != nil {
+				http.Redirect(w, r, appendWebMessage(returnTo, "error", "failed to save inbound draft"), http.StatusSeeOther)
+				return
+			}
+			queued, err := h.submissionService.QueueInboundRequest(r.Context(), QueueInboundRequestInput{
+				RequestID: saved.Request.ID,
+				Actor:     actor,
+			})
+			if err != nil {
+				http.Redirect(w, r, appendWebMessage(returnTo, "error", "failed to queue inbound request"), http.StatusSeeOther)
+				return
+			}
+			http.Redirect(w, r, webInboundDetailPrefix+url.PathEscape(queued.RequestReference)+"?notice="+url.QueryEscape("Inbound request queued."), http.StatusSeeOther)
+			return
+		}
+
+		result, err := h.submissionService.SubmitInboundRequest(r.Context(), SubmitInboundRequestInput{
+			OriginType:     intake.OriginHuman,
+			Channel:        "browser",
+			Metadata:       map[string]any{"submitter_label": strings.TrimSpace(r.FormValue("submitter_label"))},
+			MessageRole:    intake.MessageRoleRequest,
+			MessageText:    strings.TrimSpace(r.FormValue("message_text")),
+			Attachments:    files,
+			QueueForReview: true,
+			Actor:          actor,
+		})
+		if err != nil {
+			http.Redirect(w, r, appendWebMessage(returnTo, "error", "failed to submit inbound request"), http.StatusSeeOther)
+			return
+		}
+		http.Redirect(w, r, webInboundDetailPrefix+url.PathEscape(result.Request.RequestReference)+"?notice="+url.QueryEscape("Inbound request submitted."), http.StatusSeeOther)
+		return
+	}
 }
 
 func (h *AgentAPIHandler) handleWebProcessNextQueuedInboundRequest(w http.ResponseWriter, r *http.Request) {
@@ -1507,6 +1546,15 @@ func (h *AgentAPIHandler) handleWebProcessNextQueuedInboundRequest(w http.Respon
 }
 
 func (h *AgentAPIHandler) handleWebInboundRequestDetail(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		requestID, action, ok := parseChildActionPath(webInboundDetailPrefix, r.URL.Path)
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		h.handleWebInboundRequestAction(w, r, requestID, action)
+		return
+	}
 	if r.Method != http.MethodGet {
 		http.NotFound(w, r)
 		return
@@ -1541,12 +1589,88 @@ func (h *AgentAPIHandler) handleWebInboundRequestDetail(w http.ResponseWriter, r
 		ActivePath: webInboundRequestsPath,
 		Session:    &sessionContext,
 		Detail: &webInboundDetailData{
-			Session: sessionContext,
-			Notice:  strings.TrimSpace(r.URL.Query().Get("notice")),
-			Error:   strings.TrimSpace(r.URL.Query().Get("error")),
-			Detail:  detail,
+			Session:                sessionContext,
+			Notice:                 strings.TrimSpace(r.URL.Query().Get("notice")),
+			Error:                  strings.TrimSpace(r.URL.Query().Get("error")),
+			Detail:                 detail,
+			EditableMessageID:      editableInboundMessageID(detail),
+			EditableMessageText:    editableInboundMessageText(detail),
+			EditableSubmitterLabel: inboundRequestMetadataString(detail.Request.Metadata, "submitter_label"),
 		},
 	})
+}
+
+func (h *AgentAPIHandler) handleWebInboundRequestAction(w http.ResponseWriter, r *http.Request, requestID, action string) {
+	if h.submissionService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("submission service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("unauthorized"), http.StatusSeeOther)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("invalid inbound request form"), http.StatusSeeOther)
+		return
+	}
+
+	returnTo := sanitizeWebReturnPath(r.FormValue("return_to"))
+	if returnTo == "" {
+		returnTo = webInboundDetailPrefix + url.PathEscape(requestID)
+	}
+
+	switch action {
+	case "queue":
+		request, err := h.submissionService.QueueInboundRequest(r.Context(), QueueInboundRequestInput{
+			RequestID: requestID,
+			Actor:     actor,
+		})
+		if err != nil {
+			http.Redirect(w, r, appendWebMessage(returnTo, "error", "failed to queue inbound request"), http.StatusSeeOther)
+			return
+		}
+		http.Redirect(w, r, webInboundDetailPrefix+url.PathEscape(request.RequestReference)+"?notice="+url.QueryEscape("Inbound request queued."), http.StatusSeeOther)
+		return
+	case "cancel":
+		request, err := h.submissionService.CancelInboundRequest(r.Context(), CancelInboundRequestInput{
+			RequestID: requestID,
+			Reason:    strings.TrimSpace(r.FormValue("reason")),
+			Actor:     actor,
+		})
+		if err != nil {
+			http.Redirect(w, r, appendWebMessage(returnTo, "error", "failed to cancel inbound request"), http.StatusSeeOther)
+			return
+		}
+		http.Redirect(w, r, webInboundDetailPrefix+url.PathEscape(request.RequestReference)+"?notice="+url.QueryEscape("Inbound request cancelled."), http.StatusSeeOther)
+		return
+	case "amend":
+		request, err := h.submissionService.AmendInboundRequest(r.Context(), AmendInboundRequestInput{
+			RequestID: requestID,
+			Actor:     actor,
+		})
+		if err != nil {
+			http.Redirect(w, r, appendWebMessage(returnTo, "error", "failed to return request to draft"), http.StatusSeeOther)
+			return
+		}
+		http.Redirect(w, r, webInboundDetailPrefix+url.PathEscape(request.RequestReference)+"?notice="+url.QueryEscape("Inbound request returned to draft."), http.StatusSeeOther)
+		return
+	case "delete":
+		if err := h.submissionService.DeleteInboundDraft(r.Context(), DeleteInboundDraftInput{
+			RequestID: requestID,
+			Actor:     actor,
+		}); err != nil {
+			http.Redirect(w, r, appendWebMessage(returnTo, "error", "failed to delete inbound draft"), http.StatusSeeOther)
+			return
+		}
+		http.Redirect(w, r, appendWebMessage(webInboundRequestsPath, "notice", "Draft deleted."), http.StatusSeeOther)
+		return
+	default:
+		http.NotFound(w, r)
+		return
+	}
 }
 
 func (h *AgentAPIHandler) handleWebApprovalDecision(w http.ResponseWriter, r *http.Request) {
@@ -1656,6 +1780,80 @@ func appendWebMessage(target, key, message string) string {
 	return target + separator + key + "=" + url.QueryEscape(message)
 }
 
+func parseMultipartAttachments(form *multipart.Form) ([]SubmitInboundRequestAttachmentInput, error) {
+	var files []SubmitInboundRequestAttachmentInput
+	if form == nil {
+		return files, nil
+	}
+	for _, fileHeader := range form.File["attachments"] {
+		file, openErr := fileHeader.Open()
+		if openErr != nil {
+			return nil, openErr
+		}
+		content, readErr := io.ReadAll(file)
+		_ = file.Close()
+		if readErr != nil {
+			return nil, readErr
+		}
+		if len(content) == 0 {
+			continue
+		}
+
+		mediaType := strings.TrimSpace(fileHeader.Header.Get("Content-Type"))
+		if mediaType == "" {
+			mediaType = "application/octet-stream"
+		}
+		files = append(files, SubmitInboundRequestAttachmentInput{
+			OriginalFileName: fileHeader.Filename,
+			MediaType:        mediaType,
+			ContentBase64:    base64.StdEncoding.EncodeToString(content),
+			LinkRole:         attachments.LinkRoleEvidence,
+		})
+	}
+	return files, nil
+}
+
+func editableInboundMessageID(detail reporting.InboundRequestDetail) string {
+	for _, message := range detail.Messages {
+		if message.MessageRole == intake.MessageRoleRequest {
+			return message.MessageID
+		}
+	}
+	if len(detail.Messages) == 0 {
+		return ""
+	}
+	return detail.Messages[0].MessageID
+}
+
+func editableInboundMessageText(detail reporting.InboundRequestDetail) string {
+	messageID := editableInboundMessageID(detail)
+	for _, message := range detail.Messages {
+		if message.MessageID == messageID {
+			return message.TextContent
+		}
+	}
+	return ""
+}
+
+func inboundRequestMetadataString(raw json.RawMessage, key string) string {
+	if len(raw) == 0 || strings.TrimSpace(key) == "" {
+		return ""
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return ""
+	}
+	value, ok := payload[key]
+	if !ok {
+		return ""
+	}
+	text, ok := value.(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(text)
+}
+
 func formatTemplateTime(value time.Time) string {
 	if value.IsZero() {
 		return "-"
@@ -1718,6 +1916,15 @@ func templateInboundRequestSectionHref(lookup, sectionID string) string {
 		return target
 	}
 	return target + "#" + sectionID
+}
+
+func templateInboundActionHref(requestID, action string) string {
+	requestID = strings.TrimSpace(requestID)
+	action = strings.TrimSpace(action)
+	if requestID == "" || action == "" {
+		return webInboundRequestsPath
+	}
+	return webInboundDetailPrefix + url.PathEscape(requestID) + "/" + url.PathEscape(action)
 }
 
 func templateAIRunSectionID(runID string) string {
@@ -2324,7 +2531,10 @@ const webAppHTML = `<!DOCTYPE html>
               <label>Attachments
                 <input type="file" name="attachments" multiple>
               </label>
-              <button type="submit">Queue inbound request</button>
+              <div class="inline-form">
+                <button type="submit" name="intent" value="queue">Queue inbound request</button>
+                <button type="submit" name="intent" value="save_draft" class="secondary">Save draft</button>
+              </div>
             </form>
           </div>
           <div>
@@ -2376,6 +2586,11 @@ const webAppHTML = `<!DOCTYPE html>
                 <td>{{.Channel}}</td>
                 <td>
                   {{.MessageCount}} messages / {{.AttachmentCount}} files
+                  {{if eq .Status "draft"}}
+                  <div class="meta"><a href="{{inboundRequestHref .RequestReference}}">Continue draft</a></div>
+                  {{else if or (eq .Status "queued") (eq .Status "cancelled")}}
+                  <div class="meta"><a href="{{inboundRequestHref .RequestReference}}">Open lifecycle actions</a></div>
+                  {{end}}
                   {{if .LastRunID.Valid}}
                   <div class="meta"><a href="{{inboundSectionHref (printf "run:%s" .LastRunID.String) (runSectionID .LastRunID.String)}}">Open latest run</a></div>
                   {{end}}
@@ -2520,11 +2735,13 @@ const webAppHTML = `<!DOCTYPE html>
               <td>
                 <a href="{{inboundRequestHref .RequestReference}}">{{.RequestReference}}</a>
                 <div class="meta">{{.RequestID}}</div>
+                {{if eq .Status "draft"}}<div class="meta"><a href="{{inboundRequestHref .RequestReference}}">Continue draft</a></div>{{end}}
               </td>
               <td>
                 <span class="status-pill {{statusClass .Status}}">{{.Status}}</span>
                 {{if .CancelledAt.Valid}}<div class="meta">Cancelled: {{formatTime .CancelledAt.Time}}</div>{{end}}
                 {{if .FailedAt.Valid}}<div class="meta">Failed: {{formatTime .FailedAt.Time}}</div>{{end}}
+                {{if or (eq .Status "queued") (eq .Status "cancelled")}}<div class="meta"><a href="{{inboundRequestHref .RequestReference}}">Manage lifecycle</a></div>{{end}}
               </td>
               <td>{{.Channel}}<div class="meta">{{.OriginType}}</div></td>
               <td>{{.MessageCount}} messages / {{.AttachmentCount}} files</td>
@@ -3815,6 +4032,56 @@ const webAppHTML = `<!DOCTYPE html>
             <a href="/app/review/audit?entity_type=ai.inbound_request&amp;entity_id={{.Detail.Request.RequestID}}">Audit trail</a>
           </p>
         </div>
+        {{if eq .Detail.Request.Status "draft"}}
+        <div class="detail-block">
+          <h3>Edit draft</h3>
+          <form method="post" action="/app/inbound-requests" enctype="multipart/form-data">
+            <input type="hidden" name="request_id" value="{{.Detail.Request.RequestID}}">
+            <input type="hidden" name="message_id" value="{{.EditableMessageID}}">
+            <input type="hidden" name="return_to" value="/app/inbound-requests/{{.Detail.Request.RequestReference}}">
+            <label>Submitter label
+              <input type="text" name="submitter_label" value="{{.EditableSubmitterLabel}}">
+            </label>
+            <label>Request message
+              <textarea name="message_text" required>{{.EditableMessageText}}</textarea>
+            </label>
+            <label>Add attachments
+              <input type="file" name="attachments" multiple>
+            </label>
+            <div class="inline-form">
+              <button type="submit" name="intent" value="save_draft">Save draft</button>
+              <button type="submit" name="intent" value="queue">Queue request</button>
+            </div>
+          </form>
+          <form method="post" action="{{inboundActionHref .Detail.Request.RequestID "delete"}}" style="margin-top:10px;">
+            <input type="hidden" name="return_to" value="/app/inbound-requests/{{.Detail.Request.RequestReference}}">
+            <button type="submit" class="secondary">Delete draft</button>
+          </form>
+        </div>
+        {{else if eq .Detail.Request.Status "queued"}}
+        <div class="detail-block">
+          <h3>Queued request actions</h3>
+          <div class="inline-form">
+            <form method="post" action="{{inboundActionHref .Detail.Request.RequestID "cancel"}}">
+              <input type="hidden" name="return_to" value="/app/inbound-requests/{{.Detail.Request.RequestReference}}">
+              <input type="text" name="reason" placeholder="Cancellation reason">
+              <button type="submit" class="secondary">Cancel request</button>
+            </form>
+            <form method="post" action="{{inboundActionHref .Detail.Request.RequestID "amend"}}">
+              <input type="hidden" name="return_to" value="/app/inbound-requests/{{.Detail.Request.RequestReference}}">
+              <button type="submit">Return to draft</button>
+            </form>
+          </div>
+        </div>
+        {{else if eq .Detail.Request.Status "cancelled"}}
+        <div class="detail-block">
+          <h3>Cancelled request actions</h3>
+          <form method="post" action="{{inboundActionHref .Detail.Request.RequestID "amend"}}">
+            <input type="hidden" name="return_to" value="/app/inbound-requests/{{.Detail.Request.RequestReference}}">
+            <button type="submit">Amend back to draft</button>
+          </form>
+        </div>
+        {{end}}
         <div class="detail-block">
           <h3>Metadata</h3>
           <pre>{{prettyJSON .Detail.Request.Metadata}}</pre>

@@ -118,6 +118,7 @@ The highest thin-v1 priorities are:
 8. adopted document-family payload ownership for work-order, invoice, payment or receipt, and inventory flows
 9. work-order and task execution foundations
 10. report and review surfaces
+11. browser operator surfaces on the shared backend seam, including parked-request lifecycle management for draft, queued, cancelled, and recovery flows
 11. provider-backed AI execution using the OpenAI Go SDK plus a shared backend processing contract, explicit live-verification command, and the minimum backend API and attachment-transport contract required to exercise that path in real testing
 
 CRM and project depth may remain in the repository where already implemented, but they are support concerns in thin v1 rather than the product center.

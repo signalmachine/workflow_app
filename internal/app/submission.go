@@ -39,6 +39,45 @@ type SubmitInboundRequestResult struct {
 	Attachments []attachments.Attachment
 }
 
+type SaveInboundDraftInput struct {
+	RequestID   string
+	MessageID   string
+	OriginType  string
+	Channel     string
+	Metadata    map[string]any
+	MessageRole string
+	MessageText string
+	Attachments []SubmitInboundRequestAttachmentInput
+	Actor       identityaccess.Actor
+}
+
+type SaveInboundDraftResult struct {
+	Request     intake.InboundRequest
+	Message     intake.Message
+	Attachments []attachments.Attachment
+}
+
+type QueueInboundRequestInput struct {
+	RequestID string
+	Actor     identityaccess.Actor
+}
+
+type CancelInboundRequestInput struct {
+	RequestID string
+	Reason    string
+	Actor     identityaccess.Actor
+}
+
+type AmendInboundRequestInput struct {
+	RequestID string
+	Actor     identityaccess.Actor
+}
+
+type DeleteInboundDraftInput struct {
+	RequestID string
+	Actor     identityaccess.Actor
+}
+
 type DownloadAttachmentInput struct {
 	AttachmentID string
 	Actor        identityaccess.Actor
@@ -145,6 +184,154 @@ func (s *SubmissionService) SubmitInboundRequest(ctx context.Context, input Subm
 	}
 
 	return result, nil
+}
+
+func (s *SubmissionService) SaveInboundDraft(ctx context.Context, input SaveInboundDraftInput) (_ SaveInboundDraftResult, err error) {
+	if s == nil || s.intakeService == nil || s.attachmentService == nil {
+		return SaveInboundDraftResult{}, fmt.Errorf("submission service is not initialized")
+	}
+
+	requestID := strings.TrimSpace(input.RequestID)
+	role := strings.TrimSpace(input.MessageRole)
+	if role == "" {
+		role = intake.MessageRoleRequest
+	}
+
+	var request intake.InboundRequest
+	if requestID == "" {
+		request, err = s.intakeService.CreateDraft(ctx, intake.CreateDraftInput{
+			OriginType: input.OriginType,
+			Channel:    input.Channel,
+			Metadata:   input.Metadata,
+			Actor:      input.Actor,
+		})
+		if err != nil {
+			return SaveInboundDraftResult{}, err
+		}
+		defer func() {
+			if err == nil {
+				return
+			}
+			_ = s.intakeService.DeleteDraft(ctx, intake.DeleteDraftInput{
+				RequestID: request.ID,
+				Actor:     input.Actor,
+			})
+		}()
+	} else {
+		request = intake.InboundRequest{ID: requestID}
+	}
+
+	var message intake.Message
+	messageID := strings.TrimSpace(input.MessageID)
+	messageText := strings.TrimSpace(input.MessageText)
+	switch {
+	case messageID != "":
+		message, err = s.intakeService.UpdateMessage(ctx, intake.UpdateMessageInput{
+			MessageID:   messageID,
+			TextContent: messageText,
+			MessageRole: role,
+			Actor:       input.Actor,
+		})
+		if err != nil {
+			return SaveInboundDraftResult{}, err
+		}
+	case messageText != "":
+		message, err = s.intakeService.AddMessage(ctx, intake.AddMessageInput{
+			RequestID:   request.ID,
+			MessageRole: role,
+			TextContent: messageText,
+			Actor:       input.Actor,
+		})
+		if err != nil {
+			return SaveInboundDraftResult{}, err
+		}
+	}
+
+	result := SaveInboundDraftResult{
+		Request: request,
+		Message: message,
+	}
+	for _, attachmentInput := range input.Attachments {
+		content, decodeErr := base64.StdEncoding.DecodeString(strings.TrimSpace(attachmentInput.ContentBase64))
+		if decodeErr != nil {
+			return SaveInboundDraftResult{}, fmt.Errorf("%w: %v", ErrAttachmentContentEncoding, decodeErr)
+		}
+
+		attachment, createErr := s.attachmentService.CreateAttachment(ctx, attachments.CreateAttachmentInput{
+			OriginalFileName: attachmentInput.OriginalFileName,
+			MediaType:        attachmentInput.MediaType,
+			Content:          content,
+			Actor:            input.Actor,
+		})
+		if createErr != nil {
+			return SaveInboundDraftResult{}, createErr
+		}
+		if message.ID == "" {
+			message, err = s.intakeService.AddMessage(ctx, intake.AddMessageInput{
+				RequestID:   request.ID,
+				MessageRole: role,
+				TextContent: "",
+				Actor:       input.Actor,
+			})
+			if err != nil {
+				return SaveInboundDraftResult{}, err
+			}
+			result.Message = message
+		}
+
+		if _, linkErr := s.attachmentService.LinkRequestMessage(ctx, attachments.LinkRequestMessageInput{
+			RequestMessageID: message.ID,
+			AttachmentID:     attachment.ID,
+			LinkRole:         attachmentInput.LinkRole,
+			Actor:            input.Actor,
+		}); linkErr != nil {
+			return SaveInboundDraftResult{}, linkErr
+		}
+		result.Attachments = append(result.Attachments, attachment)
+	}
+
+	return result, nil
+}
+
+func (s *SubmissionService) QueueInboundRequest(ctx context.Context, input QueueInboundRequestInput) (intake.InboundRequest, error) {
+	if s == nil || s.intakeService == nil {
+		return intake.InboundRequest{}, fmt.Errorf("submission service is not initialized")
+	}
+	return s.intakeService.QueueRequest(ctx, intake.QueueRequestInput{
+		RequestID: input.RequestID,
+		Actor:     input.Actor,
+	})
+}
+
+func (s *SubmissionService) CancelInboundRequest(ctx context.Context, input CancelInboundRequestInput) (intake.InboundRequest, error) {
+	if s == nil || s.intakeService == nil {
+		return intake.InboundRequest{}, fmt.Errorf("submission service is not initialized")
+	}
+	return s.intakeService.CancelRequest(ctx, intake.CancelRequestInput{
+		RequestID: input.RequestID,
+		Reason:    input.Reason,
+		Actor:     input.Actor,
+	})
+}
+
+func (s *SubmissionService) AmendInboundRequest(ctx context.Context, input AmendInboundRequestInput) (intake.InboundRequest, error) {
+	if s == nil || s.intakeService == nil {
+		return intake.InboundRequest{}, fmt.Errorf("submission service is not initialized")
+	}
+	return s.intakeService.AmendRequest(ctx, intake.AmendRequestInput{
+		RequestID: input.RequestID,
+		Actor:     input.Actor,
+	})
+}
+
+func (s *SubmissionService) DeleteInboundDraft(ctx context.Context, input DeleteInboundDraftInput) error {
+	if s == nil || s.intakeService == nil {
+		return fmt.Errorf("submission service is not initialized")
+	}
+	return s.intakeService.DeleteDraft(ctx, intake.DeleteDraftInput{
+		RequestID: input.RequestID,
+		Actor:     input.Actor,
+	})
 }
 
 func (s *SubmissionService) DownloadAttachment(ctx context.Context, input DownloadAttachmentInput) (attachments.AttachmentContent, error) {

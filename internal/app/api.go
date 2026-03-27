@@ -29,6 +29,7 @@ const (
 	webLoginPath               = "/app/login"
 	webLogoutPath              = "/app/logout"
 	webSubmitInboundPath       = "/app/inbound-requests"
+	webInboundActionsPrefix    = "/app/inbound-requests/"
 	webProcessNextQueuedPath   = "/app/agent/process-next-queued-inbound-request"
 	webInboundDetailPrefix     = "/app/inbound-requests/"
 	webInboundRequestsPath     = "/app/review/inbound-requests"
@@ -52,6 +53,7 @@ const (
 	webAuditDetailPrefix       = "/app/review/audit/"
 	agentProcessNextQueuedPath = "/api/agent/process-next-queued-inbound-request"
 	submitInboundRequestPath   = "/api/inbound-requests"
+	inboundRequestActionPrefix = "/api/inbound-requests/"
 	attachmentContentPrefix    = "/api/attachments/"
 	reviewInboundRequestsPath  = "/api/review/inbound-requests"
 	reviewInboundSummaryPath   = "/api/review/inbound-request-status-summary"
@@ -87,6 +89,11 @@ type queuedInboundRequestProcessorLoader func() (ProcessNextQueuedInboundRequest
 
 type inboundRequestSubmitter interface {
 	SubmitInboundRequest(ctx context.Context, input SubmitInboundRequestInput) (SubmitInboundRequestResult, error)
+	SaveInboundDraft(ctx context.Context, input SaveInboundDraftInput) (SaveInboundDraftResult, error)
+	QueueInboundRequest(ctx context.Context, input QueueInboundRequestInput) (intake.InboundRequest, error)
+	CancelInboundRequest(ctx context.Context, input CancelInboundRequestInput) (intake.InboundRequest, error)
+	AmendInboundRequest(ctx context.Context, input AmendInboundRequestInput) (intake.InboundRequest, error)
+	DeleteInboundDraft(ctx context.Context, input DeleteInboundDraftInput) error
 	DownloadAttachment(ctx context.Context, input DownloadAttachmentInput) (attachments.AttachmentContent, error)
 }
 
@@ -125,11 +132,26 @@ type processNextQueuedRequest struct {
 }
 
 type submitInboundRequestRequest struct {
+	OriginType     string                              `json:"origin_type"`
+	Channel        string                              `json:"channel"`
+	Metadata       map[string]any                      `json:"metadata"`
+	Message        submitInboundRequestMessageRequest  `json:"message"`
+	Attachments    []submitInboundRequestAttachmentDTO `json:"attachments"`
+	QueueForReview *bool                               `json:"queue_for_review,omitempty"`
+}
+
+type saveInboundDraftRequest struct {
+	RequestID   string                              `json:"request_id,omitempty"`
+	MessageID   string                              `json:"message_id,omitempty"`
 	OriginType  string                              `json:"origin_type"`
 	Channel     string                              `json:"channel"`
 	Metadata    map[string]any                      `json:"metadata"`
 	Message     submitInboundRequestMessageRequest  `json:"message"`
 	Attachments []submitInboundRequestAttachmentDTO `json:"attachments"`
+}
+
+type inboundRequestActionRequest struct {
+	Reason string `json:"reason,omitempty"`
 }
 
 type submitInboundRequestMessageRequest struct {
@@ -243,6 +265,7 @@ func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(sessionLogoutPath, handler.handleSessionLogout)
 	mux.HandleFunc(agentProcessNextQueuedPath, handler.handleProcessNextQueuedInboundRequest)
 	mux.HandleFunc(submitInboundRequestPath, handler.handleSubmitInboundRequest)
+	mux.HandleFunc(inboundRequestActionPrefix, handler.handleInboundRequestAction)
 	mux.HandleFunc(attachmentContentPrefix, handler.handleDownloadAttachment)
 	mux.HandleFunc(reviewInboundRequestsPath, handler.handleListInboundRequests)
 	mux.HandleFunc(reviewInboundRequestsPath+"/", handler.handleGetInboundRequestDetail)
@@ -487,6 +510,45 @@ func (h *AgentAPIHandler) handleSubmitInboundRequest(w http.ResponseWriter, r *h
 		})
 	}
 
+	queueForReview := true
+	if req.QueueForReview != nil {
+		queueForReview = *req.QueueForReview
+	}
+
+	if !queueForReview {
+		result, err := h.submissionService.SaveInboundDraft(r.Context(), SaveInboundDraftInput{
+			OriginType:  req.OriginType,
+			Channel:     req.Channel,
+			Metadata:    req.Metadata,
+			MessageRole: req.Message.MessageRole,
+			MessageText: req.Message.TextContent,
+			Attachments: attachmentsInput,
+			Actor:       actor,
+		})
+		if err != nil {
+			switch {
+			case errors.Is(err, intake.ErrInvalidInboundRequest), errors.Is(err, attachments.ErrInvalidAttachment), errors.Is(err, attachments.ErrInvalidLink), errors.Is(err, ErrAttachmentContentEncoding):
+				writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid inbound request"})
+			case errors.Is(err, identityaccess.ErrUnauthorized):
+				writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
+			default:
+				writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to save inbound draft"})
+			}
+			return
+		}
+		response := submitInboundRequestResponse{
+			RequestID:        result.Request.ID,
+			RequestReference: result.Request.RequestReference,
+			Status:           intake.StatusDraft,
+			MessageID:        result.Message.ID,
+		}
+		for _, attachment := range result.Attachments {
+			response.AttachmentIDs = append(response.AttachmentIDs, attachment.ID)
+		}
+		writeJSON(w, http.StatusCreated, response)
+		return
+	}
+
 	result, err := h.submissionService.SubmitInboundRequest(r.Context(), SubmitInboundRequestInput{
 		OriginType:     req.OriginType,
 		Channel:        req.Channel,
@@ -520,6 +582,194 @@ func (h *AgentAPIHandler) handleSubmitInboundRequest(w http.ResponseWriter, r *h
 	}
 
 	writeJSON(w, http.StatusCreated, response)
+}
+
+func (h *AgentAPIHandler) handleInboundRequestAction(w http.ResponseWriter, r *http.Request) {
+	if h.submissionService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "submission service unavailable"})
+		return
+	}
+
+	requestID, action, ok := parseChildActionPath(inboundRequestActionPrefix, r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	switch action {
+	case "draft":
+		if r.Method != http.MethodPost && r.Method != http.MethodPut {
+			writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+			return
+		}
+		if r.Body == nil {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "request body is required"})
+			return
+		}
+		defer r.Body.Close()
+
+		var req saveInboundDraftRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid JSON request body"})
+			return
+		}
+		req.RequestID = requestID
+
+		attachmentsInput := make([]SubmitInboundRequestAttachmentInput, 0, len(req.Attachments))
+		for _, attachment := range req.Attachments {
+			attachmentsInput = append(attachmentsInput, SubmitInboundRequestAttachmentInput{
+				OriginalFileName: attachment.OriginalFileName,
+				MediaType:        attachment.MediaType,
+				ContentBase64:    attachment.ContentBase64,
+				LinkRole:         attachment.LinkRole,
+			})
+		}
+
+		result, err := h.submissionService.SaveInboundDraft(r.Context(), SaveInboundDraftInput{
+			RequestID:   req.RequestID,
+			MessageID:   req.MessageID,
+			OriginType:  req.OriginType,
+			Channel:     req.Channel,
+			Metadata:    req.Metadata,
+			MessageRole: req.Message.MessageRole,
+			MessageText: req.Message.TextContent,
+			Attachments: attachmentsInput,
+			Actor:       actor,
+		})
+		if err != nil {
+			switch {
+			case errors.Is(err, intake.ErrInvalidInboundRequest), errors.Is(err, intake.ErrInboundRequestState), errors.Is(err, intake.ErrInboundRequestNotFound), errors.Is(err, attachments.ErrInvalidAttachment), errors.Is(err, attachments.ErrInvalidLink), errors.Is(err, ErrAttachmentContentEncoding):
+				writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid inbound request"})
+			case errors.Is(err, identityaccess.ErrUnauthorized):
+				writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
+			default:
+				writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to save inbound draft"})
+			}
+			return
+		}
+		writeJSON(w, http.StatusOK, submitInboundRequestResponse{
+			RequestID:        result.Request.ID,
+			RequestReference: result.Request.RequestReference,
+			Status:           intake.StatusDraft,
+			MessageID:        result.Message.ID,
+		})
+		return
+	case "queue":
+		if r.Method != http.MethodPost {
+			writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+			return
+		}
+		request, err := h.submissionService.QueueInboundRequest(r.Context(), QueueInboundRequestInput{
+			RequestID: requestID,
+			Actor:     actor,
+		})
+		if err != nil {
+			switch {
+			case errors.Is(err, intake.ErrInvalidInboundRequest), errors.Is(err, intake.ErrInboundRequestState), errors.Is(err, intake.ErrInboundRequestNotFound):
+				writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid inbound request"})
+			case errors.Is(err, identityaccess.ErrUnauthorized):
+				writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
+			default:
+				writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to queue inbound request"})
+			}
+			return
+		}
+		writeJSON(w, http.StatusOK, submitInboundRequestResponse{
+			RequestID:        request.ID,
+			RequestReference: request.RequestReference,
+			Status:           request.Status,
+		})
+		return
+	case "cancel":
+		if r.Method != http.MethodPost {
+			writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+			return
+		}
+		var req inboundRequestActionRequest
+		if r.Body != nil {
+			defer r.Body.Close()
+			_ = json.NewDecoder(r.Body).Decode(&req)
+		}
+		request, err := h.submissionService.CancelInboundRequest(r.Context(), CancelInboundRequestInput{
+			RequestID: requestID,
+			Reason:    req.Reason,
+			Actor:     actor,
+		})
+		if err != nil {
+			switch {
+			case errors.Is(err, intake.ErrInboundRequestState), errors.Is(err, intake.ErrInboundRequestNotFound):
+				writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid inbound request"})
+			case errors.Is(err, identityaccess.ErrUnauthorized):
+				writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
+			default:
+				writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to cancel inbound request"})
+			}
+			return
+		}
+		writeJSON(w, http.StatusOK, submitInboundRequestResponse{
+			RequestID:        request.ID,
+			RequestReference: request.RequestReference,
+			Status:           request.Status,
+		})
+		return
+	case "amend":
+		if r.Method != http.MethodPost {
+			writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+			return
+		}
+		request, err := h.submissionService.AmendInboundRequest(r.Context(), AmendInboundRequestInput{
+			RequestID: requestID,
+			Actor:     actor,
+		})
+		if err != nil {
+			switch {
+			case errors.Is(err, intake.ErrInboundRequestState), errors.Is(err, intake.ErrInboundRequestNotFound):
+				writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid inbound request"})
+			case errors.Is(err, identityaccess.ErrUnauthorized):
+				writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
+			default:
+				writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to amend inbound request"})
+			}
+			return
+		}
+		writeJSON(w, http.StatusOK, submitInboundRequestResponse{
+			RequestID:        request.ID,
+			RequestReference: request.RequestReference,
+			Status:           request.Status,
+		})
+		return
+	case "delete":
+		if r.Method != http.MethodDelete {
+			writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+			return
+		}
+		err := h.submissionService.DeleteInboundDraft(r.Context(), DeleteInboundDraftInput{
+			RequestID: requestID,
+			Actor:     actor,
+		})
+		if err != nil {
+			switch {
+			case errors.Is(err, intake.ErrInboundRequestState), errors.Is(err, intake.ErrInboundRequestNotFound):
+				writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid inbound request"})
+			case errors.Is(err, identityaccess.ErrUnauthorized):
+				writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
+			default:
+				writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to delete inbound draft"})
+			}
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"deleted": true})
+		return
+	default:
+		http.NotFound(w, r)
+		return
+	}
 }
 
 func (h *AgentAPIHandler) handleDownloadAttachment(w http.ResponseWriter, r *http.Request) {
@@ -1455,6 +1705,30 @@ func parseChildPath(prefix, path string) (string, bool) {
 		return "", false
 	}
 	return strings.TrimSpace(unescaped), true
+}
+
+func parseChildActionPath(prefix, path string) (string, string, bool) {
+	if !strings.HasPrefix(path, prefix) {
+		return "", "", false
+	}
+	trimmed := strings.TrimPrefix(path, prefix)
+	trimmed = strings.Trim(trimmed, "/")
+	if trimmed == "" {
+		return "", "", false
+	}
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	child, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(child) == "" {
+		return "", "", false
+	}
+	action, err := url.PathUnescape(parts[1])
+	if err != nil || strings.TrimSpace(action) == "" {
+		return "", "", false
+	}
+	return strings.TrimSpace(child), strings.TrimSpace(action), true
 }
 
 func parseLimit(raw string) int {

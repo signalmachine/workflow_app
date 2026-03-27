@@ -1259,6 +1259,115 @@ func TestAgentAPISubmitInboundRequestRejectsInvalidAttachmentContent(t *testing.
 	}
 }
 
+func TestAgentAPIDraftLifecycleIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	session := startSession(t, ctx, db, orgID, operatorUserID)
+
+	handler := app.NewAgentAPIHandlerWithServices(nil, app.NewSubmissionService(db))
+
+	saveDraftReq := httptest.NewRequest(http.MethodPost, "/api/inbound-requests", bytes.NewBufferString(`{
+		"origin_type":"human",
+		"channel":"browser",
+		"metadata":{"submitter_label":"front desk"},
+		"message":{"message_role":"request","text_content":"Draft request from API."},
+		"queue_for_review":false
+	}`))
+	saveDraftReq.Header.Set("Content-Type", "application/json")
+	saveDraftReq.Header.Set("X-Workflow-Org-ID", orgID)
+	saveDraftReq.Header.Set("X-Workflow-User-ID", operatorUserID)
+	saveDraftReq.Header.Set("X-Workflow-Session-ID", session.ID)
+
+	saveDraftRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(saveDraftRecorder, saveDraftReq)
+	if saveDraftRecorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected save-draft status: got %d body=%s", saveDraftRecorder.Code, saveDraftRecorder.Body.String())
+	}
+
+	var draftResponse struct {
+		RequestID string `json:"request_id"`
+		MessageID string `json:"message_id"`
+		Status    string `json:"status"`
+	}
+	if err := json.Unmarshal(saveDraftRecorder.Body.Bytes(), &draftResponse); err != nil {
+		t.Fatalf("decode save-draft response: %v", err)
+	}
+	if draftResponse.Status != intake.StatusDraft {
+		t.Fatalf("unexpected draft status: %+v", draftResponse)
+	}
+
+	updateReq := httptest.NewRequest(http.MethodPost, "/api/inbound-requests/"+draftResponse.RequestID+"/draft", bytes.NewBufferString(`{
+		"message_id":"`+draftResponse.MessageID+`",
+		"origin_type":"human",
+		"channel":"browser",
+		"message":{"message_role":"request","text_content":"Updated API draft."}
+	}`))
+	updateReq.Header.Set("Content-Type", "application/json")
+	updateReq.Header.Set("X-Workflow-Org-ID", orgID)
+	updateReq.Header.Set("X-Workflow-User-ID", operatorUserID)
+	updateReq.Header.Set("X-Workflow-Session-ID", session.ID)
+	updateRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(updateRecorder, updateReq)
+	if updateRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected draft-update status: got %d body=%s", updateRecorder.Code, updateRecorder.Body.String())
+	}
+
+	queueReq := httptest.NewRequest(http.MethodPost, "/api/inbound-requests/"+draftResponse.RequestID+"/queue", nil)
+	queueReq.Header.Set("X-Workflow-Org-ID", orgID)
+	queueReq.Header.Set("X-Workflow-User-ID", operatorUserID)
+	queueReq.Header.Set("X-Workflow-Session-ID", session.ID)
+	queueRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(queueRecorder, queueReq)
+	if queueRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected queue status: got %d body=%s", queueRecorder.Code, queueRecorder.Body.String())
+	}
+
+	cancelReq := httptest.NewRequest(http.MethodPost, "/api/inbound-requests/"+draftResponse.RequestID+"/cancel", bytes.NewBufferString(`{"reason":"operator paused request"}`))
+	cancelReq.Header.Set("Content-Type", "application/json")
+	cancelReq.Header.Set("X-Workflow-Org-ID", orgID)
+	cancelReq.Header.Set("X-Workflow-User-ID", operatorUserID)
+	cancelReq.Header.Set("X-Workflow-Session-ID", session.ID)
+	cancelRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(cancelRecorder, cancelReq)
+	if cancelRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected cancel status: got %d body=%s", cancelRecorder.Code, cancelRecorder.Body.String())
+	}
+
+	amendReq := httptest.NewRequest(http.MethodPost, "/api/inbound-requests/"+draftResponse.RequestID+"/amend", nil)
+	amendReq.Header.Set("X-Workflow-Org-ID", orgID)
+	amendReq.Header.Set("X-Workflow-User-ID", operatorUserID)
+	amendReq.Header.Set("X-Workflow-Session-ID", session.ID)
+	amendRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(amendRecorder, amendReq)
+	if amendRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected amend status: got %d body=%s", amendRecorder.Code, amendRecorder.Body.String())
+	}
+
+	deleteReq := httptest.NewRequest(http.MethodDelete, "/api/inbound-requests/"+draftResponse.RequestID+"/delete", nil)
+	deleteReq.Header.Set("X-Workflow-Org-ID", orgID)
+	deleteReq.Header.Set("X-Workflow-User-ID", operatorUserID)
+	deleteReq.Header.Set("X-Workflow-Session-ID", session.ID)
+	deleteRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(deleteRecorder, deleteReq)
+	if deleteRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected delete status: got %d body=%s", deleteRecorder.Code, deleteRecorder.Body.String())
+	}
+
+	var remaining int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM ai.inbound_requests WHERE id = $1`, draftResponse.RequestID).Scan(&remaining); err != nil {
+		t.Fatalf("count remaining requests: %v", err)
+	}
+	if remaining != 0 {
+		t.Fatalf("expected deleted draft to be removed, found %d", remaining)
+	}
+}
+
 func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()

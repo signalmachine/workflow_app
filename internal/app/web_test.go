@@ -1,15 +1,20 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
 
+	"workflow_app/internal/attachments"
 	"workflow_app/internal/identityaccess"
+	"workflow_app/internal/intake"
 	"workflow_app/internal/reporting"
 )
 
@@ -1416,6 +1421,121 @@ func TestHandleWebInboundRequestsAddsAIRunAndProposalLinks(t *testing.T) {
 	}
 }
 
+func TestHandleWebInboundRequestDetailShowsDraftLifecycleActions(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			getInboundRequestDetail: func(context.Context, reporting.GetInboundRequestDetailInput) (reporting.InboundRequestDetail, error) {
+				return reporting.InboundRequestDetail{
+					Request: reporting.InboundRequestReview{
+						RequestID:        "req-123",
+						RequestReference: "REQ-000123",
+						Status:           intake.StatusDraft,
+						Channel:          "browser",
+						OriginType:       intake.OriginHuman,
+						ReceivedAt:       time.Date(2026, 3, 27, 10, 0, 0, 0, time.UTC),
+						Metadata:         []byte(`{"submitter_label":"front desk"}`),
+					},
+					Messages: []reporting.InboundRequestMessageReview{
+						{
+							MessageID:    "msg-123",
+							MessageIndex: 1,
+							MessageRole:  intake.MessageRoleRequest,
+							TextContent:  "Draft message",
+							CreatedAt:    time.Date(2026, 3, 27, 10, 1, 0, 0, time.UTC),
+						},
+					},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/inbound-requests/REQ-000123", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `name="intent" value="save_draft"`) {
+		t.Fatalf("expected save-draft action, body=%s", body)
+	}
+	if !strings.Contains(body, `name="intent" value="queue"`) {
+		t.Fatalf("expected queue action, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/inbound-requests/req-123/delete`) {
+		t.Fatalf("expected delete-draft action, body=%s", body)
+	}
+}
+
+func TestHandleWebSubmitInboundRequestSaveDraftRedirectsToDetail(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		stubSubmissionService{
+			saveInboundDraft: func(context.Context, SaveInboundDraftInput) (SaveInboundDraftResult, error) {
+				return SaveInboundDraftResult{
+					Request: intake.InboundRequest{
+						ID:               "req-123",
+						RequestReference: "REQ-000123",
+						Status:           intake.StatusDraft,
+					},
+					Message: intake.Message{ID: "msg-123"},
+				}, nil
+			},
+		},
+		nil,
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	form := url.Values{}
+	form.Set("submitter_label", "front desk")
+	form.Set("message_text", "Draft this request")
+	form.Set("intent", "save_draft")
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	for key, values := range form {
+		for _, value := range values {
+			if err := writer.WriteField(key, value); err != nil {
+				t.Fatalf("write multipart field: %v", err)
+			}
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close multipart writer: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/app/inbound-requests", &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	location := recorder.Header().Get("Location")
+	if !strings.Contains(location, "/app/inbound-requests/REQ-000123?notice=Draft+saved.") {
+		t.Fatalf("unexpected redirect location: %s", location)
+	}
+}
+
 func testSessionContext() identityaccess.SessionContext {
 	return identityaccess.SessionContext{
 		Actor: identityaccess.Actor{
@@ -1579,4 +1699,59 @@ func (s stubBrowserSessionService) AuthenticateSession(ctx context.Context, sess
 
 func (s stubBrowserSessionService) RevokeAuthenticatedSession(context.Context, string, string) error {
 	return nil
+}
+
+type stubSubmissionService struct {
+	submitInboundRequest func(context.Context, SubmitInboundRequestInput) (SubmitInboundRequestResult, error)
+	saveInboundDraft     func(context.Context, SaveInboundDraftInput) (SaveInboundDraftResult, error)
+	queueInboundRequest  func(context.Context, QueueInboundRequestInput) (intake.InboundRequest, error)
+	cancelInboundRequest func(context.Context, CancelInboundRequestInput) (intake.InboundRequest, error)
+	amendInboundRequest  func(context.Context, AmendInboundRequestInput) (intake.InboundRequest, error)
+	deleteInboundDraft   func(context.Context, DeleteInboundDraftInput) error
+}
+
+func (s stubSubmissionService) SubmitInboundRequest(ctx context.Context, input SubmitInboundRequestInput) (SubmitInboundRequestResult, error) {
+	if s.submitInboundRequest != nil {
+		return s.submitInboundRequest(ctx, input)
+	}
+	return SubmitInboundRequestResult{}, nil
+}
+
+func (s stubSubmissionService) SaveInboundDraft(ctx context.Context, input SaveInboundDraftInput) (SaveInboundDraftResult, error) {
+	if s.saveInboundDraft != nil {
+		return s.saveInboundDraft(ctx, input)
+	}
+	return SaveInboundDraftResult{}, nil
+}
+
+func (s stubSubmissionService) QueueInboundRequest(ctx context.Context, input QueueInboundRequestInput) (intake.InboundRequest, error) {
+	if s.queueInboundRequest != nil {
+		return s.queueInboundRequest(ctx, input)
+	}
+	return intake.InboundRequest{}, nil
+}
+
+func (s stubSubmissionService) CancelInboundRequest(ctx context.Context, input CancelInboundRequestInput) (intake.InboundRequest, error) {
+	if s.cancelInboundRequest != nil {
+		return s.cancelInboundRequest(ctx, input)
+	}
+	return intake.InboundRequest{}, nil
+}
+
+func (s stubSubmissionService) AmendInboundRequest(ctx context.Context, input AmendInboundRequestInput) (intake.InboundRequest, error) {
+	if s.amendInboundRequest != nil {
+		return s.amendInboundRequest(ctx, input)
+	}
+	return intake.InboundRequest{}, nil
+}
+
+func (s stubSubmissionService) DeleteInboundDraft(ctx context.Context, input DeleteInboundDraftInput) error {
+	if s.deleteInboundDraft != nil {
+		return s.deleteInboundDraft(ctx, input)
+	}
+	return nil
+}
+
+func (s stubSubmissionService) DownloadAttachment(context.Context, DownloadAttachmentInput) (attachments.AttachmentContent, error) {
+	return attachments.AttachmentContent{}, nil
 }

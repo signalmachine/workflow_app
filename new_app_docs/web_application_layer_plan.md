@@ -149,7 +149,8 @@ Current checkpoint:
 37. the latest continuity slice now turns dashboard pending-approval rows into stronger control stops by linking queue labels back into focused approval review, adding exact approval-detail continuations from the dashboard itself, and exposing source-document audit continuations alongside the existing document and approval actions so the operator can move from the home dashboard into the precise control record instead of treating approval rows as form-only state
 38. the latest continuity slice now extends document and approval browser review back upstream into the originating `REQ-...` request, exact proposal detail, and anchored AI run when that provenance exists on the shared reporting seam, so downstream control review can continue back into the intake and AI execution trail without manual reconstruction
 39. the latest continuity slice now extends work-order list review plus exact work-order detail back upstream into the originating `REQ-...` request, exact proposal detail, exact approval detail, and anchored AI run when the linked source document already carries that provenance on the shared reporting seam, so execution review can stay on the same intake-to-control browser path instead of stalling at the source-document link
-40. the remaining Milestone 7 work is now operator continuity, richer drill-downs, and focused refinement on top of those landed review surfaces without creating a second backend or reviving broad manual-entry UI scope
+40. the latest lifecycle slice now promotes parked-request management into the browser and shared backend seam: operators can save new requests as drafts, continue draft editing, add draft attachments, queue drafts, cancel queued pre-processing requests, return queued or cancelled requests to draft, and hard-delete unprocessed drafts through `/app`, while the shared backend seam now also exposes matching draft-save plus queue, cancel, amend, and delete actions over `/api/inbound-requests` and `/api/inbound-requests/{request_id}/{action}`
+41. the remaining Milestone 7 work is now downstream provenance continuity, dashboard and browser entry-point refinement, and a final closeout sweep on top of those landed review and lifecycle surfaces without creating a second backend or reviving broad manual-entry UI scope
 
 ## 9. Remaining slice analysis
 
@@ -177,6 +178,10 @@ The current planned remaining Milestone 7 slices are:
    5. queued or cancelled amend-back-to-draft handling
    6. hard deletion for unprocessed drafts only
    7. dashboard, request-list, and request-detail continuity for those actions
+
+   Current implementation note:
+   1. the first browser-lifecycle pass is now landed on the shared backend seam plus `/app`
+   2. later Milestone 7 work should treat richer draft-attachment editing beyond additive upload as residual refinement only if the later entry-point or closeout passes show it is materially required for milestone completion
 
 2. `downstream provenance continuity for accounting and inventory exact-detail surfaces`
 
