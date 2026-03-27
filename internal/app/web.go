@@ -26,7 +26,9 @@ var webAppTemplate = template.Must(template.New("app").Funcs(template.FuncMap{
 	"statusClass":           templateStatusClass,
 	"inboundRequestHref":    templateInboundRequestHref,
 	"runSectionID":          templateAIRunSectionID,
+	"stepSectionID":         templateAIStepSectionID,
 	"delegationSectionID":   templateAIDelegationSectionID,
+	"pageSectionHref":       templatePageSectionHref,
 	"inboundRequestReview":  templateInboundRequestReviewHref,
 	"documentReviewHref":    templateDocumentReviewHref,
 	"accountingReviewHref":  templateAccountingReviewHref,
@@ -1571,8 +1573,20 @@ func templateAIRunSectionID(runID string) string {
 	return templateSectionID("run", runID)
 }
 
+func templateAIStepSectionID(stepID string) string {
+	return templateSectionID("step", stepID)
+}
+
 func templateAIDelegationSectionID(delegationID string) string {
 	return templateSectionID("delegation", delegationID)
+}
+
+func templatePageSectionHref(sectionID string) string {
+	sectionID = strings.TrimSpace(sectionID)
+	if sectionID == "" {
+		return "#"
+	}
+	return "#" + sectionID
 }
 
 func templateSectionID(prefix, value string) string {
@@ -3436,6 +3450,11 @@ const webAppHTML = `<!DOCTYPE html>
             <div class="status-pill {{statusClass .Status}}">{{.Status}}</div>
             <p>{{.Summary}}</p>
             <div class="meta">{{.RunID}}</div>
+            <div class="meta">
+              Started: {{formatTime .StartedAt}}
+              {{if .CompletedAt.Valid}} | Completed: {{formatTime .CompletedAt.Time}}{{end}} |
+              <a href="/app/review/audit?entity_type=ai.agent_run&amp;entity_id={{.RunID}}">Audit trail</a>
+            </div>
           </div>
           {{else}}
           <p>No AI runs yet.</p>
@@ -3445,11 +3464,14 @@ const webAppHTML = `<!DOCTYPE html>
         <section class="panel">
           <h2>AI steps</h2>
           {{range .Detail.Steps}}
-          <div class="detail-block">
+          <div class="detail-block" id="{{stepSectionID .StepID}}">
             <strong>#{{.StepIndex}} {{.StepTitle}}</strong>
-            <div class="meta">{{.StepType}} | Run {{.RunID}}</div>
+            <div class="meta">
+              {{.StepType}} |
+              <a href="{{pageSectionHref (runSectionID .RunID)}}">Run {{.RunID}}</a>
+            </div>
             <div class="status-pill {{statusClass .Status}}">{{.Status}}</div>
-            <div class="meta">Created: {{formatTime .CreatedAt}}</div>
+            <div class="meta">Step: {{.StepID}} | Created: {{formatTime .CreatedAt}}</div>
             <details style="margin-top:10px;">
               <summary>Step payloads</summary>
               <div class="detail-block">
@@ -3488,12 +3510,15 @@ const webAppHTML = `<!DOCTYPE html>
           <div class="detail-block" id="{{delegationSectionID .DelegationID}}">
             <strong>{{.CapabilityCode}}</strong>
             <div class="meta">Delegation: {{.DelegationID}}</div>
-            <div class="meta">Parent run: {{.ParentRunID}}</div>
-            <div class="meta">Child run: {{.ChildRunID}} | {{.ChildAgentRole}} / {{.ChildCapabilityCode}}</div>
-            {{if .RequestedByStepID.Valid}}<div class="meta">Requested by step: {{.RequestedByStepID.String}}</div>{{end}}
+            <div class="meta">Parent run: <a href="{{pageSectionHref (runSectionID .ParentRunID)}}">{{.ParentRunID}}</a></div>
+            <div class="meta">Child run: <a href="{{pageSectionHref (runSectionID .ChildRunID)}}">{{.ChildRunID}}</a> | {{.ChildAgentRole}} / {{.ChildCapabilityCode}}</div>
+            {{if .RequestedByStepID.Valid}}<div class="meta">Requested by step: <a href="{{pageSectionHref (stepSectionID .RequestedByStepID.String)}}">{{.RequestedByStepID.String}}</a></div>{{end}}
             <div class="status-pill {{statusClass .ChildRunStatus}}">{{.ChildRunStatus}}</div>
             <p>{{.Reason}}</p>
-            <div class="meta">Created: {{formatTime .CreatedAt}}</div>
+            <div class="meta">
+              Created: {{formatTime .CreatedAt}} |
+              <a href="/app/review/audit?entity_type=ai.agent_delegation&amp;entity_id={{.DelegationID}}">Audit trail</a>
+            </div>
           </div>
           {{else}}
           <p>No delegations yet.</p>

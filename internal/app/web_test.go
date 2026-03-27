@@ -332,11 +332,32 @@ func TestHandleWebInboundRequestDetailAddsAnchoredExecutionSections(t *testing.T
 						CapabilityCode: "intake.process",
 						Status:         "completed",
 						Summary:        "Completed request processing",
+						StartedAt:      time.Date(2026, 3, 26, 12, 0, 30, 0, time.UTC),
+						CompletedAt:    sql.NullTime{Time: time.Date(2026, 3, 26, 12, 2, 0, 0, time.UTC), Valid: true},
+					}, {
+						RunID:          "run-456",
+						AgentRole:      "specialist",
+						CapabilityCode: "reporting.read",
+						Status:         "completed",
+						Summary:        "Loaded reporting context",
+						StartedAt:      time.Date(2026, 3, 26, 12, 1, 0, 0, time.UTC),
+						CompletedAt:    sql.NullTime{Time: time.Date(2026, 3, 26, 12, 1, 30, 0, time.UTC), Valid: true},
+					}},
+					Steps: []reporting.AIStepReview{{
+						StepID:       "step-123",
+						RunID:        "run-123",
+						StepIndex:    1,
+						StepType:     "tool_call",
+						StepTitle:    "Load intake context",
+						Status:       "completed",
+						InputPayload: []byte(`{"tool":"load_request"}`),
+						CreatedAt:    time.Date(2026, 3, 26, 12, 0, 45, 0, time.UTC),
 					}},
 					Delegations: []reporting.AIDelegationReview{{
 						DelegationID:        "delegation-123",
 						ParentRunID:         "run-123",
 						ChildRunID:          "run-456",
+						RequestedByStepID:   sql.NullString{String: "step-123", Valid: true},
 						CapabilityCode:      "reporting.read",
 						Reason:              "Read downstream context",
 						ChildAgentRole:      "specialist",
@@ -370,8 +391,26 @@ func TestHandleWebInboundRequestDetailAddsAnchoredExecutionSections(t *testing.T
 	if !strings.Contains(body, `id="run-run-123"`) {
 		t.Fatalf("expected anchored run section, body=%s", body)
 	}
+	if !strings.Contains(body, `id="step-step-123"`) {
+		t.Fatalf("expected anchored step section, body=%s", body)
+	}
 	if !strings.Contains(body, `id="delegation-delegation-123"`) {
 		t.Fatalf("expected anchored delegation section, body=%s", body)
+	}
+	if !strings.Contains(body, `href="#run-run-123">Run run-123</a>`) {
+		t.Fatalf("expected step link back to run section, body=%s", body)
+	}
+	if !strings.Contains(body, `href="#step-step-123">step-123</a>`) {
+		t.Fatalf("expected delegation link back to requesting step, body=%s", body)
+	}
+	if !strings.Contains(body, `href="#run-run-456">run-456</a>`) {
+		t.Fatalf("expected delegation child run link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/audit?entity_type=ai.agent_run&amp;entity_id=run-123`) {
+		t.Fatalf("expected run audit link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/audit?entity_type=ai.agent_delegation&amp;entity_id=delegation-123`) {
+		t.Fatalf("expected delegation audit link, body=%s", body)
 	}
 }
 
