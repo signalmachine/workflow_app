@@ -177,6 +177,7 @@ Preferred thin-v1 web-implementation stance:
 4. avoid introducing a separate SPA architecture, Node dependency chain, or frontend-specific build pipeline in thin v1 unless the canonical planning set explicitly changes that decision
 5. when the promoted web layer proves a concrete need, backend corrections and narrow shared-backend enhancements should still be made, but they should stay in service of the same shared engine and must not become a pretext for unrelated backend feature expansion or a second web-specific backend
 6. the same principle applies when work is centered on other non-backend layers such as the AI-agent layer: backend bugs, missing support seams, and narrow capability gaps should still be corrected when they materially block the active slice, but they should remain tied to that slice rather than expanding backend scope opportunistically
+7. during Milestone 7 execution, prefer larger coherent browser-workflow slices over many tiny continuity patches, while still keeping each slice bounded to one related operator path rather than mixing unrelated areas into one delivery
 
 ## 8. Data and database principles
 

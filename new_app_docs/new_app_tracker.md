@@ -35,7 +35,7 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 
 1. continue Milestone 7 from the landed `/app` browser slices by improving operator continuity and focused exact drill-downs on top of the now-landed inbound-request, approval-detail, proposal-detail, document-detail, inventory, work-order, and audit review surfaces without splitting backend ownership
 2. keep Milestone 7 centered on browser-layer integration and operator continuity rather than unrelated new backend features
-3. keep widening or correcting the shared backend only in small slices where the web layer proves a concrete need for correctness, continuity, or usability, so web and later mobile still sit on one foundation
+3. keep widening or correcting the shared backend only in workflow-bounded slices where the web layer proves a concrete need for correctness, continuity, or usability, so web and later mobile still sit on one foundation
 4. extend the current coherent operator loop before scattering effort across unrelated pages
 5. keep the codebase centered on the approved first-class modules while allowing support-depth records such as `parties` and `contacts` where the canonical module-boundary doc explicitly permits them
 6. add attachments only where they support approval evidence, document support flows, or persisted inbound request intake
@@ -51,7 +51,7 @@ Recommended sequence:
 1. widen the landed `/app` browser slices so operators can move from request intake, full inbound-request review, approval work, and financial-document review into the now-landed inventory, work-order, and audit reporting surfaces on the same backend contracts, then tighten continuity and drill-downs
 2. widen or correct the shared backend contract set only where that browser slice proves a concrete need, without creating a second truth owner or unrelated backend feature scope
 3. continue the usable web application layer so operators can work through the browser on the same backend contracts that later mobile will reuse
-4. execute Milestone 7 through small end-to-end slices rather than broad monolithic pushes so implementation stays controllable and reviewable
+4. execute Milestone 7 through larger coherent workflow slices rather than many tiny continuity patches or broad monolithic pushes so implementation stays controllable and reviewable
 
 Reason:
 
@@ -60,7 +60,7 @@ Reason:
 3. the reporting foundation is complete enough for thin-v1 review and browser-ready read seams, and the provider-backed coordinator plus browser-session auth now make the shared backend usable from a real browser client
 4. the landed coordinator slice includes a hard-capped tool loop with policy-enforced read-tool execution plus bounded specialist delegation while keeping the default contributor workflow provider-independent
 5. shared backend contracts, a focused live-provider verification command, queued-request processing, request submission, attachment transport, operator review, approval action, and browser-usable session auth now exist for driving the live path outside direct service calls, and the landed browser slices have now proven that seam with operator login, intake, queue processing, detail review, approval actions, plus downstream document, accounting, inventory, work-order, and audit review
-6. the remaining web milestone is now mainly continuity and refinement work, so it should continue as narrow vertical slices to avoid schedule drag and architecture sprawl
+6. the remaining web milestone is now mainly continuity and refinement work, so it should continue as larger related workflow slices to reduce session fragmentation while still avoiding architecture sprawl
 
 ## 3. Scope guardrail
 

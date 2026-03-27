@@ -311,8 +311,9 @@ Current implementation checkpoint:
 17. exact inbound-request detail now also resolves `step:<agent-step-id>` through those same shared browser and API seams, and audit review now links `ai.agent_run_step` plus `ai.agent_step` entities back into the exact inbound-request step block so step-level execution audit can land on the precise persisted step rather than only the broader request page
 18. this milestone remains in progress because the current browser layer still needs tighter operator continuity, richer drill-downs, and focused refinement across the now-landed review surfaces
 19. detailed sequencing and constraints are captured in `web_application_layer_plan.md`
-20. this milestone should continue as a sequence of narrow vertical slices rather than one monolithic delivery
-21. the active thin-v1 web-stack direction is now explicit: keep Go server-rendered HTML as the primary rendering model, prefer `htmx` where partial updates materially improve operator continuity, use `Alpine.js` only for small local state, and avoid introducing a Node toolchain unless the canonical planning set changes
+20. this milestone should continue as a sequence of coherent workflow slices rather than either many tiny continuity patches or one monolithic delivery
+21. each Milestone 7 pass should preferably close a larger related browser workflow or downstream control chain on the shared backend seams, for example inventory-to-execution continuity, approval-to-posting continuity, or inbound-request-execution review
+22. the active thin-v1 web-stack direction is now explicit: keep Go server-rendered HTML as the primary rendering model, prefer `htmx` where partial updates materially improve operator continuity, use `Alpine.js` only for small local state, and avoid introducing a Node toolchain unless the canonical planning set changes
 
 ## 9. Execution warning
 
