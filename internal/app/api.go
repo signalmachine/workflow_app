@@ -531,7 +531,7 @@ func (h *AgentAPIHandler) handleProcessNextQueuedInboundRequest(w http.ResponseW
 		return
 	}
 
-	actor, err := h.actorFromRequest(r)
+	actor, err := h.automationActorFromRequest(r)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
@@ -1669,11 +1669,11 @@ func (h *AgentAPIHandler) handleDecideApproval(w http.ResponseWriter, r *http.Re
 }
 
 func (h *AgentAPIHandler) actorFromRequest(r *http.Request) (identityaccess.Actor, error) {
-	if actor, err := actorFromHeaders(r); err == nil {
-		return actor, nil
-	}
 	if h.authService == nil {
-		return identityaccess.Actor{}, fmt.Errorf("missing required authentication headers")
+		if actor, err := actorFromHeaders(r); err == nil {
+			return actor, nil
+		}
+		return identityaccess.Actor{}, fmt.Errorf("unauthorized")
 	}
 
 	sessionContext, err := h.sessionContextFromRequest(r)
@@ -1681,6 +1681,13 @@ func (h *AgentAPIHandler) actorFromRequest(r *http.Request) (identityaccess.Acto
 		return identityaccess.Actor{}, err
 	}
 	return sessionContext.Actor, nil
+}
+
+func (h *AgentAPIHandler) automationActorFromRequest(r *http.Request) (identityaccess.Actor, error) {
+	if actor, err := actorFromHeaders(r); err == nil {
+		return actor, nil
+	}
+	return h.actorFromRequest(r)
 }
 
 func actorFromHeaders(r *http.Request) (identityaccess.Actor, error) {

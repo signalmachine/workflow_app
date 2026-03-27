@@ -1806,6 +1806,38 @@ func TestAgentAPISubmitInboundRequestIntegration(t *testing.T) {
 	}
 }
 
+func TestAgentAPISharedRoutesRejectActorHeadersWhenSessionAuthIsAvailable(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	session := startSession(t, ctx, db, orgID, operatorUserID)
+
+	handler := app.NewAgentAPIHandler(db)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/inbound-requests", bytes.NewBufferString(`{
+		"origin_type":"human",
+		"channel":"browser",
+		"message":{"message_role":"request","text_content":"Header auth should not be accepted here."}
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Workflow-Org-ID", orgID)
+	req.Header.Set("X-Workflow-User-ID", operatorUserID)
+	req.Header.Set("X-Workflow-Session-ID", session.ID)
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	requireContains(t, recorder.Body.String(), `"error":"unauthorized"`)
+}
+
 func TestAgentAPISubmitInboundRequestRejectsInvalidAttachmentMediaType(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()
@@ -2231,11 +2263,10 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	}
 
 	handler := app.NewAgentAPIHandler(db)
+	cookies := issueBrowserSessionCookies(t, ctx, db, handler, orgID, operatorUserID)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/review/inbound-requests?status=processed", nil)
-	req.Header.Set("X-Workflow-Org-ID", orgID)
-	req.Header.Set("X-Workflow-User-ID", operatorUserID)
-	req.Header.Set("X-Workflow-Session-ID", operatorSession.ID)
+	applyResponseCookies(req, cookies)
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
 	if recorder.Code != http.StatusOK {
@@ -2263,9 +2294,7 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	}
 
 	req = httptest.NewRequest(http.MethodGet, "/api/review/inbound-request-status-summary", nil)
-	req.Header.Set("X-Workflow-Org-ID", orgID)
-	req.Header.Set("X-Workflow-User-ID", operatorUserID)
-	req.Header.Set("X-Workflow-Session-ID", operatorSession.ID)
+	applyResponseCookies(req, cookies)
 	recorder = httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
 	if recorder.Code != http.StatusOK {
@@ -2286,9 +2315,7 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	}
 
 	req = httptest.NewRequest(http.MethodGet, "/api/review/inbound-requests/"+request.RequestReference, nil)
-	req.Header.Set("X-Workflow-Org-ID", orgID)
-	req.Header.Set("X-Workflow-User-ID", operatorUserID)
-	req.Header.Set("X-Workflow-Session-ID", operatorSession.ID)
+	applyResponseCookies(req, cookies)
 	recorder = httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
 	if recorder.Code != http.StatusOK {
@@ -2321,9 +2348,7 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	}
 
 	req = httptest.NewRequest(http.MethodGet, "/api/review/processed-proposals?request_reference="+request.RequestReference, nil)
-	req.Header.Set("X-Workflow-Org-ID", orgID)
-	req.Header.Set("X-Workflow-User-ID", operatorUserID)
-	req.Header.Set("X-Workflow-Session-ID", operatorSession.ID)
+	applyResponseCookies(req, cookies)
 	recorder = httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
 	if recorder.Code != http.StatusOK {
@@ -2352,9 +2377,7 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	}
 
 	req = httptest.NewRequest(http.MethodGet, "/api/review/processed-proposals?recommendation_id="+proposalListResponse.Items[0].RecommendationID, nil)
-	req.Header.Set("X-Workflow-Org-ID", orgID)
-	req.Header.Set("X-Workflow-User-ID", operatorUserID)
-	req.Header.Set("X-Workflow-Session-ID", operatorSession.ID)
+	applyResponseCookies(req, cookies)
 	recorder = httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
 	if recorder.Code != http.StatusOK {
@@ -2368,9 +2391,7 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	}
 
 	req = httptest.NewRequest(http.MethodGet, "/api/review/processed-proposal-status-summary", nil)
-	req.Header.Set("X-Workflow-Org-ID", orgID)
-	req.Header.Set("X-Workflow-User-ID", operatorUserID)
-	req.Header.Set("X-Workflow-Session-ID", operatorSession.ID)
+	applyResponseCookies(req, cookies)
 	recorder = httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
 	if recorder.Code != http.StatusOK {
@@ -2391,9 +2412,7 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	}
 
 	req = httptest.NewRequest(http.MethodGet, "/api/review/approval-queue?status=pending", nil)
-	req.Header.Set("X-Workflow-Org-ID", orgID)
-	req.Header.Set("X-Workflow-User-ID", operatorUserID)
-	req.Header.Set("X-Workflow-Session-ID", operatorSession.ID)
+	applyResponseCookies(req, cookies)
 	recorder = httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
 	if recorder.Code != http.StatusOK {
@@ -2415,9 +2434,7 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	}
 
 	req = httptest.NewRequest(http.MethodGet, "/api/review/approval-queue?approval_id="+approval.ID, nil)
-	req.Header.Set("X-Workflow-Org-ID", orgID)
-	req.Header.Set("X-Workflow-User-ID", operatorUserID)
-	req.Header.Set("X-Workflow-Session-ID", operatorSession.ID)
+	applyResponseCookies(req, cookies)
 	recorder = httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
 	if recorder.Code != http.StatusOK {
@@ -2542,9 +2559,9 @@ func TestAgentAPIReviewSurfacesRejectInvalidExactIDFiltersIntegration(t *testing
 	defer cancel()
 
 	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
-	session := startSession(t, ctx, db, orgID, operatorUserID)
 
 	handler := app.NewAgentAPIHandler(db)
+	cookies := issueBrowserSessionCookies(t, ctx, db, handler, orgID, operatorUserID)
 
 	testCases := []struct {
 		name string
@@ -2567,9 +2584,7 @@ func TestAgentAPIReviewSurfacesRejectInvalidExactIDFiltersIntegration(t *testing
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
-			req.Header.Set("X-Workflow-Org-ID", orgID)
-			req.Header.Set("X-Workflow-User-ID", operatorUserID)
-			req.Header.Set("X-Workflow-Session-ID", session.ID)
+			applyResponseCookies(req, cookies)
 
 			recorder := httptest.NewRecorder()
 			handler.ServeHTTP(recorder, req)
@@ -2595,20 +2610,17 @@ func TestAgentAPIDecideApprovalIntegration(t *testing.T) {
 	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
 
 	_, approverUserID := seedOrgAndUserInOrg(t, ctx, db, identityaccess.RoleApprover, orgID)
-	approverSession := startSession(t, ctx, db, orgID, approverUserID)
-	approver := identityaccess.Actor{OrgID: orgID, UserID: approverUserID, SessionID: approverSession.ID}
 
 	documentService := documents.NewService(db)
 	workflowService := workflow.NewService(db, documentService)
 	approval, doc := createPendingApproval(t, ctx, documentService, workflowService, operator)
 
 	handler := app.NewAgentAPIHandler(db)
+	approverCookies := issueBrowserSessionCookies(t, ctx, db, handler, orgID, approverUserID)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/approvals/"+approval.ID+"/decision", bytes.NewBufferString(`{"decision":"approved","decision_note":"Looks correct."}`))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Workflow-Org-ID", orgID)
-	req.Header.Set("X-Workflow-User-ID", approverUserID)
-	req.Header.Set("X-Workflow-Session-ID", approverSession.ID)
+	applyResponseCookies(req, approverCookies)
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
 	if recorder.Code != http.StatusOK {
@@ -2644,9 +2656,7 @@ func TestAgentAPIDecideApprovalIntegration(t *testing.T) {
 	}
 
 	req = httptest.NewRequest(http.MethodGet, "/api/review/approval-queue?status=closed", nil)
-	req.Header.Set("X-Workflow-Org-ID", orgID)
-	req.Header.Set("X-Workflow-User-ID", approver.UserID)
-	req.Header.Set("X-Workflow-Session-ID", approver.SessionID)
+	applyResponseCookies(req, approverCookies)
 	recorder = httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
 	if recorder.Code != http.StatusOK {
@@ -2663,15 +2673,13 @@ func TestAgentAPIDecideApprovalRejectsInvalidApprovalIDIntegration(t *testing.T)
 	defer cancel()
 
 	orgID, approverUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleApprover)
-	approverSession := startSession(t, ctx, db, orgID, approverUserID)
 
 	handler := app.NewAgentAPIHandler(db)
+	approverCookies := issueBrowserSessionCookies(t, ctx, db, handler, orgID, approverUserID)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/approvals/not-a-uuid/decision", bytes.NewBufferString(`{"decision":"approved"}`))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Workflow-Org-ID", orgID)
-	req.Header.Set("X-Workflow-User-ID", approverUserID)
-	req.Header.Set("X-Workflow-Session-ID", approverSession.ID)
+	applyResponseCookies(req, approverCookies)
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
 
@@ -2690,9 +2698,9 @@ func TestAgentAPIDecideApprovalRejectsInvalidRequestBodyIntegration(t *testing.T
 	defer cancel()
 
 	orgID, approverUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleApprover)
-	approverSession := startSession(t, ctx, db, orgID, approverUserID)
 
 	handler := app.NewAgentAPIHandler(db)
+	approverCookies := issueBrowserSessionCookies(t, ctx, db, handler, orgID, approverUserID)
 
 	testCases := []struct {
 		name          string
@@ -2708,9 +2716,7 @@ func TestAgentAPIDecideApprovalRejectsInvalidRequestBodyIntegration(t *testing.T
 		t.Run(tc.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/api/approvals/11111111-1111-4111-8111-111111111111/decision", bytes.NewBufferString(tc.body))
 			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("X-Workflow-Org-ID", orgID)
-			req.Header.Set("X-Workflow-User-ID", approverUserID)
-			req.Header.Set("X-Workflow-Session-ID", approverSession.ID)
+			applyResponseCookies(req, approverCookies)
 
 			recorder := httptest.NewRecorder()
 			handler.ServeHTTP(recorder, req)
@@ -2736,19 +2742,17 @@ func TestAgentAPIDecideApprovalConflictReturnsCurrentStateIntegration(t *testing
 	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
 
 	_, approverUserID := seedOrgAndUserInOrg(t, ctx, db, identityaccess.RoleApprover, orgID)
-	approverSession := startSession(t, ctx, db, orgID, approverUserID)
 
 	documentService := documents.NewService(db)
 	workflowService := workflow.NewService(db, documentService)
 	approval, _ := createPendingApproval(t, ctx, documentService, workflowService, operator)
 
 	handler := app.NewAgentAPIHandler(db)
+	approverCookies := issueBrowserSessionCookies(t, ctx, db, handler, orgID, approverUserID)
 
 	approveReq := httptest.NewRequest(http.MethodPost, "/api/approvals/"+approval.ID+"/decision", bytes.NewBufferString(`{"decision":"approved","decision_note":"Looks correct."}`))
 	approveReq.Header.Set("Content-Type", "application/json")
-	approveReq.Header.Set("X-Workflow-Org-ID", orgID)
-	approveReq.Header.Set("X-Workflow-User-ID", approverUserID)
-	approveReq.Header.Set("X-Workflow-Session-ID", approverSession.ID)
+	applyResponseCookies(approveReq, approverCookies)
 	approveRecorder := httptest.NewRecorder()
 	handler.ServeHTTP(approveRecorder, approveReq)
 	if approveRecorder.Code != http.StatusOK {
@@ -2757,9 +2761,7 @@ func TestAgentAPIDecideApprovalConflictReturnsCurrentStateIntegration(t *testing
 
 	conflictReq := httptest.NewRequest(http.MethodPost, "/api/approvals/"+approval.ID+"/decision", bytes.NewBufferString(`{"decision":"rejected"}`))
 	conflictReq.Header.Set("Content-Type", "application/json")
-	conflictReq.Header.Set("X-Workflow-Org-ID", orgID)
-	conflictReq.Header.Set("X-Workflow-User-ID", approverUserID)
-	conflictReq.Header.Set("X-Workflow-Session-ID", approverSession.ID)
+	applyResponseCookies(conflictReq, approverCookies)
 	conflictRecorder := httptest.NewRecorder()
 	handler.ServeHTTP(conflictRecorder, conflictReq)
 
@@ -2828,6 +2830,26 @@ func loadOrgSlugAndUserEmail(t *testing.T, ctx context.Context, db *sql.DB, orgI
 	}
 
 	return orgSlug, userEmail
+}
+
+func issueBrowserSessionCookies(t *testing.T, ctx context.Context, db *sql.DB, handler http.Handler, orgID, userID string) []*http.Cookie {
+	t.Helper()
+
+	orgSlug, userEmail := loadOrgSlugAndUserEmail(t, ctx, db, orgID, userID)
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/session/login", bytes.NewBufferString(`{
+		"org_slug":"`+orgSlug+`",
+		"email":"`+userEmail+`",
+		"device_label":"integration-browser"
+	}`))
+	loginReq.Header.Set("Content-Type", "application/json")
+
+	loginRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(loginRecorder, loginReq)
+	if loginRecorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected login status: got %d body=%s", loginRecorder.Code, loginRecorder.Body.String())
+	}
+
+	return loginRecorder.Result().Cookies()
 }
 
 func applyResponseCookies(req *http.Request, cookies []*http.Cookie) {

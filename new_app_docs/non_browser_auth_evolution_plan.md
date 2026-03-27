@@ -10,7 +10,7 @@ The current backend already has one credible session foundation, but it is expos
 
 1. browser users authenticate through `POST /api/session/login`, which resolves org slug plus user email into one active-org session and sets the `workflow_session_id` plus `workflow_refresh_token` cookies
 2. browser reads and writes then authenticate through those cookies on the shared `/api/...` seam
-3. direct API and integration-test callers can still use `X-Workflow-Org-ID`, `X-Workflow-User-ID`, and `X-Workflow-Session-ID` as a pre-production automation path
+3. queued-agent automation can still use `X-Workflow-Org-ID`, `X-Workflow-User-ID`, and `X-Workflow-Session-ID` as a narrow pre-production compatibility path for the queued-request processing endpoint
 4. the durable truth for both paths is still `identityaccess.sessions`, with one session bound to one active org context at a time
 
 That shape is good enough for the landed browser layer and focused developer automation, but it is not the right long-term auth contract for lightweight non-browser clients.
@@ -106,8 +106,15 @@ Implemented first auth slice:
 
 Recommended follow-up slice after that:
 
-1. decide whether the UUID actor-header path should be narrowed further or removed from general shared-API usage once bearer-session coverage exists
-2. only then consider broader API-versioning, pagination, or incremental-sync work if the next milestone explicitly promotes it
+1. narrow the UUID actor-header compatibility path so it no longer authenticates general shared `/api/...` reads and writes once bearer-session coverage exists
+2. keep it only for the queued-agent automation path unless later verification proves even that compatibility seam can be retired safely
+3. only then consider broader API-versioning, pagination, or incremental-sync work if the next milestone explicitly promotes it
+
+Implemented follow-up result:
+
+1. general shared `/api/...` reads and writes now require browser-session cookies or bearer-session auth
+2. the UUID actor-header path now remains only on `POST /api/agent/process-next-queued-inbound-request` as a narrow pre-production automation compatibility seam
+3. later auth work can now decide whether that last compatibility seam should also be retired
 
 ## 7. Completion result for Milestone 8
 

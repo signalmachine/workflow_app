@@ -356,7 +356,7 @@ Current high-level client rules:
 4. request validation should happen before persistence calls
 5. browser-session cookies remain the active thin-v1 browser auth path
 6. additive device-scoped bearer-session support is now landed on the same `identityaccess.sessions` foundation, with opaque short-lived access tokens plus refresh-token rotation on the shared `/api/...` seam
-7. the legacy UUID actor-header path remains temporary pre-production automation compatibility, not the intended long-term client auth contract
+7. the legacy UUID actor-header path is now narrowed to queued-agent automation compatibility on `POST /api/agent/process-next-queued-inbound-request`, not the intended long-term client auth contract
 8. retry-prone writes should use idempotent boundaries where duplicates would be harmful
 9. list endpoints intended for mobile use should support pagination and incremental-sync-friendly shapes
 10. attachment transport should use explicit bounded upload/download contracts
