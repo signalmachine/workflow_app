@@ -25,11 +25,13 @@ var webAppTemplate = template.Must(template.New("app").Funcs(template.FuncMap{
 	"prettyJSON":            prettyTemplateJSON,
 	"statusClass":           templateStatusClass,
 	"inboundRequestHref":    templateInboundRequestHref,
+	"inboundSectionHref":    templateInboundRequestSectionHref,
 	"runSectionID":          templateAIRunSectionID,
 	"stepSectionID":         templateAIStepSectionID,
 	"delegationSectionID":   templateAIDelegationSectionID,
 	"pageSectionHref":       templatePageSectionHref,
 	"inboundRequestReview":  templateInboundRequestReviewHref,
+	"inboundRequestsHref":   templateInboundRequestsReviewHref,
 	"documentReviewHref":    templateDocumentReviewHref,
 	"accountingReviewHref":  templateAccountingReviewHref,
 	"accountingEntryHref":   templateAccountingEntryHref,
@@ -1620,6 +1622,20 @@ func templateInboundRequestReviewHref(requestReference string) string {
 	return webInboundRequestsPath + "?request_reference=" + url.QueryEscape(requestReference)
 }
 
+func templateInboundRequestsReviewHref(status, requestReference string) string {
+	values := url.Values{}
+	if strings.TrimSpace(status) != "" {
+		values.Set("status", strings.TrimSpace(status))
+	}
+	if strings.TrimSpace(requestReference) != "" {
+		values.Set("request_reference", strings.TrimSpace(requestReference))
+	}
+	if encoded := values.Encode(); encoded != "" {
+		return webInboundRequestsPath + "?" + encoded
+	}
+	return webInboundRequestsPath
+}
+
 func templateDocumentReviewHref(documentID string) string {
 	documentID = strings.TrimSpace(documentID)
 	if documentID == "" {
@@ -2156,6 +2172,7 @@ const webAppHTML = `<!DOCTYPE html>
             <span class="status-pill {{statusClass .Status}}">{{.Status}}</span>
             <div class="meta">Messages: {{.MessageCount}} | Attachments: {{.AttachmentCount}}</div>
             <div class="meta">Updated: {{formatTime .LatestUpdatedAt}}</div>
+            <div class="meta"><a href="{{inboundRequestsHref .Status ""}}">Open {{.Status}} requests</a></div>
           </div>
           {{else}}
           <div class="summary-card">No inbound requests yet.</div>
@@ -2183,7 +2200,12 @@ const webAppHTML = `<!DOCTYPE html>
                 <td><a href="{{inboundRequestHref .RequestReference}}">{{.RequestReference}}</a></td>
                 <td><span class="status-pill {{statusClass .Status}}">{{.Status}}</span></td>
                 <td>{{.Channel}}</td>
-                <td>{{.MessageCount}} messages / {{.AttachmentCount}} files</td>
+                <td>
+                  {{.MessageCount}} messages / {{.AttachmentCount}} files
+                  {{if .LastRunID.Valid}}
+                  <div class="meta"><a href="{{inboundSectionHref (printf "run:%s" .LastRunID.String) (runSectionID .LastRunID.String)}}">Open latest run</a></div>
+                  {{end}}
+                </td>
                 <td>{{formatTime .UpdatedAt}}</td>
               </tr>
               {{else}}
@@ -2207,8 +2229,14 @@ const webAppHTML = `<!DOCTYPE html>
             <tbody>
               {{range .Approvals}}
               <tr>
-                <td>{{.QueueCode}}</td>
-                <td><a href="{{documentReviewHref .DocumentID}}">{{.DocumentTitle}}</a></td>
+                <td>
+                  <a href="{{approvalQueueHref .QueueCode .QueueStatus}}">{{.QueueCode}}</a>
+                  <div class="meta"><a href="{{approvalReviewHref .ApprovalID}}">Open exact approval</a></div>
+                </td>
+                <td>
+                  <a href="{{documentReviewHref .DocumentID}}">{{.DocumentTitle}}</a>
+                  <div class="meta"><a href="/app/review/audit?entity_type=documents.document&amp;entity_id={{.DocumentID}}">Audit trail</a></div>
+                </td>
                 <td>
                   <div class="status-pill {{statusClass .ApprovalStatus}}">{{.ApprovalStatus}}</div>
                   <form method="post" action="/app/approvals/{{.ApprovalID}}/decision" style="margin-top:8px;">
@@ -2292,7 +2320,7 @@ const webAppHTML = `<!DOCTYPE html>
             <span class="status-pill {{statusClass .Status}}">{{.Status}}</span>
             <div class="meta">Messages: {{.MessageCount}} | Attachments: {{.AttachmentCount}}</div>
             <div class="meta">Updated: {{formatTime .LatestUpdatedAt}}</div>
-            <div class="meta"><a href="/app/review/inbound-requests?status={{.Status}}">Open {{.Status}}</a></div>
+            <div class="meta"><a href="{{inboundRequestsHref .Status ""}}">Open {{.Status}}</a></div>
           </div>
           {{else}}
           <div class="summary-card">No inbound requests yet.</div>
@@ -2328,11 +2356,19 @@ const webAppHTML = `<!DOCTYPE html>
               <td>{{.MessageCount}} messages / {{.AttachmentCount}} files</td>
               <td>
                 {{if .LastRunID.Valid}}
-                <div><span class="status-pill {{statusClass .LastRunStatus.String}}">{{.LastRunStatus.String}}</span></div>
+                <div><a href="{{inboundSectionHref (printf "run:%s" .LastRunID.String) (runSectionID .LastRunID.String)}}"><span class="status-pill {{statusClass .LastRunStatus.String}}">{{.LastRunStatus.String}}</span></a></div>
                 {{else}}
                 -
                 {{end}}
-                {{if .LastRecommendationStatus.Valid}}<div class="meta">{{.LastRecommendationStatus.String}}</div>{{end}}
+                {{if .LastRecommendationStatus.Valid}}
+                <div class="meta">
+                  {{if .LastRecommendationID.Valid}}
+                  <a href="{{proposalDetailHref .LastRecommendationID.String}}">{{.LastRecommendationStatus.String}}</a>
+                  {{else}}
+                  {{.LastRecommendationStatus.String}}
+                  {{end}}
+                </div>
+                {{end}}
               </td>
               <td>{{formatTime .UpdatedAt}}</td>
             </tr>

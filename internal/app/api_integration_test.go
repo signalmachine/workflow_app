@@ -315,6 +315,18 @@ func TestAgentBrowserAppFlowIntegration(t *testing.T) {
 	requireContains(t, processedDetailBody, "/app/review/proposals?recommendation_id=")
 	requireContains(t, processedDetailBody, "/app/review/audit?entity_type=ai.agent_recommendation&amp;entity_id=")
 
+	dashboardReq := httptest.NewRequest(http.MethodGet, "/app", nil)
+	applyResponseCookies(dashboardReq, loginRecorder.Result().Cookies())
+	dashboardRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(dashboardRecorder, dashboardReq)
+	if dashboardRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected dashboard status after processing: got %d body=%s", dashboardRecorder.Code, dashboardRecorder.Body.String())
+	}
+	dashboardBody := dashboardRecorder.Body.String()
+	requireContains(t, dashboardBody, "/app/review/approvals?status=pending")
+	requireContains(t, dashboardBody, "/app/review/approvals/")
+	requireContains(t, dashboardBody, "/app/review/audit?entity_type=documents.document&amp;entity_id=")
+
 	approvalQueueReq := httptest.NewRequest(http.MethodGet, "/api/review/approval-queue?status=pending", nil)
 	applyResponseCookies(approvalQueueReq, loginRecorder.Result().Cookies())
 	approvalQueueRecorder := httptest.NewRecorder()
@@ -1543,6 +1555,8 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	requireContains(t, inboundRequestsRecorder.Body.String(), request.RequestReference)
 	requireContains(t, inboundRequestsRecorder.Body.String(), ai.RunStatusCompleted)
 	requireContains(t, inboundRequestsRecorder.Body.String(), ai.RecommendationStatusApprovalRequested)
+	requireContains(t, inboundRequestsRecorder.Body.String(), "/app/inbound-requests/run:"+processResult.Run.ID+"#run-"+processResult.Run.ID)
+	requireContains(t, inboundRequestsRecorder.Body.String(), "/app/review/proposals/"+proposalListResponse.Items[0].RecommendationID)
 
 	approvalsReq := httptest.NewRequest(http.MethodGet, "/app/review/approvals?queue_code="+queueResponse.Items[0].QueueCode+"&status=pending", nil)
 	applyResponseCookies(approvalsReq, loginRecorder.Result().Cookies())

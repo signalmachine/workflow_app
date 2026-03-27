@@ -810,6 +810,18 @@ func TestHandleWebAppDashboardAddsExactProposalAndApprovalLinks(t *testing.T) {
 		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
 		nil,
 		stubOperatorReviewReader{
+			listApprovalQueue: func(context.Context, reporting.ListApprovalQueueInput) ([]reporting.ApprovalQueueEntry, error) {
+				return []reporting.ApprovalQueueEntry{
+					{
+						ApprovalID:     "approval-123",
+						QueueCode:      "finance_review",
+						QueueStatus:    "pending",
+						ApprovalStatus: "pending",
+						DocumentID:     "doc-123",
+						DocumentTitle:  "Invoice proposal",
+					},
+				}, nil
+			},
 			listProcessedProposals: func(context.Context, reporting.ListProcessedProposalsInput) ([]reporting.ProcessedProposalReview, error) {
 				return []reporting.ProcessedProposalReview{
 					{
@@ -851,6 +863,124 @@ func TestHandleWebAppDashboardAddsExactProposalAndApprovalLinks(t *testing.T) {
 	if !strings.Contains(body, `/app/review/approvals/approval-123">finance_review</a>`) {
 		t.Fatalf("expected dashboard exact approval link, body=%s", body)
 	}
+	if !strings.Contains(body, `/app/review/approvals?queue_code=finance_review&amp;status=pending">finance_review</a>`) {
+		t.Fatalf("expected dashboard filtered approval queue link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/approvals/approval-123">Open exact approval</a>`) {
+		t.Fatalf("expected dashboard approval-detail continuation link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/audit?entity_type=documents.document&amp;entity_id=doc-123">Audit trail</a>`) {
+		t.Fatalf("expected dashboard document audit continuity link, body=%s", body)
+	}
+}
+
+func TestHandleWebAppDashboardAddsInboundStatusAndRunContinuityLinks(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listInboundRequestStatusSummary: func(context.Context, identityaccess.Actor) ([]reporting.InboundRequestStatusSummary, error) {
+				return []reporting.InboundRequestStatusSummary{
+					{
+						Status:          "queued",
+						RequestCount:    3,
+						MessageCount:    4,
+						AttachmentCount: 2,
+						LatestUpdatedAt: time.Date(2026, 3, 27, 9, 0, 0, 0, time.UTC),
+					},
+				}, nil
+			},
+			listInboundRequests: func(context.Context, reporting.ListInboundRequestsInput) ([]reporting.InboundRequestReview, error) {
+				return []reporting.InboundRequestReview{
+					{
+						RequestID:        "request-123",
+						RequestReference: "REQ-000123",
+						Status:           "processed",
+						Channel:          "browser",
+						MessageCount:     2,
+						AttachmentCount:  1,
+						LastRunID:        sql.NullString{String: "run-123", Valid: true},
+						UpdatedAt:        time.Date(2026, 3, 27, 9, 5, 0, 0, time.UTC),
+					},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `/app/review/inbound-requests?status=queued">Open queued requests</a>`) {
+		t.Fatalf("expected dashboard status-summary continuity link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/inbound-requests/run:run-123#run-run-123">Open latest run</a>`) {
+		t.Fatalf("expected dashboard latest-run continuity link, body=%s", body)
+	}
+}
+
+func TestHandleWebInboundRequestsAddsAIRunAndProposalLinks(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listInboundRequests: func(context.Context, reporting.ListInboundRequestsInput) ([]reporting.InboundRequestReview, error) {
+				return []reporting.InboundRequestReview{
+					{
+						RequestID:                "request-123",
+						RequestReference:         "REQ-000123",
+						Status:                   "processed",
+						Channel:                  "browser",
+						OriginType:               "human",
+						MessageCount:             2,
+						AttachmentCount:          1,
+						LastRunID:                sql.NullString{String: "run-123", Valid: true},
+						LastRunStatus:            sql.NullString{String: "completed", Valid: true},
+						LastRecommendationID:     sql.NullString{String: "rec-123", Valid: true},
+						LastRecommendationStatus: sql.NullString{String: "approval_requested", Valid: true},
+						UpdatedAt:                time.Date(2026, 3, 27, 9, 5, 0, 0, time.UTC),
+					},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review/inbound-requests", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `/app/inbound-requests/run:run-123#run-run-123`) {
+		t.Fatalf("expected inbound-request AI run link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/proposals/rec-123">approval_requested</a>`) {
+		t.Fatalf("expected inbound-request proposal continuity link, body=%s", body)
+	}
 }
 
 func testSessionContext() identityaccess.SessionContext {
@@ -882,7 +1012,9 @@ type stubOperatorReviewReader struct {
 	listAuditEvents                    func(context.Context, reporting.LookupAuditEventsInput) ([]reporting.AuditEvent, error)
 	listWorkOrders                     func(context.Context, reporting.ListWorkOrdersInput) ([]reporting.WorkOrderReview, error)
 	getWorkOrderReview                 func(context.Context, reporting.GetWorkOrderReviewInput) (reporting.WorkOrderReview, error)
+	listInboundRequests                func(context.Context, reporting.ListInboundRequestsInput) ([]reporting.InboundRequestReview, error)
 	getInboundRequestDetail            func(context.Context, reporting.GetInboundRequestDetailInput) (reporting.InboundRequestDetail, error)
+	listInboundRequestStatusSummary    func(context.Context, identityaccess.Actor) ([]reporting.InboundRequestStatusSummary, error)
 	listProcessedProposals             func(context.Context, reporting.ListProcessedProposalsInput) ([]reporting.ProcessedProposalReview, error)
 	listProcessedProposalStatusSummary func(context.Context, identityaccess.Actor) ([]reporting.ProcessedProposalStatusSummary, error)
 }
@@ -962,7 +1094,10 @@ func (s stubOperatorReviewReader) LookupAuditEvents(ctx context.Context, input r
 	return nil, nil
 }
 
-func (s stubOperatorReviewReader) ListInboundRequests(context.Context, reporting.ListInboundRequestsInput) ([]reporting.InboundRequestReview, error) {
+func (s stubOperatorReviewReader) ListInboundRequests(ctx context.Context, input reporting.ListInboundRequestsInput) ([]reporting.InboundRequestReview, error) {
+	if s.listInboundRequests != nil {
+		return s.listInboundRequests(ctx, input)
+	}
 	return nil, nil
 }
 
@@ -973,7 +1108,10 @@ func (s stubOperatorReviewReader) GetInboundRequestDetail(ctx context.Context, i
 	return reporting.InboundRequestDetail{}, nil
 }
 
-func (s stubOperatorReviewReader) ListInboundRequestStatusSummary(context.Context, identityaccess.Actor) ([]reporting.InboundRequestStatusSummary, error) {
+func (s stubOperatorReviewReader) ListInboundRequestStatusSummary(ctx context.Context, actor identityaccess.Actor) ([]reporting.InboundRequestStatusSummary, error) {
+	if s.listInboundRequestStatusSummary != nil {
+		return s.listInboundRequestStatusSummary(ctx, actor)
+	}
 	return nil, nil
 }
 
