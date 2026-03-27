@@ -1807,26 +1807,34 @@ type documentReviewResponse struct {
 }
 
 type journalEntryReviewResponse struct {
-	EntryID           string    `json:"entry_id"`
-	EntryNumber       int64     `json:"entry_number"`
-	EntryKind         string    `json:"entry_kind"`
-	SourceDocumentID  *string   `json:"source_document_id,omitempty"`
-	ReversalOfEntryID *string   `json:"reversal_of_entry_id,omitempty"`
-	CurrencyCode      string    `json:"currency_code"`
-	TaxScopeCode      string    `json:"tax_scope_code"`
-	Summary           string    `json:"summary"`
-	ReversalReason    *string   `json:"reversal_reason,omitempty"`
-	PostedByUserID    string    `json:"posted_by_user_id"`
-	EffectiveOn       time.Time `json:"effective_on"`
-	PostedAt          time.Time `json:"posted_at"`
-	CreatedAt         time.Time `json:"created_at"`
-	DocumentTypeCode  *string   `json:"document_type_code,omitempty"`
-	DocumentNumber    *string   `json:"document_number,omitempty"`
-	DocumentStatus    *string   `json:"document_status,omitempty"`
-	LineCount         int       `json:"line_count"`
-	TotalDebitMinor   int64     `json:"total_debit_minor"`
-	TotalCreditMinor  int64     `json:"total_credit_minor"`
-	HasReversal       bool      `json:"has_reversal"`
+	EntryID              string    `json:"entry_id"`
+	EntryNumber          int64     `json:"entry_number"`
+	EntryKind            string    `json:"entry_kind"`
+	SourceDocumentID     *string   `json:"source_document_id,omitempty"`
+	ReversalOfEntryID    *string   `json:"reversal_of_entry_id,omitempty"`
+	CurrencyCode         string    `json:"currency_code"`
+	TaxScopeCode         string    `json:"tax_scope_code"`
+	Summary              string    `json:"summary"`
+	ReversalReason       *string   `json:"reversal_reason,omitempty"`
+	PostedByUserID       string    `json:"posted_by_user_id"`
+	EffectiveOn          time.Time `json:"effective_on"`
+	PostedAt             time.Time `json:"posted_at"`
+	CreatedAt            time.Time `json:"created_at"`
+	DocumentTypeCode     *string   `json:"document_type_code,omitempty"`
+	DocumentNumber       *string   `json:"document_number,omitempty"`
+	DocumentStatus       *string   `json:"document_status,omitempty"`
+	ApprovalID           *string   `json:"approval_id,omitempty"`
+	ApprovalStatus       *string   `json:"approval_status,omitempty"`
+	ApprovalQueueCode    *string   `json:"approval_queue_code,omitempty"`
+	RequestID            *string   `json:"request_id,omitempty"`
+	RequestReference     *string   `json:"request_reference,omitempty"`
+	RecommendationID     *string   `json:"recommendation_id,omitempty"`
+	RecommendationStatus *string   `json:"recommendation_status,omitempty"`
+	RunID                *string   `json:"run_id,omitempty"`
+	LineCount            int       `json:"line_count"`
+	TotalDebitMinor      int64     `json:"total_debit_minor"`
+	TotalCreditMinor     int64     `json:"total_credit_minor"`
+	HasReversal          bool      `json:"has_reversal"`
 }
 
 type controlAccountBalanceResponse struct {
@@ -1880,6 +1888,14 @@ type inventoryMovementResponse struct {
 	DocumentTitle           *string   `json:"document_title,omitempty"`
 	DocumentNumber          *string   `json:"document_number,omitempty"`
 	DocumentStatus          *string   `json:"document_status,omitempty"`
+	ApprovalID              *string   `json:"approval_id,omitempty"`
+	ApprovalStatus          *string   `json:"approval_status,omitempty"`
+	ApprovalQueueCode       *string   `json:"approval_queue_code,omitempty"`
+	RequestID               *string   `json:"request_id,omitempty"`
+	RequestReference        *string   `json:"request_reference,omitempty"`
+	RecommendationID        *string   `json:"recommendation_id,omitempty"`
+	RecommendationStatus    *string   `json:"recommendation_status,omitempty"`
+	RunID                   *string   `json:"run_id,omitempty"`
 	ItemID                  string    `json:"item_id"`
 	ItemSKU                 string    `json:"item_sku"`
 	ItemName                string    `json:"item_name"`
@@ -1907,6 +1923,14 @@ type inventoryReconciliationResponse struct {
 	DocumentTitle           string     `json:"document_title"`
 	DocumentNumber          *string    `json:"document_number,omitempty"`
 	DocumentStatus          string     `json:"document_status"`
+	ApprovalID              *string    `json:"approval_id,omitempty"`
+	ApprovalStatus          *string    `json:"approval_status,omitempty"`
+	ApprovalQueueCode       *string    `json:"approval_queue_code,omitempty"`
+	RequestID               *string    `json:"request_id,omitempty"`
+	RequestReference        *string    `json:"request_reference,omitempty"`
+	RecommendationID        *string    `json:"recommendation_id,omitempty"`
+	RecommendationStatus    *string    `json:"recommendation_status,omitempty"`
+	RunID                   *string    `json:"run_id,omitempty"`
 	DocumentLineID          string     `json:"document_line_id"`
 	LineNumber              int        `json:"line_number"`
 	MovementID              string     `json:"movement_id"`
@@ -2251,26 +2275,34 @@ func mapDocumentReview(review reporting.DocumentReview) documentReviewResponse {
 
 func mapJournalEntryReview(review reporting.JournalEntryReview) journalEntryReviewResponse {
 	return journalEntryReviewResponse{
-		EntryID:           review.EntryID,
-		EntryNumber:       review.EntryNumber,
-		EntryKind:         review.EntryKind,
-		SourceDocumentID:  stringPtr(review.SourceDocumentID),
-		ReversalOfEntryID: stringPtr(review.ReversalOfEntryID),
-		CurrencyCode:      review.CurrencyCode,
-		TaxScopeCode:      review.TaxScopeCode,
-		Summary:           review.Summary,
-		ReversalReason:    stringPtr(review.ReversalReason),
-		PostedByUserID:    review.PostedByUserID,
-		EffectiveOn:       review.EffectiveOn,
-		PostedAt:          review.PostedAt,
-		CreatedAt:         review.CreatedAt,
-		DocumentTypeCode:  stringPtr(review.DocumentTypeCode),
-		DocumentNumber:    stringPtr(review.DocumentNumber),
-		DocumentStatus:    stringPtr(review.DocumentStatus),
-		LineCount:         review.LineCount,
-		TotalDebitMinor:   review.TotalDebitMinor,
-		TotalCreditMinor:  review.TotalCreditMinor,
-		HasReversal:       review.HasReversal,
+		EntryID:              review.EntryID,
+		EntryNumber:          review.EntryNumber,
+		EntryKind:            review.EntryKind,
+		SourceDocumentID:     stringPtr(review.SourceDocumentID),
+		ReversalOfEntryID:    stringPtr(review.ReversalOfEntryID),
+		CurrencyCode:         review.CurrencyCode,
+		TaxScopeCode:         review.TaxScopeCode,
+		Summary:              review.Summary,
+		ReversalReason:       stringPtr(review.ReversalReason),
+		PostedByUserID:       review.PostedByUserID,
+		EffectiveOn:          review.EffectiveOn,
+		PostedAt:             review.PostedAt,
+		CreatedAt:            review.CreatedAt,
+		DocumentTypeCode:     stringPtr(review.DocumentTypeCode),
+		DocumentNumber:       stringPtr(review.DocumentNumber),
+		DocumentStatus:       stringPtr(review.DocumentStatus),
+		ApprovalID:           stringPtr(review.ApprovalID),
+		ApprovalStatus:       stringPtr(review.ApprovalStatus),
+		ApprovalQueueCode:    stringPtr(review.ApprovalQueueCode),
+		RequestID:            stringPtr(review.RequestID),
+		RequestReference:     stringPtr(review.RequestReference),
+		RecommendationID:     stringPtr(review.RecommendationID),
+		RecommendationStatus: stringPtr(review.RecommendationStatus),
+		RunID:                stringPtr(review.RunID),
+		LineCount:            review.LineCount,
+		TotalDebitMinor:      review.TotalDebitMinor,
+		TotalCreditMinor:     review.TotalCreditMinor,
+		HasReversal:          review.HasReversal,
 	}
 }
 
@@ -2332,6 +2364,14 @@ func mapInventoryMovement(review reporting.InventoryMovementReview) inventoryMov
 		DocumentTitle:           stringPtr(review.DocumentTitle),
 		DocumentNumber:          stringPtr(review.DocumentNumber),
 		DocumentStatus:          stringPtr(review.DocumentStatus),
+		ApprovalID:              stringPtr(review.ApprovalID),
+		ApprovalStatus:          stringPtr(review.ApprovalStatus),
+		ApprovalQueueCode:       stringPtr(review.ApprovalQueueCode),
+		RequestID:               stringPtr(review.RequestID),
+		RequestReference:        stringPtr(review.RequestReference),
+		RecommendationID:        stringPtr(review.RecommendationID),
+		RecommendationStatus:    stringPtr(review.RecommendationStatus),
+		RunID:                   stringPtr(review.RunID),
 		ItemID:                  review.ItemID,
 		ItemSKU:                 review.ItemSKU,
 		ItemName:                review.ItemName,
@@ -2361,6 +2401,14 @@ func mapInventoryReconciliation(item reporting.InventoryReconciliationItem) inve
 		DocumentTitle:           item.DocumentTitle,
 		DocumentNumber:          stringPtr(item.DocumentNumber),
 		DocumentStatus:          item.DocumentStatus,
+		ApprovalID:              stringPtr(item.ApprovalID),
+		ApprovalStatus:          stringPtr(item.ApprovalStatus),
+		ApprovalQueueCode:       stringPtr(item.ApprovalQueueCode),
+		RequestID:               stringPtr(item.RequestID),
+		RequestReference:        stringPtr(item.RequestReference),
+		RecommendationID:        stringPtr(item.RecommendationID),
+		RecommendationStatus:    stringPtr(item.RecommendationStatus),
+		RunID:                   stringPtr(item.RunID),
 		DocumentLineID:          item.DocumentLineID,
 		LineNumber:              item.LineNumber,
 		MovementID:              item.MovementID,

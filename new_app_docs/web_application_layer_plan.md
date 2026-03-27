@@ -150,7 +150,8 @@ Current checkpoint:
 38. the latest continuity slice now extends document and approval browser review back upstream into the originating `REQ-...` request, exact proposal detail, and anchored AI run when that provenance exists on the shared reporting seam, so downstream control review can continue back into the intake and AI execution trail without manual reconstruction
 39. the latest continuity slice now extends work-order list review plus exact work-order detail back upstream into the originating `REQ-...` request, exact proposal detail, exact approval detail, and anchored AI run when the linked source document already carries that provenance on the shared reporting seam, so execution review can stay on the same intake-to-control browser path instead of stalling at the source-document link
 40. the latest lifecycle slice now promotes parked-request management into the browser and shared backend seam: operators can save new requests as drafts, continue draft editing, add draft attachments, queue drafts, cancel queued pre-processing requests, return queued or cancelled requests to draft, and hard-delete unprocessed drafts through `/app`, while the shared backend seam now also exposes matching draft-save plus queue, cancel, amend, and delete actions over `/api/inbound-requests` and `/api/inbound-requests/{request_id}/{action}`
-41. the remaining Milestone 7 work is now downstream provenance continuity, dashboard and browser entry-point refinement, and a final closeout sweep on top of those landed review and lifecycle surfaces without creating a second backend or reviving broad manual-entry UI scope
+41. the latest continuity slice now extends exact accounting detail plus exact inventory-movement and reconciliation stops back upstream into the originating `REQ-...` request, exact proposal detail, exact approval detail, and anchored AI run when the linked source document already carries that provenance on the shared reporting seam, so downstream posting and inventory-control review no longer stall one click short of the intake and AI execution trail
+42. the remaining Milestone 7 work is now dashboard and browser entry-point refinement plus a final closeout sweep on top of those landed review, lifecycle, and provenance surfaces without creating a second backend or reviving broad manual-entry UI scope
 
 ## 9. Remaining slice analysis
 
@@ -163,39 +164,7 @@ It is now a bounded set of coherent slices where either:
 
 The current planned remaining Milestone 7 slices are:
 
-1. `browser inbound-request lifecycle management`
-
-   Why this slice is still required:
-   1. draft editing, draft deletion, queued cancellation, and queued or cancelled amend-back-to-draft support already exist below the web layer and are part of the canonical thin-v1 intake model
-   2. the current browser layer still only supports immediate queue submission plus downstream review after submission
-   3. Milestone 7 remains incomplete while parked-request management depends on service-level or developer-only access
-
-   Scope for this slice:
-   1. draft creation or save-as-draft browser flow
-   2. draft message and attachment editing in the browser
-   3. queue submission from draft
-   4. queued-request cancellation before pickup
-   5. queued or cancelled amend-back-to-draft handling
-   6. hard deletion for unprocessed drafts only
-   7. dashboard, request-list, and request-detail continuity for those actions
-
-   Current implementation note:
-   1. the first browser-lifecycle pass is now landed on the shared backend seam plus `/app`
-   2. later Milestone 7 work should treat richer draft-attachment editing beyond additive upload as residual refinement only if the later entry-point or closeout passes show it is materially required for milestone completion
-
-2. `downstream provenance continuity for accounting and inventory exact-detail surfaces`
-
-   Why this slice is still required:
-   1. document, approval, proposal, and work-order exact detail now continue back upstream into the originating request, proposal, approval, and anchored AI run when provenance exists
-   2. exact journal-entry and exact inventory-movement review still mostly stop at the source document instead of exposing that same upstream chain directly
-   3. those pages are real downstream control stops in thin v1, so leaving them one click short still weakens the end-to-end operator path
-
-   Scope for this slice:
-   1. extend exact accounting detail with request, proposal, approval, and AI-run continuity derived from the source-document path where available
-   2. extend exact inventory-movement detail and the most relevant inventory reconciliation stops with the same upstream continuity where the linked source document carries that provenance
-   3. make only the narrow shared-backend reporting adjustments required to support that continuity correctly
-
-3. `dashboard and browser entry-point refinement`
+1. `dashboard and browser entry-point refinement`
 
    Why this slice is still required:
    1. the current dashboard is already useful for queue submission, queue processing, recent requests, approvals, and proposals
@@ -207,7 +176,7 @@ The current planned remaining Milestone 7 slices are:
    2. tighten failed or cancelled request recovery entry points after the lifecycle slice lands
    3. remove remaining dead-end or weak-return states on the main browser starting surfaces
 
-4. `Milestone 7 consistency and closeout sweep`
+2. `Milestone 7 consistency and closeout sweep`
 
    Why this slice is still required:
    1. the milestone is now late-stage enough that one explicit end-to-end pass is needed against the actual exit criteria
@@ -220,6 +189,6 @@ The current planned remaining Milestone 7 slices are:
 
 Planned-slice control rule:
 
-1. treat the four slices above as the current explicit Milestone 7 plan
+1. treat the active slices above as the current explicit Milestone 7 plan
 2. if later implementation reveals an additional concrete blocker, document it explicitly as residual Milestone 7 work rather than silently expanding the planned list
 3. do not use the possibility of later residual work as a reason to defer the planned slices above

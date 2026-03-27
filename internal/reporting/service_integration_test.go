@@ -48,6 +48,88 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 	workOrderService := workorders.NewService(db, documentService)
 	workforceService := workforce.NewService(db)
 	reportingService := reporting.NewService(db)
+	linkDocumentApprovalWithProvenance := func(documentID, messageText string) (string, string, string, string) {
+		docReview, err := reportingService.GetDocumentReview(ctx, reporting.GetDocumentReviewInput{
+			DocumentID: documentID,
+			Actor:      approver,
+		})
+		if err != nil {
+			t.Fatalf("get document review for provenance link: %v", err)
+		}
+		if !docReview.ApprovalID.Valid {
+			t.Fatalf("expected approval on document review for provenance link: %+v", docReview)
+		}
+
+		request, err := intakeService.CreateDraft(ctx, intake.CreateDraftInput{
+			OriginType: intake.OriginHuman,
+			Channel:    "browser",
+			Metadata: map[string]any{
+				"source": "reporting-test",
+			},
+			Actor: operator,
+		})
+		if err != nil {
+			t.Fatalf("create inbound request for provenance link: %v", err)
+		}
+		if _, err := intakeService.AddMessage(ctx, intake.AddMessageInput{
+			RequestID:   request.ID,
+			MessageRole: intake.MessageRoleRequest,
+			TextContent: messageText,
+			Actor:       operator,
+		}); err != nil {
+			t.Fatalf("add provenance request message: %v", err)
+		}
+		request, err = intakeService.QueueRequest(ctx, intake.QueueRequestInput{
+			RequestID: request.ID,
+			Actor:     operator,
+		})
+		if err != nil {
+			t.Fatalf("queue provenance request: %v", err)
+		}
+		request, err = intakeService.ClaimNextQueued(ctx, intake.ClaimNextQueuedInput{
+			Channel: "browser",
+			Actor:   operator,
+		})
+		if err != nil {
+			t.Fatalf("claim provenance request: %v", err)
+		}
+		run, err := aiService.StartRun(ctx, ai.StartRunInput{
+			AgentRole:        ai.RunRoleCoordinator,
+			CapabilityCode:   "inbound_request.review",
+			InboundRequestID: request.ID,
+			RequestText:      messageText,
+			Metadata: map[string]any{
+				"request_reference": request.RequestReference,
+			},
+			Actor: operator,
+		})
+		if err != nil {
+			t.Fatalf("start provenance ai run: %v", err)
+		}
+		recommendation, err := aiService.CreateRecommendation(ctx, ai.CreateRecommendationInput{
+			RunID:              run.ID,
+			RecommendationType: "document_review",
+			Summary:            "Inspect document provenance",
+			Payload: map[string]any{
+				"document_id":       documentID,
+				"request_reference": request.RequestReference,
+			},
+			Actor: operator,
+		})
+		if err != nil {
+			t.Fatalf("create provenance recommendation: %v", err)
+		}
+		recommendation, err = aiService.LinkRecommendationApproval(ctx, ai.LinkRecommendationApprovalInput{
+			RecommendationID: recommendation.ID,
+			ApprovalID:       docReview.ApprovalID.String,
+			Actor:            operator,
+		})
+		if err != nil {
+			t.Fatalf("link provenance recommendation approval: %v", err)
+		}
+
+		return request.RequestReference, recommendation.ID, run.ID, docReview.ApprovalID.String
+	}
 
 	workOrderResult, err := workOrderService.CreateWorkOrder(ctx, workorders.CreateWorkOrderInput{
 		WorkOrderCode: "WO-RPT-1001",
@@ -137,6 +219,7 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 	if len(capturedIssue.AccountingHandoffs) != 1 {
 		t.Fatalf("unexpected issue handoff count: %d", len(capturedIssue.AccountingHandoffs))
 	}
+	issueRequestReference, issueRecommendationID, issueRunID, issueApprovalID := linkDocumentApprovalWithProvenance(issueDoc.ID, "Inspect linked inventory issue provenance")
 
 	materialUsages, err := workOrderService.SyncInventoryUsage(ctx, workorders.SyncInventoryUsageInput{
 		WorkOrderID: workOrderResult.WorkOrder.ID,
@@ -358,6 +441,7 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("post GST document: %v", err)
 	}
+	gstRequestReference, gstRecommendationID, gstRunID, gstApprovalID := linkDocumentApprovalWithProvenance(gstInvoiceDoc.ID, "Inspect linked GST journal provenance")
 
 	tdsBillDoc := prepareApprovedInvoiceDocument(t, ctx, accountingService, documentService, workflowService, operator, approver, "TDS bill")
 	tdsPostedAt := gstPostedAt.Add(24 * time.Hour)
@@ -470,6 +554,18 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 	if !movements[0].SourceLocationCode.Valid || movements[0].SourceLocationCode.String != warehouse.Code {
 		t.Fatalf("expected source location context in movement review: %+v", movements[0])
 	}
+	if !movements[0].RequestReference.Valid || movements[0].RequestReference.String != issueRequestReference {
+		t.Fatalf("expected request provenance on issue movement: %+v", movements[0])
+	}
+	if !movements[0].RecommendationID.Valid || movements[0].RecommendationID.String != issueRecommendationID {
+		t.Fatalf("expected recommendation provenance on issue movement: %+v", movements[0])
+	}
+	if !movements[0].ApprovalID.Valid || movements[0].ApprovalID.String != issueApprovalID {
+		t.Fatalf("expected approval provenance on issue movement: %+v", movements[0])
+	}
+	if !movements[0].RunID.Valid || movements[0].RunID.String != issueRunID {
+		t.Fatalf("expected AI run provenance on issue movement: %+v", movements[0])
+	}
 	if movements[1].DocumentID.String != receiptDoc.ID || movements[1].MovementType != inventoryops.MovementTypeReceipt {
 		t.Fatalf("unexpected receipt movement review: %+v", movements[1])
 	}
@@ -500,6 +596,18 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 	}
 	if !issueReconciliation.JournalEntryID.Valid {
 		t.Fatalf("expected posted journal linkage in reconciliation review: %+v", issueReconciliation)
+	}
+	if !issueReconciliation.RequestReference.Valid || issueReconciliation.RequestReference.String != issueRequestReference {
+		t.Fatalf("expected request provenance in reconciliation review: %+v", issueReconciliation)
+	}
+	if !issueReconciliation.RecommendationID.Valid || issueReconciliation.RecommendationID.String != issueRecommendationID {
+		t.Fatalf("expected recommendation provenance in reconciliation review: %+v", issueReconciliation)
+	}
+	if !issueReconciliation.ApprovalID.Valid || issueReconciliation.ApprovalID.String != issueApprovalID {
+		t.Fatalf("expected approval provenance in reconciliation review: %+v", issueReconciliation)
+	}
+	if !issueReconciliation.RunID.Valid || issueReconciliation.RunID.String != issueRunID {
+		t.Fatalf("expected AI run provenance in reconciliation review: %+v", issueReconciliation)
 	}
 
 	pendingAdjustmentDoc := prepareApprovedDocumentOfType(t, ctx, documentService, workflowService, operator, approver, "inventory_adjustment", "Pending adjustment")
@@ -692,6 +800,18 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 	}
 	if exactJournalReviews[0].EntryID != gstEntry.ID || !exactJournalReviews[0].SourceDocumentID.Valid || exactJournalReviews[0].SourceDocumentID.String != gstInvoiceDoc.ID {
 		t.Fatalf("unexpected exact journal review: %+v", exactJournalReviews[0])
+	}
+	if !exactJournalReviews[0].RequestReference.Valid || exactJournalReviews[0].RequestReference.String != gstRequestReference {
+		t.Fatalf("expected request provenance in exact journal review: %+v", exactJournalReviews[0])
+	}
+	if !exactJournalReviews[0].RecommendationID.Valid || exactJournalReviews[0].RecommendationID.String != gstRecommendationID {
+		t.Fatalf("expected recommendation provenance in exact journal review: %+v", exactJournalReviews[0])
+	}
+	if !exactJournalReviews[0].ApprovalID.Valid || exactJournalReviews[0].ApprovalID.String != gstApprovalID {
+		t.Fatalf("expected approval provenance in exact journal review: %+v", exactJournalReviews[0])
+	}
+	if !exactJournalReviews[0].RunID.Valid || exactJournalReviews[0].RunID.String != gstRunID {
+		t.Fatalf("expected AI run provenance in exact journal review: %+v", exactJournalReviews[0])
 	}
 
 	controlBalances, err := reportingService.ListControlAccountBalances(ctx, reporting.ListControlAccountBalancesInput{

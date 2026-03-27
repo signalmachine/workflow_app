@@ -123,6 +123,14 @@ type InventoryMovementReview struct {
 	DocumentTitle           sql.NullString
 	DocumentNumber          sql.NullString
 	DocumentStatus          sql.NullString
+	ApprovalID              sql.NullString
+	ApprovalStatus          sql.NullString
+	ApprovalQueueCode       sql.NullString
+	RequestID               sql.NullString
+	RequestReference        sql.NullString
+	RecommendationID        sql.NullString
+	RecommendationStatus    sql.NullString
+	RunID                   sql.NullString
 	ItemID                  string
 	ItemSKU                 string
 	ItemName                string
@@ -160,6 +168,14 @@ type InventoryReconciliationItem struct {
 	DocumentTitle           string
 	DocumentNumber          sql.NullString
 	DocumentStatus          string
+	ApprovalID              sql.NullString
+	ApprovalStatus          sql.NullString
+	ApprovalQueueCode       sql.NullString
+	RequestID               sql.NullString
+	RequestReference        sql.NullString
+	RecommendationID        sql.NullString
+	RecommendationStatus    sql.NullString
+	RunID                   sql.NullString
 	DocumentLineID          string
 	LineNumber              int
 	MovementID              string
@@ -249,26 +265,34 @@ type ListWorkOrdersInput struct {
 }
 
 type JournalEntryReview struct {
-	EntryID           string
-	EntryNumber       int64
-	EntryKind         string
-	SourceDocumentID  sql.NullString
-	ReversalOfEntryID sql.NullString
-	CurrencyCode      string
-	TaxScopeCode      string
-	Summary           string
-	ReversalReason    sql.NullString
-	PostedByUserID    string
-	EffectiveOn       time.Time
-	PostedAt          time.Time
-	CreatedAt         time.Time
-	DocumentTypeCode  sql.NullString
-	DocumentNumber    sql.NullString
-	DocumentStatus    sql.NullString
-	LineCount         int
-	TotalDebitMinor   int64
-	TotalCreditMinor  int64
-	HasReversal       bool
+	EntryID              string
+	EntryNumber          int64
+	EntryKind            string
+	SourceDocumentID     sql.NullString
+	ReversalOfEntryID    sql.NullString
+	CurrencyCode         string
+	TaxScopeCode         string
+	Summary              string
+	ReversalReason       sql.NullString
+	PostedByUserID       string
+	EffectiveOn          time.Time
+	PostedAt             time.Time
+	CreatedAt            time.Time
+	DocumentTypeCode     sql.NullString
+	DocumentNumber       sql.NullString
+	DocumentStatus       sql.NullString
+	ApprovalID           sql.NullString
+	ApprovalStatus       sql.NullString
+	ApprovalQueueCode    sql.NullString
+	RequestID            sql.NullString
+	RequestReference     sql.NullString
+	RecommendationID     sql.NullString
+	RecommendationStatus sql.NullString
+	RunID                sql.NullString
+	LineCount            int
+	TotalDebitMinor      int64
+	TotalCreditMinor     int64
+	HasReversal          bool
 }
 
 type ListJournalEntriesInput struct {
@@ -951,6 +975,14 @@ SELECT
 	d.title,
 	d.number_value,
 	d.status,
+	a.id,
+	a.status,
+	a.queue_code,
+	rec.request_id,
+	rec.request_reference,
+	rec.recommendation_id,
+	rec.recommendation_status,
+	rec.run_id,
 	i.id,
 	i.sku,
 	i.name,
@@ -977,6 +1009,36 @@ JOIN inventory_ops.items i
 LEFT JOIN documents.documents d
 	ON d.id = m.document_id
    AND d.org_id = m.org_id
+LEFT JOIN LATERAL (
+	SELECT
+		id,
+		status,
+		queue_code
+	FROM workflow.approvals
+	WHERE org_id = m.org_id
+	  AND document_id = d.id
+	ORDER BY requested_at DESC, id DESC
+	LIMIT 1
+) a ON TRUE
+LEFT JOIN LATERAL (
+	SELECT
+		r.id AS request_id,
+		r.request_reference,
+		rec.id AS recommendation_id,
+		rec.status AS recommendation_status,
+		rec.run_id
+	FROM ai.agent_recommendations rec
+	JOIN ai.agent_runs ar
+		ON ar.id = rec.run_id
+	   AND ar.org_id = m.org_id
+	JOIN ai.inbound_requests r
+		ON r.id = ar.inbound_request_id
+	   AND r.org_id = m.org_id
+	WHERE rec.org_id = m.org_id
+	  AND rec.approval_id = a.id
+	ORDER BY rec.created_at DESC, rec.id DESC
+	LIMIT 1
+) rec ON TRUE
 LEFT JOIN inventory_ops.locations sl
 	ON sl.id = m.source_location_id
    AND sl.org_id = m.org_id
@@ -1022,6 +1084,14 @@ LIMIT $7;`,
 			&review.DocumentTitle,
 			&review.DocumentNumber,
 			&review.DocumentStatus,
+			&review.ApprovalID,
+			&review.ApprovalStatus,
+			&review.ApprovalQueueCode,
+			&review.RequestID,
+			&review.RequestReference,
+			&review.RecommendationID,
+			&review.RecommendationStatus,
+			&review.RunID,
 			&review.ItemID,
 			&review.ItemSKU,
 			&review.ItemName,
@@ -1071,6 +1141,14 @@ SELECT
 	d.title,
 	d.number_value,
 	d.status,
+	a.id,
+	a.status,
+	a.queue_code,
+	rec.request_id,
+	rec.request_reference,
+	rec.recommendation_id,
+	rec.recommendation_status,
+	rec.run_id,
 	dl.id,
 	dl.line_number,
 	m.id,
@@ -1114,6 +1192,36 @@ JOIN documents.documents d
 JOIN inventory_ops.items i
 	ON i.id = dl.item_id
    AND i.org_id = dl.org_id
+LEFT JOIN LATERAL (
+	SELECT
+		id,
+		status,
+		queue_code
+	FROM workflow.approvals
+	WHERE org_id = dl.org_id
+	  AND document_id = d.id
+	ORDER BY requested_at DESC, id DESC
+	LIMIT 1
+) a ON TRUE
+LEFT JOIN LATERAL (
+	SELECT
+		r.id AS request_id,
+		r.request_reference,
+		rec.id AS recommendation_id,
+		rec.status AS recommendation_status,
+		rec.run_id
+	FROM ai.agent_recommendations rec
+	JOIN ai.agent_runs ar
+		ON ar.id = rec.run_id
+	   AND ar.org_id = dl.org_id
+	JOIN ai.inbound_requests r
+		ON r.id = ar.inbound_request_id
+	   AND r.org_id = dl.org_id
+	WHERE rec.org_id = dl.org_id
+	  AND rec.approval_id = a.id
+	ORDER BY rec.created_at DESC, rec.id DESC
+	LIMIT 1
+) rec ON TRUE
 LEFT JOIN inventory_ops.locations sl
 	ON sl.id = dl.source_location_id
    AND sl.org_id = dl.org_id
@@ -1165,6 +1273,14 @@ LIMIT $7;`,
 			&item.DocumentTitle,
 			&item.DocumentNumber,
 			&item.DocumentStatus,
+			&item.ApprovalID,
+			&item.ApprovalStatus,
+			&item.ApprovalQueueCode,
+			&item.RequestID,
+			&item.RequestReference,
+			&item.RecommendationID,
+			&item.RecommendationStatus,
+			&item.RunID,
 			&item.DocumentLineID,
 			&item.LineNumber,
 			&item.MovementID,
@@ -1655,6 +1771,14 @@ SELECT
 	d.type_code,
 	d.number_value,
 	d.status,
+	a.id,
+	a.status,
+	a.queue_code,
+	rec.request_id,
+	rec.request_reference,
+	rec.recommendation_id,
+	rec.recommendation_status,
+	rec.run_id,
 	COUNT(l.id) AS line_count,
 	COALESCE(SUM(l.debit_minor), 0) AS total_debit_minor,
 	COALESCE(SUM(l.credit_minor), 0) AS total_credit_minor,
@@ -1670,6 +1794,36 @@ JOIN accounting.journal_lines l
 LEFT JOIN documents.documents d
 	ON d.org_id = e.org_id
    AND d.id = e.source_document_id
+LEFT JOIN LATERAL (
+	SELECT
+		id,
+		status,
+		queue_code
+	FROM workflow.approvals
+	WHERE org_id = e.org_id
+	  AND document_id = d.id
+	ORDER BY requested_at DESC, id DESC
+	LIMIT 1
+) a ON TRUE
+LEFT JOIN LATERAL (
+	SELECT
+		r.id AS request_id,
+		r.request_reference,
+		rec.id AS recommendation_id,
+		rec.status AS recommendation_status,
+		rec.run_id
+	FROM ai.agent_recommendations rec
+	JOIN ai.agent_runs ar
+		ON ar.id = rec.run_id
+	   AND ar.org_id = e.org_id
+	JOIN ai.inbound_requests r
+		ON r.id = ar.inbound_request_id
+	   AND r.org_id = e.org_id
+	WHERE rec.org_id = e.org_id
+	  AND rec.approval_id = a.id
+	ORDER BY rec.created_at DESC, rec.id DESC
+	LIMIT 1
+) rec ON TRUE
 WHERE e.org_id = $1
   AND ($2::date IS NULL OR e.effective_on >= $2::date)
   AND ($3::date IS NULL OR e.effective_on <= $3::date)
@@ -1691,7 +1845,15 @@ GROUP BY
 	e.created_at,
 	d.type_code,
 	d.number_value,
-	d.status
+	d.status,
+	a.id,
+	a.status,
+	a.queue_code,
+	rec.request_id,
+	rec.request_reference,
+	rec.recommendation_id,
+	rec.recommendation_status,
+	rec.run_id
 ORDER BY e.effective_on DESC, e.entry_number DESC
 LIMIT $6;`,
 		input.Actor.OrgID,
@@ -1726,6 +1888,14 @@ LIMIT $6;`,
 			&review.DocumentTypeCode,
 			&review.DocumentNumber,
 			&review.DocumentStatus,
+			&review.ApprovalID,
+			&review.ApprovalStatus,
+			&review.ApprovalQueueCode,
+			&review.RequestID,
+			&review.RequestReference,
+			&review.RecommendationID,
+			&review.RecommendationStatus,
+			&review.RunID,
 			&review.LineCount,
 			&review.TotalDebitMinor,
 			&review.TotalCreditMinor,
