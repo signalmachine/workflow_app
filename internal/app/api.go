@@ -23,7 +23,9 @@ import (
 
 const (
 	sessionLoginPath           = "/api/session/login"
+	sessionTokenPath           = "/api/session/token"
 	sessionCurrentPath         = "/api/session"
+	sessionRefreshPath         = "/api/session/refresh"
 	sessionLogoutPath          = "/api/session/logout"
 	webAppPath                 = "/app"
 	webLoginPath               = "/app/login"
@@ -73,6 +75,7 @@ const (
 	headerOrgID                = "X-Workflow-Org-ID"
 	headerUserID               = "X-Workflow-User-ID"
 	headerSessionID            = "X-Workflow-Session-ID"
+	headerAuthorization        = "Authorization"
 	sessionIDCookieName        = "workflow_session_id"
 	refreshTokenCookieName     = "workflow_refresh_token"
 )
@@ -80,6 +83,7 @@ const (
 var uuidPattern = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 
 const browserSessionDuration = 24 * time.Hour
+const accessTokenDuration = 15 * time.Minute
 
 type ProcessNextQueuedInboundRequester interface {
 	ProcessNextQueuedInboundRequest(ctx context.Context, input ProcessNextQueuedInboundRequestInput) (ProcessNextQueuedInboundRequestResult, error)
@@ -123,8 +127,12 @@ type approvalDecisionService interface {
 
 type browserSessionService interface {
 	StartBrowserSession(ctx context.Context, input identityaccess.StartBrowserSessionInput) (identityaccess.BrowserSession, error)
+	StartTokenSession(ctx context.Context, input identityaccess.StartTokenSessionInput) (identityaccess.TokenSession, error)
 	AuthenticateSession(ctx context.Context, sessionID, refreshToken string) (identityaccess.SessionContext, error)
+	AuthenticateAccessToken(ctx context.Context, accessToken string) (identityaccess.SessionContext, error)
+	RefreshTokenSession(ctx context.Context, sessionID, refreshToken string, accessTokenExpiresAt time.Time) (identityaccess.TokenSession, error)
 	RevokeAuthenticatedSession(ctx context.Context, sessionID, refreshToken string) error
+	RevokeAccessTokenSession(ctx context.Context, accessToken string) error
 }
 
 type processNextQueuedRequest struct {
@@ -212,6 +220,11 @@ type sessionLoginRequest struct {
 	DeviceLabel string `json:"device_label"`
 }
 
+type sessionRefreshRequest struct {
+	SessionID    string `json:"session_id"`
+	RefreshToken string `json:"refresh_token"`
+}
+
 type AgentAPIHandler struct {
 	loadProcessor     queuedInboundRequestProcessorLoader
 	submissionService inboundRequestSubmitter
@@ -273,7 +286,9 @@ func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(webAuditPath, handler.handleWebAudit)
 	mux.HandleFunc(webAuditDetailPrefix, handler.handleWebAuditDetail)
 	mux.HandleFunc(sessionLoginPath, handler.handleSessionLogin)
+	mux.HandleFunc(sessionTokenPath, handler.handleSessionTokenLogin)
 	mux.HandleFunc(sessionCurrentPath, handler.handleCurrentSession)
+	mux.HandleFunc(sessionRefreshPath, handler.handleSessionRefresh)
 	mux.HandleFunc(sessionLogoutPath, handler.handleSessionLogout)
 	mux.HandleFunc(agentProcessNextQueuedPath, handler.handleProcessNextQueuedInboundRequest)
 	mux.HandleFunc(submitInboundRequestPath, handler.handleSubmitInboundRequest)
@@ -353,6 +368,52 @@ func (h *AgentAPIHandler) handleSessionLogin(w http.ResponseWriter, r *http.Requ
 	}))
 }
 
+func (h *AgentAPIHandler) handleSessionTokenLogin(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != sessionTokenPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+		return
+	}
+	if h.authService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "auth service unavailable"})
+		return
+	}
+	defer r.Body.Close()
+
+	var req sessionLoginRequest
+	if err := decodeJSONBody(r, &req, false); err != nil {
+		writeJSONBodyError(w, err)
+		return
+	}
+
+	deviceLabel := strings.TrimSpace(req.DeviceLabel)
+	if deviceLabel == "" {
+		deviceLabel = "non-browser"
+	}
+
+	session, err := h.authService.StartTokenSession(r.Context(), identityaccess.StartTokenSessionInput{
+		OrgSlug:              req.OrgSlug,
+		Email:                req.Email,
+		DeviceLabel:          deviceLabel,
+		SessionExpiresAt:     time.Now().UTC().Add(browserSessionDuration),
+		AccessTokenExpiresAt: time.Now().UTC().Add(accessTokenDuration),
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, identityaccess.ErrUnauthorized), errors.Is(err, identityaccess.ErrMembershipMissing):
+			writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "invalid session credentials"})
+		default:
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to start session"})
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, mapTokenSession(session))
+}
+
 func (h *AgentAPIHandler) handleCurrentSession(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != sessionCurrentPath {
 		http.NotFound(w, r)
@@ -383,6 +444,41 @@ func (h *AgentAPIHandler) handleCurrentSession(w http.ResponseWriter, r *http.Re
 	}
 }
 
+func (h *AgentAPIHandler) handleSessionRefresh(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != sessionRefreshPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+		return
+	}
+	if h.authService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "auth service unavailable"})
+		return
+	}
+	defer r.Body.Close()
+
+	var req sessionRefreshRequest
+	if err := decodeJSONBody(r, &req, false); err != nil {
+		writeJSONBodyError(w, err)
+		return
+	}
+
+	session, err := h.authService.RefreshTokenSession(r.Context(), req.SessionID, req.RefreshToken, time.Now().UTC().Add(accessTokenDuration))
+	if err != nil {
+		switch {
+		case errors.Is(err, identityaccess.ErrUnauthorized), errors.Is(err, identityaccess.ErrSessionNotActive):
+			writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
+		default:
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to refresh session"})
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, mapTokenSession(session))
+}
+
 func (h *AgentAPIHandler) handleSessionLogout(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != sessionLogoutPath {
 		http.NotFound(w, r)
@@ -397,22 +493,33 @@ func (h *AgentAPIHandler) handleSessionLogout(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	sessionID, refreshToken, ok := sessionCookiesFromRequest(r)
-	if !ok {
-		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
-		return
-	}
-
-	if err := h.authService.RevokeAuthenticatedSession(r.Context(), sessionID, refreshToken); err != nil {
-		if errors.Is(err, identityaccess.ErrUnauthorized) || errors.Is(err, identityaccess.ErrSessionNotActive) {
+	switch {
+	case bearerTokenFromRequest(r) != "":
+		if err := h.authService.RevokeAccessTokenSession(r.Context(), bearerTokenFromRequest(r)); err != nil {
+			if errors.Is(err, identityaccess.ErrUnauthorized) || errors.Is(err, identityaccess.ErrSessionNotActive) {
+				writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
+				return
+			}
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to revoke session"})
+			return
+		}
+	case true:
+		sessionID, refreshToken, ok := sessionCookiesFromRequest(r)
+		if !ok {
 			writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
 			return
 		}
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to revoke session"})
-		return
+		if err := h.authService.RevokeAuthenticatedSession(r.Context(), sessionID, refreshToken); err != nil {
+			if errors.Is(err, identityaccess.ErrUnauthorized) || errors.Is(err, identityaccess.ErrSessionNotActive) {
+				writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
+				return
+			}
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to revoke session"})
+			return
+		}
+		clearSessionCookies(w)
 	}
 
-	clearSessionCookies(w)
 	writeJSON(w, http.StatusOK, struct {
 		Revoked bool `json:"revoked"`
 	}{Revoked: true})
@@ -1595,6 +1702,9 @@ func actorFromHeaders(r *http.Request) (identityaccess.Actor, error) {
 }
 
 func (h *AgentAPIHandler) sessionContextFromRequest(r *http.Request) (identityaccess.SessionContext, error) {
+	if accessToken := bearerTokenFromRequest(r); accessToken != "" {
+		return h.authService.AuthenticateAccessToken(r.Context(), accessToken)
+	}
 	sessionID, refreshToken, ok := sessionCookiesFromRequest(r)
 	if !ok {
 		if _, err := actorFromHeaders(r); err != nil {
@@ -1709,6 +1819,17 @@ func cookieValue(r *http.Request, name string) string {
 		return ""
 	}
 	return cookie.Value
+}
+
+func bearerTokenFromRequest(r *http.Request) string {
+	authorization := strings.TrimSpace(r.Header.Get(headerAuthorization))
+	if authorization == "" {
+		return ""
+	}
+	if !strings.HasPrefix(strings.ToLower(authorization), "bearer ") {
+		return ""
+	}
+	return strings.TrimSpace(authorization[len("Bearer "):])
 }
 
 func parseAttachmentContentPath(path string) (string, bool) {
@@ -2063,6 +2184,25 @@ type sessionContextResponse struct {
 	LastSeenAt      time.Time `json:"last_seen_at"`
 }
 
+type tokenSessionResponse struct {
+	SessionID             string    `json:"session_id"`
+	OrgID                 string    `json:"org_id"`
+	OrgSlug               string    `json:"org_slug"`
+	OrgName               string    `json:"org_name"`
+	UserID                string    `json:"user_id"`
+	UserEmail             string    `json:"user_email"`
+	UserDisplayName       string    `json:"user_display_name"`
+	RoleCode              string    `json:"role_code"`
+	DeviceLabel           string    `json:"device_label"`
+	ExpiresAt             time.Time `json:"expires_at"`
+	IssuedAt              time.Time `json:"issued_at"`
+	LastSeenAt            time.Time `json:"last_seen_at"`
+	AccessToken           string    `json:"access_token"`
+	AccessTokenExpiresAt  time.Time `json:"access_token_expires_at"`
+	RefreshToken          string    `json:"refresh_token"`
+	RefreshTokenExpiresAt time.Time `json:"refresh_token_expires_at"`
+}
+
 func mapSessionContext(context identityaccess.SessionContext) sessionContextResponse {
 	return sessionContextResponse{
 		SessionID:       context.Session.ID,
@@ -2077,6 +2217,27 @@ func mapSessionContext(context identityaccess.SessionContext) sessionContextResp
 		ExpiresAt:       context.Session.ExpiresAt,
 		IssuedAt:        context.Session.IssuedAt,
 		LastSeenAt:      context.Session.LastSeenAt,
+	}
+}
+
+func mapTokenSession(session identityaccess.TokenSession) tokenSessionResponse {
+	return tokenSessionResponse{
+		SessionID:             session.Session.ID,
+		OrgID:                 session.Session.OrgID,
+		OrgSlug:               session.OrgSlug,
+		OrgName:               session.OrgName,
+		UserID:                session.Session.UserID,
+		UserEmail:             session.UserEmail,
+		UserDisplayName:       session.UserDisplayName,
+		RoleCode:              session.RoleCode,
+		DeviceLabel:           session.Session.DeviceLabel,
+		ExpiresAt:             session.Session.ExpiresAt,
+		IssuedAt:              session.Session.IssuedAt,
+		LastSeenAt:            session.Session.LastSeenAt,
+		AccessToken:           session.AccessToken,
+		AccessTokenExpiresAt:  session.AccessTokenExpiresAt,
+		RefreshToken:          session.RefreshToken,
+		RefreshTokenExpiresAt: session.RefreshTokenExpiresAt,
 	}
 }
 

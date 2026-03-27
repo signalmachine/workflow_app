@@ -32,6 +32,7 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 | Milestone 8 attachment contract hardening slice | done | attachment upload now validates media-type metadata before persistence, malformed attachment IDs now fail cleanly with `invalid attachment` instead of leaking database errors, authenticated attachment downloads now return explicit `Content-Disposition`, `Cache-Control: private, no-store`, and `X-Content-Type-Options: nosniff` headers, and API integration coverage now exercises both the hardened upload and download behavior |
 | Milestone 8 approval-action contract hardening slice | done | approval decisions now reject malformed approval IDs as `invalid approval`, keep body validation aligned with the other hardened JSON endpoints, and return current approval plus document state metadata on conflict responses so later non-browser clients can recover without an immediate follow-up read |
 | Milestone 8 non-browser auth-evolution planning slice | done | `non_browser_auth_evolution_plan.md` now closes the fifth planned slice by defining an additive bearer-session path for later non-browser clients on top of the existing `identityaccess.sessions` foundation while keeping browser-session cookies as the active v1 auth path and treating UUID actor headers as pre-production automation compatibility rather than the long-term client contract |
+| Post-Milestone-8 first additive non-browser auth slice | done | the shared `/api/...` seam now supports additive non-browser bearer sessions on the same `identityaccess.sessions` truth: `POST /api/session/token` issues a device-scoped JSON session plus short-lived bearer access token and refresh token, `POST /api/session/refresh` rotates refresh material and access tokens, `GET /api/session` and `POST /api/session/logout` now accept bearer auth as well as browser cookies, bearer-authenticated shared API writes now resolve through the same actor and authorization rules, and integration coverage plus migration verification are landed |
 | Minimum thin-v1 party and contact support depth | done | `parties` support records now cover external party identity plus support-depth contacts with tenant-safe service boundaries and integration tests |
 | Remaining thin-v1 adopted-document gaps | done | thin v1 adopted document-family ownership is now implemented for work-order, invoice, and payment or receipt document families through module-owned one-to-one payload bridges keyed by `document_id`; see `adopted_document_ownership_remediation_plan.md` |
 | Minimum thin-v1 inbound-request and browser-ingress foundation | done | persist-first inbound requests, request messages, PostgreSQL-backed attachments, transcription derivatives, queue claim and status transitions, stable `REQ-...` references, draft editing and hard deletion, queued-request amend-back-to-draft support, AI run causation, and reporting-visible inbound-request and processed-proposal review now exist for thin-v1 browser testing at the service and reporting-read-model level; see `inbound_request_and_attachment_foundation_plan.md` |
@@ -39,21 +40,22 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 ## 2. Immediate next steps
 
 1. treat Milestone 8 as complete and keep it closed as a bounded backend-hardening milestone rather than reopening it as an open-ended bucket
-2. if backend auth work continues next, start with the first additive implementation slice from `non_browser_auth_evolution_plan.md`: device-scoped non-browser session issue plus refresh, bearer-token authentication on the shared `/api/...` seam, and token-aware session introspection or revocation
-3. keep widening or correcting the shared backend only in client-neutral slices that strengthen correctness, continuity, or reuse rather than creating a browser-specific versus mobile-specific split
-4. if later work exposes a browser-layer regression or a newly discovered residual Milestone 7 blocker, document it explicitly and fix it narrowly rather than reopening broad browser-surface expansion
-5. keep the codebase centered on the approved first-class modules while allowing support-depth records such as `parties` and `contacts` where the canonical module-boundary doc explicitly permits them
-6. add attachments only where they support approval evidence, document support flows, or persisted inbound request intake
-7. use `new_app_v1_gap_review_from_current_codebase.md` as historical context only, not as the live list of remaining missing foundation areas
-8. use `new_app_implementation_defaults.md` as the default-rules reference during implementation
-9. use `new_app_foundation_coverage.md` as the v1 completion checklist and foundation coverage control
-10. keep the thin-v1 web stack unchanged unless the canonical planning set explicitly changes it
+2. treat the first additive non-browser auth slice as complete and keep it closed unless follow-up verification exposes a concrete defect
+3. if backend auth work continues next, start with the documented auth follow-up from `non_browser_auth_evolution_plan.md`: decide whether the UUID actor-header compatibility path should now be narrowed further or removed from general shared-API usage once bearer-session coverage exists
+4. keep widening or correcting the shared backend only in client-neutral slices that strengthen correctness, continuity, or reuse rather than creating a browser-specific versus mobile-specific split
+5. if later work exposes a browser-layer regression or a newly discovered residual Milestone 7 blocker, document it explicitly and fix it narrowly rather than reopening broad browser-surface expansion
+6. keep the codebase centered on the approved first-class modules while allowing support-depth records such as `parties` and `contacts` where the canonical module-boundary doc explicitly permits them
+7. add attachments only where they support approval evidence, document support flows, or persisted inbound request intake
+8. use `new_app_v1_gap_review_from_current_codebase.md` as historical context only, not as the live list of remaining missing foundation areas
+9. use `new_app_implementation_defaults.md` as the default-rules reference during implementation
+10. use `new_app_foundation_coverage.md` as the v1 completion checklist and foundation coverage control
+11. keep the thin-v1 web stack unchanged unless the canonical planning set explicitly changes it
 
 ## 2.1 Planned next implementation order
 
 Recommended sequence:
 
-1. keep the next backend auth implementation bounded to the first additive slice documented in `non_browser_auth_evolution_plan.md`
+1. keep the next backend auth implementation bounded to the documented follow-up after the landed bearer-session slice: narrow or retire the UUID actor-header compatibility path deliberately rather than widening it further
 2. keep each new slice bounded to one shared-backend concern rather than mixing browser-expansion work back into completed Milestone 8 work
 3. keep richer draft-attachment editing beyond the landed additive upload flow as residual only if later evidence proves it materially necessary
 
@@ -64,8 +66,9 @@ Reason:
 3. the reporting foundation is complete enough for thin-v1 review and browser-ready read seams, and the provider-backed coordinator plus browser-session auth now make the shared backend usable from a real browser client
 4. the landed coordinator slice includes a hard-capped tool loop with policy-enforced read-tool execution plus bounded specialist delegation while keeping the default contributor workflow provider-independent
 5. shared backend contracts, a focused live-provider verification command, queued-request processing, request submission, attachment transport, operator review, approval action, and browser-usable session auth now exist for driving the live path outside direct service calls, and the landed browser slices plus the final closeout sweep now prove that seam with operator login, intake, parked-request lifecycle management, full request-status visibility, detail review, approval actions, plus downstream document, accounting, inventory, work-order, and audit review
-6. the browser milestone is therefore complete enough that the next meaningful work is no longer web-surface expansion; it is shared-backend hardening for later lightweight mobile reuse
-7. residual browser work should now be treated as regression fixes or later UX refinement rather than as an active milestone plan
+6. the first additive non-browser auth slice is now also landed on that same seam through bearer-session issue, refresh rotation, token-authenticated introspection, token-authenticated logout, and shared handler reuse for bearer-authenticated writes
+7. the browser milestone is therefore complete enough that the next meaningful work is no longer web-surface expansion; it is shared-backend hardening for later lightweight mobile reuse
+8. residual browser work should now be treated as regression fixes or later UX refinement rather than as an active milestone plan
 
 ## 2.2 Milestone 8 planned slices
 

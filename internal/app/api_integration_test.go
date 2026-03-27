@@ -118,6 +118,163 @@ func TestAgentAPISessionLoginCurrentSessionAndLogoutIntegration(t *testing.T) {
 	}
 }
 
+func TestAgentAPITokenSessionIssueRefreshAndRevokeIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	orgSlug, userEmail := loadOrgSlugAndUserEmail(t, ctx, db, orgID, operatorUserID)
+
+	handler := app.NewAgentAPIHandler(db)
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/session/token", bytes.NewBufferString(`{
+		"org_slug":"`+orgSlug+`",
+		"email":"`+userEmail+`",
+		"device_label":"mobile-integration"
+	}`))
+	loginReq.Header.Set("Content-Type", "application/json")
+	loginRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(loginRecorder, loginReq)
+
+	if loginRecorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected token login status: got %d body=%s", loginRecorder.Code, loginRecorder.Body.String())
+	}
+	if len(loginRecorder.Result().Cookies()) != 0 {
+		t.Fatalf("expected token login to avoid cookies, got %d", len(loginRecorder.Result().Cookies()))
+	}
+
+	var loginResponse struct {
+		SessionID             string    `json:"session_id"`
+		OrgID                 string    `json:"org_id"`
+		UserID                string    `json:"user_id"`
+		DeviceLabel           string    `json:"device_label"`
+		AccessToken           string    `json:"access_token"`
+		AccessTokenExpiresAt  time.Time `json:"access_token_expires_at"`
+		RefreshToken          string    `json:"refresh_token"`
+		RefreshTokenExpiresAt time.Time `json:"refresh_token_expires_at"`
+	}
+	if err := json.Unmarshal(loginRecorder.Body.Bytes(), &loginResponse); err != nil {
+		t.Fatalf("decode token login response: %v", err)
+	}
+	if loginResponse.OrgID != orgID || loginResponse.UserID != operatorUserID {
+		t.Fatalf("unexpected token login identity: %+v", loginResponse)
+	}
+	if loginResponse.DeviceLabel != "mobile-integration" || loginResponse.AccessToken == "" || loginResponse.RefreshToken == "" {
+		t.Fatalf("unexpected token login credentials: %+v", loginResponse)
+	}
+	if !loginResponse.AccessTokenExpiresAt.Before(loginResponse.RefreshTokenExpiresAt) {
+		t.Fatalf("expected shorter access token expiry: %+v", loginResponse)
+	}
+
+	currentReq := httptest.NewRequest(http.MethodGet, "/api/session", nil)
+	applyBearer(currentReq, loginResponse.AccessToken)
+	currentRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(currentRecorder, currentReq)
+	if currentRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected bearer current-session status: got %d body=%s", currentRecorder.Code, currentRecorder.Body.String())
+	}
+
+	body := bytes.NewBufferString(`{
+		"origin_type":"human",
+		"channel":"mobile",
+		"metadata":{"submitter_label":"field app"},
+		"message":{"message_role":"request","text_content":"Submit this request with bearer auth."}
+	}`)
+	submitReq := httptest.NewRequest(http.MethodPost, "/api/inbound-requests", body)
+	submitReq.Header.Set("Content-Type", "application/json")
+	applyBearer(submitReq, loginResponse.AccessToken)
+	submitRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(submitRecorder, submitReq)
+	if submitRecorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected bearer submit status: got %d body=%s", submitRecorder.Code, submitRecorder.Body.String())
+	}
+
+	var submitResponse struct {
+		RequestID string `json:"request_id"`
+		Status    string `json:"status"`
+	}
+	if err := json.Unmarshal(submitRecorder.Body.Bytes(), &submitResponse); err != nil {
+		t.Fatalf("decode bearer submit response: %v", err)
+	}
+	if submitResponse.Status != "queued" || submitResponse.RequestID == "" {
+		t.Fatalf("unexpected bearer submit response: %+v", submitResponse)
+	}
+
+	var storedSessionID sql.NullString
+	if err := db.QueryRowContext(ctx, `SELECT session_id FROM ai.inbound_requests WHERE id = $1`, submitResponse.RequestID).Scan(&storedSessionID); err != nil {
+		t.Fatalf("load submitted request session: %v", err)
+	}
+	if !storedSessionID.Valid || storedSessionID.String != loginResponse.SessionID {
+		t.Fatalf("unexpected submitted session linkage: %+v want %s", storedSessionID, loginResponse.SessionID)
+	}
+
+	refreshReq := httptest.NewRequest(http.MethodPost, "/api/session/refresh", bytes.NewBufferString(`{
+		"session_id":"`+loginResponse.SessionID+`",
+		"refresh_token":"`+loginResponse.RefreshToken+`"
+	}`))
+	refreshReq.Header.Set("Content-Type", "application/json")
+	refreshRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(refreshRecorder, refreshReq)
+	if refreshRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected refresh status: got %d body=%s", refreshRecorder.Code, refreshRecorder.Body.String())
+	}
+
+	var refreshResponse struct {
+		SessionID            string    `json:"session_id"`
+		AccessToken          string    `json:"access_token"`
+		AccessTokenExpiresAt time.Time `json:"access_token_expires_at"`
+		RefreshToken         string    `json:"refresh_token"`
+	}
+	if err := json.Unmarshal(refreshRecorder.Body.Bytes(), &refreshResponse); err != nil {
+		t.Fatalf("decode refresh response: %v", err)
+	}
+	if refreshResponse.SessionID != loginResponse.SessionID {
+		t.Fatalf("unexpected refreshed session id: %+v", refreshResponse)
+	}
+	if refreshResponse.AccessToken == "" || refreshResponse.RefreshToken == "" {
+		t.Fatalf("missing refreshed credentials: %+v", refreshResponse)
+	}
+	if refreshResponse.AccessToken == loginResponse.AccessToken || refreshResponse.RefreshToken == loginResponse.RefreshToken {
+		t.Fatalf("expected rotated credentials, got %+v", refreshResponse)
+	}
+
+	oldCurrentReq := httptest.NewRequest(http.MethodGet, "/api/session", nil)
+	applyBearer(oldCurrentReq, loginResponse.AccessToken)
+	oldCurrentRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(oldCurrentRecorder, oldCurrentReq)
+	if oldCurrentRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("expected rotated access token to fail, got %d body=%s", oldCurrentRecorder.Code, oldCurrentRecorder.Body.String())
+	}
+
+	refreshedCurrentReq := httptest.NewRequest(http.MethodGet, "/api/session", nil)
+	applyBearer(refreshedCurrentReq, refreshResponse.AccessToken)
+	refreshedCurrentRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(refreshedCurrentRecorder, refreshedCurrentReq)
+	if refreshedCurrentRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected refreshed bearer current-session status: got %d body=%s", refreshedCurrentRecorder.Code, refreshedCurrentRecorder.Body.String())
+	}
+
+	logoutReq := httptest.NewRequest(http.MethodPost, "/api/session/logout", nil)
+	applyBearer(logoutReq, refreshResponse.AccessToken)
+	logoutRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(logoutRecorder, logoutReq)
+	if logoutRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected bearer logout status: got %d body=%s", logoutRecorder.Code, logoutRecorder.Body.String())
+	}
+
+	postLogoutReq := httptest.NewRequest(http.MethodGet, "/api/session", nil)
+	applyBearer(postLogoutReq, refreshResponse.AccessToken)
+	postLogoutRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(postLogoutRecorder, postLogoutReq)
+	if postLogoutRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("unexpected post-logout bearer status: got %d body=%s", postLogoutRecorder.Code, postLogoutRecorder.Body.String())
+	}
+}
+
 func TestAgentAPISubmitInboundRequestWithBrowserSessionCookies(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()
@@ -2677,6 +2834,10 @@ func applyResponseCookies(req *http.Request, cookies []*http.Cookie) {
 	for _, cookie := range cookies {
 		req.AddCookie(cookie)
 	}
+}
+
+func applyBearer(req *http.Request, accessToken string) {
+	req.Header.Set("Authorization", "Bearer "+accessToken)
 }
 
 type multipartUpload struct {

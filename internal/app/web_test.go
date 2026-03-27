@@ -1920,11 +1920,16 @@ func (s stubOperatorReviewReader) ListProcessedProposalStatusSummary(ctx context
 }
 
 type stubBrowserSessionService struct {
-	authenticateSession func(context.Context, string, string) (identityaccess.SessionContext, error)
+	authenticateSession     func(context.Context, string, string) (identityaccess.SessionContext, error)
+	authenticateAccessToken func(context.Context, string) (identityaccess.SessionContext, error)
 }
 
 func (s stubBrowserSessionService) StartBrowserSession(context.Context, identityaccess.StartBrowserSessionInput) (identityaccess.BrowserSession, error) {
 	return identityaccess.BrowserSession{}, nil
+}
+
+func (s stubBrowserSessionService) StartTokenSession(context.Context, identityaccess.StartTokenSessionInput) (identityaccess.TokenSession, error) {
+	return identityaccess.TokenSession{}, nil
 }
 
 func (s stubBrowserSessionService) AuthenticateSession(ctx context.Context, sessionID, refreshToken string) (identityaccess.SessionContext, error) {
@@ -1934,7 +1939,22 @@ func (s stubBrowserSessionService) AuthenticateSession(ctx context.Context, sess
 	return identityaccess.SessionContext{}, identityaccess.ErrUnauthorized
 }
 
+func (s stubBrowserSessionService) AuthenticateAccessToken(ctx context.Context, accessToken string) (identityaccess.SessionContext, error) {
+	if s.authenticateAccessToken != nil {
+		return s.authenticateAccessToken(ctx, accessToken)
+	}
+	return identityaccess.SessionContext{}, identityaccess.ErrUnauthorized
+}
+
+func (s stubBrowserSessionService) RefreshTokenSession(context.Context, string, string, time.Time) (identityaccess.TokenSession, error) {
+	return identityaccess.TokenSession{}, identityaccess.ErrUnauthorized
+}
+
 func (s stubBrowserSessionService) RevokeAuthenticatedSession(context.Context, string, string) error {
+	return nil
+}
+
+func (s stubBrowserSessionService) RevokeAccessTokenSession(context.Context, string) error {
 	return nil
 }
 

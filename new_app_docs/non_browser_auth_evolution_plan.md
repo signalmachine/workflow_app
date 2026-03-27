@@ -1,7 +1,7 @@
 # workflow_app Non-Browser Auth Evolution Plan
 
 Date: 2026-03-27
-Status: Approved Milestone 8 planning slice
+Status: Approved plan with first auth slice implemented
 Purpose: define the next authentication path for lightweight non-browser clients on the shared backend foundation without destabilizing the finished browser-session flow.
 
 ## 1. Current auth reality
@@ -95,9 +95,9 @@ Required invariants:
 
 ## 6. Recommended implementation order after this plan
 
-The next implementation work after this planning slice should start with one bounded auth slice.
+The first bounded auth slice from this plan is now implemented on the shared backend seam.
 
-Recommended first auth slice:
+Implemented first auth slice:
 
 1. add the additive non-browser session-start, refresh, and token-authentication path on top of the existing `identityaccess.sessions` foundation
 2. teach shared API auth middleware to accept either browser cookies or bearer access tokens without changing handler-level authorization rules
