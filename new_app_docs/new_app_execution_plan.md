@@ -363,7 +363,19 @@ Closeout result:
 5. the codebase should therefore be treated as thin-v1 checkpoint complete rather than as an implicitly unfinished v1 milestone chain
 6. any later work should begin only after one explicit promotion decision: either one bounded post-checkpoint slice or one v2 work item
 
-## 11. Execution warning
+## 11. Planned next step after checkpoint closeout
+
+The next active step is now the bounded post-checkpoint validation and live user-testing readiness slice documented in `post_checkpoint_validation_and_user_testing_plan.md`.
+
+That slice should:
+
+1. fix live provider-backed execution blockers first
+2. validate the real browser plus shared-backend seam with the configured environment
+3. run explicit canonical end-to-end workflows rather than broad exploratory testing first
+4. continue focused review plus fix plus test loops until those workflows have no known blocking defects
+5. end with one explicit readiness result for supervised AI-backed user testing or with an explicit blocker list
+
+## 12. Execution warning
 
 Do not add CRM breadth, advanced projects, portal work, payroll, broad UI work, or advanced agent-autonomy features during milestones 0 through 5.
 
@@ -374,7 +386,7 @@ During Milestone 7, backend corrections and narrow shared-backend enhancements a
 
 Do not treat Milestone 8 as permission to build the mobile product itself, fork the backend into web-specific versus mobile-specific truth models, or let backend hardening erase the still-required Milestone 7 browser completion criteria.
 
-## 12. Quality and sophistication rule
+## 13. Quality and sophistication rule
 
 `workflow_app` is allowed to be thin in breadth, but it is not allowed to be weak in foundation design.
 

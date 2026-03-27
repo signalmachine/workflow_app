@@ -110,6 +110,8 @@ Current checkpoint result:
 1. the repository has completed Milestone 0 through Milestone 8 from the active canonical plan
 2. `go build ./...` and `set -a; source .env; set +a; go test -p 1 ./...` both completed cleanly during the 2026-03-27 closeout review
 3. the current codebase should therefore be treated as thin-v1 checkpoint complete at its planned foundation depth
+4. the next active step after checkpoint closeout is a validation-led slice for live provider readiness and canonical end-to-end workflow testing rather than implicit new feature expansion
+5. that post-checkpoint slice should continue focused review plus structured end-to-end testing until the canonical supervised user-testing workflows have no known blocking defects
 
 ## 5. Highest-priority v1 capabilities
 

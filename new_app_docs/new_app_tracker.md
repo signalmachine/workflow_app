@@ -42,15 +42,15 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 
 ## 2. Immediate next steps
 
-The explicit closeout-and-decision pass is now complete.
+The thin-v1 checkpoint closeout is complete, and the next active step is now explicit.
 
-Closeout result:
+Planned next step:
 
-1. `go build ./...` completed cleanly on 2026-03-27
-2. `set -a; source .env; set +a; go test -p 1 ./...` completed cleanly on 2026-03-27
-3. the live codebase still satisfies the foundation checklist in `new_app_foundation_coverage.md` at the current thin-v1 depth
-4. no material remaining slice was found that would justify reopening Milestone 7, Milestone 8, or inventing new v1 breadth by momentum
-5. the repository should therefore be treated as thin-v1 checkpoint complete until a later session promotes one explicit new slice or v2 work item
+1. execute the bounded post-checkpoint validation and live user-testing readiness slice documented in `post_checkpoint_validation_and_user_testing_plan.md`
+2. treat that slice as validation-led work rather than as reopening unfinished thin-v1 breadth
+3. start by restoring the live provider-backed verification path, then run the canonical end-to-end workflows on the real browser and shared-backend seam
+4. continue the focused-review plus fix plus end-to-end-testing loop until the canonical workflows have no known blocking defects for supervised user testing
+5. end that slice with one explicit readiness result for supervised AI-backed user testing or with an explicit blocker list if readiness is not yet achieved
 
 Follow-on rule:
 
@@ -71,11 +71,13 @@ Follow-on rule:
 Recommended sequence after checkpoint closeout:
 
 1. treat the current repository state as the thin-v1 foundation checkpoint rather than an implicitly unfinished milestone chain
-2. before writing more code, decide explicitly whether the next session is:
-3. one bounded post-checkpoint shared-backend or correctness slice, or
-4. one explicitly promoted v2 work item under `new_app_docs/app_v2_plans/`
-5. keep each newly promoted slice bounded to one concern rather than reopening completed milestone buckets
-6. keep richer draft-attachment editing beyond the landed additive upload flow as residual only if later evidence proves it materially necessary
+2. begin with the bounded post-checkpoint validation and user-testing readiness slice in `post_checkpoint_validation_and_user_testing_plan.md`
+3. fix live-path blockers first, then execute the canonical end-to-end workflows on the real provider-backed application seam
+4. only after that slice finishes, decide explicitly whether the next session is:
+5. one bounded post-checkpoint shared-backend or correctness slice, or
+6. one explicitly promoted v2 work item under `new_app_docs/app_v2_plans/`
+7. keep each newly promoted slice bounded to one concern rather than reopening completed milestone buckets
+8. keep richer draft-attachment editing beyond the landed additive upload flow as residual only if later evidence proves it materially necessary
 
 Reason:
 
@@ -88,7 +90,8 @@ Reason:
 7. the queued-agent UUID actor-header compatibility seam is now retired, so later auth work should not preserve or widen that temporary path again
 8. the browser milestone is complete enough that residual browser work should now be treated as regression fixes or later UX refinement rather than as an active milestone plan
 9. the verification gap is now closed, and the foundation checklist review found no material missing v1 structure
-10. the correct next move is therefore explicit promotion of any future slice rather than treating the repository as silently incomplete
+10. the next unanswered question is operational readiness for supervised AI-backed user testing rather than missing thin-v1 foundation breadth
+11. the correct next move is therefore one explicit validation-led slice with iterative blocker removal rather than treating the repository as silently incomplete
 
 ## 2.1.1 Next-session decision gate
 
