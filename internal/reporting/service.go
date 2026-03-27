@@ -210,6 +210,14 @@ type WorkOrderReview struct {
 	DocumentID               string
 	DocumentStatus           string
 	DocumentNumber           sql.NullString
+	ApprovalID               sql.NullString
+	ApprovalStatus           sql.NullString
+	ApprovalQueueCode        sql.NullString
+	RequestID                sql.NullString
+	RequestReference         sql.NullString
+	RecommendationID         sql.NullString
+	RecommendationStatus     sql.NullString
+	RunID                    sql.NullString
 	WorkOrderCode            string
 	Title                    string
 	Summary                  string
@@ -1224,6 +1232,14 @@ SELECT
 	d.id,
 	d.status,
 	d.number_value,
+	a.id,
+	a.status,
+	a.queue_code,
+	rec.request_id,
+	rec.request_reference,
+	rec.recommendation_id,
+	rec.recommendation_status,
+	rec.run_id,
 	wo.work_order_code,
 	wo.title,
 	wo.summary,
@@ -1251,6 +1267,36 @@ JOIN work_orders.documents wd
 JOIN documents.documents d
 	ON d.id = wd.document_id
    AND d.org_id = wd.org_id
+LEFT JOIN LATERAL (
+	SELECT
+		id,
+		status,
+		queue_code
+	FROM workflow.approvals
+	WHERE org_id = wo.org_id
+	  AND document_id = d.id
+	ORDER BY requested_at DESC, id DESC
+	LIMIT 1
+) a ON TRUE
+LEFT JOIN LATERAL (
+	SELECT
+		r.id AS request_id,
+		r.request_reference,
+		rec.id AS recommendation_id,
+		rec.status AS recommendation_status,
+		rec.run_id
+	FROM ai.agent_recommendations rec
+	JOIN ai.agent_runs ar
+		ON ar.id = rec.run_id
+	   AND ar.org_id = wo.org_id
+	JOIN ai.inbound_requests r
+		ON r.id = ar.inbound_request_id
+	   AND r.org_id = wo.org_id
+	WHERE rec.org_id = wo.org_id
+	  AND rec.approval_id = a.id
+	ORDER BY rec.created_at DESC, rec.id DESC
+	LIMIT 1
+) rec ON TRUE
 JOIN LATERAL (
 	SELECT changed_at
 	FROM work_orders.status_history
@@ -1320,6 +1366,14 @@ WHERE wo.org_id = $1
 		&review.DocumentID,
 		&review.DocumentStatus,
 		&review.DocumentNumber,
+		&review.ApprovalID,
+		&review.ApprovalStatus,
+		&review.ApprovalQueueCode,
+		&review.RequestID,
+		&review.RequestReference,
+		&review.RecommendationID,
+		&review.RecommendationStatus,
+		&review.RunID,
 		&review.WorkOrderCode,
 		&review.Title,
 		&review.Summary,
@@ -1376,6 +1430,14 @@ SELECT
 	d.id,
 	d.status,
 	d.number_value,
+	a.id,
+	a.status,
+	a.queue_code,
+	rec.request_id,
+	rec.request_reference,
+	rec.recommendation_id,
+	rec.recommendation_status,
+	rec.run_id,
 	wo.work_order_code,
 	wo.title,
 	wo.summary,
@@ -1403,6 +1465,36 @@ JOIN work_orders.documents wd
 JOIN documents.documents d
 	ON d.id = wd.document_id
    AND d.org_id = wd.org_id
+LEFT JOIN LATERAL (
+	SELECT
+		id,
+		status,
+		queue_code
+	FROM workflow.approvals
+	WHERE org_id = wo.org_id
+	  AND document_id = d.id
+	ORDER BY requested_at DESC, id DESC
+	LIMIT 1
+) a ON TRUE
+LEFT JOIN LATERAL (
+	SELECT
+		r.id AS request_id,
+		r.request_reference,
+		rec.id AS recommendation_id,
+		rec.status AS recommendation_status,
+		rec.run_id
+	FROM ai.agent_recommendations rec
+	JOIN ai.agent_runs ar
+		ON ar.id = rec.run_id
+	   AND ar.org_id = wo.org_id
+	JOIN ai.inbound_requests r
+		ON r.id = ar.inbound_request_id
+	   AND r.org_id = wo.org_id
+	WHERE rec.org_id = wo.org_id
+	  AND rec.approval_id = a.id
+	ORDER BY rec.created_at DESC, rec.id DESC
+	LIMIT 1
+) rec ON TRUE
 JOIN LATERAL (
 	SELECT changed_at
 	FROM work_orders.status_history
@@ -1488,6 +1580,14 @@ LIMIT $5;`,
 			&review.DocumentID,
 			&review.DocumentStatus,
 			&review.DocumentNumber,
+			&review.ApprovalID,
+			&review.ApprovalStatus,
+			&review.ApprovalQueueCode,
+			&review.RequestID,
+			&review.RequestReference,
+			&review.RecommendationID,
+			&review.RecommendationStatus,
+			&review.RunID,
 			&review.WorkOrderCode,
 			&review.Title,
 			&review.Summary,

@@ -645,6 +645,119 @@ func TestHandleWebWorkOrderDetailAddsFilteredReviewLink(t *testing.T) {
 	}
 }
 
+func TestHandleWebWorkOrdersAddsUpstreamContinuityLinks(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listWorkOrders: func(_ context.Context, input reporting.ListWorkOrdersInput) ([]reporting.WorkOrderReview, error) {
+				return []reporting.WorkOrderReview{{
+					WorkOrderID:      "work-order-123",
+					WorkOrderCode:    "WO-123",
+					Title:            "Linked work order",
+					DocumentID:       "doc-123",
+					Status:           "open",
+					RequestReference: sql.NullString{String: "REQ-000123", Valid: true},
+					RecommendationID: sql.NullString{String: "rec-123", Valid: true},
+					RecommendationStatus: sql.NullString{
+						String: "approval_requested",
+						Valid:  true,
+					},
+					ApprovalID:     sql.NullString{String: "approval-123", Valid: true},
+					ApprovalStatus: sql.NullString{String: "pending", Valid: true},
+					RunID:          sql.NullString{String: "run-123", Valid: true},
+				}}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review/work-orders", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `/app/inbound-requests/REQ-000123">REQ-000123</a>`) {
+		t.Fatalf("expected request continuity link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/proposals/rec-123">approval_requested</a>`) {
+		t.Fatalf("expected proposal continuity link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/approvals/approval-123">pending</a>`) {
+		t.Fatalf("expected approval continuity link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/inbound-requests/run:run-123#run-run-123">AI run</a>`) {
+		t.Fatalf("expected AI run continuity link, body=%s", body)
+	}
+}
+
+func TestHandleWebWorkOrderDetailAddsUpstreamContinuityLinks(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			getWorkOrderReview: func(context.Context, reporting.GetWorkOrderReviewInput) (reporting.WorkOrderReview, error) {
+				return reporting.WorkOrderReview{
+					WorkOrderID:          "work-order-123",
+					WorkOrderCode:        "WO-123",
+					Title:                "Linked work order",
+					Summary:              "Execution review continuity",
+					Status:               "in_progress",
+					DocumentID:           "doc-123",
+					DocumentStatus:       "approved",
+					RequestReference:     sql.NullString{String: "REQ-000123", Valid: true},
+					RecommendationID:     sql.NullString{String: "rec-123", Valid: true},
+					RecommendationStatus: sql.NullString{String: "approval_requested", Valid: true},
+					ApprovalID:           sql.NullString{String: "approval-123", Valid: true},
+					ApprovalStatus:       sql.NullString{String: "pending", Valid: true},
+					RunID:                sql.NullString{String: "run-123", Valid: true},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review/work-orders/work-order-123", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `/app/inbound-requests/REQ-000123">REQ-000123</a>`) {
+		t.Fatalf("expected request continuity link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/proposals/rec-123">approval_requested</a>`) {
+		t.Fatalf("expected proposal continuity link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/approvals/approval-123">pending</a>`) {
+		t.Fatalf("expected approval continuity link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/inbound-requests/run:run-123#run-run-123">AI run</a>`) {
+		t.Fatalf("expected AI run continuity link, body=%s", body)
+	}
+}
+
 func TestHandleWebInventoryDetailAddsFocusedContinuityLinks(t *testing.T) {
 	handler := NewAgentAPIHandlerWithDependencies(
 		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },

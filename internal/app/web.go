@@ -3663,6 +3663,10 @@ const webAppHTML = `<!DOCTYPE html>
                 <div>{{.Title}}</div>
                 <div class="meta">
                   <a href="{{documentReviewHref .DocumentID}}">Source document</a> |
+                  {{if .RequestReference.Valid}}<a href="{{inboundRequestHref .RequestReference.String}}">{{.RequestReference.String}}</a> | {{end}}
+                  {{if .RecommendationID.Valid}}<a href="{{proposalDetailHref .RecommendationID.String}}">{{if .RecommendationStatus.Valid}}{{.RecommendationStatus.String}}{{else}}Proposal{{end}}</a> | {{end}}
+                  {{if .ApprovalID.Valid}}<a href="{{approvalReviewHref .ApprovalID.String}}">{{if .ApprovalStatus.Valid}}{{.ApprovalStatus.String}}{{else}}Approval{{end}}</a> | {{end}}
+                  {{if .RunID.Valid}}<a href="{{inboundSectionHref (printf "run:%s" .RunID.String) (runSectionID .RunID.String)}}">AI run</a> | {{end}}
                   <a href="/app/review/audit?entity_type=work_orders.work_order&amp;entity_id={{.WorkOrderID}}">Audit trail</a>
                 </div>
               </td>
@@ -3693,6 +3697,10 @@ const webAppHTML = `<!DOCTYPE html>
           <p class="meta">
             <a href="{{workOrderReviewHref .Review.WorkOrderID "" ""}}">Filtered list view</a> |
             <a href="{{documentReviewHref .Review.DocumentID}}">Source document</a> |
+            {{if .Review.RequestReference.Valid}}<a href="{{inboundRequestHref .Review.RequestReference.String}}">{{.Review.RequestReference.String}}</a> | {{end}}
+            {{if .Review.RecommendationID.Valid}}<a href="{{proposalDetailHref .Review.RecommendationID.String}}">{{if .Review.RecommendationStatus.Valid}}{{.Review.RecommendationStatus.String}}{{else}}Proposal{{end}}</a> | {{end}}
+            {{if .Review.ApprovalID.Valid}}<a href="{{approvalReviewHref .Review.ApprovalID.String}}">{{if .Review.ApprovalStatus.Valid}}{{.Review.ApprovalStatus.String}}{{else}}Approval{{end}}</a> | {{end}}
+            {{if .Review.RunID.Valid}}<a href="{{inboundSectionHref (printf "run:%s" .Review.RunID.String) (runSectionID .Review.RunID.String)}}">AI run</a> | {{end}}
             <a href="{{accountingReviewHref "" "" "" "" .Review.DocumentID "" "" "" "" ""}}">Accounting review</a> |
             <a href="/app/review/audit?entity_type=work_orders.work_order&amp;entity_id={{.Review.WorkOrderID}}">Audit trail</a>
           </p>

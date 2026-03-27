@@ -7,8 +7,10 @@ import (
 	"time"
 
 	"workflow_app/internal/accounting"
+	"workflow_app/internal/ai"
 	"workflow_app/internal/documents"
 	"workflow_app/internal/identityaccess"
+	"workflow_app/internal/intake"
 	"workflow_app/internal/inventoryops"
 	"workflow_app/internal/reporting"
 	"workflow_app/internal/testsupport/dbtest"
@@ -22,7 +24,7 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 	defer db.Close()
 	dbtest.Reset(t, db)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
@@ -40,7 +42,9 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 	documentService := documents.NewService(db)
 	workflowService := workflow.NewService(db, documentService)
 	accountingService := accounting.NewService(db, documentService)
+	aiService := ai.NewService(db)
 	inventoryService := inventoryops.NewService(db)
+	intakeService := intake.NewService(db)
 	workOrderService := workorders.NewService(db, documentService)
 	workforceService := workforce.NewService(db)
 	reportingService := reporting.NewService(db)
@@ -157,6 +161,92 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("record labor: %v", err)
+	}
+
+	workOrderDocument, err := documentService.Submit(ctx, documents.SubmitInput{
+		DocumentID: workOrderResult.WorkOrder.DocumentID,
+		Actor:      operator,
+	})
+	if err != nil {
+		t.Fatalf("submit work-order document: %v", err)
+	}
+	workOrderApproval, err := workflowService.RequestApproval(ctx, workflow.RequestApprovalInput{
+		DocumentID: workOrderDocument.ID,
+		QueueCode:  "dispatch-review",
+		Reason:     "review linked execution proposal",
+		Actor:      operator,
+	})
+	if err != nil {
+		t.Fatalf("request work-order approval: %v", err)
+	}
+	request, err := intakeService.CreateDraft(ctx, intake.CreateDraftInput{
+		OriginType: intake.OriginHuman,
+		Channel:    "browser",
+		Metadata: map[string]any{
+			"source": "reporting-test",
+		},
+		Actor: operator,
+	})
+	if err != nil {
+		t.Fatalf("create inbound request: %v", err)
+	}
+	if _, err := intakeService.AddMessage(ctx, intake.AddMessageInput{
+		RequestID:   request.ID,
+		MessageRole: intake.MessageRoleRequest,
+		TextContent: "Inspect linked work-order review continuity",
+		Actor:       operator,
+	}); err != nil {
+		t.Fatalf("add inbound request message: %v", err)
+	}
+	request, err = intakeService.QueueRequest(ctx, intake.QueueRequestInput{
+		RequestID: request.ID,
+		Actor:     operator,
+	})
+	if err != nil {
+		t.Fatalf("queue inbound request: %v", err)
+	}
+	request, err = intakeService.ClaimNextQueued(ctx, intake.ClaimNextQueuedInput{
+		Channel: "browser",
+		Actor:   operator,
+	})
+	if err != nil {
+		t.Fatalf("claim queued inbound request: %v", err)
+	}
+	run, err := aiService.StartRun(ctx, ai.StartRunInput{
+		AgentRole:        ai.RunRoleCoordinator,
+		CapabilityCode:   "inbound_request.review",
+		InboundRequestID: request.ID,
+		RequestText:      "Inspect linked work-order review continuity",
+		Metadata: map[string]any{
+			"request_reference": request.RequestReference,
+		},
+		Actor: operator,
+	})
+	if err != nil {
+		t.Fatalf("start ai run: %v", err)
+	}
+	recommendation, err := aiService.CreateRecommendation(ctx, ai.CreateRecommendationInput{
+		RunID:              run.ID,
+		RecommendationType: "document_review",
+		Summary:            "Review the linked work order",
+		Payload: map[string]any{
+			"document_id":        workOrderDocument.ID,
+			"request_reference":  request.RequestReference,
+			"work_order_id":      workOrderResult.WorkOrder.ID,
+			"recommended_action": "review_work_order",
+		},
+		Actor: operator,
+	})
+	if err != nil {
+		t.Fatalf("create recommendation: %v", err)
+	}
+	recommendation, err = aiService.LinkRecommendationApproval(ctx, ai.LinkRecommendationApprovalInput{
+		RecommendationID: recommendation.ID,
+		ApprovalID:       workOrderApproval.ID,
+		Actor:            operator,
+	})
+	if err != nil {
+		t.Fatalf("link recommendation approval: %v", err)
 	}
 
 	materialExpense := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
@@ -489,8 +579,20 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get work order review: %v", err)
 	}
-	if workOrderReview.DocumentID != workOrderResult.WorkOrder.DocumentID || workOrderReview.DocumentStatus != "draft" {
+	if workOrderReview.DocumentID != workOrderResult.WorkOrder.DocumentID || workOrderReview.DocumentStatus != "submitted" {
 		t.Fatalf("unexpected work-order document review linkage: %+v", workOrderReview)
+	}
+	if !workOrderReview.ApprovalID.Valid || workOrderReview.ApprovalID.String != workOrderApproval.ID {
+		t.Fatalf("unexpected work-order approval linkage: %+v", workOrderReview)
+	}
+	if !workOrderReview.RequestReference.Valid || workOrderReview.RequestReference.String != request.RequestReference {
+		t.Fatalf("unexpected work-order request linkage: %+v", workOrderReview)
+	}
+	if !workOrderReview.RecommendationID.Valid || workOrderReview.RecommendationID.String != recommendation.ID {
+		t.Fatalf("unexpected work-order recommendation linkage: %+v", workOrderReview)
+	}
+	if !workOrderReview.RunID.Valid || workOrderReview.RunID.String != run.ID {
+		t.Fatalf("unexpected work-order run linkage: %+v", workOrderReview)
 	}
 	if workOrderReview.CompletedTaskCount != 1 || workOrderReview.OpenTaskCount != 0 {
 		t.Fatalf("unexpected task counts: %+v", workOrderReview)
@@ -532,6 +634,12 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 	}
 	if len(exactWorkOrderList) != 1 || exactWorkOrderList[0].WorkOrderID != workOrderResult.WorkOrder.ID {
 		t.Fatalf("unexpected exact work order list: %+v", exactWorkOrderList)
+	}
+	if !exactWorkOrderList[0].RecommendationID.Valid || exactWorkOrderList[0].RecommendationID.String != recommendation.ID {
+		t.Fatalf("expected exact work-order list recommendation linkage: %+v", exactWorkOrderList[0])
+	}
+	if !exactWorkOrderList[0].ApprovalID.Valid || exactWorkOrderList[0].ApprovalID.String != workOrderApproval.ID {
+		t.Fatalf("expected exact work-order list approval linkage: %+v", exactWorkOrderList[0])
 	}
 
 	journalReviews, err := reportingService.ListJournalEntries(ctx, reporting.ListJournalEntriesInput{
