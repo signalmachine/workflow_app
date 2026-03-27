@@ -166,6 +166,9 @@ func TestSubmissionServiceDraftLifecycleIntegration(t *testing.T) {
 	if updated.Message.TextContent != "Updated draft details" {
 		t.Fatalf("unexpected updated message text: %q", updated.Message.TextContent)
 	}
+	if updated.Request.ID != draft.Request.ID || updated.Request.RequestReference != draft.Request.RequestReference || updated.Request.Status != intake.StatusDraft {
+		t.Fatalf("unexpected updated draft request: %+v", updated.Request)
+	}
 	if len(updated.Attachments) != 1 {
 		t.Fatalf("unexpected added attachment count: %d", len(updated.Attachments))
 	}

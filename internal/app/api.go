@@ -178,11 +178,23 @@ type processNextQueuedResponse struct {
 }
 
 type submitInboundRequestResponse struct {
-	RequestID        string   `json:"request_id"`
-	RequestReference string   `json:"request_reference"`
-	Status           string   `json:"status"`
-	MessageID        string   `json:"message_id"`
-	AttachmentIDs    []string `json:"attachment_ids,omitempty"`
+	RequestID           string     `json:"request_id"`
+	RequestReference    string     `json:"request_reference"`
+	Status              string     `json:"status"`
+	MessageID           string     `json:"message_id,omitempty"`
+	AttachmentIDs       []string   `json:"attachment_ids,omitempty"`
+	CancellationReason  string     `json:"cancellation_reason,omitempty"`
+	FailureReason       string     `json:"failure_reason,omitempty"`
+	ReceivedAt          time.Time  `json:"received_at"`
+	QueuedAt            *time.Time `json:"queued_at,omitempty"`
+	ProcessingStartedAt *time.Time `json:"processing_started_at,omitempty"`
+	ProcessedAt         *time.Time `json:"processed_at,omitempty"`
+	ActedOnAt           *time.Time `json:"acted_on_at,omitempty"`
+	CompletedAt         *time.Time `json:"completed_at,omitempty"`
+	FailedAt            *time.Time `json:"failed_at,omitempty"`
+	CancelledAt         *time.Time `json:"cancelled_at,omitempty"`
+	CreatedAt           time.Time  `json:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at"`
 }
 
 type errorResponse struct {
@@ -300,15 +312,11 @@ func (h *AgentAPIHandler) handleSessionLogin(w http.ResponseWriter, r *http.Requ
 		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "auth service unavailable"})
 		return
 	}
-	if r.Body == nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "request body is required"})
-		return
-	}
 	defer r.Body.Close()
 
 	var req sessionLoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid JSON request body"})
+	if err := decodeJSONBody(r, &req, false); err != nil {
+		writeJSONBodyError(w, err)
 		return
 	}
 
@@ -425,8 +433,8 @@ func (h *AgentAPIHandler) handleProcessNextQueuedInboundRequest(w http.ResponseW
 	var req processNextQueuedRequest
 	if r.Body != nil {
 		defer r.Body.Close()
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid JSON request body"})
+		if err := decodeJSONBody(r, &req, true); err != nil {
+			writeJSONBodyError(w, err)
 			return
 		}
 	}
@@ -490,13 +498,9 @@ func (h *AgentAPIHandler) handleSubmitInboundRequest(w http.ResponseWriter, r *h
 	}
 
 	var req submitInboundRequestRequest
-	if r.Body == nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "request body is required"})
-		return
-	}
 	defer r.Body.Close()
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid JSON request body"})
+	if err := decodeJSONBody(r, &req, false); err != nil {
+		writeJSONBodyError(w, err)
 		return
 	}
 
@@ -536,12 +540,8 @@ func (h *AgentAPIHandler) handleSubmitInboundRequest(w http.ResponseWriter, r *h
 			}
 			return
 		}
-		response := submitInboundRequestResponse{
-			RequestID:        result.Request.ID,
-			RequestReference: result.Request.RequestReference,
-			Status:           intake.StatusDraft,
-			MessageID:        result.Message.ID,
-		}
+		response := mapInboundRequestMutationResponse(result.Request)
+		response.MessageID = result.Message.ID
 		for _, attachment := range result.Attachments {
 			response.AttachmentIDs = append(response.AttachmentIDs, attachment.ID)
 		}
@@ -571,12 +571,8 @@ func (h *AgentAPIHandler) handleSubmitInboundRequest(w http.ResponseWriter, r *h
 		return
 	}
 
-	response := submitInboundRequestResponse{
-		RequestID:        result.Request.ID,
-		RequestReference: result.Request.RequestReference,
-		Status:           result.Request.Status,
-		MessageID:        result.Message.ID,
-	}
+	response := mapInboundRequestMutationResponse(result.Request)
+	response.MessageID = result.Message.ID
 	for _, attachment := range result.Attachments {
 		response.AttachmentIDs = append(response.AttachmentIDs, attachment.ID)
 	}
@@ -608,15 +604,11 @@ func (h *AgentAPIHandler) handleInboundRequestAction(w http.ResponseWriter, r *h
 			writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
 			return
 		}
-		if r.Body == nil {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "request body is required"})
-			return
-		}
 		defer r.Body.Close()
 
 		var req saveInboundDraftRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid JSON request body"})
+		if err := decodeJSONBody(r, &req, false); err != nil {
+			writeJSONBodyError(w, err)
 			return
 		}
 		req.RequestID = requestID
@@ -653,12 +645,9 @@ func (h *AgentAPIHandler) handleInboundRequestAction(w http.ResponseWriter, r *h
 			}
 			return
 		}
-		writeJSON(w, http.StatusOK, submitInboundRequestResponse{
-			RequestID:        result.Request.ID,
-			RequestReference: result.Request.RequestReference,
-			Status:           intake.StatusDraft,
-			MessageID:        result.Message.ID,
-		})
+		response := mapInboundRequestMutationResponse(result.Request)
+		response.MessageID = result.Message.ID
+		writeJSON(w, http.StatusOK, response)
 		return
 	case "queue":
 		if r.Method != http.MethodPost {
@@ -680,11 +669,7 @@ func (h *AgentAPIHandler) handleInboundRequestAction(w http.ResponseWriter, r *h
 			}
 			return
 		}
-		writeJSON(w, http.StatusOK, submitInboundRequestResponse{
-			RequestID:        request.ID,
-			RequestReference: request.RequestReference,
-			Status:           request.Status,
-		})
+		writeJSON(w, http.StatusOK, mapInboundRequestMutationResponse(request))
 		return
 	case "cancel":
 		if r.Method != http.MethodPost {
@@ -694,7 +679,10 @@ func (h *AgentAPIHandler) handleInboundRequestAction(w http.ResponseWriter, r *h
 		var req inboundRequestActionRequest
 		if r.Body != nil {
 			defer r.Body.Close()
-			_ = json.NewDecoder(r.Body).Decode(&req)
+			if err := decodeJSONBody(r, &req, true); err != nil {
+				writeJSONBodyError(w, err)
+				return
+			}
 		}
 		request, err := h.submissionService.CancelInboundRequest(r.Context(), CancelInboundRequestInput{
 			RequestID: requestID,
@@ -712,11 +700,7 @@ func (h *AgentAPIHandler) handleInboundRequestAction(w http.ResponseWriter, r *h
 			}
 			return
 		}
-		writeJSON(w, http.StatusOK, submitInboundRequestResponse{
-			RequestID:        request.ID,
-			RequestReference: request.RequestReference,
-			Status:           request.Status,
-		})
+		writeJSON(w, http.StatusOK, mapInboundRequestMutationResponse(request))
 		return
 	case "amend":
 		if r.Method != http.MethodPost {
@@ -738,11 +722,7 @@ func (h *AgentAPIHandler) handleInboundRequestAction(w http.ResponseWriter, r *h
 			}
 			return
 		}
-		writeJSON(w, http.StatusOK, submitInboundRequestResponse{
-			RequestID:        request.ID,
-			RequestReference: request.RequestReference,
-			Status:           request.Status,
-		})
+		writeJSON(w, http.StatusOK, mapInboundRequestMutationResponse(request))
 		return
 	case "delete":
 		if r.Method != http.MethodDelete {
@@ -1511,13 +1491,9 @@ func (h *AgentAPIHandler) handleDecideApproval(w http.ResponseWriter, r *http.Re
 	}
 
 	var req decideApprovalRequest
-	if r.Body == nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "request body is required"})
-		return
-	}
 	defer r.Body.Close()
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid JSON request body"})
+	if err := decodeJSONBody(r, &req, false); err != nil {
+		writeJSONBodyError(w, err)
 		return
 	}
 	req.Decision = strings.TrimSpace(req.Decision)
@@ -1606,6 +1582,47 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func writeJSONBodyError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, errRequestBodyRequired):
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "request body is required"})
+	default:
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid JSON request body"})
+	}
+}
+
+var errRequestBodyRequired = errors.New("request body is required")
+
+func decodeJSONBody(r *http.Request, dst any, allowEmpty bool) error {
+	if r == nil || r.Body == nil {
+		if allowEmpty {
+			return nil
+		}
+		return errRequestBodyRequired
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(dst); err != nil {
+		if allowEmpty && errors.Is(err, io.EOF) {
+			return nil
+		}
+		if errors.Is(err, io.EOF) {
+			return errRequestBodyRequired
+		}
+		return err
+	}
+
+	var trailing any
+	if err := decoder.Decode(&trailing); err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		return err
+	}
+	return errors.New("invalid JSON request body")
 }
 
 func setSessionCookies(w http.ResponseWriter, sessionID, refreshToken string, expiresAt time.Time) {
@@ -2515,6 +2532,26 @@ func mapInboundRequestReview(review reporting.InboundRequestReview) inboundReque
 		LastRunStatus:            stringPtr(review.LastRunStatus),
 		LastRecommendationID:     stringPtr(review.LastRecommendationID),
 		LastRecommendationStatus: stringPtr(review.LastRecommendationStatus),
+	}
+}
+
+func mapInboundRequestMutationResponse(request intake.InboundRequest) submitInboundRequestResponse {
+	return submitInboundRequestResponse{
+		RequestID:           request.ID,
+		RequestReference:    request.RequestReference,
+		Status:              request.Status,
+		CancellationReason:  request.CancellationReason,
+		FailureReason:       request.FailureReason,
+		ReceivedAt:          request.ReceivedAt,
+		QueuedAt:            timePtr(request.QueuedAt),
+		ProcessingStartedAt: timePtr(request.ProcessingStartedAt),
+		ProcessedAt:         timePtr(request.ProcessedAt),
+		ActedOnAt:           timePtr(request.ActedOnAt),
+		CompletedAt:         timePtr(request.CompletedAt),
+		FailedAt:            timePtr(request.FailedAt),
+		CancelledAt:         timePtr(request.CancelledAt),
+		CreatedAt:           request.CreatedAt,
+		UpdatedAt:           request.UpdatedAt,
 	}
 }
 

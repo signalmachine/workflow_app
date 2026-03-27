@@ -131,6 +131,11 @@ type DeleteDraftInput struct {
 	Actor     identityaccess.Actor
 }
 
+type GetRequestInput struct {
+	RequestID string
+	Actor     identityaccess.Actor
+}
+
 type Service struct {
 	db *sql.DB
 }
@@ -358,6 +363,30 @@ func (s *Service) DeleteDraft(ctx context.Context, input DeleteDraftInput) error
 	}
 
 	return nil
+}
+
+func (s *Service) GetRequest(ctx context.Context, input GetRequestInput) (InboundRequest, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return InboundRequest{}, fmt.Errorf("begin load inbound request: %w", err)
+	}
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin, identityaccess.RoleOperator); err != nil {
+		_ = tx.Rollback()
+		return InboundRequest{}, err
+	}
+
+	request, err := getInboundRequest(ctx, tx, input.Actor.OrgID, input.RequestID)
+	if err != nil {
+		_ = tx.Rollback()
+		return InboundRequest{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return InboundRequest{}, fmt.Errorf("commit load inbound request: %w", err)
+	}
+
+	return request, nil
 }
 
 func (s *Service) transitionRequest(
@@ -919,6 +948,45 @@ FROM ai.inbound_requests
 WHERE org_id = $1
   AND id = $2
 FOR UPDATE;`
+
+	request, err := scanInboundRequest(tx.QueryRowContext(ctx, query, orgID, requestID))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return InboundRequest{}, ErrInboundRequestNotFound
+		}
+		return InboundRequest{}, fmt.Errorf("load inbound request: %w", err)
+	}
+	return request, nil
+}
+
+func getInboundRequest(ctx context.Context, tx *sql.Tx, orgID, requestID string) (InboundRequest, error) {
+	const query = `
+SELECT
+	id,
+	org_id,
+	request_number,
+	request_reference,
+	session_id,
+	actor_user_id,
+	origin_type,
+	channel,
+	status,
+	metadata,
+	cancellation_reason,
+	failure_reason,
+	received_at,
+	queued_at,
+	processing_started_at,
+	processed_at,
+	acted_on_at,
+	completed_at,
+	failed_at,
+	cancelled_at,
+	created_at,
+	updated_at
+FROM ai.inbound_requests
+WHERE org_id = $1
+  AND id = $2;`
 
 	request, err := scanInboundRequest(tx.QueryRowContext(ctx, query, orgID, requestID))
 	if err != nil {

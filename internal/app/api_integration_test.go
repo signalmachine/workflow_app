@@ -1588,11 +1588,14 @@ func TestAgentAPISubmitInboundRequestIntegration(t *testing.T) {
 	}
 
 	var response struct {
-		RequestID        string   `json:"request_id"`
-		RequestReference string   `json:"request_reference"`
-		Status           string   `json:"status"`
-		MessageID        string   `json:"message_id"`
-		AttachmentIDs    []string `json:"attachment_ids"`
+		RequestID        string     `json:"request_id"`
+		RequestReference string     `json:"request_reference"`
+		Status           string     `json:"status"`
+		MessageID        string     `json:"message_id"`
+		AttachmentIDs    []string   `json:"attachment_ids"`
+		ReceivedAt       time.Time  `json:"received_at"`
+		QueuedAt         *time.Time `json:"queued_at"`
+		UpdatedAt        time.Time  `json:"updated_at"`
 	}
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode response: %v", err)
@@ -1605,6 +1608,9 @@ func TestAgentAPISubmitInboundRequestIntegration(t *testing.T) {
 	}
 	if len(response.AttachmentIDs) != 1 {
 		t.Fatalf("unexpected attachment ids: %+v", response.AttachmentIDs)
+	}
+	if response.ReceivedAt.IsZero() || response.UpdatedAt.IsZero() || response.QueuedAt == nil || response.QueuedAt.IsZero() {
+		t.Fatalf("expected lifecycle timestamps in submit response: %+v", response)
 	}
 
 	var requestStatus string
@@ -1705,15 +1711,22 @@ func TestAgentAPIDraftLifecycleIntegration(t *testing.T) {
 	}
 
 	var draftResponse struct {
-		RequestID string `json:"request_id"`
-		MessageID string `json:"message_id"`
-		Status    string `json:"status"`
+		RequestID        string    `json:"request_id"`
+		RequestReference string    `json:"request_reference"`
+		MessageID        string    `json:"message_id"`
+		Status           string    `json:"status"`
+		ReceivedAt       time.Time `json:"received_at"`
+		CreatedAt        time.Time `json:"created_at"`
+		UpdatedAt        time.Time `json:"updated_at"`
 	}
 	if err := json.Unmarshal(saveDraftRecorder.Body.Bytes(), &draftResponse); err != nil {
 		t.Fatalf("decode save-draft response: %v", err)
 	}
 	if draftResponse.Status != intake.StatusDraft {
 		t.Fatalf("unexpected draft status: %+v", draftResponse)
+	}
+	if draftResponse.RequestReference == "" || draftResponse.ReceivedAt.IsZero() || draftResponse.CreatedAt.IsZero() || draftResponse.UpdatedAt.IsZero() {
+		t.Fatalf("expected draft lifecycle metadata: %+v", draftResponse)
 	}
 
 	updateReq := httptest.NewRequest(http.MethodPost, "/api/inbound-requests/"+draftResponse.RequestID+"/draft", bytes.NewBufferString(`{
@@ -1731,6 +1744,23 @@ func TestAgentAPIDraftLifecycleIntegration(t *testing.T) {
 	if updateRecorder.Code != http.StatusOK {
 		t.Fatalf("unexpected draft-update status: got %d body=%s", updateRecorder.Code, updateRecorder.Body.String())
 	}
+	var updateResponse struct {
+		RequestID        string    `json:"request_id"`
+		RequestReference string    `json:"request_reference"`
+		Status           string    `json:"status"`
+		MessageID        string    `json:"message_id"`
+		ReceivedAt       time.Time `json:"received_at"`
+		UpdatedAt        time.Time `json:"updated_at"`
+	}
+	if err := json.Unmarshal(updateRecorder.Body.Bytes(), &updateResponse); err != nil {
+		t.Fatalf("decode draft-update response: %v", err)
+	}
+	if updateResponse.RequestID != draftResponse.RequestID || updateResponse.RequestReference != draftResponse.RequestReference || updateResponse.Status != intake.StatusDraft {
+		t.Fatalf("unexpected draft-update response: %+v", updateResponse)
+	}
+	if updateResponse.MessageID != draftResponse.MessageID || updateResponse.ReceivedAt.IsZero() || updateResponse.UpdatedAt.IsZero() {
+		t.Fatalf("expected draft-update lifecycle metadata: %+v", updateResponse)
+	}
 
 	queueReq := httptest.NewRequest(http.MethodPost, "/api/inbound-requests/"+draftResponse.RequestID+"/queue", nil)
 	queueReq.Header.Set("X-Workflow-Org-ID", orgID)
@@ -1740,6 +1770,18 @@ func TestAgentAPIDraftLifecycleIntegration(t *testing.T) {
 	handler.ServeHTTP(queueRecorder, queueReq)
 	if queueRecorder.Code != http.StatusOK {
 		t.Fatalf("unexpected queue status: got %d body=%s", queueRecorder.Code, queueRecorder.Body.String())
+	}
+	var queueResponse struct {
+		RequestID        string     `json:"request_id"`
+		RequestReference string     `json:"request_reference"`
+		Status           string     `json:"status"`
+		QueuedAt         *time.Time `json:"queued_at"`
+	}
+	if err := json.Unmarshal(queueRecorder.Body.Bytes(), &queueResponse); err != nil {
+		t.Fatalf("decode queue response: %v", err)
+	}
+	if queueResponse.Status != intake.StatusQueued || queueResponse.RequestReference != draftResponse.RequestReference || queueResponse.QueuedAt == nil || queueResponse.QueuedAt.IsZero() {
+		t.Fatalf("unexpected queue response: %+v", queueResponse)
 	}
 
 	cancelReq := httptest.NewRequest(http.MethodPost, "/api/inbound-requests/"+draftResponse.RequestID+"/cancel", bytes.NewBufferString(`{"reason":"operator paused request"}`))
@@ -1752,6 +1794,19 @@ func TestAgentAPIDraftLifecycleIntegration(t *testing.T) {
 	if cancelRecorder.Code != http.StatusOK {
 		t.Fatalf("unexpected cancel status: got %d body=%s", cancelRecorder.Code, cancelRecorder.Body.String())
 	}
+	var cancelResponse struct {
+		RequestID          string     `json:"request_id"`
+		RequestReference   string     `json:"request_reference"`
+		Status             string     `json:"status"`
+		CancellationReason string     `json:"cancellation_reason"`
+		CancelledAt        *time.Time `json:"cancelled_at"`
+	}
+	if err := json.Unmarshal(cancelRecorder.Body.Bytes(), &cancelResponse); err != nil {
+		t.Fatalf("decode cancel response: %v", err)
+	}
+	if cancelResponse.Status != intake.StatusCancelled || cancelResponse.RequestReference != draftResponse.RequestReference || cancelResponse.CancellationReason != "operator paused request" || cancelResponse.CancelledAt == nil || cancelResponse.CancelledAt.IsZero() {
+		t.Fatalf("unexpected cancel response: %+v", cancelResponse)
+	}
 
 	amendReq := httptest.NewRequest(http.MethodPost, "/api/inbound-requests/"+draftResponse.RequestID+"/amend", nil)
 	amendReq.Header.Set("X-Workflow-Org-ID", orgID)
@@ -1761,6 +1816,19 @@ func TestAgentAPIDraftLifecycleIntegration(t *testing.T) {
 	handler.ServeHTTP(amendRecorder, amendReq)
 	if amendRecorder.Code != http.StatusOK {
 		t.Fatalf("unexpected amend status: got %d body=%s", amendRecorder.Code, amendRecorder.Body.String())
+	}
+	var amendResponse struct {
+		RequestID        string     `json:"request_id"`
+		RequestReference string     `json:"request_reference"`
+		Status           string     `json:"status"`
+		QueuedAt         *time.Time `json:"queued_at"`
+		CancelledAt      *time.Time `json:"cancelled_at"`
+	}
+	if err := json.Unmarshal(amendRecorder.Body.Bytes(), &amendResponse); err != nil {
+		t.Fatalf("decode amend response: %v", err)
+	}
+	if amendResponse.Status != intake.StatusDraft || amendResponse.RequestReference != draftResponse.RequestReference || amendResponse.QueuedAt != nil || amendResponse.CancelledAt != nil {
+		t.Fatalf("unexpected amend response: %+v", amendResponse)
 	}
 
 	deleteReq := httptest.NewRequest(http.MethodDelete, "/api/inbound-requests/"+draftResponse.RequestID+"/delete", nil)
@@ -1779,6 +1847,97 @@ func TestAgentAPIDraftLifecycleIntegration(t *testing.T) {
 	}
 	if remaining != 0 {
 		t.Fatalf("expected deleted draft to be removed, found %d", remaining)
+	}
+}
+
+func TestAgentAPIInboundRequestCancelRejectsInvalidJSONIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	session := startSession(t, ctx, db, orgID, operatorUserID)
+
+	handler := app.NewAgentAPIHandlerWithServices(nil, app.NewSubmissionService(db))
+
+	service := app.NewSubmissionService(db)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: session.ID}
+	draft, err := service.SaveInboundDraft(ctx, app.SaveInboundDraftInput{
+		OriginType:  intake.OriginHuman,
+		Channel:     "browser",
+		MessageRole: intake.MessageRoleRequest,
+		MessageText: "Draft request that will be queued.",
+		Actor:       operator,
+	})
+	if err != nil {
+		t.Fatalf("save draft: %v", err)
+	}
+	if _, err := service.QueueInboundRequest(ctx, app.QueueInboundRequestInput{
+		RequestID: draft.Request.ID,
+		Actor:     operator,
+	}); err != nil {
+		t.Fatalf("queue draft: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/inbound-requests/"+draft.Request.ID+"/cancel", bytes.NewBufferString(`{"reason":"bad"`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Workflow-Org-ID", orgID)
+	req.Header.Set("X-Workflow-User-ID", operatorUserID)
+	req.Header.Set("X-Workflow-Session-ID", session.ID)
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("unexpected invalid-cancel status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	var status string
+	if err := db.QueryRowContext(ctx, `SELECT status FROM ai.inbound_requests WHERE id = $1`, draft.Request.ID).Scan(&status); err != nil {
+		t.Fatalf("load request status: %v", err)
+	}
+	if status != intake.StatusQueued {
+		t.Fatalf("expected invalid cancel payload to preserve queued status, got %s", status)
+	}
+}
+
+func TestAgentAPISubmitInboundRequestRejectsUnknownJSONFieldsIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	session := startSession(t, ctx, db, orgID, operatorUserID)
+
+	handler := app.NewAgentAPIHandlerWithServices(nil, app.NewSubmissionService(db))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/inbound-requests", bytes.NewBufferString(`{
+		"channel":"browser",
+		"message":{"text_content":"Unknown field should fail."},
+		"unexpected":"value"
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Workflow-Org-ID", orgID)
+	req.Header.Set("X-Workflow-User-ID", operatorUserID)
+	req.Header.Set("X-Workflow-Session-ID", session.ID)
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("unexpected unknown-field status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	var requestCount int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM ai.inbound_requests WHERE org_id = $1`, orgID).Scan(&requestCount); err != nil {
+		t.Fatalf("count inbound requests: %v", err)
+	}
+	if requestCount != 0 {
+		t.Fatalf("expected unknown-field request rejection before persistence, found %d requests", requestCount)
 	}
 }
 

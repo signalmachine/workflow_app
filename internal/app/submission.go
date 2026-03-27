@@ -218,7 +218,13 @@ func (s *SubmissionService) SaveInboundDraft(ctx context.Context, input SaveInbo
 			})
 		}()
 	} else {
-		request = intake.InboundRequest{ID: requestID}
+		request, err = s.intakeService.GetRequest(ctx, intake.GetRequestInput{
+			RequestID: requestID,
+			Actor:     input.Actor,
+		})
+		if err != nil {
+			return SaveInboundDraftResult{}, err
+		}
 	}
 
 	var message intake.Message
