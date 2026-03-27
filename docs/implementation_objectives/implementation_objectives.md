@@ -91,6 +91,7 @@ Rules:
 2. thin v1 is the current foundation release target
 3. v2 and later versions may deepen localization, workflow breadth, vertical extensions, and operator surfaces on top of the v1 foundation
 4. implementation should preserve extension room for later versions without expanding thin-v1 scope prematurely
+5. as of the 2026-03-27 checkpoint closeout, the current codebase satisfies the planned thin-v1 foundation depth, so later work should start from an explicit promotion decision rather than assuming unfinished baseline v1 scope still exists
 
 The active thin v1 aims to deliver the minimum serious system that can:
 
@@ -103,6 +104,12 @@ The active thin v1 aims to deliver the minimum serious system that can:
 7. persist inbound requests and process them through a review-oriented queue model rather than relying on immediate AI response as the default operating path
 
 Near-term success is defined more by safe and observable AI-assisted operation on strong foundations than by broad product breadth.
+
+Current checkpoint result:
+
+1. the repository has completed Milestone 0 through Milestone 8 from the active canonical plan
+2. `go build ./...` and `set -a; source .env; set +a; go test -p 1 ./...` both completed cleanly during the 2026-03-27 closeout review
+3. the current codebase should therefore be treated as thin-v1 checkpoint complete at its planned foundation depth
 
 ## 5. Highest-priority v1 capabilities
 

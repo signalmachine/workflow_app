@@ -1,14 +1,14 @@
 # workflow_app Tracker
 
 Date: 2026-03-27
-Status: Draft reset tracker
+Status: Thin-v1 checkpoint complete
 Purpose: track the `workflow_app` plan and guard against scope drift during bootstrap and implementation.
 
 ## 1. Current status
 
 | Item | Status | Notes |
 | --- | --- | --- |
-| New thin-v1 reset accepted | in_progress | Planning reset is now active inside the `workflow_app` repository and implementation is underway |
+| New thin-v1 reset accepted | done | The reset plan was accepted, implemented through Milestone 0 through Milestone 8, and closed through explicit checkpoint review |
 | New canonical module map | done | `workflow_app` should start without a primary CRM module |
 | New thin-v1 scope boundary | done | Thin-v1 scope has been restated for `workflow_app` |
 | New execution path | done | Milestone order exists for `workflow_app` |
@@ -38,22 +38,23 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 | Minimum thin-v1 party and contact support depth | done | `parties` support records now cover external party identity plus support-depth contacts with tenant-safe service boundaries and integration tests |
 | Remaining thin-v1 adopted-document gaps | done | thin v1 adopted document-family ownership is now implemented for work-order, invoice, and payment or receipt document families through module-owned one-to-one payload bridges keyed by `document_id`; see `adopted_document_ownership_remediation_plan.md` |
 | Minimum thin-v1 inbound-request and browser-ingress foundation | done | persist-first inbound requests, request messages, PostgreSQL-backed attachments, transcription derivatives, queue claim and status transitions, stable `REQ-...` references, draft editing and hard deletion, queued-request amend-back-to-draft support, AI run causation, and reporting-visible inbound-request and processed-proposal review now exist for thin-v1 browser testing at the service and reporting-read-model level; see `inbound_request_and_attachment_foundation_plan.md` |
+| Thin-v1 checkpoint closeout | done | `go build ./...` and `set -a; source .env; set +a; go test -p 1 ./...` both completed cleanly on 2026-03-27, and the resulting review against `new_app_foundation_coverage.md`, this tracker, and the active milestone docs found no material missing foundation slice at the current thin-v1 depth |
 
 ## 2. Immediate next steps
 
-The next session should start with an explicit closeout-and-decision pass rather than assuming another implementation slice already exists.
+The explicit closeout-and-decision pass is now complete.
 
-Planned next-session order:
+Closeout result:
 
-1. rerun `set -a; source .env; set +a; go test -p 1 ./...` and do not treat the current checkpoint as fully verified until one full repository pass completes cleanly or a concrete blocker is documented
-2. review the live codebase against `new_app_foundation_coverage.md`, this tracker, and the active implementation docs to decide whether thin v1 is now complete at the current foundation depth
-3. if that review finds no material foundation gap, document thin-v1 checkpoint completion explicitly rather than inventing more implementation by momentum
-4. if that review finds a real remaining gap, promote exactly one bounded next slice into this tracker before writing code
-5. if a new slice is promoted, keep it client-neutral and foundation-justified; do not reopen Milestone 7 browser expansion or reintroduce UUID actor-header compatibility
+1. `go build ./...` completed cleanly on 2026-03-27
+2. `set -a; source .env; set +a; go test -p 1 ./...` completed cleanly on 2026-03-27
+3. the live codebase still satisfies the foundation checklist in `new_app_foundation_coverage.md` at the current thin-v1 depth
+4. no material remaining slice was found that would justify reopening Milestone 7, Milestone 8, or inventing new v1 breadth by momentum
+5. the repository should therefore be treated as thin-v1 checkpoint complete until a later session promotes one explicit new slice or v2 work item
 
-Standing guardrails for that next session:
+Follow-on rule:
 
-1. treat Milestone 8 as complete and keep it closed as a bounded backend-hardening milestone rather than reopening it as an open-ended bucket
+1. keep Milestone 8 closed as a bounded backend-hardening milestone unless a later review promotes one explicit new client-neutral slice
 2. treat the additive bearer-session and queued-agent auth-retirement slices as complete unless follow-up verification exposes a concrete defect
 3. if backend auth work continues later, do not reintroduce UUID actor-header compatibility; promote only new client-neutral auth work that materially improves correctness or reuse
 4. keep widening or correcting the shared backend only in client-neutral slices that strengthen correctness, continuity, or reuse rather than creating a browser-specific versus mobile-specific split
@@ -67,15 +68,14 @@ Standing guardrails for that next session:
 
 ## 2.1 Planned next implementation order
 
-Recommended sequence:
+Recommended sequence after checkpoint closeout:
 
-1. first close the remaining repository-wide verification gap by getting one completed full-suite run or by documenting the exact blocker
-2. then perform a deliberate thin-v1 completion review against `new_app_foundation_coverage.md` and the completed milestone docs
-3. only after that review decide between:
-4. checkpoint closeout if the foundation checklist is satisfied and remaining work is breadth or UX depth rather than missing structure
-5. one newly promoted bounded implementation slice if the review finds a real remaining foundation or client-neutral shared-backend gap
-6. keep each newly promoted slice bounded to one shared-backend concern rather than mixing browser-expansion work back into completed Milestone 8 work
-7. keep richer draft-attachment editing beyond the landed additive upload flow as residual only if later evidence proves it materially necessary
+1. treat the current repository state as the thin-v1 foundation checkpoint rather than an implicitly unfinished milestone chain
+2. before writing more code, decide explicitly whether the next session is:
+3. one bounded post-checkpoint shared-backend or correctness slice, or
+4. one explicitly promoted v2 work item under `new_app_docs/app_v2_plans/`
+5. keep each newly promoted slice bounded to one concern rather than reopening completed milestone buckets
+6. keep richer draft-attachment editing beyond the landed additive upload flow as residual only if later evidence proves it materially necessary
 
 Reason:
 
@@ -86,22 +86,22 @@ Reason:
 5. shared backend contracts, a focused live-provider verification command, queued-request processing, request submission, attachment transport, operator review, approval action, and browser-usable session auth now exist for driving the live path outside direct service calls, and the landed browser slices plus the final closeout sweep now prove that seam with operator login, intake, parked-request lifecycle management, full request-status visibility, detail review, approval actions, plus downstream document, accounting, inventory, work-order, and audit review
 6. the first additive non-browser auth slice is now also landed on that same seam through bearer-session issue, refresh rotation, token-authenticated introspection, token-authenticated logout, shared handler reuse for bearer-authenticated writes, and bearer-authenticated queued-request processing
 7. the queued-agent UUID actor-header compatibility seam is now retired, so later auth work should not preserve or widen that temporary path again
-8. the browser milestone is therefore complete enough that the next meaningful work is no longer web-surface expansion; it is shared-backend hardening for later lightweight mobile reuse
-9. residual browser work should now be treated as regression fixes or later UX refinement rather than as an active milestone plan
-10. the current remaining uncertainty is no longer an obvious missing implementation slice; it is whether verification and the foundation checklist support declaring a thin-v1 checkpoint complete
+8. the browser milestone is complete enough that residual browser work should now be treated as regression fixes or later UX refinement rather than as an active milestone plan
+9. the verification gap is now closed, and the foundation checklist review found no material missing v1 structure
+10. the correct next move is therefore explicit promotion of any future slice rather than treating the repository as silently incomplete
 
 ## 2.1.1 Next-session decision gate
 
-The next session should end its opening review by choosing exactly one of these outcomes:
+The checkpoint decision is now closed with outcome 1.
 
 1. thin-v1 checkpoint complete
 Result:
-the full repository verification has completed cleanly or any residual blocker is explicitly understood and accepted, the foundation checklist still matches the implemented codebase, and no material missing foundation slice remains
+the full repository verification completed cleanly on 2026-03-27, the foundation checklist still matches the implemented codebase, and no material missing foundation slice remains at the current thin-v1 depth
 2. promote one more bounded slice
 Result:
 the review finds a real remaining gap that is still foundation work or client-neutral shared-backend hardening, and that slice is written into this tracker before implementation begins
 
-Do not leave the next session in an implicit middle state where the repo is treated as both complete and not complete at the same time.
+The repository should not return to an implicit middle state where it is treated as both complete and not complete at the same time.
 
 ## 2.2 Milestone 8 planned slices
 

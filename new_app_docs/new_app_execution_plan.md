@@ -352,7 +352,18 @@ Current implementation checkpoint:
 3. that auth plan keeps browser-session cookies as the active v1 auth path, treats the UUID actor-header path as temporary automation compatibility rather than the long-term client contract, and defines the next additive bearer-session path for lightweight non-browser clients on the same session foundation
 4. Milestone 8 is therefore complete as a bounded client-neutral hardening milestone, and the next backend auth work should begin with the first additive token-session implementation slice from that plan rather than reopening Milestone 8 as an open-ended bucket
 
-## 10. Execution warning
+## 10. Thin-v1 checkpoint closeout
+
+Closeout result:
+
+1. the explicit closeout-and-decision pass is now complete
+2. `go build ./...` completed cleanly on 2026-03-27
+3. `set -a; source .env; set +a; go test -p 1 ./...` completed cleanly on 2026-03-27
+4. review against `new_app_foundation_coverage.md`, `new_app_tracker.md`, and the completed milestone docs found no material missing foundation slice at the current thin-v1 depth
+5. the codebase should therefore be treated as thin-v1 checkpoint complete rather than as an implicitly unfinished v1 milestone chain
+6. any later work should begin only after one explicit promotion decision: either one bounded post-checkpoint slice or one v2 work item
+
+## 11. Execution warning
 
 Do not add CRM breadth, advanced projects, portal work, payroll, broad UI work, or advanced agent-autonomy features during milestones 0 through 5.
 
@@ -363,7 +374,7 @@ During Milestone 7, backend corrections and narrow shared-backend enhancements a
 
 Do not treat Milestone 8 as permission to build the mobile product itself, fork the backend into web-specific versus mobile-specific truth models, or let backend hardening erase the still-required Milestone 7 browser completion criteria.
 
-## 11. Quality and sophistication rule
+## 12. Quality and sophistication rule
 
 `workflow_app` is allowed to be thin in breadth, but it is not allowed to be weak in foundation design.
 
