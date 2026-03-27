@@ -11,6 +11,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -22,35 +23,38 @@ import (
 )
 
 var webAppTemplate = template.Must(template.New("app").Funcs(template.FuncMap{
-	"formatTime":            formatTemplateTime,
-	"prettyJSON":            prettyTemplateJSON,
-	"statusClass":           templateStatusClass,
-	"inboundRequestHref":    templateInboundRequestHref,
-	"inboundSectionHref":    templateInboundRequestSectionHref,
-	"runSectionID":          templateAIRunSectionID,
-	"stepSectionID":         templateAIStepSectionID,
-	"delegationSectionID":   templateAIDelegationSectionID,
-	"pageSectionHref":       templatePageSectionHref,
-	"inboundRequestReview":  templateInboundRequestReviewHref,
-	"inboundRequestsHref":   templateInboundRequestsReviewHref,
-	"documentReviewHref":    templateDocumentReviewHref,
-	"accountingReviewHref":  templateAccountingReviewHref,
-	"accountingEntryHref":   templateAccountingEntryHref,
-	"controlAccountHref":    templateControlAccountHref,
-	"taxSummaryHref":        templateTaxSummaryHref,
-	"approvalReviewHref":    templateApprovalReviewHref,
-	"approvalQueueHref":     templateApprovalQueueHref,
-	"proposalDetailHref":    templateProposalDetailHref,
-	"proposalReviewHref":    templateProposalReviewHref,
-	"workOrderReviewHref":   templateWorkOrderReviewHref,
-	"inventoryReviewHref":   templateInventoryReviewHref,
-	"inventoryItemHref":     templateInventoryItemHref,
-	"inventoryLocationHref": templateInventoryLocationHref,
-	"inventoryMovementHref": templateInventoryMovementHref,
-	"auditEventHref":        templateAuditEventHref,
-	"auditEntityHref":       templateAuditEntityHref,
-	"auditEntityLabel":      templateAuditEntityLabel,
-	"inboundActionHref":     templateInboundActionHref,
+	"formatTime":             formatTemplateTime,
+	"prettyJSON":             prettyTemplateJSON,
+	"statusClass":            templateStatusClass,
+	"dashboardStatusBlurb":   templateDashboardStatusBlurb,
+	"dashboardStatusAction":  templateDashboardStatusAction,
+	"dashboardRequestAction": templateDashboardRequestAction,
+	"inboundRequestHref":     templateInboundRequestHref,
+	"inboundSectionHref":     templateInboundRequestSectionHref,
+	"runSectionID":           templateAIRunSectionID,
+	"stepSectionID":          templateAIStepSectionID,
+	"delegationSectionID":    templateAIDelegationSectionID,
+	"pageSectionHref":        templatePageSectionHref,
+	"inboundRequestReview":   templateInboundRequestReviewHref,
+	"inboundRequestsHref":    templateInboundRequestsReviewHref,
+	"documentReviewHref":     templateDocumentReviewHref,
+	"accountingReviewHref":   templateAccountingReviewHref,
+	"accountingEntryHref":    templateAccountingEntryHref,
+	"controlAccountHref":     templateControlAccountHref,
+	"taxSummaryHref":         templateTaxSummaryHref,
+	"approvalReviewHref":     templateApprovalReviewHref,
+	"approvalQueueHref":      templateApprovalQueueHref,
+	"proposalDetailHref":     templateProposalDetailHref,
+	"proposalReviewHref":     templateProposalReviewHref,
+	"workOrderReviewHref":    templateWorkOrderReviewHref,
+	"inventoryReviewHref":    templateInventoryReviewHref,
+	"inventoryItemHref":      templateInventoryItemHref,
+	"inventoryLocationHref":  templateInventoryLocationHref,
+	"inventoryMovementHref":  templateInventoryMovementHref,
+	"auditEventHref":         templateAuditEventHref,
+	"auditEntityHref":        templateAuditEntityHref,
+	"auditEntityLabel":       templateAuditEntityLabel,
+	"inboundActionHref":      templateInboundActionHref,
 }).Parse(webAppHTML))
 
 type webAppDashboardData struct {
@@ -307,6 +311,8 @@ func (h *AgentAPIHandler) handleWebAppDashboard(w http.ResponseWriter, r *http.R
 	if h.reviewService != nil {
 		if data.InboundSummary, err = h.reviewService.ListInboundRequestStatusSummary(r.Context(), actor); err != nil {
 			data.Error = "failed to load inbound request summary"
+		} else {
+			sortInboundRequestStatusSummaries(data.InboundSummary)
 		}
 		if data.InboundRequests, err = h.reviewService.ListInboundRequests(r.Context(), reporting.ListInboundRequestsInput{
 			Limit: 20,
@@ -1901,6 +1907,92 @@ func templateStatusClass(status string) string {
 	}
 }
 
+func templateDashboardStatusBlurb(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "draft":
+		return "Resume parked drafts before they enter the queue."
+	case "queued":
+		return "Review queued requests and open lifecycle controls before pickup."
+	case "processing":
+		return "Watch active coordinator work and continue into the latest run."
+	case "failed":
+		return "Inspect failed requests, understand the break, and restart follow-up work."
+	case "cancelled":
+		return "Return cancelled pre-processing requests to draft when they should be resubmitted."
+	case "processed", "acted_on", "completed":
+		return "Continue from completed intake into proposals, approvals, and downstream review."
+	default:
+		return "Open the filtered request review for this state."
+	}
+}
+
+func templateDashboardStatusAction(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "draft":
+		return "Continue drafts"
+	case "queued":
+		return "Open queued requests"
+	case "processing":
+		return "Watch in-flight requests"
+	case "failed":
+		return "Review failures"
+	case "cancelled":
+		return "Recover cancellations"
+	case "processed", "acted_on", "completed":
+		return "Review outcomes"
+	default:
+		return "Open requests"
+	}
+}
+
+func templateDashboardRequestAction(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "draft":
+		return "Continue draft"
+	case "queued":
+		return "Open lifecycle actions"
+	case "processing":
+		return "Watch execution"
+	case "failed":
+		return "Inspect failure"
+	case "cancelled":
+		return "Amend back to draft"
+	case "processed", "acted_on", "completed":
+		return "Open request outcome"
+	default:
+		return "Open request detail"
+	}
+}
+
+func sortInboundRequestStatusSummaries(rows []reporting.InboundRequestStatusSummary) {
+	statusOrder := map[string]int{
+		"draft":      0,
+		"queued":     1,
+		"processing": 2,
+		"failed":     3,
+		"cancelled":  4,
+		"processed":  5,
+		"acted_on":   6,
+		"completed":  7,
+	}
+	sort.SliceStable(rows, func(i, j int) bool {
+		left := strings.ToLower(strings.TrimSpace(rows[i].Status))
+		right := strings.ToLower(strings.TrimSpace(rows[j].Status))
+		leftRank, leftOK := statusOrder[left]
+		rightRank, rightOK := statusOrder[right]
+		switch {
+		case leftOK && rightOK && leftRank != rightRank:
+			return leftRank < rightRank
+		case leftOK != rightOK:
+			return leftOK
+		case rows[i].LatestUpdatedAt != rows[j].LatestUpdatedAt:
+			return rows[i].LatestUpdatedAt.After(rows[j].LatestUpdatedAt)
+		default:
+			return left < right
+		}
+	})
+}
+
 func templateInboundRequestHref(lookup string) string {
 	lookup = strings.TrimSpace(lookup)
 	if lookup == "" {
@@ -2548,15 +2640,17 @@ const webAppHTML = `<!DOCTYPE html>
       </section>
 
       <section class="panel">
-        <h2>Inbound request status summary</h2>
+        <h2>Operator starting points</h2>
+        <p class="meta">Start from parked, in-flight, failed, or cancelled request states without reopening broad review pages first.</p>
         <div class="summary-list">
           {{range .InboundSummary}}
           <div class="summary-card">
             <strong>{{.RequestCount}}</strong>
             <span class="status-pill {{statusClass .Status}}">{{.Status}}</span>
             <div class="meta">Messages: {{.MessageCount}} | Attachments: {{.AttachmentCount}}</div>
+            <div class="meta">{{dashboardStatusBlurb .Status}}</div>
             <div class="meta">Updated: {{formatTime .LatestUpdatedAt}}</div>
-            <div class="meta"><a href="{{inboundRequestsHref .Status ""}}">Open {{.Status}} requests</a></div>
+            <div class="meta"><a href="{{inboundRequestsHref .Status ""}}">{{dashboardStatusAction .Status}}</a></div>
           </div>
           {{else}}
           <div class="summary-card">No inbound requests yet.</div>
@@ -2582,17 +2676,22 @@ const webAppHTML = `<!DOCTYPE html>
               {{range .InboundRequests}}
               <tr>
                 <td><a href="{{inboundRequestHref .RequestReference}}">{{.RequestReference}}</a></td>
-                <td><span class="status-pill {{statusClass .Status}}">{{.Status}}</span></td>
+                <td>
+                  <span class="status-pill {{statusClass .Status}}">{{.Status}}</span>
+                  {{if .CancelledAt.Valid}}<div class="meta">Cancelled: {{formatTime .CancelledAt.Time}}</div>{{end}}
+                  {{if .CancellationReason}}<div class="meta">{{.CancellationReason}}</div>{{end}}
+                  {{if .FailedAt.Valid}}<div class="meta">Failed: {{formatTime .FailedAt.Time}}</div>{{end}}
+                  {{if .FailureReason}}<div class="meta">{{.FailureReason}}</div>{{end}}
+                </td>
                 <td>{{.Channel}}</td>
                 <td>
                   {{.MessageCount}} messages / {{.AttachmentCount}} files
-                  {{if eq .Status "draft"}}
-                  <div class="meta"><a href="{{inboundRequestHref .RequestReference}}">Continue draft</a></div>
-                  {{else if or (eq .Status "queued") (eq .Status "cancelled")}}
-                  <div class="meta"><a href="{{inboundRequestHref .RequestReference}}">Open lifecycle actions</a></div>
-                  {{end}}
+                  <div class="meta"><a href="{{inboundRequestHref .RequestReference}}">{{dashboardRequestAction .Status}}</a></div>
                   {{if .LastRunID.Valid}}
                   <div class="meta"><a href="{{inboundSectionHref (printf "run:%s" .LastRunID.String) (runSectionID .LastRunID.String)}}">Open latest run</a></div>
+                  {{end}}
+                  {{if .LastRecommendationID.Valid}}
+                  <div class="meta"><a href="{{proposalDetailHref .LastRecommendationID.String}}">Open latest proposal</a></div>
                   {{end}}
                 </td>
                 <td>{{formatTime .UpdatedAt}}</td>

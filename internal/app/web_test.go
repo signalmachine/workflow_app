@@ -1464,6 +1464,145 @@ func TestHandleWebAppDashboardAddsInboundStatusAndRunContinuityLinks(t *testing.
 	}
 }
 
+func TestHandleWebAppDashboardAddsStatusSpecificEntryPointActions(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listInboundRequestStatusSummary: func(context.Context, identityaccess.Actor) ([]reporting.InboundRequestStatusSummary, error) {
+				return []reporting.InboundRequestStatusSummary{
+					{
+						Status:          "failed",
+						RequestCount:    1,
+						MessageCount:    1,
+						AttachmentCount: 0,
+						LatestUpdatedAt: time.Date(2026, 3, 27, 9, 0, 0, 0, time.UTC),
+					},
+					{
+						Status:          "draft",
+						RequestCount:    2,
+						MessageCount:    3,
+						AttachmentCount: 1,
+						LatestUpdatedAt: time.Date(2026, 3, 27, 10, 0, 0, 0, time.UTC),
+					},
+					{
+						Status:          "cancelled",
+						RequestCount:    1,
+						MessageCount:    1,
+						AttachmentCount: 0,
+						LatestUpdatedAt: time.Date(2026, 3, 27, 8, 0, 0, 0, time.UTC),
+					},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `Resume parked drafts before they enter the queue.`) {
+		t.Fatalf("expected draft entry-point blurb, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/inbound-requests?status=draft">Continue drafts</a>`) {
+		t.Fatalf("expected draft entry-point action, body=%s", body)
+	}
+	if !strings.Contains(body, `Inspect failed requests, understand the break, and restart follow-up work.`) {
+		t.Fatalf("expected failed entry-point blurb, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/inbound-requests?status=failed">Review failures</a>`) {
+		t.Fatalf("expected failed entry-point action, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/inbound-requests?status=cancelled">Recover cancellations</a>`) {
+		t.Fatalf("expected cancelled entry-point action, body=%s", body)
+	}
+	if strings.Index(body, `>draft</span>`) > strings.Index(body, `>failed</span>`) {
+		t.Fatalf("expected draft summary card to sort ahead of failed card, body=%s", body)
+	}
+}
+
+func TestHandleWebAppDashboardAddsRecoveryActionsForRecentRequests(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listInboundRequests: func(context.Context, reporting.ListInboundRequestsInput) ([]reporting.InboundRequestReview, error) {
+				return []reporting.InboundRequestReview{
+					{
+						RequestID:          "req-cancelled",
+						RequestReference:   "REQ-000200",
+						Status:             "cancelled",
+						Channel:            "browser",
+						MessageCount:       1,
+						AttachmentCount:    0,
+						CancellationReason: "operator paused request",
+						CancelledAt:        sql.NullTime{Time: time.Date(2026, 3, 27, 10, 0, 0, 0, time.UTC), Valid: true},
+						UpdatedAt:          time.Date(2026, 3, 27, 10, 0, 0, 0, time.UTC),
+					},
+					{
+						RequestID:        "req-failed",
+						RequestReference: "REQ-000201",
+						Status:           "failed",
+						Channel:          "browser",
+						MessageCount:     2,
+						AttachmentCount:  1,
+						FailureReason:    "provider-backed coordinator execution failed",
+						FailedAt:         sql.NullTime{Time: time.Date(2026, 3, 27, 10, 5, 0, 0, time.UTC), Valid: true},
+						LastRunID:        sql.NullString{String: "run-201", Valid: true},
+						UpdatedAt:        time.Date(2026, 3, 27, 10, 5, 0, 0, time.UTC),
+					},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `operator paused request`) {
+		t.Fatalf("expected cancellation reason on dashboard, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/inbound-requests/REQ-000200">Amend back to draft</a>`) {
+		t.Fatalf("expected cancelled request recovery link, body=%s", body)
+	}
+	if !strings.Contains(body, `provider-backed coordinator execution failed`) {
+		t.Fatalf("expected failure reason on dashboard, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/inbound-requests/REQ-000201">Inspect failure</a>`) {
+		t.Fatalf("expected failed request action link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/inbound-requests/run:run-201#run-run-201">Open latest run</a>`) {
+		t.Fatalf("expected failed request latest-run link, body=%s", body)
+	}
+}
+
 func TestHandleWebInboundRequestsAddsAIRunAndProposalLinks(t *testing.T) {
 	handler := NewAgentAPIHandlerWithDependencies(
 		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },

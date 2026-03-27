@@ -153,7 +153,7 @@ Current checkpoint:
 39. the latest continuity slice now extends work-order list review plus exact work-order detail back upstream into the originating `REQ-...` request, exact proposal detail, exact approval detail, and anchored AI run when the linked source document already carries that provenance on the shared reporting seam, so execution review can stay on the same intake-to-control browser path instead of stalling at the source-document link
 40. the latest lifecycle slice now promotes parked-request management into the browser and shared backend seam: operators can save new requests as drafts, continue draft editing, add draft attachments, queue drafts, cancel queued pre-processing requests, return queued or cancelled requests to draft, and hard-delete unprocessed drafts through `/app`, while the shared backend seam now also exposes matching draft-save plus queue, cancel, amend, and delete actions over `/api/inbound-requests` and `/api/inbound-requests/{request_id}/{action}`
 41. the latest continuity slice now extends exact accounting detail plus exact inventory-movement and reconciliation stops back upstream into the originating `REQ-...` request, exact proposal detail, exact approval detail, and anchored AI run when the linked source document already carries that provenance on the shared reporting seam, so downstream posting and inventory-control review no longer stall one click short of the intake and AI execution trail
-42. the remaining Milestone 7 work is now dashboard and browser entry-point refinement plus a final closeout sweep on top of those landed review, lifecycle, and provenance surfaces without creating a second backend or reviving broad manual-entry UI scope
+42. the latest dashboard refinement slice now turns the `/app` home surface into a stronger operator starting point for draft, queued, processing, failed, cancelled, and completed request states by replacing generic request-summary language with status-specific continuation cues, sorting those summary cards into operator-priority order, surfacing failure and cancellation reasons directly in recent-request rows, and tightening recent-request actions into exact draft or lifecycle or execution or recovery continuations on the same shared backend seam
 43. any additional mobile-readiness work that goes beyond that narrow browser-era seam hygiene should move into the post-Milestone-7 client-neutral backend hardening milestone rather than being folded silently into the remaining browser passes
 
 ## 9. Remaining slice analysis
@@ -165,21 +165,9 @@ It is now a bounded set of coherent slices where either:
 1. the service and reporting foundation already exists below the browser layer but is not yet promoted into the web flow, or
 2. an exact browser stop still breaks the intended request -> AI -> proposal -> approval -> document -> posting or execution chain one step too early
 
-The current planned remaining Milestone 7 slices are:
+The current planned remaining Milestone 7 slice is:
 
-1. `dashboard and browser entry-point refinement`
-
-   Why this slice is still required:
-   1. the current dashboard is already useful for queue submission, queue processing, recent requests, approvals, and proposals
-   2. after parked-request lifecycle management lands, the main browser entry points still need to become stronger operator starting surfaces for draft, queued, failed, cancelled, and recovery work rather than passive summaries
-   3. Milestone 7 should finish with one coherent operator starting surface rather than many individually capable pages with weaker entry-state continuity
-
-   Scope for this slice:
-   1. expose direct dashboard continuations into parked-request lifecycle states and recovery actions
-   2. tighten failed or cancelled request recovery entry points after the lifecycle slice lands
-   3. remove remaining dead-end or weak-return states on the main browser starting surfaces
-
-2. `Milestone 7 consistency and closeout sweep`
+1. `Milestone 7 consistency and closeout sweep`
 
    Why this slice is still required:
    1. the milestone is now late-stage enough that one explicit end-to-end pass is needed against the actual exit criteria
