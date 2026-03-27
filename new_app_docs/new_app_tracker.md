@@ -1,6 +1,6 @@
 # workflow_app Tracker
 
-Date: 2026-03-22
+Date: 2026-03-27
 Status: Draft reset tracker
 Purpose: track the `workflow_app` plan and guard against scope drift during bootstrap and implementation.
 
@@ -33,25 +33,26 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 
 ## 2. Immediate next steps
 
-1. continue Milestone 7 from the landed `/app` browser slices by improving operator continuity and focused exact drill-downs on top of the now-landed inbound-request, approval-detail, proposal-detail, document-detail, inventory, work-order, and audit review surfaces without splitting backend ownership
+1. execute the explicitly identified remaining Milestone 7 slices in `web_application_layer_plan.md` rather than continuing with generic continuity work
 2. keep Milestone 7 centered on browser-layer integration and operator continuity rather than unrelated new backend features
 3. keep widening or correcting the shared backend only in workflow-bounded slices where the web layer proves a concrete need for correctness, continuity, or usability, so web and later mobile still sit on one foundation
-4. extend the current coherent operator loop before scattering effort across unrelated pages
-5. keep the codebase centered on the approved first-class modules while allowing support-depth records such as `parties` and `contacts` where the canonical module-boundary doc explicitly permits them
-6. add attachments only where they support approval evidence, document support flows, or persisted inbound request intake
-7. use `new_app_v1_gap_review_from_current_codebase.md` as historical context only, not as the live list of remaining missing foundation areas
-8. use `new_app_implementation_defaults.md` as the default-rules reference during implementation
-9. use `new_app_foundation_coverage.md` as the v1 completion checklist and foundation coverage control
-10. keep Milestone 7 on the approved thin-v1 web stack: Go server-rendered HTML as the baseline, `htmx` where partial updates materially help, `Alpine.js` only for small local state, and no separate Node toolchain unless the canonical planning set changes
+4. treat the current remaining work as four planned slices: browser inbound-request lifecycle management, downstream provenance continuity for accounting and inventory exact-detail surfaces, dashboard-and-entry-point refinement, and a final Milestone 7 consistency or closeout sweep
+5. if implementation of those planned slices exposes an additional concrete blocker, inconsistency, or missing operator seam, document it explicitly as residual Milestone 7 work instead of silently folding it into scope
+6. keep the codebase centered on the approved first-class modules while allowing support-depth records such as `parties` and `contacts` where the canonical module-boundary doc explicitly permits them
+7. add attachments only where they support approval evidence, document support flows, or persisted inbound request intake
+8. use `new_app_v1_gap_review_from_current_codebase.md` as historical context only, not as the live list of remaining missing foundation areas
+9. use `new_app_implementation_defaults.md` as the default-rules reference during implementation
+10. use `new_app_foundation_coverage.md` as the v1 completion checklist and foundation coverage control
+11. keep Milestone 7 on the approved thin-v1 web stack: Go server-rendered HTML as the baseline, `htmx` where partial updates materially help, `Alpine.js` only for small local state, and no separate Node toolchain unless the canonical planning set changes
 
 ## 2.1 Planned next implementation order
 
 Recommended sequence:
 
-1. widen the landed `/app` browser slices so operators can move from request intake, full inbound-request review, approval work, and financial-document review into the now-landed inventory, work-order, and audit reporting surfaces on the same backend contracts, then tighten continuity and drill-downs
-2. widen or correct the shared backend contract set only where that browser slice proves a concrete need, without creating a second truth owner or unrelated backend feature scope
-3. continue the usable web application layer so operators can work through the browser on the same backend contracts that later mobile will reuse
-4. execute Milestone 7 through larger coherent workflow slices rather than many tiny continuity patches or broad monolithic pushes so implementation stays controllable and reviewable
+1. implement browser inbound-request lifecycle management on top of the already-landed draft, queue, cancel, amend, and delete foundations so operators can manage parked requests in the browser rather than only by submitting directly into the queue
+2. implement downstream provenance continuity for exact accounting and inventory stops so journal-entry and movement review can continue back upstream into the originating request, proposal, approval, and AI run when the linked source document carries that provenance
+3. tighten the `/app` dashboard and adjacent browser entry points so parked, failed, cancelled, and in-flight request states become actionable operator starting points rather than passive status summaries
+4. finish Milestone 7 with one explicit consistency and closeout sweep across the landed browser surfaces, updating docs either to mark the milestone complete or to record any residual blocker discovered during that sweep
 
 Reason:
 
@@ -60,7 +61,71 @@ Reason:
 3. the reporting foundation is complete enough for thin-v1 review and browser-ready read seams, and the provider-backed coordinator plus browser-session auth now make the shared backend usable from a real browser client
 4. the landed coordinator slice includes a hard-capped tool loop with policy-enforced read-tool execution plus bounded specialist delegation while keeping the default contributor workflow provider-independent
 5. shared backend contracts, a focused live-provider verification command, queued-request processing, request submission, attachment transport, operator review, approval action, and browser-usable session auth now exist for driving the live path outside direct service calls, and the landed browser slices have now proven that seam with operator login, intake, queue processing, detail review, approval actions, plus downstream document, accounting, inventory, work-order, and audit review
-6. the remaining web milestone is now mainly continuity and refinement work, so it should continue as larger related workflow slices to reduce session fragmentation while still avoiding architecture sprawl
+6. a code-and-doc review of the current browser surface shows that the remaining must-have work is no longer broad page build-out; it is a bounded set of identifiable slices where either the backend foundation already exists below the browser layer but is not yet surfaced there, or an exact-detail page still breaks the intended request -> AI -> proposal -> approval -> document -> posting or execution continuity
+7. the remaining web milestone should therefore continue as a short sequence of larger related workflow slices rather than opportunistic one-off patches, with residual gaps discovered during those slices documented separately instead of expanding the planned list silently
+
+## 2.2 Remaining Milestone 7 slice analysis
+
+The current Milestone 7 codebase is now late-stage enough that the remaining work should be treated as an explicit planned list rather than a generic continuity bucket.
+
+The following slices are the current planned remaining Milestone 7 implementation set:
+
+1. `browser inbound-request lifecycle management`
+
+   Required because:
+   1. draft editing, draft hard deletion, queued cancellation, and queued or cancelled amend-back-to-draft handling are already implemented below the browser layer and are called out in the canonical docs
+   2. the current web layer only supports immediate request submission into the queue plus downstream review after the fact
+   3. thin-v1 operator usability is still incomplete while parked-request management depends on service-level or developer-only access
+
+   Slice contents:
+   1. browser and shared-backend support for creating or saving a request as `draft`
+   2. browser editing of draft request messages and draft-scoped attachments
+   3. browser queue submission from draft
+   4. browser cancel for queued pre-processing requests
+   5. browser amend-back-to-draft for queued or cancelled pre-processing requests
+   6. browser hard delete for unprocessed drafts only
+   7. request-list, request-detail, and dashboard continuity for those parked-request actions
+
+2. `downstream provenance continuity for accounting and inventory exact-detail surfaces`
+
+   Required because:
+   1. document, approval, proposal, and work-order detail now continue back upstream into the originating request, proposal, approval, and anchored AI run where provenance exists
+   2. exact journal-entry review and exact inventory-movement review still mostly stop at the source document instead of exposing the same upstream chain directly
+   3. those pages are downstream control stops in the thin-v1 operating model, so leaving them one click short still weakens the end-to-end operator path
+
+   Slice contents:
+   1. extend exact accounting detail with request, proposal, approval, and AI-run continuity derived from the source document path where available
+   2. extend exact inventory-movement detail and the most relevant inventory reconciliation stops with the same upstream continuity where the linked source document carries that provenance
+   3. tighten any necessary reporting read seams narrowly in service of that continuity without creating a second truth owner
+
+3. `dashboard and browser entry-point refinement`
+
+   Required because:
+   1. the current dashboard is already usable for queue submission, queue processing, recent requests, approvals, and proposals
+   2. after the parked-request lifecycle slice lands, the home and adjacent entry points still need to become stronger operator starting points for draft, queued, failed, cancelled, and recovery work rather than passive summaries
+   3. Milestone 7 should finish with one coherent operator starting surface rather than a collection of capable but loosely connected review pages
+
+   Slice contents:
+   1. expose direct dashboard continuations into the new parked-request lifecycle states and actions
+   2. tighten failed or cancelled request recovery entry points after the lifecycle slice lands
+   3. remove any remaining dead-end or weak-return states on the main browser starting surfaces
+
+4. `Milestone 7 consistency and closeout sweep`
+
+   Required because:
+   1. the milestone is now close enough to completion that one final structured pass is needed to verify the web layer against the actual exit criteria rather than continuing indefinitely on ad hoc refinements
+   2. late-stage browser continuity work often exposes one or two residual gaps only when the full operator path is reviewed end to end
+
+   Slice contents:
+   1. review all landed browser surfaces against Milestone 7 exit criteria and current canonical docs
+   2. fix any narrow residual continuity or usability blockers that materially prevent milestone completion
+   3. update canonical docs to either mark Milestone 7 complete or record the precise residual blocker if completion is still not justified
+
+Planned-slice control rule:
+
+1. treat the four slices above as the current explicit Milestone 7 plan
+2. if later implementation reveals an additional concrete missing seam, record it explicitly as residual Milestone 7 work instead of silently expanding this planned list
+3. do not use the existence of possible later residual work as a reason to defer the planned slices above
 
 ## 3. Scope guardrail
 

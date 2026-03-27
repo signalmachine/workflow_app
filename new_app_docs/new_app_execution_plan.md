@@ -1,6 +1,6 @@
 # workflow_app Execution Plan
 
-Date: 2026-03-22
+Date: 2026-03-27
 Status: Draft canonical execution plan
 Purpose: define the narrow implementation path for the `workflow_app` replacement codebase.
 
@@ -309,11 +309,12 @@ Current implementation checkpoint:
 15. inventory item and location review now also have dedicated browser detail stops at `/app/review/inventory/items/{item_id}` and `/app/review/inventory/locations/{location_id}` on top of the already-landed stock and movement seams, and stock rows, movement detail, plus audit-page item or location entities now continue into those exact item and location pages instead of stopping at anchored list filters
 16. exact inbound-request detail now also resolves `run:<agent-run-id>` and `delegation:<delegation-id>` through the already-landed `/app/inbound-requests/{request_reference_or_id}` and `/api/review/inbound-requests/{request_reference_or_id}` seams, and audit review now links `ai.agent_run` plus `ai.agent_delegation` entities back into the exact inbound-request execution trail so provider-execution audit events no longer dead-end on generic audit results
 17. exact inbound-request detail now also resolves `step:<agent-step-id>` through those same shared browser and API seams, and audit review now links `ai.agent_run_step` plus `ai.agent_step` entities back into the exact inbound-request step block so step-level execution audit can land on the precise persisted step rather than only the broader request page
-18. this milestone remains in progress because the current browser layer still needs tighter operator continuity, richer drill-downs, and focused refinement across the now-landed review surfaces
-19. detailed sequencing and constraints are captured in `web_application_layer_plan.md`
-20. this milestone should continue as a sequence of coherent workflow slices rather than either many tiny continuity patches or one monolithic delivery
-21. each Milestone 7 pass should preferably close a larger related browser workflow or downstream control chain on the shared backend seams, for example inventory-to-execution continuity, approval-to-posting continuity, or inbound-request-execution review
-22. the active thin-v1 web-stack direction is now explicit: keep Go server-rendered HTML as the primary rendering model, prefer `htmx` where partial updates materially improve operator continuity, use `Alpine.js` only for small local state, and avoid introducing a Node toolchain unless the canonical planning set changes
+18. a full Milestone 7 review now shows that the remaining required work has narrowed to an explicit set of slices rather than a generic continuity bucket: browser inbound-request lifecycle management, downstream provenance continuity for accounting and inventory exact-detail surfaces, dashboard and browser entry-point refinement, and one final Milestone 7 consistency or closeout sweep
+19. this milestone therefore remains in progress, but it is now in a late-stage phase where the main question is completing those planned slices cleanly rather than discovering broad missing browser surface areas
+20. detailed sequencing, slice scope, and control rules are captured in `web_application_layer_plan.md`
+21. this milestone should continue as a sequence of coherent workflow slices rather than either many tiny continuity patches or one monolithic delivery
+22. each Milestone 7 pass should preferably close a larger related browser workflow or downstream control chain on the shared backend seams, for example parked-request lifecycle management or downstream posting-and-execution provenance continuity
+23. the active thin-v1 web-stack direction is now explicit: keep Go server-rendered HTML as the primary rendering model, prefer `htmx` where partial updates materially improve operator continuity, use `Alpine.js` only for small local state, and avoid introducing a Node toolchain unless the canonical planning set changes
 
 ## 9. Execution warning
 

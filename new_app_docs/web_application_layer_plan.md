@@ -1,6 +1,6 @@
 # workflow_app Web Application Layer Plan
 
-Date: 2026-03-21
+Date: 2026-03-27
 Status: Planned v1 implementation slice
 Purpose: define the promoted web-layer work required so `workflow_app` is usable as an application in v1 rather than only through service-layer seams, minimal API contracts, or direct developer tooling.
 
@@ -150,3 +150,71 @@ Current checkpoint:
 38. the latest continuity slice now extends document and approval browser review back upstream into the originating `REQ-...` request, exact proposal detail, and anchored AI run when that provenance exists on the shared reporting seam, so downstream control review can continue back into the intake and AI execution trail without manual reconstruction
 39. the latest continuity slice now extends work-order list review plus exact work-order detail back upstream into the originating `REQ-...` request, exact proposal detail, exact approval detail, and anchored AI run when the linked source document already carries that provenance on the shared reporting seam, so execution review can stay on the same intake-to-control browser path instead of stalling at the source-document link
 40. the remaining Milestone 7 work is now operator continuity, richer drill-downs, and focused refinement on top of those landed review surfaces without creating a second backend or reviving broad manual-entry UI scope
+
+## 9. Remaining slice analysis
+
+A full Milestone 7 review of the current browser code and canonical docs shows that the remaining required work is no longer broad page build-out.
+
+It is now a bounded set of coherent slices where either:
+
+1. the service and reporting foundation already exists below the browser layer but is not yet promoted into the web flow, or
+2. an exact browser stop still breaks the intended request -> AI -> proposal -> approval -> document -> posting or execution chain one step too early
+
+The current planned remaining Milestone 7 slices are:
+
+1. `browser inbound-request lifecycle management`
+
+   Why this slice is still required:
+   1. draft editing, draft deletion, queued cancellation, and queued or cancelled amend-back-to-draft support already exist below the web layer and are part of the canonical thin-v1 intake model
+   2. the current browser layer still only supports immediate queue submission plus downstream review after submission
+   3. Milestone 7 remains incomplete while parked-request management depends on service-level or developer-only access
+
+   Scope for this slice:
+   1. draft creation or save-as-draft browser flow
+   2. draft message and attachment editing in the browser
+   3. queue submission from draft
+   4. queued-request cancellation before pickup
+   5. queued or cancelled amend-back-to-draft handling
+   6. hard deletion for unprocessed drafts only
+   7. dashboard, request-list, and request-detail continuity for those actions
+
+2. `downstream provenance continuity for accounting and inventory exact-detail surfaces`
+
+   Why this slice is still required:
+   1. document, approval, proposal, and work-order exact detail now continue back upstream into the originating request, proposal, approval, and anchored AI run when provenance exists
+   2. exact journal-entry and exact inventory-movement review still mostly stop at the source document instead of exposing that same upstream chain directly
+   3. those pages are real downstream control stops in thin v1, so leaving them one click short still weakens the end-to-end operator path
+
+   Scope for this slice:
+   1. extend exact accounting detail with request, proposal, approval, and AI-run continuity derived from the source-document path where available
+   2. extend exact inventory-movement detail and the most relevant inventory reconciliation stops with the same upstream continuity where the linked source document carries that provenance
+   3. make only the narrow shared-backend reporting adjustments required to support that continuity correctly
+
+3. `dashboard and browser entry-point refinement`
+
+   Why this slice is still required:
+   1. the current dashboard is already useful for queue submission, queue processing, recent requests, approvals, and proposals
+   2. after parked-request lifecycle management lands, the main browser entry points still need to become stronger operator starting surfaces for draft, queued, failed, cancelled, and recovery work rather than passive summaries
+   3. Milestone 7 should finish with one coherent operator starting surface rather than many individually capable pages with weaker entry-state continuity
+
+   Scope for this slice:
+   1. expose direct dashboard continuations into parked-request lifecycle states and recovery actions
+   2. tighten failed or cancelled request recovery entry points after the lifecycle slice lands
+   3. remove remaining dead-end or weak-return states on the main browser starting surfaces
+
+4. `Milestone 7 consistency and closeout sweep`
+
+   Why this slice is still required:
+   1. the milestone is now late-stage enough that one explicit end-to-end pass is needed against the actual exit criteria
+   2. late-stage browser continuity work often exposes one or two residual blockers only when the full operator path is reviewed after the main slices land
+
+   Scope for this slice:
+   1. review the landed browser surfaces against Milestone 7 exit criteria and the current canonical docs
+   2. fix any narrow residual continuity or usability blocker that materially prevents milestone completion
+   3. update canonical docs to either mark Milestone 7 complete or record the exact residual blocker if completion is still not justified
+
+Planned-slice control rule:
+
+1. treat the four slices above as the current explicit Milestone 7 plan
+2. if later implementation reveals an additional concrete blocker, document it explicitly as residual Milestone 7 work rather than silently expanding the planned list
+3. do not use the possibility of later residual work as a reason to defer the planned slices above
