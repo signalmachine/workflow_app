@@ -182,6 +182,7 @@ Preferred thin-v1 web-implementation stance:
 7. during Milestone 7 execution, prefer larger coherent browser-workflow slices over many tiny continuity patches, while still keeping each slice bounded to one related operator path rather than mixing unrelated areas into one delivery
 8. during Milestone 7, mobile-readiness work should stay limited to the client-neutral backend hygiene needed to keep the shared seam reusable later, and it should not displace the still-pending browser slices
 9. the broader client-neutral backend hardening needed for a later lightweight mobile client should follow as a post-Milestone-7 backend milestone rather than replacing the Milestone 7 browser finish work
+10. Milestone 8 should be planned and executed as an explicit bounded slice set with a review gate at the end, rather than as an open-ended hardening bucket
 
 ## 8. Data and database principles
 

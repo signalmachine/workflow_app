@@ -49,8 +49,8 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 
 Recommended sequence:
 
-1. start Milestone 8 with one explicit hardening pass across the shared `/api/...` contracts already exercised by the finished browser layer
-2. keep the now-started hardening pass focused on real client-neutral semantics, exit-criteria validation, and narrow hardening fixes rather than new browser-surface expansion
+1. complete the explicit Milestone 8 slice plan below in order unless a blocker or narrower dependency requires a local reorder
+2. keep each slice bounded to one shared-backend concern rather than mixing browser-expansion work back into Milestone 8
 3. keep richer draft-attachment editing beyond the landed additive upload flow as residual only if later evidence proves it materially necessary
 
 Reason:
@@ -63,7 +63,35 @@ Reason:
 6. the browser milestone is therefore complete enough that the next meaningful work is no longer web-surface expansion; it is shared-backend hardening for later lightweight mobile reuse
 7. residual browser work should now be treated as regression fixes or later UX refinement rather than as an active milestone plan
 
-## 2.2 Milestone 8 preview
+## 2.2 Milestone 8 planned slices
+
+Milestone 8 is now explicitly bounded to five planned slices.
+
+Planned slices:
+
+1. shared-API lifecycle contract hardening
+Status: done
+This slice tightened JSON request validation and made inbound-request mutation responses carry lifecycle metadata directly.
+2. review-read contract hardening
+Status: pending
+This slice should standardize filter validation, exact lookup semantics, not-found behavior, and response-shape consistency across the shared `/api/review/...` reads already used by the browser.
+3. attachment contract hardening
+Status: pending
+This slice should standardize attachment upload and download validation, content headers, bounded error behavior, and storage-facing response semantics for later non-browser clients.
+4. approval-action contract hardening
+Status: pending
+This slice should tighten approval-decision request validation, state-conflict behavior, and mutation-response visibility for clients acting through the shared backend without depending on browser redirects or browser-specific continuity.
+5. non-browser auth-evolution planning
+Status: pending
+This slice should document the next authentication path for lightweight non-browser clients on the same backend foundation without replacing the active browser-session model prematurely.
+
+Milestone 8 stop rule:
+
+1. Milestone 8 is complete when the five planned slices above are implemented and reviewed
+2. additional Milestone 8 slices should be added only after that review shows a real remaining client-neutral hardening gap
+3. do not let Milestone 8 remain an open-ended hardening bucket without updating this planned-slices list explicitly
+
+## 2.3 Milestone 8 preview
 
 Milestone 8 should follow Milestone 7 rather than compete with its remaining browser work.
 
@@ -80,7 +108,7 @@ Milestone 8 guardrails:
 2. do not treat Milestone 8 as the mobile-product build milestone
 3. keep mobile UX, full mobile auth-product depth, push behavior, offline behavior, and broader multimodal client breadth outside Milestone 8 unless the canonical planning set is later updated explicitly
 
-## 2.3 Remaining Milestone 7 slice analysis
+## 2.4 Remaining Milestone 7 slice analysis
 
 The Milestone 7 closeout sweep is now complete.
 
