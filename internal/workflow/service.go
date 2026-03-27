@@ -15,6 +15,8 @@ import (
 
 var (
 	ErrApprovalNotFound      = errors.New("approval not found")
+	ErrInvalidApproval       = errors.New("invalid approval")
+	ErrInvalidApprovalInput  = errors.New("invalid approval input")
 	ErrApprovalState         = errors.New("invalid approval state")
 	ErrApprovalQueueRequired = errors.New("approval queue is required")
 	ErrTaskNotFound          = errors.New("task not found")
@@ -152,6 +154,19 @@ func (s *Service) RequestApproval(ctx context.Context, input RequestApprovalInpu
 }
 
 func (s *Service) DecideApproval(ctx context.Context, input DecideApprovalInput) (Approval, documents.Document, error) {
+	input.ApprovalID = strings.TrimSpace(input.ApprovalID)
+	input.Decision = strings.TrimSpace(input.Decision)
+	if input.ApprovalID == "" {
+		return Approval{}, documents.Document{}, ErrInvalidApproval
+	}
+	if input.DecisionNote != "" && strings.TrimSpace(input.DecisionNote) == "" {
+		return Approval{}, documents.Document{}, ErrInvalidApprovalInput
+	}
+	input.DecisionNote = strings.TrimSpace(input.DecisionNote)
+	if input.Decision != "approved" && input.Decision != "rejected" {
+		return Approval{}, documents.Document{}, ErrInvalidApprovalInput
+	}
+
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return Approval{}, documents.Document{}, fmt.Errorf("begin decide approval: %w", err)
@@ -167,13 +182,18 @@ func (s *Service) DecideApproval(ctx context.Context, input DecideApprovalInput)
 		_ = tx.Rollback()
 		return Approval{}, documents.Document{}, err
 	}
+	documentState, err := loadDocumentState(ctx, tx, input.Actor.OrgID, approval.DocumentID)
+	if err != nil {
+		_ = tx.Rollback()
+		return Approval{}, documents.Document{}, err
+	}
+	currentDocument := documents.Document{
+		ID:     approval.DocumentID,
+		Status: documents.Status(documentState),
+	}
 	if approval.Status != "pending" {
 		_ = tx.Rollback()
-		return Approval{}, documents.Document{}, ErrApprovalState
-	}
-	if input.Decision != "approved" && input.Decision != "rejected" {
-		_ = tx.Rollback()
-		return Approval{}, documents.Document{}, ErrApprovalState
+		return approval, currentDocument, ErrApprovalState
 	}
 
 	approval, err = decideApprovalTx(ctx, tx, input, approval.DocumentID)

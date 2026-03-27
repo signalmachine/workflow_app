@@ -36,7 +36,7 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 
 ## 2. Immediate next steps
 
-1. continue Milestone 8 with slice 4 approval-action contract hardening now that lifecycle, review-read, and attachment hardening are landed
+1. continue Milestone 8 with slice 5 non-browser auth-evolution planning now that lifecycle, review-read, attachment, and approval-action hardening are landed
 2. keep Milestone 8 centered on shared `/api/...` contract discipline, request-status semantics, review-read consistency, approval-action semantics, and attachment behavior that later lightweight mobile clients will inherit
 3. keep widening or correcting the shared backend only in client-neutral slices that strengthen correctness, continuity, or reuse rather than creating a browser-specific versus mobile-specific split
 4. if Milestone 8 work exposes a browser-layer regression or a newly discovered residual Milestone 7 blocker, document it explicitly and fix it narrowly rather than reopening broad browser-surface expansion
@@ -81,8 +81,8 @@ This slice standardized malformed exact-ID filter handling across the shared rev
 Status: done
 This slice standardized attachment upload metadata validation, download-header behavior, and malformed attachment-ID handling so later non-browser clients inherit a cleaner bounded attachment seam.
 4. approval-action contract hardening
-Status: pending
-This slice should tighten approval-decision request validation, state-conflict behavior, and mutation-response visibility for clients acting through the shared backend without depending on browser redirects or browser-specific continuity.
+Status: done
+This slice now rejects malformed approval IDs as `invalid approval`, keeps approval-decision body validation aligned with the other hardened shared JSON endpoints, and returns current approval plus document state metadata on approval-decision conflicts so later non-browser clients can recover without an immediate follow-up read.
 5. non-browser auth-evolution planning
 Status: pending
 This slice should document the next authentication path for lightweight non-browser clients on the same backend foundation without replacing the active browser-session model prematurely.

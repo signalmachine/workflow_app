@@ -1487,6 +1487,10 @@ func (h *AgentAPIHandler) handleDecideApproval(w http.ResponseWriter, r *http.Re
 		http.NotFound(w, r)
 		return
 	}
+	if !uuidPattern.MatchString(approvalID) {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid approval"})
+		return
+	}
 
 	actor, err := h.actorFromRequest(r)
 	if err != nil {
@@ -1501,6 +1505,11 @@ func (h *AgentAPIHandler) handleDecideApproval(w http.ResponseWriter, r *http.Re
 		return
 	}
 	req.Decision = strings.TrimSpace(req.Decision)
+	if req.DecisionNote != "" && strings.TrimSpace(req.DecisionNote) == "" {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid approval decision"})
+		return
+	}
+	req.DecisionNote = strings.TrimSpace(req.DecisionNote)
 	if req.Decision != "approved" && req.Decision != "rejected" {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid approval decision"})
 		return
@@ -1516,10 +1525,24 @@ func (h *AgentAPIHandler) handleDecideApproval(w http.ResponseWriter, r *http.Re
 		switch {
 		case errors.Is(err, identityaccess.ErrUnauthorized):
 			writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
+		case errors.Is(err, workflow.ErrInvalidApproval):
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid approval"})
+		case errors.Is(err, workflow.ErrInvalidApprovalInput):
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid approval decision"})
 		case errors.Is(err, workflow.ErrApprovalNotFound):
 			writeJSON(w, http.StatusNotFound, errorResponse{Error: "approval not found"})
 		case errors.Is(err, workflow.ErrApprovalState), errors.Is(err, documents.ErrInvalidDocumentState):
-			writeJSON(w, http.StatusConflict, errorResponse{Error: "approval cannot be decided in the current state"})
+			writeJSON(w, http.StatusConflict, approvalDecisionResponse{
+				Error:           "approval cannot be decided in the current state",
+				ApprovalID:      approval.ID,
+				Status:          approval.Status,
+				QueueCode:       approval.QueueCode,
+				DocumentID:      approval.DocumentID,
+				DocumentStatus:  string(document.Status),
+				DecisionNote:    stringPtr(approval.DecisionNote),
+				DecidedByUserID: stringPtr(approval.DecidedByUserID),
+				DecidedAt:       timePtr(approval.DecidedAt),
+			})
 		default:
 			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to decide approval"})
 		}
@@ -2221,6 +2244,7 @@ type inboundRequestDetailResponse struct {
 }
 
 type approvalDecisionResponse struct {
+	Error           string     `json:"error,omitempty"`
 	ApprovalID      string     `json:"approval_id"`
 	Status          string     `json:"status"`
 	QueueCode       string     `json:"queue_code"`

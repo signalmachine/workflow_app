@@ -2497,6 +2497,141 @@ func TestAgentAPIDecideApprovalIntegration(t *testing.T) {
 	}
 }
 
+func TestAgentAPIDecideApprovalRejectsInvalidApprovalIDIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, approverUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleApprover)
+	approverSession := startSession(t, ctx, db, orgID, approverUserID)
+
+	handler := app.NewAgentAPIHandler(db)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/approvals/not-a-uuid/decision", bytes.NewBufferString(`{"decision":"approved"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Workflow-Org-ID", orgID)
+	req.Header.Set("X-Workflow-User-ID", approverUserID)
+	req.Header.Set("X-Workflow-Session-ID", approverSession.ID)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("unexpected invalid approval status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	requireContains(t, recorder.Body.String(), `"error":"invalid approval"`)
+}
+
+func TestAgentAPIDecideApprovalRejectsInvalidRequestBodyIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, approverUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleApprover)
+	approverSession := startSession(t, ctx, db, orgID, approverUserID)
+
+	handler := app.NewAgentAPIHandler(db)
+
+	testCases := []struct {
+		name          string
+		body          string
+		expectedError string
+	}{
+		{name: "empty body", body: "", expectedError: `"error":"request body is required"`},
+		{name: "unknown field", body: `{"decision":"approved","unexpected":true}`, expectedError: `"error":"invalid JSON request body"`},
+		{name: "whitespace note", body: `{"decision":"approved","decision_note":"   "}`, expectedError: `"error":"invalid approval decision"`},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/api/approvals/11111111-1111-4111-8111-111111111111/decision", bytes.NewBufferString(tc.body))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("X-Workflow-Org-ID", orgID)
+			req.Header.Set("X-Workflow-User-ID", approverUserID)
+			req.Header.Set("X-Workflow-Session-ID", approverSession.ID)
+
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, req)
+
+			if recorder.Code != http.StatusBadRequest {
+				t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+			}
+			requireContains(t, recorder.Body.String(), tc.expectedError)
+		})
+	}
+}
+
+func TestAgentAPIDecideApprovalConflictReturnsCurrentStateIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
+
+	_, approverUserID := seedOrgAndUserInOrg(t, ctx, db, identityaccess.RoleApprover, orgID)
+	approverSession := startSession(t, ctx, db, orgID, approverUserID)
+
+	documentService := documents.NewService(db)
+	workflowService := workflow.NewService(db, documentService)
+	approval, _ := createPendingApproval(t, ctx, documentService, workflowService, operator)
+
+	handler := app.NewAgentAPIHandler(db)
+
+	approveReq := httptest.NewRequest(http.MethodPost, "/api/approvals/"+approval.ID+"/decision", bytes.NewBufferString(`{"decision":"approved","decision_note":"Looks correct."}`))
+	approveReq.Header.Set("Content-Type", "application/json")
+	approveReq.Header.Set("X-Workflow-Org-ID", orgID)
+	approveReq.Header.Set("X-Workflow-User-ID", approverUserID)
+	approveReq.Header.Set("X-Workflow-Session-ID", approverSession.ID)
+	approveRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(approveRecorder, approveReq)
+	if approveRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected first approval status: got %d body=%s", approveRecorder.Code, approveRecorder.Body.String())
+	}
+
+	conflictReq := httptest.NewRequest(http.MethodPost, "/api/approvals/"+approval.ID+"/decision", bytes.NewBufferString(`{"decision":"rejected"}`))
+	conflictReq.Header.Set("Content-Type", "application/json")
+	conflictReq.Header.Set("X-Workflow-Org-ID", orgID)
+	conflictReq.Header.Set("X-Workflow-User-ID", approverUserID)
+	conflictReq.Header.Set("X-Workflow-Session-ID", approverSession.ID)
+	conflictRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(conflictRecorder, conflictReq)
+
+	if conflictRecorder.Code != http.StatusConflict {
+		t.Fatalf("unexpected conflict status: got %d body=%s", conflictRecorder.Code, conflictRecorder.Body.String())
+	}
+
+	var response struct {
+		Error          string  `json:"error"`
+		ApprovalID     string  `json:"approval_id"`
+		Status         string  `json:"status"`
+		DocumentID     string  `json:"document_id"`
+		DocumentStatus string  `json:"document_status"`
+		DecisionNote   *string `json:"decision_note"`
+	}
+	if err := json.Unmarshal(conflictRecorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode conflict response: %v", err)
+	}
+	if response.Error != "approval cannot be decided in the current state" {
+		t.Fatalf("unexpected conflict error: %+v", response)
+	}
+	if response.ApprovalID != approval.ID || response.Status != "approved" || response.DocumentStatus != string(documents.StatusApproved) {
+		t.Fatalf("unexpected conflict state response: %+v", response)
+	}
+	if response.DecisionNote == nil || *response.DecisionNote != "Looks correct." {
+		t.Fatalf("unexpected conflict decision note: %+v", response)
+	}
+}
+
 func seedOrgAndUserInOrg(t *testing.T, ctx context.Context, db *sql.DB, roleCode, orgID string) (string, string) {
 	t.Helper()
 
