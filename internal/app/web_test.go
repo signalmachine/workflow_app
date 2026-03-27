@@ -178,6 +178,94 @@ func TestHandleWebAuditDetailLinksInventoryEntitiesToStockBalances(t *testing.T)
 	}
 }
 
+func TestHandleWebAuditDetailLinksAIRunEntitiesToInboundRequestDetail(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listAuditEvents: func(context.Context, reporting.LookupAuditEventsInput) ([]reporting.AuditEvent, error) {
+				return []reporting.AuditEvent{
+					{
+						ID:         "audit-123",
+						EventType:  "ai.run_completed",
+						EntityType: "ai.agent_run",
+						EntityID:   "run-123",
+						OccurredAt: time.Date(2026, 3, 26, 12, 0, 0, 0, time.UTC),
+					},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review/audit/audit-123", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, `/app/inbound-requests/run:run-123`) {
+		t.Fatalf("expected AI run inbound-request detail link, body=%s", body)
+	}
+	if !strings.Contains(body, `Open inbound request execution detail`) {
+		t.Fatalf("expected AI run audit label, body=%s", body)
+	}
+}
+
+func TestHandleWebInboundRequestDetailResolvesAIRunLookup(t *testing.T) {
+	var captured reporting.GetInboundRequestDetailInput
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			getInboundRequestDetail: func(_ context.Context, input reporting.GetInboundRequestDetailInput) (reporting.InboundRequestDetail, error) {
+				captured = input
+				return reporting.InboundRequestDetail{
+					Request: reporting.InboundRequestReview{
+						RequestID:        "request-123",
+						RequestReference: "REQ-000123",
+						Status:           "processed",
+						ReceivedAt:       time.Date(2026, 3, 26, 12, 0, 0, 0, time.UTC),
+						CreatedAt:        time.Date(2026, 3, 26, 12, 0, 0, 0, time.UTC),
+						UpdatedAt:        time.Date(2026, 3, 26, 12, 5, 0, 0, time.UTC),
+					},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/inbound-requests/run:run-123", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if captured.RunID != "run-123" || captured.RequestID != "" || captured.RequestReference != "" || captured.DelegationID != "" {
+		t.Fatalf("unexpected inbound request detail lookup: %+v", captured)
+	}
+}
+
 func TestHandleWebWorkOrdersPassesExactWorkOrderFilter(t *testing.T) {
 	var captured reporting.ListWorkOrdersInput
 	handler := NewAgentAPIHandlerWithDependencies(
@@ -555,6 +643,7 @@ type stubOperatorReviewReader struct {
 	listAuditEvents                    func(context.Context, reporting.LookupAuditEventsInput) ([]reporting.AuditEvent, error)
 	listWorkOrders                     func(context.Context, reporting.ListWorkOrdersInput) ([]reporting.WorkOrderReview, error)
 	getWorkOrderReview                 func(context.Context, reporting.GetWorkOrderReviewInput) (reporting.WorkOrderReview, error)
+	getInboundRequestDetail            func(context.Context, reporting.GetInboundRequestDetailInput) (reporting.InboundRequestDetail, error)
 	listProcessedProposals             func(context.Context, reporting.ListProcessedProposalsInput) ([]reporting.ProcessedProposalReview, error)
 	listProcessedProposalStatusSummary func(context.Context, identityaccess.Actor) ([]reporting.ProcessedProposalStatusSummary, error)
 }
@@ -638,7 +727,10 @@ func (s stubOperatorReviewReader) ListInboundRequests(context.Context, reporting
 	return nil, nil
 }
 
-func (s stubOperatorReviewReader) GetInboundRequestDetail(context.Context, reporting.GetInboundRequestDetailInput) (reporting.InboundRequestDetail, error) {
+func (s stubOperatorReviewReader) GetInboundRequestDetail(ctx context.Context, input reporting.GetInboundRequestDetailInput) (reporting.InboundRequestDetail, error) {
+	if s.getInboundRequestDetail != nil {
+		return s.getInboundRequestDetail(ctx, input)
+	}
 	return reporting.InboundRequestDetail{}, nil
 }
 

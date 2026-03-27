@@ -503,6 +503,8 @@ type ProcessedProposalStatusSummary struct {
 type GetInboundRequestDetailInput struct {
 	RequestID        string
 	RequestReference string
+	RunID            string
+	DelegationID     string
 	Actor            identityaccess.Actor
 }
 
@@ -1968,7 +1970,15 @@ func (s *Service) GetInboundRequestDetail(ctx context.Context, input GetInboundR
 		return InboundRequestDetail{}, err
 	}
 
-	requestID, err := normalizeInboundRequestLookupTx(ctx, tx, input.Actor.OrgID, input.RequestID, input.RequestReference)
+	requestID, err := normalizeInboundRequestLookupTx(
+		ctx,
+		tx,
+		input.Actor.OrgID,
+		input.RequestID,
+		input.RequestReference,
+		input.RunID,
+		input.DelegationID,
+	)
 	if err != nil {
 		_ = tx.Rollback()
 		return InboundRequestDetail{}, err
@@ -2471,7 +2481,7 @@ func (s *Service) ListProcessedProposals(ctx context.Context, input ListProcesse
 		return nil, err
 	}
 
-	requestID, err := normalizeInboundRequestLookupTx(ctx, tx, input.Actor.OrgID, input.RequestID, input.RequestReference)
+	requestID, err := normalizeInboundRequestLookupTx(ctx, tx, input.Actor.OrgID, input.RequestID, input.RequestReference, "", "")
 	if err != nil {
 		_ = tx.Rollback()
 		return nil, err
@@ -2752,31 +2762,69 @@ LIMIT 200;`
 	return proposals, nil
 }
 
-func normalizeInboundRequestLookupTx(ctx context.Context, tx *sql.Tx, orgID, requestID, requestReference string) (string, error) {
+func normalizeInboundRequestLookupTx(ctx context.Context, tx *sql.Tx, orgID, requestID, requestReference, runID, delegationID string) (string, error) {
 	trimmedID := strings.TrimSpace(requestID)
 	trimmedReference := strings.TrimSpace(requestReference)
+	trimmedRunID := strings.TrimSpace(runID)
+	trimmedDelegationID := strings.TrimSpace(delegationID)
+	provided := 0
+	for _, value := range []string{trimmedID, trimmedReference, trimmedRunID, trimmedDelegationID} {
+		if value != "" {
+			provided++
+		}
+	}
 	switch {
-	case trimmedID != "" && trimmedReference != "":
+	case provided > 1:
 		return "", ErrInvalidReviewFilter
 	case trimmedID != "":
 		return trimmedID, nil
-	case trimmedReference == "":
-		return "", nil
-	}
-
-	var resolvedID string
-	err := tx.QueryRowContext(ctx, `
+	case trimmedReference != "":
+		var resolvedID string
+		err := tx.QueryRowContext(ctx, `
 SELECT id
 FROM ai.inbound_requests
 WHERE org_id = $1
   AND request_reference = $2;`, orgID, trimmedReference).Scan(&resolvedID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return "", sql.ErrNoRows
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return "", sql.ErrNoRows
+			}
+			return "", fmt.Errorf("resolve inbound request reference: %w", err)
 		}
-		return "", fmt.Errorf("resolve inbound request reference: %w", err)
+		return resolvedID, nil
+	case trimmedRunID != "":
+		var resolvedID string
+		err := tx.QueryRowContext(ctx, `
+SELECT inbound_request_id
+FROM ai.agent_runs
+WHERE org_id = $1
+  AND id = $2;`, orgID, trimmedRunID).Scan(&resolvedID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return "", sql.ErrNoRows
+			}
+			return "", fmt.Errorf("resolve inbound request run: %w", err)
+		}
+		return resolvedID, nil
+	case trimmedDelegationID != "":
+		var resolvedID string
+		err := tx.QueryRowContext(ctx, `
+SELECT parent.inbound_request_id
+FROM ai.agent_delegations d
+JOIN ai.agent_runs parent
+  ON parent.id = d.parent_run_id
+WHERE parent.org_id = $1
+  AND d.id = $2;`, orgID, trimmedDelegationID).Scan(&resolvedID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return "", sql.ErrNoRows
+			}
+			return "", fmt.Errorf("resolve inbound request delegation: %w", err)
+		}
+		return resolvedID, nil
+	default:
+		return "", nil
 	}
-	return resolvedID, nil
 }
 
 func (s *Service) beginAuthorizedRead(ctx context.Context, actor identityaccess.Actor) (*sql.Tx, error) {

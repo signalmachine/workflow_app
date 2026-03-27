@@ -306,10 +306,11 @@ Current implementation checkpoint:
 12. inbound-request detail now also links request-level AI recommendations and downstream proposals into exact proposal review, exact approval review, filtered request review, and direct inbound-request or recommendation audit lookup so the intake-review page can continue operators into downstream control decisions instead of ending at evidence inspection
 13. work-order review now also supports exact `work_order_id` drill-down through both `/api/review/work-orders?work_order_id=...` and `/app/review/work-orders?work_order_id=...`, and the browser layer now links `/app/review/work-orders/{work_order_id}` back into focused work-order review plus direct accounting review so execution-detail inspection remains inside one operator flow instead of ending on an isolated detail page
 14. inventory movement detail now also links exact movement review into focused item stock, item movement history, item reconciliation, source and destination location movement history, source-document reconciliation, and source-document accounting review so exact inventory inspection remains inside one browser review path instead of ending on a standalone detail page
-15. this milestone remains in progress because the current browser layer still needs tighter operator continuity, richer drill-downs, and focused refinement across the now-landed review surfaces
-16. detailed sequencing and constraints are captured in `web_application_layer_plan.md`
-17. this milestone should continue as a sequence of narrow vertical slices rather than one monolithic delivery
-18. the active thin-v1 web-stack direction is now explicit: keep Go server-rendered HTML as the primary rendering model, prefer `htmx` where partial updates materially improve operator continuity, use `Alpine.js` only for small local state, and avoid introducing a Node toolchain unless the canonical planning set changes
+15. exact inbound-request detail now also resolves `run:<agent-run-id>` and `delegation:<delegation-id>` through the already-landed `/app/inbound-requests/{request_reference_or_id}` and `/api/review/inbound-requests/{request_reference_or_id}` seams, and audit review now links `ai.agent_run` plus `ai.agent_delegation` entities back into the exact inbound-request execution trail so provider-execution audit events no longer dead-end on generic audit results
+16. this milestone remains in progress because the current browser layer still needs tighter operator continuity, richer drill-downs, and focused refinement across the now-landed review surfaces
+17. detailed sequencing and constraints are captured in `web_application_layer_plan.md`
+18. this milestone should continue as a sequence of narrow vertical slices rather than one monolithic delivery
+19. the active thin-v1 web-stack direction is now explicit: keep Go server-rendered HTML as the primary rendering model, prefer `htmx` where partial updates materially improve operator continuity, use `Alpine.js` only for small local state, and avoid introducing a Node toolchain unless the canonical planning set changes
 
 ## 9. Execution warning
 

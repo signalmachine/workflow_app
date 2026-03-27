@@ -630,9 +630,14 @@ func (h *AgentAPIHandler) handleGetInboundRequestDetail(w http.ResponseWriter, r
 	}
 
 	input := reporting.GetInboundRequestDetailInput{Actor: actor}
-	if strings.HasPrefix(strings.ToUpper(lookup), "REQ-") {
+	switch {
+	case strings.HasPrefix(strings.ToLower(lookup), "run:"):
+		input.RunID = strings.TrimSpace(lookup[len("run:"):])
+	case strings.HasPrefix(strings.ToLower(lookup), "delegation:"):
+		input.DelegationID = strings.TrimSpace(lookup[len("delegation:"):])
+	case strings.HasPrefix(strings.ToUpper(lookup), "REQ-"):
 		input.RequestReference = lookup
-	} else {
+	default:
 		input.RequestID = lookup
 	}
 

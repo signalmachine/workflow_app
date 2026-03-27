@@ -1366,9 +1366,14 @@ func (h *AgentAPIHandler) handleWebInboundRequestDetail(w http.ResponseWriter, r
 	}
 
 	input := reporting.GetInboundRequestDetailInput{Actor: sessionContext.Actor}
-	if strings.HasPrefix(strings.ToUpper(lookup), "REQ-") {
+	switch {
+	case strings.HasPrefix(strings.ToLower(lookup), "run:"):
+		input.RunID = strings.TrimSpace(lookup[len("run:"):])
+	case strings.HasPrefix(strings.ToLower(lookup), "delegation:"):
+		input.DelegationID = strings.TrimSpace(lookup[len("delegation:"):])
+	case strings.HasPrefix(strings.ToUpper(lookup), "REQ-"):
 		input.RequestReference = lookup
-	} else {
+	default:
 		input.RequestID = lookup
 	}
 
@@ -1767,6 +1772,10 @@ func templateAuditEntityHref(entityType, entityID string) string {
 		return templateApprovalReviewHref(entityID)
 	case "ai.agent_recommendation":
 		return templateProposalDetailHref(entityID)
+	case "ai.agent_run":
+		return templateInboundRequestHref("run:" + entityID)
+	case "ai.agent_delegation":
+		return templateInboundRequestHref("delegation:" + entityID)
 	case "accounting.journal_entry":
 		return templateAccountingEntryHref(entityID)
 	case "work_orders.work_order":
@@ -1792,6 +1801,10 @@ func templateAuditEntityLabel(entityType string) string {
 		return "Open approval review"
 	case "ai.agent_recommendation":
 		return "Open proposal review"
+	case "ai.agent_run":
+		return "Open inbound request execution detail"
+	case "ai.agent_delegation":
+		return "Open inbound request delegation detail"
 	case "accounting.journal_entry":
 		return "Open journal entry"
 	case "work_orders.work_order":

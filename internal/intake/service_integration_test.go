@@ -448,6 +448,28 @@ func TestInboundRequestLifecycleAndReportingIntegration(t *testing.T) {
 		t.Fatalf("unexpected proposal document title: %+v", detail.Proposals[0].DocumentTitle)
 	}
 
+	detailByRun, err := reportingService.GetInboundRequestDetail(ctx, reporting.GetInboundRequestDetailInput{
+		RunID: run.ID,
+		Actor: operator,
+	})
+	if err != nil {
+		t.Fatalf("get inbound request detail by run: %v", err)
+	}
+	if detailByRun.Request.RequestID != request.ID || detailByRun.Request.RequestReference != request.RequestReference {
+		t.Fatalf("unexpected inbound request detail by run: %+v", detailByRun.Request)
+	}
+
+	detailByDelegation, err := reportingService.GetInboundRequestDetail(ctx, reporting.GetInboundRequestDetailInput{
+		DelegationID: delegation.ID,
+		Actor:        operator,
+	})
+	if err != nil {
+		t.Fatalf("get inbound request detail by delegation: %v", err)
+	}
+	if detailByDelegation.Request.RequestID != request.ID || detailByDelegation.Request.RequestReference != request.RequestReference {
+		t.Fatalf("unexpected inbound request detail by delegation: %+v", detailByDelegation.Request)
+	}
+
 	proposals, err := reportingService.ListProcessedProposals(ctx, reporting.ListProcessedProposalsInput{
 		Status:           ai.RecommendationStatusApprovalRequested,
 		RequestReference: request.RequestReference,
