@@ -119,8 +119,8 @@ func TestHandleWebInventoryAddsStockContinuityLinks(t *testing.T) {
 	}
 
 	body := recorder.Body.String()
-	if !strings.Contains(body, `/app/review/inventory?item_id=item-123&amp;location_id=loc-123#stock-balances`) {
-		t.Fatalf("expected stock-balance anchor link, body=%s", body)
+	if !strings.Contains(body, `/app/review/inventory/items/item-123`) {
+		t.Fatalf("expected exact inventory item link, body=%s", body)
 	}
 	if !strings.Contains(body, `/app/review/inventory?item_id=item-123&amp;location_id=loc-123#movement-history`) {
 		t.Fatalf("expected movement-history link from stock row, body=%s", body)
@@ -128,8 +128,8 @@ func TestHandleWebInventoryAddsStockContinuityLinks(t *testing.T) {
 	if !strings.Contains(body, `/app/review/inventory?item_id=item-123#reconciliation`) {
 		t.Fatalf("expected reconciliation link from stock row, body=%s", body)
 	}
-	if !strings.Contains(body, `/app/review/inventory?location_id=loc-123#movement-history`) {
-		t.Fatalf("expected location movement link from stock row, body=%s", body)
+	if !strings.Contains(body, `/app/review/inventory/locations/loc-123`) {
+		t.Fatalf("expected exact inventory location link, body=%s", body)
 	}
 }
 
@@ -170,8 +170,8 @@ func TestHandleWebAuditDetailLinksInventoryEntitiesToStockBalances(t *testing.T)
 	}
 
 	body := recorder.Body.String()
-	if !strings.Contains(body, `/app/review/inventory?item_id=item-123#stock-balances`) {
-		t.Fatalf("expected item-scoped stock-balance link, body=%s", body)
+	if !strings.Contains(body, `/app/review/inventory/items/item-123`) {
+		t.Fatalf("expected item detail link, body=%s", body)
 	}
 	if !strings.Contains(body, `Open inventory item review`) {
 		t.Fatalf("expected updated inventory audit label, body=%s", body)
@@ -670,6 +670,9 @@ func TestHandleWebInventoryDetailAddsFocusedContinuityLinks(t *testing.T) {
 		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
 	}
 	body := recorder.Body.String()
+	if !strings.Contains(body, `/app/review/inventory/items/item-123">Open item review</a>`) {
+		t.Fatalf("expected exact item review link, body=%s", body)
+	}
 	if !strings.Contains(body, `/app/review/inventory?item_id=item-123#movement-history">Item movement history</a>`) {
 		t.Fatalf("expected item movement history link, body=%s", body)
 	}
@@ -682,6 +685,12 @@ func TestHandleWebInventoryDetailAddsFocusedContinuityLinks(t *testing.T) {
 	if !strings.Contains(body, `/app/review/inventory?location_id=loc-dst#movement-history">Location movements</a>`) {
 		t.Fatalf("expected destination location movement link, body=%s", body)
 	}
+	if !strings.Contains(body, `/app/review/inventory/locations/loc-src`) {
+		t.Fatalf("expected source location detail link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/inventory/locations/loc-dst`) {
+		t.Fatalf("expected destination location detail link, body=%s", body)
+	}
 	if !strings.Contains(body, `/app/review/inventory?document_id=doc-123#reconciliation">Document reconciliation</a>`) {
 		t.Fatalf("expected document reconciliation link, body=%s", body)
 	}
@@ -693,6 +702,158 @@ func TestHandleWebInventoryDetailAddsFocusedContinuityLinks(t *testing.T) {
 	}
 	if !strings.Contains(body, `/app/review/accounting/entry-123">Entry #91</a>`) {
 		t.Fatalf("expected accounting entry link in reconciliation rows, body=%s", body)
+	}
+}
+
+func TestHandleWebInventoryItemDetailRendersExactItemReviewStop(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listInventoryStock: func(context.Context, reporting.ListInventoryStockInput) ([]reporting.InventoryStockItem, error) {
+				return []reporting.InventoryStockItem{{
+					ItemID:       "item-123",
+					ItemSKU:      "MAT-123",
+					ItemName:     "Copper pipe",
+					ItemRole:     "material",
+					LocationID:   "loc-123",
+					LocationCode: "MAIN",
+					LocationName: "Main store",
+					LocationRole: "warehouse",
+					OnHandMilli:  1200,
+				}}, nil
+			},
+			listInventoryMovements: func(context.Context, reporting.ListInventoryMovementsInput) ([]reporting.InventoryMovementReview, error) {
+				return []reporting.InventoryMovementReview{{
+					MovementID:              "movement-123",
+					MovementNumber:          42,
+					ItemID:                  "item-123",
+					ItemSKU:                 "MAT-123",
+					ItemName:                "Copper pipe",
+					ItemRole:                "material",
+					MovementType:            "issue",
+					SourceLocationID:        sql.NullString{String: "loc-123", Valid: true},
+					SourceLocationCode:      sql.NullString{String: "MAIN", Valid: true},
+					DestinationLocationID:   sql.NullString{String: "loc-456", Valid: true},
+					DestinationLocationCode: sql.NullString{String: "VAN-1", Valid: true},
+					QuantityMilli:           300,
+					CreatedByUserID:         "user-123",
+					CreatedAt:               time.Date(2026, 3, 27, 10, 0, 0, 0, time.UTC),
+				}}, nil
+			},
+			listInventoryReconciliation: func(context.Context, reporting.ListInventoryReconciliationInput) ([]reporting.InventoryReconciliationItem, error) {
+				return []reporting.InventoryReconciliationItem{{
+					DocumentID:         "doc-123",
+					DocumentTitle:      "Inventory issue",
+					DocumentTypeCode:   "inventory_issue",
+					DocumentStatus:     "posted",
+					LineNumber:         1,
+					MovementID:         "movement-123",
+					MovementNumber:     42,
+					WorkOrderID:        sql.NullString{String: "work-order-123", Valid: true},
+					WorkOrderCode:      sql.NullString{String: "WO-123", Valid: true},
+					JournalEntryID:     sql.NullString{String: "entry-123", Valid: true},
+					JournalEntryNumber: sql.NullInt64{Int64: 91, Valid: true},
+				}}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review/inventory/items/item-123", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, `/app/review/inventory?item_id=item-123#stock-balances`) {
+		t.Fatalf("expected filtered inventory back-link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/inventory/locations/loc-123`) {
+		t.Fatalf("expected location continuity link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/inventory/movement-123`) {
+		t.Fatalf("expected movement continuity link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/accounting/entry-123">Entry #91</a>`) {
+		t.Fatalf("expected accounting continuity link, body=%s", body)
+	}
+}
+
+func TestHandleWebInventoryLocationDetailRendersExactLocationReviewStop(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listInventoryStock: func(context.Context, reporting.ListInventoryStockInput) ([]reporting.InventoryStockItem, error) {
+				return []reporting.InventoryStockItem{{
+					ItemID:       "item-123",
+					ItemSKU:      "MAT-123",
+					ItemName:     "Copper pipe",
+					ItemRole:     "material",
+					LocationID:   "loc-123",
+					LocationCode: "MAIN",
+					LocationName: "Main store",
+					LocationRole: "warehouse",
+					OnHandMilli:  1200,
+				}}, nil
+			},
+			listInventoryMovements: func(context.Context, reporting.ListInventoryMovementsInput) ([]reporting.InventoryMovementReview, error) {
+				return []reporting.InventoryMovementReview{{
+					MovementID:              "movement-123",
+					MovementNumber:          42,
+					ItemID:                  "item-123",
+					ItemSKU:                 "MAT-123",
+					ItemName:                "Copper pipe",
+					ItemRole:                "material",
+					MovementType:            "issue",
+					SourceLocationCode:      sql.NullString{String: "MAIN", Valid: true},
+					DestinationLocationCode: sql.NullString{String: "VAN-1", Valid: true},
+					QuantityMilli:           300,
+					CreatedByUserID:         "user-123",
+					CreatedAt:               time.Date(2026, 3, 27, 10, 0, 0, 0, time.UTC),
+				}}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review/inventory/locations/loc-123", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, `/app/review/inventory?location_id=loc-123#stock-balances`) {
+		t.Fatalf("expected filtered inventory back-link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/inventory/items/item-123`) {
+		t.Fatalf("expected item continuity link, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/inventory/movement-123`) {
+		t.Fatalf("expected movement continuity link, body=%s", body)
 	}
 }
 
