@@ -1,0 +1,94 @@
+package pages
+
+import (
+	"accounting-agent/internal/core"
+	"accounting-agent/web/templates/layouts"
+	"strconv"
+)
+
+// DocumentTypeGovernance renders posting-mix diagnostics for document type policy.
+templ DocumentTypeGovernance(d layouts.AppLayoutData, report *core.DocumentTypeGovernanceReport, fromDate, toDate string) {
+	@layouts.AppLayout(d) {
+		<div class="max-w-5xl space-y-5">
+			<div>
+				<h1 class="text-2xl font-bold text-slate-900">Document Type Governance</h1>
+				<p class="text-sm text-slate-500 mt-0.5">Posting mix and JE governance diagnostics for { report.CompanyCode }.</p>
+			</div>
+
+			<form method="GET" action="/reports/document-type-governance" class="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap items-end gap-4">
+				<div>
+					<label class="block text-xs font-medium text-slate-600 mb-1">From Date</label>
+					<input
+						type="date"
+						name="from"
+						value={ fromDate }
+						class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+					/>
+				</div>
+				<div>
+					<label class="block text-xs font-medium text-slate-600 mb-1">To Date</label>
+					<input
+						type="date"
+						name="to"
+						value={ toDate }
+						class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+					/>
+				</div>
+				<button type="submit" class="px-4 py-1.5 bg-slate-900 text-white text-sm rounded-lg hover:bg-slate-800 transition-colors">
+					Run Report
+				</button>
+			</form>
+
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+				<div class="bg-white rounded-xl border border-gray-200 p-3">
+					<div class="text-xs text-slate-500">Total Postings</div>
+					<div class="text-lg font-semibold text-slate-900 mt-1">{ int64ToString(report.TotalPostings) }</div>
+				</div>
+				<div class="bg-white rounded-xl border border-gray-200 p-3">
+					<div class="text-xs text-slate-500">JE Postings</div>
+					<div class="text-lg font-semibold text-slate-900 mt-1">{ int64ToString(report.JEPostings) }</div>
+				</div>
+				<div class="bg-white rounded-xl border border-gray-200 p-3">
+					<div class="text-xs text-slate-500">JE Share</div>
+					<div class="text-lg font-semibold text-slate-900 mt-1">{ report.JESharePct.StringFixed(2) }%</div>
+				</div>
+				<div class="bg-white rounded-xl border border-gray-200 p-3">
+					<div class="text-xs text-slate-500">Operational-like JE</div>
+					<div class="text-lg font-semibold text-amber-700 mt-1">{ int64ToString(report.OperationalLikeJEPostings) }</div>
+				</div>
+				<div class="bg-white rounded-xl border border-gray-200 p-3">
+					<div class="text-xs text-slate-500">Manual JE</div>
+					<div class="text-lg font-semibold text-emerald-700 mt-1">{ int64ToString(report.ManualJEPostings) }</div>
+				</div>
+			</div>
+
+			<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+				<table class="data-table">
+					<thead>
+						<tr>
+							<th>Document Type</th>
+							<th class="num">Posting Count</th>
+						</tr>
+					</thead>
+					<tbody>
+						if len(report.Counts) == 0 {
+							<tr>
+								<td colspan="2" class="italic text-slate-400">No document postings found for this date range.</td>
+							</tr>
+						}
+						for _, c := range report.Counts {
+							<tr>
+								<td class="font-semibold text-slate-800">{ c.DocumentTypeCode }</td>
+								<td class="num font-mono">{ int64ToString(c.PostingCount) }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	}
+}
+
+func int64ToString(v int64) string {
+	return strconv.FormatInt(v, 10)
+}

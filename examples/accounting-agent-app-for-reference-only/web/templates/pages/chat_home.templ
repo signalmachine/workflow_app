@@ -1,0 +1,659 @@
+package pages
+
+import "accounting-agent/web/templates/layouts"
+
+// ChatHome is the AI Agent full-screen chat page (GET /).
+// Rendered inside AppLayout (sidebar visible) with FlushContent=true so the
+// chat fills the main area without padding.
+templ ChatHome(d layouts.AppLayoutData) {
+	@layouts.AppLayout(d) {
+		<div
+			class="flex-1 flex flex-col overflow-hidden"
+			x-data="chatHome()"
+			x-init="init()"
+		>
+			<!-- Message thread (scrollable) -->
+			<div class="flex-1 overflow-y-auto bg-gradient-to-b from-indigo-50 via-slate-50 to-blue-50" id="chat-thread">
+				<!-- Welcome state — shown when no messages yet -->
+				<div
+					class="flex flex-col px-6 pt-8 pb-4 max-w-3xl mx-auto w-full"
+					x-show="messages.length === 0"
+				>
+					<h1 class="text-xl font-semibold text-slate-800 mb-1">Hi, I'm your AI accounting assistant</h1>
+					<p class="text-sm text-slate-500 mb-6 max-w-lg">
+						Describe a business event in plain English and I'll propose the accounting entry for you to review and post. I can also pull up reports like trial balance, P&amp;L, and balance sheet on request. For other reports, use the <span class="font-medium text-slate-700">Reports</span> section in the left-hand navigation.
+					</p>
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+						<!-- Accounting Entries -->
+						<div class="bg-blue-100 border border-blue-200 rounded-xl p-4">
+							<div class="flex items-center gap-2 mb-1">
+								<span class="text-base">📝</span>
+								<h2 class="text-sm font-semibold text-slate-900">Accounting Entries</h2>
+							</div>
+							<p class="text-xs text-slate-700 mb-3">Journal entries, sales invoices, purchase invoices. Click an example to try:</p>
+							<div class="space-y-2">
+								<button
+									type="button"
+									class="w-full text-left text-xs bg-white hover:bg-blue-50 border border-blue-200 hover:border-blue-400 text-slate-900 rounded-lg px-3 py-2 transition-colors"
+									x-on:click="quickSend('Rent accrued for Rs 1000 — debit rent expense, credit accounts payable')"
+								>"Rent accrued for ₹1,000 to accounts payable"</button>
+								<button
+									type="button"
+									class="w-full text-left text-xs bg-white hover:bg-blue-50 border border-blue-200 hover:border-blue-400 text-slate-900 rounded-lg px-3 py-2 transition-colors"
+									x-on:click="quickSend('Paid utilities expense for Rs 1000 from cash account')"
+								>"Paid utilities expense for ₹1,000 from cash account"</button>
+								<button
+									type="button"
+									class="w-full text-left text-xs bg-white hover:bg-blue-50 border border-blue-200 hover:border-blue-400 text-slate-900 rounded-lg px-3 py-2 transition-colors"
+									x-on:click="quickSend('Customer paid Rs 25000 against outstanding invoice')"
+								>"Customer paid ₹25,000 against outstanding invoice"</button>
+								<button
+									type="button"
+									class="w-full text-left text-xs bg-white hover:bg-blue-50 border border-blue-200 hover:border-blue-400 text-slate-900 rounded-lg px-3 py-2 transition-colors"
+									x-on:click="quickSend('Purchase invoice from vendor for office supplies Rs 5000')"
+								>"Purchase invoice from vendor for office supplies ₹5,000"</button>
+							</div>
+						</div>
+						<!-- Reports -->
+						<div class="bg-blue-100 border border-blue-200 rounded-xl p-4">
+							<div class="flex items-center gap-2 mb-1">
+								<span class="text-base">📊</span>
+								<h2 class="text-sm font-semibold text-slate-900">Reports</h2>
+							</div>
+							<p class="text-xs text-slate-700 mb-3">Ask for account balances directly in chat:</p>
+							<div class="space-y-2 mb-4">
+								<button
+									type="button"
+									class="w-full text-left text-xs bg-white hover:bg-blue-50 border border-blue-200 hover:border-blue-400 text-slate-900 rounded-lg px-3 py-2 transition-colors"
+									x-on:click="quickSend('What is the current balance of accounts receivable?')"
+								>"What is the balance of accounts receivable?"</button>
+								<button
+									type="button"
+									class="w-full text-left text-xs bg-white hover:bg-blue-50 border border-blue-200 hover:border-blue-400 text-slate-900 rounded-lg px-3 py-2 transition-colors"
+									x-on:click="quickSend('What is the current AP balance?')"
+								>"What is the current AP balance?"</button>
+							</div>
+							<div class="border-t border-slate-100 pt-3">
+								<p class="text-xs text-slate-700 mb-2">Full financial statements are in the <span class="font-medium text-slate-800">Reports</span> section:</p>
+								<div class="flex flex-wrap gap-1.5">
+									<a href="/reports/trial-balance" class="text-xs px-2 py-1 bg-white hover:bg-blue-50 text-slate-900 border border-blue-200 rounded-md transition-colors">Trial Balance</a>
+									<a href="/reports/pl" class="text-xs px-2 py-1 bg-white hover:bg-blue-50 text-slate-900 border border-blue-200 rounded-md transition-colors">P&amp;L Report</a>
+									<a href="/reports/balance-sheet" class="text-xs px-2 py-1 bg-white hover:bg-blue-50 text-slate-900 border border-blue-200 rounded-md transition-colors">Balance Sheet</a>
+									<a href="/reports/statement" class="text-xs px-2 py-1 bg-white hover:bg-blue-50 text-slate-900 border border-blue-200 rounded-md transition-colors">Account Statement</a>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<!-- Message list -->
+				<div class="px-4 py-4 space-y-3 max-w-3xl mx-auto" x-show="messages.length > 0">
+					<template x-for="(msg, idx) in messages" :key="idx">
+						<div>
+							<!-- User bubble -->
+							<template x-if="msg.role === 'user'">
+								<div class="flex justify-end">
+									<div class="max-w-[75%] bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed" x-text="msg.text"></div>
+								</div>
+							</template>
+							<!-- AI text bubble -->
+							<template x-if="msg.role === 'ai' && msg.type === 'text'">
+								<div class="flex justify-start">
+									<div class="max-w-[75%] bg-white border border-gray-100 shadow-sm text-slate-800 rounded-2xl rounded-tl-sm px-4 py-3 text-sm leading-relaxed chat-md" x-html="msg.html"></div>
+								</div>
+							</template>
+							<!-- Action card (write tool proposal) -->
+							<template x-if="msg.role === 'ai' && msg.type === 'action_card'">
+								<div class="border border-amber-200 bg-amber-50 rounded-2xl p-4 max-w-sm">
+									<div class="flex items-center gap-2 mb-2">
+										<span class="text-base">🔧</span>
+										<span class="text-sm font-semibold text-amber-900" x-text="toolLabel(msg.tool)"></span>
+									</div>
+									<pre class="text-xs text-amber-700 bg-amber-100 rounded-lg p-2 overflow-auto max-h-40 mb-3" x-text="JSON.stringify(msg.args, null, 2)"></pre>
+									<div x-show="msg.status === undefined || msg.status === 'pending'" class="flex gap-2">
+										<button
+											type="button"
+											class="flex-1 px-3 py-1.5 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors"
+											x-on:click="confirmAction(msg, 'confirm')"
+										>✓ Confirm</button>
+										<button
+											type="button"
+											class="px-3 py-1.5 border border-amber-300 text-amber-700 text-sm rounded-lg hover:bg-amber-100 transition-colors"
+											x-on:click="confirmAction(msg, 'cancel')"
+										>✕ Cancel</button>
+									</div>
+									<div x-show="msg.status === 'confirming' || msg.status === 'cancelling'" class="text-sm text-slate-500 flex items-center gap-1.5">
+										<svg class="animate-spin h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+											<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+											<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"></path>
+										</svg>
+										<span>Processing...</span>
+									</div>
+									<div x-show="msg.status === 'confirmed'" class="text-sm text-green-700 font-medium">✓ <span x-text="msg.resultText"></span></div>
+									<div x-show="msg.status === 'cancelled'" class="text-sm text-slate-500">Cancelled.</div>
+									<div x-show="msg.status === 'error'" class="text-sm text-red-600">⚠ <span x-text="msg.resultText"></span></div>
+								</div>
+							</template>
+							<!-- Journal entry proposal card -->
+							<template x-if="msg.role === 'ai' && msg.type === 'proposal'">
+								<div class="border border-blue-200 bg-blue-50 rounded-2xl p-4 max-w-lg">
+									<!-- Header: icon + title + doc type / company badges -->
+									<div class="flex items-center justify-between mb-3">
+										<div class="flex items-center gap-2">
+											<span class="text-base">🧾</span>
+											<span class="text-sm font-semibold text-blue-900">Journal Entry Proposal</span>
+										</div>
+										<div class="flex gap-1">
+											<span class="text-xs font-mono bg-blue-200 text-blue-800 px-2 py-0.5 rounded" x-text="msg.proposal && msg.proposal.document_type_code"></span>
+											<span class="text-xs font-mono bg-slate-200 text-slate-700 px-2 py-0.5 rounded" x-text="msg.proposal && msg.proposal.company_code"></span>
+										</div>
+									</div>
+									<!-- Summary -->
+									<div class="text-sm text-slate-800 font-medium mb-2" x-text="msg.proposal && msg.proposal.summary"></div>
+									<!-- Metadata grid -->
+									<div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mb-2">
+										<div class="flex gap-1"><span class="text-slate-500">Posting</span><span class="font-mono text-slate-700" x-text="msg.proposal && msg.proposal.posting_date"></span></div>
+										<div class="flex gap-1"><span class="text-slate-500">Doc date</span><span class="font-mono text-slate-700" x-text="msg.proposal && msg.proposal.document_date"></span></div>
+										<div class="flex gap-1"><span class="text-slate-500">Currency</span><span class="font-mono text-slate-700" x-text="msg.proposal ? msg.proposal.transaction_currency + ' @ ' + msg.proposal.exchange_rate : ''"></span></div>
+										<div class="flex gap-1"><span class="text-slate-500">Confidence</span><span class="font-mono text-slate-700" x-text="msg.proposal ? (msg.proposal.confidence * 100).toFixed(0) + '%' : ''"></span></div>
+									</div>
+									<!-- Reasoning -->
+									<div class="text-xs text-blue-700 italic mb-3" x-text="msg.proposal && msg.proposal.reasoning"></div>
+									<!-- Journal lines table -->
+									<div class="bg-white border border-blue-100 rounded-lg overflow-hidden mb-3">
+										<table class="w-full text-xs">
+											<thead>
+												<tr class="bg-blue-50 border-b border-blue-100">
+													<th class="text-left px-3 py-1.5 text-slate-500 font-medium w-10">Type</th>
+													<th class="text-left px-3 py-1.5 text-slate-500 font-medium w-16">Account</th>
+													<th class="text-left px-3 py-1.5 text-slate-500 font-medium">Description</th>
+													<th class="text-right px-3 py-1.5 text-slate-500 font-medium">Amount</th>
+												</tr>
+											</thead>
+											<tbody>
+												<template x-for="(line, li) in (msg.proposal && msg.proposal.lines || [])">
+													<tr class="border-b border-blue-50 last:border-0">
+														<td class="px-3 py-1.5">
+															<span
+																class="font-mono font-semibold"
+																:class="line.is_debit ? 'text-emerald-700' : 'text-rose-600'"
+																x-text="line.is_debit ? 'DR' : 'CR'"
+															></span>
+														</td>
+														<td class="px-3 py-1.5 font-mono text-slate-700 w-16" x-text="line.account_code"></td>
+														<td class="px-3 py-1.5 text-slate-600 text-xs" x-text="line.account_name || '—'"></td>
+														<td class="px-3 py-1.5 font-mono text-right text-slate-800" x-text="line.amount + ' ' + (msg.proposal && msg.proposal.transaction_currency)"></td>
+													</tr>
+												</template>
+											</tbody>
+										</table>
+									</div>
+									<!-- Actions -->
+									<div x-show="msg.status === undefined || msg.status === 'pending'" class="flex gap-2">
+										<button
+											type="button"
+											class="flex-1 px-3 py-1.5 border border-blue-300 text-slate-800 hover:text-slate-900 text-sm font-medium rounded-lg hover:bg-blue-100 transition-colors"
+											x-on:click="confirmAction(msg, 'confirm')"
+										>✓ Post Entry</button>
+										<button
+											type="button"
+											class="px-3 py-1.5 border border-blue-300 text-blue-700 text-sm rounded-lg hover:bg-blue-100 transition-colors"
+											x-on:click="amendAction(msg)"
+										>✎ Amend</button>
+										<button
+											type="button"
+											class="px-3 py-1.5 border border-blue-300 text-blue-700 text-sm rounded-lg hover:bg-blue-100 transition-colors"
+											x-on:click="confirmAction(msg, 'cancel')"
+										>✕ Cancel</button>
+									</div>
+									<div x-show="msg.status === 'confirming' || msg.status === 'cancelling'" class="text-sm text-slate-500 flex items-center gap-1.5">
+										<svg class="animate-spin h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+											<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+											<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"></path>
+										</svg>
+										<span>Processing...</span>
+									</div>
+									<div x-show="msg.status === 'confirmed'" class="text-sm text-green-700 font-medium">✓ Journal entry posted.</div>
+									<div x-show="msg.status === 'cancelled'" class="text-sm text-slate-500">Cancelled.</div>
+									<div x-show="msg.status === 'error'" class="text-sm text-red-600">⚠ <span x-text="msg.resultText"></span></div>
+								</div>
+							</template>
+						</div>
+					</template>
+					<!-- Typing indicator -->
+					<div x-show="sending" class="flex justify-start">
+						<div class="bg-white border border-gray-100 shadow-sm rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1.5">
+							<div class="typing-dots flex gap-1">
+								<span></span><span></span><span></span>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<!-- Input bar (sticky bottom) -->
+			<div class="bg-white border-t border-gray-200 px-4 py-3 flex-shrink-0">
+				<!-- Attachment chips -->
+				<div class="flex flex-wrap gap-2 mb-2" x-show="attachments.length > 0">
+					<template x-for="(att, idx) in attachments" :key="att.id">
+						<div class="flex items-center gap-1.5 px-2 py-1 bg-blue-100 rounded-lg text-xs text-slate-700">
+							<span>📎</span>
+							<span x-text="att.name" class="max-w-24 truncate"></span>
+							<button type="button" class="text-slate-500 hover:text-slate-900" x-on:click="removeAttachment(idx)" aria-label="Remove attachment">✕</button>
+						</div>
+					</template>
+				</div>
+				<div x-show="uploadError" class="mb-2 max-w-3xl mx-auto text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2" x-text="uploadError"></div>
+				<div class="flex gap-2 items-end max-w-3xl mx-auto">
+					<!-- Paperclip button -->
+					<button
+						type="button"
+						class="p-2 text-slate-900 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors flex-shrink-0"
+						x-on:click="$refs.fileInput.click()"
+						title="Attach image"
+						aria-label="Attach image"
+					>
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
+						</svg>
+					</button>
+					<input
+						type="file"
+						x-ref="fileInput"
+						accept="image/jpeg,image/png,image/webp"
+						multiple
+						class="hidden"
+						x-on:change="handleFileSelect($event)"
+					/>
+					<!-- Text input -->
+					<textarea
+						x-model="input"
+						rows="1"
+						placeholder="Ask anything… Type your message and press Ctrl+Enter or click the send button to submit."
+						class="flex-1 text-sm bg-yellow-50 border-2 border-blue-400 text-slate-900 placeholder-slate-400 rounded-xl px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 max-h-32"
+						autofocus
+					x-on:keydown.ctrl.enter.prevent="sendMessage()"
+						x-on:input="autoResize($event.target)"
+					></textarea>
+					<!-- Send button -->
+					<button
+						type="button"
+						class="p-2 bg-slate-900 text-white rounded-xl hover:bg-slate-700 transition-colors flex-shrink-0 disabled:opacity-40"
+						x-on:click="sendMessage()"
+						x-bind:disabled="sending || input.trim() === ''"
+						aria-label="Send message"
+					>
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+						</svg>
+					</button>
+				</div>
+			</div>
+		</div>
+		<script>
+		function chatHome() {
+			const STORAGE_KEY = 'chat_history';
+			const COMPANY_CODE = document.body.dataset.companyCode || '';
+
+			return {
+				messages: [],
+				input: '',
+				sending: false,
+				attachments: [],  // {id, name, type}
+				uploadError: '',
+
+				escapeHTML(s) {
+					return String(s || '')
+						.replace(/&/g, '&amp;')
+						.replace(/</g, '&lt;')
+						.replace(/>/g, '&gt;')
+						.replace(/"/g, '&quot;')
+						.replace(/'/g, '&#39;');
+				},
+
+				sanitizeURL(rawURL) {
+					const s = String(rawURL || '').trim();
+					if (!s) return null;
+					if (s.startsWith('/') || s.startsWith('#') || s.startsWith('?')) return s;
+					try {
+						const u = new URL(s, window.location.origin);
+						if (u.protocol === 'http:' || u.protocol === 'https:' || u.protocol === 'mailto:' || u.protocol === 'tel:') {
+							return u.toString();
+						}
+						return null;
+					} catch (_) {
+						return null;
+					}
+				},
+
+				sanitizeChatHTML(rawHTML) {
+					try {
+						const parser = new DOMParser();
+						const doc = parser.parseFromString('<div>' + String(rawHTML || '') + '</div>', 'text/html');
+						const root = doc.body.firstElementChild;
+						if (!root) return '';
+
+						const allowedTags = new Set([
+							'A', 'P', 'BR', 'UL', 'OL', 'LI',
+							'STRONG', 'EM', 'CODE', 'PRE',
+							'BLOCKQUOTE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
+							'HR', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD',
+						]);
+						const walker = doc.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+						const elements = [];
+						while (walker.nextNode()) elements.push(walker.currentNode);
+
+						for (const el of elements) {
+							const tag = el.tagName.toUpperCase();
+							if (!allowedTags.has(tag)) {
+								el.replaceWith(doc.createTextNode(el.textContent || ''));
+								continue;
+							}
+							for (const attr of Array.from(el.attributes)) {
+								const name = attr.name.toLowerCase();
+								if (name.startsWith('on') || name === 'style') {
+									el.removeAttribute(attr.name);
+									continue;
+								}
+								if (tag === 'A' && name === 'href') {
+									const safeHref = this.sanitizeURL(attr.value);
+									if (safeHref) {
+										el.setAttribute('href', safeHref);
+									} else {
+										el.removeAttribute(attr.name);
+									}
+									continue;
+								}
+								if (tag === 'A' && (name === 'title' || name === 'target' || name === 'rel')) {
+									continue;
+								}
+								if ((tag === 'CODE' || tag === 'PRE') && name === 'class') {
+									continue;
+								}
+								el.removeAttribute(attr.name);
+							}
+							if (tag === 'A') {
+								if (el.getAttribute('target') === '_blank') {
+									el.setAttribute('rel', 'noopener noreferrer');
+								} else {
+									el.removeAttribute('target');
+									el.removeAttribute('rel');
+								}
+							}
+						}
+
+						return root.innerHTML;
+					} catch (e) {
+						console.error('HTML sanitization failed:', e);
+						return this.escapeHTML(rawHTML);
+					}
+				},
+
+				renderMarkdownSafely(rawText) {
+					const escaped = this.escapeHTML(rawText || '');
+					let parsedHTML = escaped.replace(/\n/g, '<br>');
+					try {
+						if (typeof marked !== 'undefined' && marked && typeof marked.parse === 'function') {
+							parsedHTML = marked.parse(escaped, {
+								gfm: true,
+								breaks: true,
+								mangle: false,
+								headerIds: false,
+							});
+						}
+					} catch (e) {
+						console.error('Markdown parse failed, using escaped fallback:', e);
+					}
+					return this.sanitizeChatHTML(parsedHTML);
+				},
+
+				makeAITextMessage(rawText) {
+					const text = String(rawText || '');
+					return { role: 'ai', type: 'text', text, html: this.renderMarkdownSafely(text) };
+				},
+
+				init() {
+					// Clear history when the user clicks "New Chat" (/?new=1)
+					if (new URLSearchParams(window.location.search).has('new')) {
+						sessionStorage.removeItem('chat_history');
+						history.replaceState({}, '', '/');
+					}
+					this.loadHistory();
+					this.$nextTick(() => this.scrollToBottom());
+				},
+
+				loadHistory() {
+					try {
+						const raw = sessionStorage.getItem(STORAGE_KEY);
+						if (!raw) return;
+						const parsed = JSON.parse(raw);
+						if (!Array.isArray(parsed)) return;
+						this.messages = parsed.map((msg) => {
+							if (!msg || typeof msg !== 'object') return msg;
+							if (msg.role === 'ai' && msg.type === 'text') {
+								const text = String(msg.text || '');
+								return { ...msg, text, html: this.renderMarkdownSafely(text) };
+							}
+							return msg;
+						});
+					} catch(e) { this.messages = []; }
+				},
+
+				saveHistory() {
+					try {
+						sessionStorage.setItem(STORAGE_KEY, JSON.stringify(this.messages));
+					} catch(e) {}
+				},
+
+				scrollToBottom() {
+					const thread = document.getElementById('chat-thread');
+					if (thread) thread.scrollTop = thread.scrollHeight;
+				},
+
+				autoResize(el) {
+					el.style.height = 'auto';
+					el.style.height = Math.min(el.scrollHeight, 128) + 'px';
+				},
+
+				quickSend(text) {
+					this.input = text;
+					this.sendMessage();
+				},
+
+				toolLabel(tool) {
+					const labels = {
+						'approve_po': 'Approve Purchase Order',
+						'create_vendor': 'Create Vendor',
+						'create_purchase_order': 'Create Purchase Order',
+						'receive_po': 'Receive Goods Against PO',
+						'record_vendor_invoice': 'Record Vendor Invoice',
+						'pay_vendor': 'Pay Vendor',
+					};
+					return labels[tool] || tool;
+				},
+
+				async handleFileSelect(event) {
+					const files = Array.from(event.target.files || []);
+					event.target.value = '';
+					this.uploadError = '';
+					for (const file of files) {
+						const formData = new FormData();
+						formData.append('file', file);
+						try {
+							const resp = await fetch('/chat/upload', { method: 'POST', body: formData });
+							if (resp.ok) {
+								const results = await resp.json();
+								for (const r of (Array.isArray(results) ? results : [results])) {
+									this.attachments.push({ id: r.attachment_id, name: r.filename, type: r.file_type });
+								}
+								this.uploadError = '';
+							} else {
+								let msg = `Upload failed (${resp.status})`;
+								try {
+									const errBody = await resp.json();
+									msg = errBody.message || errBody.error || msg;
+								} catch (_) {}
+								this.uploadError = `${file.name}: ${msg}`;
+							}
+						} catch(e) {
+							console.error('Upload failed:', e);
+							this.uploadError = `${file.name}: Network error while uploading.`;
+						}
+					}
+				},
+
+				removeAttachment(idx) {
+					this.attachments.splice(idx, 1);
+				},
+
+				async sendMessage() {
+					const text = this.input.trim();
+					if (!text || this.sending) return;
+
+					this.messages.push({ role: 'user', type: 'text', text });
+					this.saveHistory();
+					this.input = '';
+					this.sending = true;
+					this.$nextTick(() => this.scrollToBottom());
+
+					const attachmentIDs = this.attachments.map(a => a.id);
+					this.attachments = [];
+					this.uploadError = '';
+
+					try {
+						const resp = await fetch('/chat', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ text, company_code: COMPANY_CODE, attachment_ids: attachmentIDs }),
+						});
+
+						if (!resp.ok) {
+							let errMsg = `Server error (${resp.status})`;
+							try {
+								const errBody = await resp.json();
+								errMsg = errBody.message || errBody.error || errMsg;
+							} catch (_) {}
+							this.messages.push(this.makeAITextMessage('⚠ ' + errMsg));
+							this.saveHistory();
+							this.$nextTick(() => this.scrollToBottom());
+							return;
+						}
+
+						const reader = resp.body.getReader();
+						const decoder = new TextDecoder();
+						let buf = '';
+						let aiMsg = null;
+						let anyResponse = false;
+
+						while (true) {
+							const { done, value } = await reader.read();
+							if (done) break;
+							buf += decoder.decode(value, { stream: true });
+							const parts = buf.split('\n\n');
+							buf = parts.pop() || '';
+							for (const part of parts) {
+								let event = 'message', data = '';
+								for (const line of part.split('\n')) {
+									if (line.startsWith('event: ')) event = line.slice(7).trim();
+									else if (line.startsWith('data: ')) data = line.slice(6);
+								}
+								if (!data) continue;
+								try {
+									const d = JSON.parse(data);
+									if (event === 'answer') {
+										anyResponse = true;
+										if (!aiMsg) {
+											const raw = d.text || '';
+											aiMsg = this.makeAITextMessage(raw);
+											this.messages.push(aiMsg);
+										} else {
+											aiMsg.text = (aiMsg.text || '') + (d.text || '');
+											aiMsg.html = this.renderMarkdownSafely(aiMsg.text);
+										}
+										this.saveHistory();
+										this.$nextTick(() => this.scrollToBottom());
+									} else if (event === 'clarification') {
+										anyResponse = true;
+										this.messages.push(this.makeAITextMessage('❓ ' + (d.question || '')));
+										this.saveHistory();
+										this.$nextTick(() => this.scrollToBottom());
+									} else if (event === 'action_card') {
+										anyResponse = true;
+										this.messages.push({
+											role: 'ai', type: 'action_card',
+											token: d.token, tool: d.tool, args: d.args,
+											status: 'pending',
+										});
+										this.saveHistory();
+										this.$nextTick(() => this.scrollToBottom());
+									} else if (event === 'proposal') {
+										anyResponse = true;
+										this.messages.push({
+											role: 'ai', type: 'proposal',
+											token: d.token, proposal: d.proposal,
+											status: 'pending',
+										});
+										this.saveHistory();
+										this.$nextTick(() => this.scrollToBottom());
+									} else if (event === 'error') {
+										anyResponse = true;
+										this.messages.push(this.makeAITextMessage('⚠ ' + (d.message || 'Error')));
+										this.saveHistory();
+										this.$nextTick(() => this.scrollToBottom());
+									}
+								} catch(e) { console.error('SSE parse error:', e); }
+							}
+						}
+					if (!anyResponse) {
+						this.messages.push(this.makeAITextMessage('No response received. Please try again.'));
+						this.saveHistory();
+						this.$nextTick(() => this.scrollToBottom());
+					}
+					} catch(err) {
+						this.messages.push(this.makeAITextMessage('⚠ Connection error: ' + err.message));
+						this.saveHistory();
+					} finally {
+						this.sending = false;
+						this.$nextTick(() => this.scrollToBottom());
+					}
+				},
+
+				async confirmAction(msg, action) {
+					msg.status = action === 'confirm' ? 'confirming' : 'cancelling';
+					try {
+						const resp = await fetch('/chat/confirm', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ token: msg.token, action }),
+						});
+						const data = await resp.json();
+						if (action === 'cancel') {
+							msg.status = 'cancelled';
+						} else if (resp.ok && data.ok) {
+							msg.status = 'confirmed';
+							const result = data.result;
+							msg.resultText = data.message || (result && result.message) || 'Done.';
+						} else {
+							msg.status = 'error';
+							msg.resultText = data.error || 'Failed.';
+						}
+					} catch(e) {
+						msg.status = 'error';
+						msg.resultText = 'Network error.';
+					}
+					this.saveHistory();
+				},
+
+				amendAction(msg) {
+					this.input = (msg.proposal && msg.proposal.summary)
+						? 'Please revise: ' + msg.proposal.summary
+						: '';
+					this.confirmAction(msg, 'cancel');
+					this.$nextTick(() => {
+						const ta = document.querySelector('textarea');
+						if (ta) ta.focus();
+					});
+				},
+			};
+		}
+		</script>
+	}
+}

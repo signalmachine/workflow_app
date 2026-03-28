@@ -1,0 +1,251 @@
+package layouts
+
+templ AppLayout(d AppLayoutData) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>{ d.Title } — Accounting by Signal Machine</title>
+			<link rel="icon" type="image/svg+xml" href="/static/favicon.svg"/>
+			<link rel="stylesheet" href="/static/css/app.css"/>
+			<script src="/static/js/htmx.min.js"></script>
+			<script src="/static/js/htmx-ext-sse.js"></script>
+			<script src="/static/js/marked.min.js"></script>
+			<script src="/static/js/alpine.min.js" defer></script>
+		</head>
+		<body
+			class="h-screen flex overflow-hidden bg-gray-100"
+			hx-boost="true"
+			data-active-nav={ d.ActiveNav }
+			data-company-code={ d.CompanyCode }
+			x-data="appLayout()"
+		>
+			<!-- Sidebar -->
+			<aside
+				class="w-64 bg-slate-900 text-white flex-shrink-0 flex flex-col transition-all duration-200"
+				x-bind:class="sidebarOpen ? 'flex' : 'hidden lg:flex'"
+			>
+				<!-- Brand (with gradient + desktop company/FY) -->
+				<div class="sidebar-brand h-16 flex flex-col justify-center px-4 border-b border-slate-700 flex-shrink-0">
+					<a href="/dashboard" class="flex items-center gap-2 text-white hover:text-slate-200">
+						<span class="text-lg">⌂</span>
+						<span class="font-semibold text-sm tracking-wide leading-tight">Accounting<br/><span class="font-normal text-xs text-slate-400">by Signal Machine</span></span>
+					</a>
+					<!-- Company + FY — visible only on desktop where the top header is hidden -->
+					<div class="hidden lg:flex items-center gap-1.5 mt-0.5">
+						<span class="text-xs text-slate-400 font-medium truncate">{ d.CompanyName }</span>
+						if d.FYBadge != "" {
+							<span class="text-xs text-slate-500 flex-shrink-0">{ d.FYBadge }</span>
+						}
+					</div>
+				</div>
+<!-- Nav -->
+				<nav class="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+					<!-- AI Agent -->
+					<a
+						href="/"
+						class={ navItemClass(d.ActiveNav, "ai-agent") }
+					>
+						<span class="text-base">✨</span>
+						<span>AI Agent</span>
+					</a>
+					<!-- Home -->
+					<a
+						href="/dashboard"
+						class={ navItemClass(d.ActiveNav, "dashboard") }
+					>
+						<span class="text-base">🏠</span>
+						<span>Dashboard</span>
+					</a>
+					<a href="/sales" class={ navItemClass(d.ActiveNav, "sales") }>
+						<span class="text-base">💼</span>
+						<span>Sales</span>
+					</a>
+					<a href="/purchases" class={ navItemClass(d.ActiveNav, "purchases") }>
+						<span class="text-base">🛒</span>
+						<span>Purchases</span>
+					</a>
+					<a href="/inventory" class={ navItemClass(d.ActiveNav, "inventory") }>
+						<span class="text-base">📦</span>
+						<span>Inventory</span>
+					</a>
+					<a href="/reports" class={ navItemClass(d.ActiveNav, "reports") }>
+						<span class="text-base">📊</span>
+						<span>Reports</span>
+					</a>
+					if d.Role == "ADMIN" {
+						<a href="/settings" class={ navItemClass(d.ActiveNav, "settings") }>
+							<span class="text-base">⚙️</span>
+							<span>Settings</span>
+						</a>
+					}
+					<!-- About — visible to all roles -->
+					<a
+						href="/about"
+						class={ navItemClass(d.ActiveNav, "about") }
+					>
+						<span class="text-base">ℹ️</span>
+						<span>About</span>
+					</a>
+				</nav>
+				<!-- Sidebar footer: logged in user -->
+				<div class="border-t border-slate-700 px-4 py-3 flex-shrink-0">
+					<div class="flex items-center gap-2">
+						<div class="w-7 h-7 rounded-full bg-slate-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+							{ userInitial(d.Username) }
+						</div>
+						<div class="min-w-0">
+							<div class="text-sm font-medium text-white truncate">{ d.Username }</div>
+							<div class="text-xs text-slate-400 truncate">{ d.Role }</div>
+						</div>
+					</div>
+				</div>
+			</aside>
+			<!-- Main content area -->
+			<div class="flex-1 flex flex-col overflow-hidden min-w-0">
+				<!-- Top header — always visible (New Chat accessible at every zoom level) -->
+				<header class="h-10 bg-white border-b border-gray-200 flex items-center px-3 flex-shrink-0">
+					<!-- Hamburger -->
+					<button
+						class="text-gray-500 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+						x-on:click="sidebarOpen = !sidebarOpen"
+						aria-label="Toggle sidebar"
+					>
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+						</svg>
+					</button>
+					<!-- New Chat centred -->
+					<div class="flex-1 flex justify-center">
+						<a
+							href="/?new=1"
+							class="flex items-center gap-1.5 px-3 py-1 rounded-lg text-slate-600 hover:text-indigo-700 hover:bg-indigo-50 transition-colors"
+						>
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+							</svg>
+							<span class="text-xs font-semibold">New Chat</span>
+						</a>
+					</div>
+					<!-- User menu -->
+					<div class="relative" x-data="{ open: false }">
+						<button
+							type="button"
+							class="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-700 hover:bg-slate-300 transition-colors"
+							x-on:click="open = !open"
+							aria-label="Open user menu"
+						>
+							{ userInitial(d.Username) }
+						</button>
+						<div
+							x-show="open"
+							x-on:click.outside="open = false"
+							x-transition
+							class="absolute right-0 top-9 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50"
+						>
+							<div class="px-4 py-2 border-b border-gray-100">
+								<div class="text-sm font-medium text-gray-900">{ d.Username }</div>
+								<div class="text-xs text-gray-500">{ d.Role }</div>
+							</div>
+							<form method="POST" action="/logout">
+								<button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+									Sign out
+								</button>
+							</form>
+						</div>
+					</div>
+				</header>
+				<!-- Flash message -->
+				if d.FlashMsg != "" {
+					<div
+						x-data="{ show: true }"
+						x-show="show"
+						x-init="setTimeout(() => show = false, 5000)"
+						x-transition
+						class={ flashClass(d.FlashKind) }
+					>
+						<span>{ d.FlashMsg }</span>
+						<button type="button" x-on:click="show = false" class="ml-auto text-current opacity-60 hover:opacity-100" aria-label="Dismiss notification">✕</button>
+					</div>
+				}
+				<!-- Page content -->
+				<main class={ mainContentClass(d) }>
+					{ children... }
+				</main>
+			</div>
+			<script>
+				function appLayout() {
+					return {
+						sidebarOpen: window.innerWidth >= 1024,
+					};
+				}
+
+			</script>
+		</body>
+	</html>
+}
+
+// mainContentClass returns CSS classes for the main content area.
+// FlushContent removes padding and enables flex-col so full-height pages
+// (e.g. the AI chat) can manage their own internal scrolling.
+func mainContentClass(d AppLayoutData) string {
+	if d.FlushContent {
+		return "flex-1 overflow-hidden flex flex-col"
+	}
+	return "flex-1 overflow-y-auto p-6"
+}
+
+// navItemClass returns the CSS classes for a sidebar nav item.
+func navItemClass(activeNav, key string) string {
+	base := "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm "
+	if isActiveNav(activeNav, key) {
+		return base + "nav-item-active"
+	}
+	return base + "nav-item"
+}
+
+func isActiveNav(activeNav, key string) bool {
+	switch key {
+	case "sales":
+		return activeNav == "sales" || activeNav == "customers" || activeNav == "orders"
+	case "purchases":
+		return activeNav == "purchases" || activeNav == "vendors" || activeNav == "purchase-orders"
+	case "inventory":
+		return activeNav == "inventory" || activeNav == "products" || activeNav == "stock"
+	case "reports":
+		return activeNav == "reports" || activeNav == "trial-balance" || activeNav == "pl" ||
+			activeNav == "balance-sheet" || activeNav == "statement" || activeNav == "control-account-reconciliation"
+	case "settings":
+		return activeNav == "settings" || activeNav == "users" || activeNav == "rules"
+	default:
+		return activeNav == key
+	}
+}
+
+// userInitial returns the first letter of the username in uppercase.
+func userInitial(username string) string {
+	if len(username) == 0 {
+		return "?"
+	}
+	r := rune(username[0])
+	if r >= 'a' && r <= 'z' {
+		r = r - 32
+	}
+	return string(r)
+}
+
+// flashClass returns CSS classes for the flash message bar based on kind.
+func flashClass(kind string) string {
+	base := "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b flex-shrink-0 "
+	switch kind {
+	case "error":
+		return base + "bg-red-50 text-red-700 border-red-200"
+	case "warning":
+		return base + "bg-yellow-50 text-yellow-700 border-yellow-200"
+	case "success":
+		return base + "bg-green-50 text-green-700 border-green-200"
+	default:
+		return base + "bg-blue-50 text-blue-700 border-blue-200"
+	}
+}

@@ -1,0 +1,80 @@
+package pages
+
+import (
+	"accounting-agent/internal/core"
+	"accounting-agent/web/templates/layouts"
+)
+
+// ControlAccountReconciliation renders AR/AP/INVENTORY variance diagnostics.
+templ ControlAccountReconciliation(d layouts.AppLayoutData, report *core.ControlAccountReconciliationReport, asOfDate string) {
+	@layouts.AppLayout(d) {
+		<div class="max-w-5xl space-y-5">
+			<div>
+				<h1 class="text-2xl font-bold text-slate-900">Control Account Reconciliation</h1>
+				<p class="text-sm text-slate-500 mt-0.5">GL vs operational balances for AR/AP/Inventory. As of { report.AsOfDate }.</p>
+			</div>
+
+			<form method="GET" action="/reports/control-account-reconciliation" class="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap items-end gap-4">
+				<div>
+					<label class="block text-xs font-medium text-slate-600 mb-1">As of Date</label>
+					<input
+						type="date"
+						name="date"
+						value={ asOfDate }
+						class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+					/>
+				</div>
+				<button type="submit" class="px-4 py-1.5 bg-slate-900 text-white text-sm rounded-lg hover:bg-slate-800 transition-colors">
+					Run Diagnostics
+				</button>
+			</form>
+
+			<div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+				Operational balances use current workflow state (open sales/purchase docs, live inventory valuation) and may differ from strict historical backdated snapshots.
+			</div>
+
+			<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+				<table class="data-table">
+					<thead>
+						<tr>
+							<th>Control Type</th>
+							<th class="num">GL Balance</th>
+							<th class="num">Operational Balance</th>
+							<th class="num">Variance (GL - Operational)</th>
+							<th>Details</th>
+						</tr>
+					</thead>
+					<tbody>
+						if len(report.Lines) == 0 {
+							<tr>
+								<td colspan="5" class="italic text-slate-400">No reconciliation lines available.</td>
+							</tr>
+						}
+						for _, line := range report.Lines {
+							<tr>
+								<td class="font-semibold text-slate-800">{ line.ControlType }</td>
+								<td class="num font-mono">{ line.GLBalance.StringFixed(2) }</td>
+								<td class="num font-mono">{ line.OperationalBalance.StringFixed(2) }</td>
+								<td class={ "num font-mono " + varianceClass(line) }>{ line.Variance.StringFixed(2) }</td>
+								<td>
+									<div class="flex flex-wrap gap-2">
+										for _, link := range line.DetailLinks {
+											<a href={ link } class="text-xs text-blue-700 hover:text-blue-900 underline">{ link }</a>
+										}
+									</div>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	}
+}
+
+func varianceClass(line core.ControlAccountReconciliationLine) string {
+	if line.HasVariance {
+		return "text-red-700"
+	}
+	return "text-green-700"
+}

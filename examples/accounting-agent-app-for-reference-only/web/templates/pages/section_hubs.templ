@@ -1,0 +1,183 @@
+package pages
+
+import "accounting-agent/web/templates/layouts"
+
+templ SalesHome(d layouts.AppLayoutData) {
+	@layouts.AppLayout(d) {
+		<div class="max-w-5xl space-y-6">
+			<div>
+				<h1 class="text-2xl font-bold text-slate-900">Sales</h1>
+				<p class="text-sm text-slate-500 mt-0.5">Manage customers and sales order lifecycle.</p>
+			</div>
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+				<a href="/sales/customers" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">👥</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">Customers</div>
+					<div class="text-xs text-slate-500 mt-0.5">View and search customer master data</div>
+				</a>
+				<a href="/sales/orders" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">📋</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">Orders</div>
+					<div class="text-xs text-slate-500 mt-0.5">Track draft to paid sales orders</div>
+				</a>
+				<a href="/sales/orders/new" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">➕</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">New Order</div>
+					<div class="text-xs text-slate-500 mt-0.5">Create a new sales order</div>
+				</a>
+			</div>
+		</div>
+	}
+}
+
+templ PurchasesHome(d layouts.AppLayoutData) {
+	@layouts.AppLayout(d) {
+		<div class="max-w-5xl space-y-6">
+			<div>
+				<h1 class="text-2xl font-bold text-slate-900">Purchases</h1>
+				<p class="text-sm text-slate-500 mt-0.5">Manage vendors and procure-to-pay operations.</p>
+			</div>
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+				<a href="/purchases/vendors" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">🏢</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">Vendors</div>
+					<div class="text-xs text-slate-500 mt-0.5">Manage vendor master records</div>
+				</a>
+				<a href="/purchases/orders" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">📦</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">Purchase Orders</div>
+					<div class="text-xs text-slate-500 mt-0.5">Track PO lifecycle from draft to paid</div>
+				</a>
+				<a href="/purchases/orders/new" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">➕</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">New Purchase Order</div>
+					<div class="text-xs text-slate-500 mt-0.5">Create a new purchase order</div>
+				</a>
+			</div>
+		</div>
+	}
+}
+
+templ InventoryHome(d layouts.AppLayoutData) {
+	@layouts.AppLayout(d) {
+		<div class="max-w-5xl space-y-6">
+			<div>
+				<h1 class="text-2xl font-bold text-slate-900">Inventory</h1>
+				<p class="text-sm text-slate-500 mt-0.5">Monitor products, stock levels, and movement-linked operations.</p>
+			</div>
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+				<a href="/inventory/products" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">🏷️</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">Products</div>
+					<div class="text-xs text-slate-500 mt-0.5">View product catalog and revenue mapping</div>
+				</a>
+				<a href="/inventory/stock" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">📊</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">Stock Levels</div>
+					<div class="text-xs text-slate-500 mt-0.5">See on-hand, reserved, and available stock</div>
+				</a>
+				<a href="/purchases/orders" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">📥</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">Receive Against PO</div>
+					<div class="text-xs text-slate-500 mt-0.5">Open purchase orders to record receipts</div>
+				</a>
+			</div>
+		</div>
+	}
+}
+
+templ ReportsHome(d layouts.AppLayoutData) {
+	@layouts.AppLayout(d) {
+		<div class="max-w-5xl space-y-6">
+			<div>
+				<h1 class="text-2xl font-bold text-slate-900">Reports</h1>
+				<p class="text-sm text-slate-500 mt-0.5">Access financial statements and diagnostics.</p>
+			</div>
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+				<a href="/reports/trial-balance" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">⚖️</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">Trial Balance</div>
+					<div class="text-xs text-slate-500 mt-0.5">Balances by account</div>
+				</a>
+				<a href="/reports/pl" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">📈</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">P&amp;L Report</div>
+					<div class="text-xs text-slate-500 mt-0.5">Revenue and expenses by period</div>
+				</a>
+				<a href="/reports/balance-sheet" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">📑</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">Balance Sheet</div>
+					<div class="text-xs text-slate-500 mt-0.5">Assets, liabilities, and equity</div>
+				</a>
+				<a href="/reports/statement" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">🗂️</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">Account Statement</div>
+					<div class="text-xs text-slate-500 mt-0.5">Ledger lines with running balance</div>
+				</a>
+				<a href="/reports/control-account-reconciliation" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">🧭</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">Control Reconciliation</div>
+					<div class="text-xs text-slate-500 mt-0.5">AR/AP/Inventory variance diagnostics</div>
+				</a>
+				<a href="/reports/document-type-governance" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">📐</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">Doc Type Governance</div>
+					<div class="text-xs text-slate-500 mt-0.5">JE share, posting mix, and policy drift signals</div>
+				</a>
+				<a href="/accounting/journal-entry" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">📝</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">Manual Journal Entry</div>
+					<div class="text-xs text-slate-500 mt-0.5">Post or validate entries manually</div>
+				</a>
+			</div>
+		</div>
+	}
+}
+
+templ SettingsHome(d layouts.AppLayoutData) {
+	@layouts.AppLayout(d) {
+		<div class="max-w-5xl space-y-6">
+			<div>
+				<h1 class="text-2xl font-bold text-slate-900">Settings</h1>
+				<p class="text-sm text-slate-500 mt-0.5">Admin controls for users and configuration.</p>
+			</div>
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+				<a href="/settings/users" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">👤</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">Users</div>
+					<div class="text-xs text-slate-500 mt-0.5">List users, edit roles, and create new users</div>
+				</a>
+				<a href="/settings/rules" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">⚙️</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">Account Rules</div>
+					<div class="text-xs text-slate-500 mt-0.5">Configure default account mappings and posting logic</div>
+				</a>
+				<a href="/settings/chart-of-accounts" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">🧾</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">Chart of Accounts</div>
+					<div class="text-xs text-slate-500 mt-0.5">Manage account structure and classifications</div>
+				</a>
+				<a href="/settings/inventory" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">📦</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">Inventory</div>
+					<div class="text-xs text-slate-500 mt-0.5">Inventory policy and warehouse defaults</div>
+				</a>
+				<a href="/settings/customers" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">👥</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">Customers</div>
+					<div class="text-xs text-slate-500 mt-0.5">Defaults for customer master and credit controls</div>
+				</a>
+				<a href="/settings/vendors" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">🏢</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">Vendors</div>
+					<div class="text-xs text-slate-500 mt-0.5">Defaults for payable and procurement settings</div>
+				</a>
+				<a href="/settings/ai-agent" class="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+					<div class="text-2xl mb-2">✨</div>
+					<div class="font-semibold text-slate-800 text-sm group-hover:text-slate-900">AI Agent</div>
+					<div class="text-xs text-slate-500 mt-0.5">Guardrails, approval mode, and tool access controls</div>
+				</a>
+			</div>
+		</div>
+	}
+}
