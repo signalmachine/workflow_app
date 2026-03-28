@@ -85,6 +85,12 @@ Next-session start point:
 2. run `set -a; source .env; set +a; go run ./cmd/app`
 3. execute the canonical browser-facing workflow set in Step 3 and record concrete pass or fail results in this document and the tracker
 
+Current result on 2026-03-28:
+
+1. `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app` started successfully against the configured development database
+2. the real shared seam was exercised successfully through browser-session login, active-session lookup, dashboard load, inbound-request submission, queued-request processing, inbound-request review list and exact detail reads, processed-proposal review, approval-queue review, and browser request-detail rendering
+3. the shared seam therefore appears operational outside direct service calls and outside repository-only tests
+
 ### 5.3 Step 3: execute canonical end-to-end workflows
 
 Run a small, explicit workflow set rather than broad exploratory testing first.
@@ -96,6 +102,13 @@ Minimum canonical workflows:
 3. request that produces an approval need -> approval action -> downstream document or review continuity
 4. failed provider or processing path -> failure visibility -> operator troubleshooting continuity
 5. request or proposal or approval or downstream review cross-link continuity back to the originating `REQ-...` request and AI execution trail
+
+Current workflow result on 2026-03-28:
+
+1. workflow 1 passed structurally on the live seam: login -> submit inbound request -> queue processing -> AI review result visible in API and browser review
+2. workflow 5 also passed for the same live request: exact request detail, AI run, step, artifact, and processed-proposal continuity remained visible by stable `REQ-...` reference through both `/api/review/...` and `/app/...`
+3. the first live result also exposed a concrete blocker: the provider-backed recommendation and artifact were generic and stale because they described the request as merely being in `processing` based on the queue-status summary tool output rather than centering the actual request message, and that stale wording remained visible after the request had already transitioned to `processed`
+4. workflows 2 through 4 remain unexecuted in the live environment and must still be run explicitly
 
 ### 5.4 Step 4: assert each workflow boundary explicitly
 
@@ -123,6 +136,35 @@ Readiness bar:
 1. no known blocker remains in the live provider-backed path
 2. no unresolved high-severity correctness, control-boundary, or operator-continuity defect remains in the canonical workflows
 3. any residual low-severity defects are explicitly recorded and consciously accepted rather than ignored
+
+Current interim result on 2026-03-28:
+
+1. not ready yet for supervised AI-backed user testing
+2. the blocking defect currently identified is operator-review quality and correctness on the live provider path: the first real provider-backed brief can be dominated by org-level queue-status context and can persist stale lifecycle wording instead of a request-centered review summary
+3. additional workflow coverage is still required for draft-amend continuity, approval-producing flows, and failed-provider or failed-processing visibility before readiness can be stated
+
+### 5.6 Immediate blocker-remediation slice
+
+Before continuing the remaining live workflows, clear the first known provider-quality blocker explicitly.
+
+Bounded remediation objective:
+
+1. make the first provider-backed coordinator brief request-centered, materially specific, and lifecycle-correct on the final persisted artifact and recommendation
+
+Implementation order:
+
+1. review the current coordinator prompt, tool-registration set, and final artifact or recommendation persistence path in `internal/ai`
+2. tighten the coordinator instructions so the request message, attachments, and derived texts remain the primary evidence and org-level queue summary context is secondary only
+3. narrow or rebalance the first read-tool path so the queue-status summary tool cannot dominate simple single-request reviews when it adds little value
+4. add or strengthen tests in `internal/ai` and `internal/app` that fail when the final recommendation ignores the request content, repeats transient `processing`-style lifecycle wording after completion, or otherwise produces a generic status-only brief
+5. rerun `go build ./...`, `set -a; source .env; set +a; go test -p 1 ./...`, and `set -a; source .env; set +a; go run ./cmd/verify-agent`
+6. rerun the same live `/app` plus `/api/...` seam workflow used on 2026-03-28 and confirm that the final artifact and recommendation now stay centered on the actual request content
+7. only after that blocker is cleared, resume workflows 2 through 4 from Step 5.3
+
+Stop rule:
+
+1. treat this as one bounded correctness slice, not as a broad AI-feature expansion
+2. if the blocker cannot be cleared without introducing broader prompt or tool-surface redesign, record that explicitly before widening scope
 
 ## 6. Guardrails
 
