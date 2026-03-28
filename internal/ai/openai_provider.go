@@ -42,6 +42,13 @@ type OpenAIProvider struct {
 	maxToolIterations int
 }
 
+type providerOutputParseResult struct {
+	output         CoordinatorProviderOutput
+	validationErr  error
+	providerRespID string
+	usage          coordinatorTokenUsage
+}
+
 func NewOpenAIProvider(db *sql.DB, config ProviderConfig) (*OpenAIProvider, error) {
 	if !config.Enabled() {
 		return nil, ErrInvalidProviderConfig
@@ -93,28 +100,29 @@ func (p *OpenAIProvider) ExecuteInboundRequest(ctx context.Context, input Coordi
 
 		functionCalls := extractFunctionCalls(resp)
 		if len(functionCalls) == 0 {
-			var parsed openAICoordinatorPayload
-			if err := json.Unmarshal([]byte(resp.OutputText()), &parsed); err != nil {
-				return CoordinatorProviderOutput{}, fmt.Errorf("decode openai coordinator output: %w", err)
+			parseResult, err := p.parseCoordinatorResponse(input, resp, totalUsage, iteration, toolExecutions)
+			if err != nil {
+				return CoordinatorProviderOutput{}, err
 			}
-
-			return CoordinatorProviderOutput{
-				ProviderResponseID:   latestResponseID,
-				ProviderName:         "openai",
-				Model:                string(resp.Model),
-				Summary:              strings.TrimSpace(parsed.Summary),
-				Priority:             normalizePriority(parsed.Priority),
-				ArtifactTitle:        strings.TrimSpace(parsed.ArtifactTitle),
-				ArtifactBody:         strings.TrimSpace(parsed.ArtifactBody),
-				Rationale:            trimList(parsed.Rationale),
-				NextActions:          trimList(parsed.NextActions),
-				InputTokens:          totalUsage.InputTokens,
-				OutputTokens:         totalUsage.OutputTokens,
-				TotalTokens:          totalUsage.TotalTokens,
-				ToolLoopIterations:   iteration,
-				ToolExecutions:       toolExecutions,
-				SpecialistDelegation: normalizeSpecialistDelegation(parsed.SpecialistDelegation),
-			}, nil
+			latestResponseID = parseResult.providerRespID
+			if parseResult.validationErr == nil {
+				return parseResult.output, nil
+			}
+			repairedOutput, repairedResponseID, repairUsage, err := p.repairRequestCenteredOutput(requestCtx, input, parseResult.output)
+			if err != nil {
+				return CoordinatorProviderOutput{}, parseResult.validationErr
+			}
+			if strings.TrimSpace(repairedResponseID) != "" {
+				latestResponseID = repairedResponseID
+			}
+			totalUsage.addUsage(repairUsage)
+			repairedOutput.ProviderResponseID = latestResponseID
+			repairedOutput.InputTokens = totalUsage.InputTokens
+			repairedOutput.OutputTokens = totalUsage.OutputTokens
+			repairedOutput.TotalTokens = totalUsage.TotalTokens
+			repairedOutput.ToolLoopIterations = iteration
+			repairedOutput.ToolExecutions = toolExecutions
+			return repairedOutput, nil
 		}
 
 		if iteration == p.normalizedMaxToolIterations() {
@@ -199,6 +207,10 @@ func buildStatelessContinuationInput(resp *responses.Response, toolOutputs []res
 func (p *OpenAIProvider) coordinatorInstructions() string {
 	return `You are the workflow_app inbound-request coordinator.
 Review the persisted request context and produce a structured operator-review brief.
+Treat request messages, attachments, and derived texts as the primary evidence for the brief.
+Use org-level queue or status summary tools only as secondary prioritization context.
+Do not let queue-summary context replace the actual request facts, and do not describe the final brief as merely queued, processing, or otherwise in transient lifecycle terms.
+The final summary and artifact body must stay materially specific to the request content and the operator's next controlled follow-up.
 You may use the available read tools when they improve prioritization context.
 Do not propose direct writes, approval decisions, postings, or autonomous follow-up actions.
 If a tool call is denied or unavailable, continue without it and produce the best safe review possible.
@@ -214,7 +226,7 @@ func (p *OpenAIProvider) coordinatorToolDefinitions() map[string]coordinatorTool
 	return map[string]coordinatorToolDefinition{
 		openAICoordinatorSummaryToolName: {
 			ToolName:     openAICoordinatorSummaryToolName,
-			Description:  "Return org-scoped inbound-request queue summary counts grouped by request status for operator prioritization context.",
+			Description:  "Return org-scoped inbound-request queue summary counts grouped by request status for secondary operator prioritization context only; this tool does not replace the request's own facts or lifecycle outcome.",
 			MutatesState: false,
 			Parameters: map[string]any{
 				"type":                 "object",
@@ -461,6 +473,12 @@ func (u *coordinatorTokenUsage) add(usage responses.ResponseUsage) {
 	u.TotalTokens += usage.TotalTokens
 }
 
+func (u *coordinatorTokenUsage) addUsage(other coordinatorTokenUsage) {
+	u.InputTokens += other.InputTokens
+	u.OutputTokens += other.OutputTokens
+	u.TotalTokens += other.TotalTokens
+}
+
 type openAICoordinatorPayload struct {
 	Summary              string                           `json:"summary"`
 	Priority             string                           `json:"priority"`
@@ -555,6 +573,25 @@ func coordinatorResponseSchema() map[string]any {
 func buildProviderPrompt(input CoordinatorProviderInput) string {
 	var b strings.Builder
 
+	keywords := requestEvidenceKeywords(input)
+
+	b.WriteString("Inbound request review task\n")
+	b.WriteString("Base the review on the concrete request evidence below.\n")
+	b.WriteString("Treat queue-wide status context as secondary only if you decide to use the read tool.\n")
+	b.WriteString("Do not describe the final review as merely queued or processing.\n\n")
+
+	if len(keywords) > 0 {
+		limit := len(keywords)
+		if limit > 8 {
+			limit = 8
+		}
+		b.WriteString("Concrete request details to preserve in the summary or artifact body:\n")
+		for _, keyword := range keywords[:limit] {
+			b.WriteString(fmt.Sprintf("- %s\n", keyword))
+		}
+		b.WriteString("\n")
+	}
+
 	b.WriteString("Inbound request context\n")
 	b.WriteString(fmt.Sprintf("Request reference: %s\n", input.RequestReference))
 	b.WriteString(fmt.Sprintf("Channel: %s\n", input.Channel))
@@ -606,6 +643,106 @@ func buildProviderPrompt(input CoordinatorProviderInput) string {
 		}
 	}
 
+	return b.String()
+}
+
+func (p *OpenAIProvider) parseCoordinatorResponse(input CoordinatorProviderInput, resp *responses.Response, usage coordinatorTokenUsage, iteration int, toolExecutions []CoordinatorToolExecution) (providerOutputParseResult, error) {
+	var parsed openAICoordinatorPayload
+	if err := json.Unmarshal([]byte(resp.OutputText()), &parsed); err != nil {
+		return providerOutputParseResult{}, fmt.Errorf("decode openai coordinator output: %w", err)
+	}
+
+	output := CoordinatorProviderOutput{
+		ProviderResponseID:   strings.TrimSpace(resp.ID),
+		ProviderName:         "openai",
+		Model:                string(resp.Model),
+		Summary:              strings.TrimSpace(parsed.Summary),
+		Priority:             normalizePriority(parsed.Priority),
+		ArtifactTitle:        strings.TrimSpace(parsed.ArtifactTitle),
+		ArtifactBody:         strings.TrimSpace(parsed.ArtifactBody),
+		Rationale:            trimList(parsed.Rationale),
+		NextActions:          trimList(parsed.NextActions),
+		InputTokens:          usage.InputTokens,
+		OutputTokens:         usage.OutputTokens,
+		TotalTokens:          usage.TotalTokens,
+		ToolLoopIterations:   iteration,
+		ToolExecutions:       toolExecutions,
+		SpecialistDelegation: normalizeSpecialistDelegation(parsed.SpecialistDelegation),
+	}
+
+	return providerOutputParseResult{
+		output:         output,
+		validationErr:  validateRequestCenteredCoordinatorOutput(input, output),
+		providerRespID: strings.TrimSpace(resp.ID),
+		usage: coordinatorTokenUsage{
+			InputTokens:  resp.Usage.InputTokens,
+			OutputTokens: resp.Usage.OutputTokens,
+			TotalTokens:  resp.Usage.TotalTokens,
+		},
+	}, nil
+}
+
+func (p *OpenAIProvider) repairRequestCenteredOutput(ctx context.Context, input CoordinatorProviderInput, priorOutput CoordinatorProviderOutput) (CoordinatorProviderOutput, string, coordinatorTokenUsage, error) {
+	params := responses.ResponseNewParams{
+		Model:           p.model,
+		Store:           openai.Bool(false),
+		Temperature:     openai.Float(0),
+		MaxOutputTokens: openai.Int(900),
+		Instructions: openai.String(`Revise the operator-review brief so it stays materially specific to the inbound request.
+Preserve the controlled workflow stance.
+Mention at least one concrete detail from the request evidence in the summary or artifact body.
+Do not describe the request as merely queued or processing.
+Return only the corrected structured output.`),
+		Input: responses.ResponseNewParamsInputUnion{
+			OfString: openai.String(buildRequestCenteredRepairPrompt(input, priorOutput)),
+		},
+		Text: responses.ResponseTextConfigParam{Format: coordinatorResponseFormat()},
+	}
+
+	resp, err := p.responsesAPI.New(ctx, params)
+	if err != nil {
+		var apiErr *openai.Error
+		if errors.As(err, &apiErr) {
+			return CoordinatorProviderOutput{}, "", coordinatorTokenUsage{}, fmt.Errorf("openai responses api error (status %d): %w", apiErr.StatusCode, err)
+		}
+		return CoordinatorProviderOutput{}, "", coordinatorTokenUsage{}, fmt.Errorf("openai responses api request failed: %w", err)
+	}
+	if err := validateOpenAIResponse(resp); err != nil {
+		return CoordinatorProviderOutput{}, "", coordinatorTokenUsage{}, err
+	}
+	parseResult, err := p.parseCoordinatorResponse(input, resp, coordinatorTokenUsage{
+		InputTokens:  resp.Usage.InputTokens,
+		OutputTokens: resp.Usage.OutputTokens,
+		TotalTokens:  resp.Usage.TotalTokens,
+	}, priorOutput.ToolLoopIterations, priorOutput.ToolExecutions)
+	if err != nil {
+		return CoordinatorProviderOutput{}, "", coordinatorTokenUsage{}, err
+	}
+	if parseResult.validationErr != nil {
+		return CoordinatorProviderOutput{}, "", coordinatorTokenUsage{}, parseResult.validationErr
+	}
+	return parseResult.output, parseResult.providerRespID, parseResult.usage, nil
+}
+
+func buildRequestCenteredRepairPrompt(input CoordinatorProviderInput, priorOutput CoordinatorProviderOutput) string {
+	var b strings.Builder
+	b.WriteString("Original request evidence:\n")
+	b.WriteString(buildProviderPrompt(input))
+	b.WriteString("\nOriginal structured brief to revise:\n")
+	body, err := json.Marshal(map[string]any{
+		"summary":               priorOutput.Summary,
+		"priority":              priorOutput.Priority,
+		"artifact_title":        priorOutput.ArtifactTitle,
+		"artifact_body":         priorOutput.ArtifactBody,
+		"rationale":             priorOutput.Rationale,
+		"next_actions":          priorOutput.NextActions,
+		"specialist_delegation": priorOutput.SpecialistDelegation,
+	})
+	if err != nil {
+		b.WriteString("{}")
+		return b.String()
+	}
+	b.Write(body)
 	return b.String()
 }
 

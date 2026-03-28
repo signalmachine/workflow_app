@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -94,7 +95,7 @@ func TestCoordinatorProcessNextQueuedWithOpenAIToolLoopIntegration(t *testing.T)
 	}
 
 	fakeAPI := &fakeOpenAIResponsesAPI{responses: []*responses.Response{
-			mustResponseFromJSON(t, `{
+		mustResponseFromJSON(t, `{
 				"id":"resp_tool_1",
 				"created_at":1,
 				"error":{},
@@ -113,7 +114,7 @@ func TestCoordinatorProcessNextQueuedWithOpenAIToolLoopIntegration(t *testing.T)
 				"text":{"format":{"type":"json_schema","name":"inbound_request_review","schema":{"type":"object"}}},
 				"usage":{"input_tokens":40,"input_tokens_details":{"cached_tokens":0},"output_tokens":10,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":50}
 			}`),
-			mustResponseFromJSON(t, `{
+		mustResponseFromJSON(t, `{
 				"id":"resp_tool_2",
 				"created_at":2,
 				"error":{},
@@ -133,7 +134,7 @@ func TestCoordinatorProcessNextQueuedWithOpenAIToolLoopIntegration(t *testing.T)
 				"text":{"format":{"type":"json_schema","name":"inbound_request_review","schema":{"type":"object"}}},
 				"usage":{"input_tokens":30,"input_tokens_details":{"cached_tokens":0},"output_tokens":20,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":50}
 			}`),
-		}}
+	}}
 	provider := &OpenAIProvider{
 		responsesAPI:      fakeAPI,
 		aiService:         NewService(db),
@@ -281,7 +282,7 @@ func TestOpenAIProviderBlocksDeniedToolPolicyIntegration(t *testing.T) {
 				"metadata":{},
 				"model":"gpt-5.2",
 				"object":"response",
-				"output":[{"id":"msg_1","type":"message","status":"completed","role":"assistant","content":[{"type":"output_text","text":"{\"summary\":\"Operator review is still required without the denied queue-summary tool.\",\"priority\":\"high\",\"artifact_title\":\"Inbound request review brief\",\"artifact_body\":\"The queue-summary read tool was blocked by policy, so the recommendation is based only on the persisted request context.\",\"rationale\":[\"The request still describes an equipment issue requiring human review.\"],\"next_actions\":[\"Review the request details directly.\"]}","annotations":[]}]}],
+				"output":[{"id":"msg_1","type":"message","status":"completed","role":"assistant","content":[{"type":"output_text","text":"{\"summary\":\"Operator review is still required for the warehouse pump issue without the denied queue-summary tool.\",\"priority\":\"high\",\"artifact_title\":\"Inbound request review brief\",\"artifact_body\":\"The queue-summary read tool was blocked by policy, so the recommendation stays grounded in the persisted warehouse pump request context.\",\"rationale\":[\"The request still describes a warehouse pump problem requiring human review.\"],\"next_actions\":[\"Review the pump request details directly.\"],\"specialist_delegation\":null}","annotations":[]}]}],
 				"parallel_tool_calls":false,
 				"temperature":0.1,
 				"tool_choice":"auto",
@@ -397,8 +398,92 @@ func TestOpenAIProviderParsesSpecialistDelegationIntegration(t *testing.T) {
 	}
 }
 
+func TestOpenAIProviderRepairsGenericTransientStatusOnlyBriefIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedAIOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	session := startAISession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: session.ID}
+
+	provider := &OpenAIProvider{
+		responsesAPI: &fakeOpenAIResponsesAPI{responses: []*responses.Response{
+			mustResponseFromJSON(t, `{
+				"id":"resp_stale_1",
+				"created_at":1,
+				"error":{},
+				"incomplete_details":{},
+				"instructions":"coordinator",
+				"metadata":{},
+				"model":"gpt-5.2",
+				"object":"response",
+				"output":[{"id":"msg_1","type":"message","status":"completed","role":"assistant","content":[{"type":"output_text","text":"{\"summary\":\"The request is currently processing and still needs review.\",\"priority\":\"high\",\"artifact_title\":\"Inbound request review brief\",\"artifact_body\":\"Queue status shows the request is in processing, so the operator should wait.\",\"rationale\":[\"The queue indicates active processing.\"],\"next_actions\":[\"Monitor the queue.\"],\"specialist_delegation\":null}","annotations":[]}]}],
+				"parallel_tool_calls":false,
+				"temperature":0.1,
+				"tool_choice":"auto",
+				"tools":[],
+				"top_p":1,
+				"status":"completed",
+				"text":{"format":{"type":"json_schema","name":"inbound_request_review","schema":{"type":"object"}}},
+				"usage":{"input_tokens":18,"input_tokens_details":{"cached_tokens":0},"output_tokens":16,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":34}
+			}`),
+			mustResponseFromJSON(t, `{
+				"id":"resp_stale_2",
+				"created_at":2,
+				"error":{},
+				"incomplete_details":{},
+				"instructions":"repair",
+				"metadata":{},
+				"model":"gpt-5.2",
+				"object":"response",
+				"output":[{"id":"msg_2","type":"message","status":"completed","role":"assistant","content":[{"type":"output_text","text":"{\"summary\":\"Operator review is required for the warehouse pump failure.\",\"priority\":\"high\",\"artifact_title\":\"Inbound request review brief\",\"artifact_body\":\"The warehouse pump is failing intermittently and needs operator follow-up for inspection.\",\"rationale\":[\"The request describes a warehouse pump failure that still needs human review.\"],\"next_actions\":[\"Review the warehouse pump details and confirm inspection follow-up.\"],\"specialist_delegation\":null}","annotations":[]}]}],
+				"parallel_tool_calls":false,
+				"temperature":0,
+				"tool_choice":"auto",
+				"tools":[],
+				"top_p":1,
+				"status":"completed",
+				"text":{"format":{"type":"json_schema","name":"inbound_request_review","schema":{"type":"object"}}},
+				"usage":{"input_tokens":12,"input_tokens_details":{"cached_tokens":0},"output_tokens":14,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":26}
+			}`),
+		}},
+		aiService:         NewService(db),
+		reportingService:  reporting.NewService(db),
+		model:             "gpt-5.2",
+		maxToolIterations: 3,
+	}
+
+	output, err := provider.ExecuteInboundRequest(ctx, CoordinatorProviderInput{
+		CapabilityCode:   DefaultCoordinatorCapabilityCode,
+		Actor:            operator,
+		RequestReference: "REQ-000101",
+		Channel:          "browser",
+		OriginType:       intake.OriginHuman,
+		Metadata:         json.RawMessage(`{"submitter_label":"front desk"}`),
+		Messages: []CoordinatorMessage{
+			{Role: intake.MessageRoleRequest, TextContent: "Warehouse pump failure requires urgent inspection."},
+		},
+		DerivedTexts: []CoordinatorDerivedText{
+			{DerivativeType: attachments.DerivativeTranscription, ContentText: "Pump at the warehouse is failing intermittently."},
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected repair to succeed, got %v", err)
+	}
+	if !strings.Contains(strings.ToLower(output.Summary), "pump") {
+		t.Fatalf("expected repaired output to mention request detail, got %+v", output)
+	}
+	if len(provider.responsesAPI.(*fakeOpenAIResponsesAPI).seenParams) != 2 {
+		t.Fatalf("expected repair call to run, got %d calls", len(provider.responsesAPI.(*fakeOpenAIResponsesAPI).seenParams))
+	}
+}
+
 type fakeOpenAIResponsesAPI struct {
-	responses []*responses.Response
+	responses  []*responses.Response
 	seenParams []responses.ResponseNewParams
 }
 

@@ -107,8 +107,10 @@ Current workflow result on 2026-03-28:
 
 1. workflow 1 passed structurally on the live seam: login -> submit inbound request -> queue processing -> AI review result visible in API and browser review
 2. workflow 5 also passed for the same live request: exact request detail, AI run, step, artifact, and processed-proposal continuity remained visible by stable `REQ-...` reference through both `/api/review/...` and `/app/...`
-3. the first live result also exposed a concrete blocker: the provider-backed recommendation and artifact were generic and stale because they described the request as merely being in `processing` based on the queue-status summary tool output rather than centering the actual request message, and that stale wording remained visible after the request had already transitioned to `processed`
-4. workflows 2 through 4 remain unexecuted in the live environment and must still be run explicitly
+3. that first live result exposed a concrete blocker: the provider-backed recommendation and artifact were generic and stale because they described the request as merely being in `processing` based on the queue-status summary tool output rather than centering the actual request message
+4. that blocker is now cleared on 2026-03-28: `internal/ai` was hardened so request evidence is primary, queue summary is explicitly secondary, stale `processing`-style briefs fail validation, and the OpenAI provider gets one bounded repair turn before failing when the first structured brief stays too generic
+5. after that hardening, `go build ./...`, `set -a; source .env; set +a; timeout 600s go test -p 1 ./...`, and `set -a; source .env; set +a; go run ./cmd/verify-agent` all passed, and the live verification summary returned a request-specific warehouse-pump inspection brief
+6. workflows 2 through 4 remain unexecuted in the live environment and must still be run explicitly
 
 ### 5.4 Step 4: assert each workflow boundary explicitly
 
@@ -140,7 +142,7 @@ Readiness bar:
 Current interim result on 2026-03-28:
 
 1. not ready yet for supervised AI-backed user testing
-2. the blocking defect currently identified is operator-review quality and correctness on the live provider path: the first real provider-backed brief can be dominated by org-level queue-status context and can persist stale lifecycle wording instead of a request-centered review summary
+2. the first blocking defect on the live provider path is now cleared: the final persisted brief is request-centered again on the live OpenAI path, and stale queue-status wording is rejected before persistence
 3. additional workflow coverage is still required for draft-amend continuity, approval-producing flows, and failed-provider or failed-processing visibility before readiness can be stated
 
 ### 5.6 Immediate blocker-remediation slice
@@ -165,6 +167,13 @@ Stop rule:
 
 1. treat this as one bounded correctness slice, not as a broad AI-feature expansion
 2. if the blocker cannot be cleared without introducing broader prompt or tool-surface redesign, record that explicitly before widening scope
+
+Result on 2026-03-28:
+
+1. the blocker-remediation slice succeeded without widening scope into a broader AI redesign
+2. the landed hardening includes stronger coordinator instructions, request-centered validation in the shared coordinator contract, tighter request-evidence prompting, and one bounded OpenAI repair turn for generic first-pass structured output
+3. repository verification and live provider verification both passed after that change
+4. the next session should resume workflows 2 through 4 from section 5.3 rather than reopening this blocker-remediation slice
 
 ## 6. Guardrails
 

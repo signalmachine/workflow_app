@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
+	"unicode"
 
 	"workflow_app/internal/identityaccess"
 	"workflow_app/internal/intake"
@@ -197,6 +199,26 @@ func (c *Coordinator) ProcessNextQueued(ctx context.Context, input ProcessNextQu
 			RunID:     run.ID,
 			StepType:  coordinatorStepTypeProviderRun,
 			StepTitle: "Provider output validation failed",
+			Status:    StepStatusFailed,
+			InputPayload: map[string]any{
+				"request_reference": request.RequestReference,
+			},
+			OutputPayload: map[string]any{
+				"error": err.Error(),
+			},
+			Actor: input.Actor,
+		})
+		if stepErr == nil {
+			result.Step = step
+		}
+		c.failRunAndRequest(ctx, run, sanitizeFailureReason(err.Error()), input.Actor)
+		return result, err
+	}
+	if err := validateRequestCenteredCoordinatorOutput(requestContext, providerOutput); err != nil {
+		step, stepErr := c.aiService.AppendStep(ctx, AppendStepInput{
+			RunID:     run.ID,
+			StepType:  coordinatorStepTypeProviderRun,
+			StepTitle: "Provider output request-centering validation failed",
 			Status:    StepStatusFailed,
 			InputPayload: map[string]any{
 				"request_reference": request.RequestReference,
@@ -739,6 +761,99 @@ func validateCoordinatorProviderOutput(output CoordinatorProviderOutput) error {
 	}
 
 	return nil
+}
+
+func validateRequestCenteredCoordinatorOutput(input CoordinatorProviderInput, output CoordinatorProviderOutput) error {
+	combinedOutput := strings.ToLower(strings.Join(append([]string{
+		output.Summary,
+		output.ArtifactTitle,
+		output.ArtifactBody,
+	}, append(output.Rationale, output.NextActions...)...), " "))
+
+	if containsTransientLifecycleWording(combinedOutput) {
+		return fmt.Errorf("%w: output uses transient lifecycle wording instead of a stable operator brief", ErrInvalidCoordinatorOutput)
+	}
+
+	keywords := requestEvidenceKeywords(input)
+	if len(keywords) == 0 {
+		return nil
+	}
+	for _, keyword := range keywords {
+		if strings.Contains(combinedOutput, keyword) {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("%w: output does not stay materially specific to the request content", ErrInvalidCoordinatorOutput)
+}
+
+func containsTransientLifecycleWording(value string) bool {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return false
+	}
+
+	patterns := []string{
+		"currently processing",
+		"still processing",
+		"request is processing",
+		"request remains processing",
+		"in processing",
+		"merely processing",
+		"only processing",
+	}
+	for _, pattern := range patterns {
+		if strings.Contains(value, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
+func requestEvidenceKeywords(input CoordinatorProviderInput) []string {
+	candidates := make(map[string]struct{})
+	addKeywords := func(text string) {
+		for _, token := range strings.FieldsFunc(strings.ToLower(text), func(r rune) bool {
+			return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+		}) {
+			token = strings.TrimSpace(token)
+			if len(token) < 4 {
+				continue
+			}
+			if isCoordinatorStopword(token) {
+				continue
+			}
+			candidates[token] = struct{}{}
+		}
+	}
+
+	for _, message := range input.Messages {
+		addKeywords(message.TextContent)
+	}
+	for _, derived := range input.DerivedTexts {
+		addKeywords(derived.ContentText)
+	}
+
+	keywords := make([]string, 0, len(candidates))
+	for keyword := range candidates {
+		keywords = append(keywords, keyword)
+	}
+	sort.Slice(keywords, func(i, j int) bool {
+		if len(keywords[i]) == len(keywords[j]) {
+			return keywords[i] < keywords[j]
+		}
+		return len(keywords[i]) > len(keywords[j])
+	})
+	return keywords
+}
+
+func isCoordinatorStopword(token string) bool {
+	switch token {
+	case "about", "after", "attached", "because", "browser", "channel", "confirm", "content", "customer", "details", "derived", "front", "human", "immediately", "issue", "label", "message", "metadata", "needs", "note", "operator", "please", "queue", "queued", "request", "review", "role", "safe", "site", "source", "status", "submitter", "summary", "texts", "through", "urgent", "voice", "with":
+		return true
+	default:
+		return false
+	}
 }
 
 func isAllowedSpecialistCapability(capabilityCode string) bool {

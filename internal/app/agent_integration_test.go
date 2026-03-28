@@ -92,6 +92,62 @@ func TestAgentProcessorProcessNextQueuedInboundRequestIntegration(t *testing.T) 
 	}
 }
 
+func TestAgentProcessorRejectsGenericTransientStatusOnlyBriefIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	session := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: session.ID}
+
+	request := createQueuedRequest(t, ctx, db, operator, "Urgent pump issue reported from the warehouse.")
+
+	processor, err := app.NewAgentProcessor(db, fakeCoordinatorProvider{
+		output: ai.CoordinatorProviderOutput{
+			ProviderName:       "openai",
+			ProviderResponseID: "resp_app_test_stale_123",
+			Model:              "gpt-5.2",
+			Summary:            "The request is currently processing and still needs review.",
+			Priority:           "high",
+			ArtifactTitle:      "Inbound request review brief",
+			ArtifactBody:       "Queue status shows the request is in processing, so the operator should wait.",
+			Rationale: []string{
+				"The queue indicates active processing.",
+			},
+			NextActions: []string{
+				"Monitor the queue.",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new agent processor: %v", err)
+	}
+
+	_, err = processor.ProcessNextQueuedInboundRequest(ctx, app.ProcessNextQueuedInboundRequestInput{
+		Channel: "browser",
+		Actor:   operator,
+	})
+	if !errors.Is(err, ai.ErrInvalidCoordinatorOutput) {
+		t.Fatalf("expected invalid coordinator output error, got %v", err)
+	}
+
+	detailService := intake.NewService(db)
+	detail, err := detailService.GetRequest(ctx, intake.GetRequestInput{
+		RequestID: request.ID,
+		Actor:     operator,
+	})
+	if err != nil {
+		t.Fatalf("get request after failed processing: %v", err)
+	}
+	if detail.Status != intake.StatusFailed {
+		t.Fatalf("unexpected request status after failed processing: %s", detail.Status)
+	}
+}
+
 type fakeCoordinatorProvider struct {
 	output ai.CoordinatorProviderOutput
 	err    error
