@@ -1,7 +1,7 @@
 # workflow_app Post-Checkpoint Validation And User Testing Plan
 
-Date: 2026-03-27
-Status: Planned next step after thin-v1 checkpoint closeout
+Date: 2026-03-28
+Status: Active validation slice
 Purpose: define the first explicit post-checkpoint implementation and validation step so the next session starts from a deliberate plan instead of reopening thin-v1 by momentum.
 
 ## 1. Why this plan exists
@@ -67,7 +67,9 @@ Start with the focused live verification path:
 
 Current known blocker entering this plan:
 
-1. the live OpenAI Responses integration currently fails because the configured function-tool name contains `.` characters and does not satisfy the provider tool-name pattern
+1. resolved on 2026-03-28: the live OpenAI Responses integration no longer uses dotted function-tool names, and the bounded tool loop now continues statelessly with `store: false` instead of depending on `previous_response_id`
+2. current Step 1 result: `go build ./...`, `set -a; source .env; set +a; go test -p 1 ./...`, and `set -a; source .env; set +a; go run ./cmd/verify-agent` all passed on 2026-03-28
+3. remaining work in this plan is now Step 2 through Step 5 browser and end-to-end workflow validation rather than restoration of the live provider seam
 
 ### 5.2 Step 2: validate the core application seam
 
@@ -76,6 +78,12 @@ After the focused live verification passes:
 1. run the browser-facing application with the configured environment
 2. exercise the shared `/app` plus `/api/...` seam against the real database and real provider path
 3. confirm that the application remains operable outside direct service calls and outside repository-only tests
+
+Next-session start point:
+
+1. start with Step 2 on the real `/app` plus `/api/...` seam rather than reopening Step 1
+2. run `set -a; source .env; set +a; go run ./cmd/app`
+3. execute the canonical browser-facing workflow set in Step 3 and record concrete pass or fail results in this document and the tracker
 
 ### 5.3 Step 3: execute canonical end-to-end workflows
 

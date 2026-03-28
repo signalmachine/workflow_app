@@ -19,7 +19,7 @@ import (
 const (
 	openAIProviderTimeout            = 45 * time.Second
 	openAIMaxCoordinatorToolLoops    = 3
-	openAICoordinatorSummaryToolName = "reporting.list_inbound_request_status_summary"
+	openAICoordinatorSummaryToolName = "reporting_list_inbound_request_status_summary"
 )
 
 type openAIResponsesAPI interface {
@@ -64,7 +64,7 @@ func (p *OpenAIProvider) ExecuteInboundRequest(ctx context.Context, input Coordi
 	toolDefs := p.coordinatorToolDefinitions()
 	params := p.newCoordinatorResponseParams(input, toolDefs)
 	pendingInput := params.Input
-	var previousResponseID string
+	var latestResponseID string
 
 	var (
 		toolExecutions []CoordinatorToolExecution
@@ -73,9 +73,6 @@ func (p *OpenAIProvider) ExecuteInboundRequest(ctx context.Context, input Coordi
 
 	for iteration := 1; iteration <= p.normalizedMaxToolIterations(); iteration++ {
 		params.Input = pendingInput
-		if previousResponseID != "" {
-			params.PreviousResponseID = openai.String(previousResponseID)
-		}
 
 		resp, err := p.responsesAPI.New(requestCtx, params)
 		if err != nil {
@@ -88,7 +85,7 @@ func (p *OpenAIProvider) ExecuteInboundRequest(ctx context.Context, input Coordi
 
 		totalUsage.add(resp.Usage)
 		if strings.TrimSpace(resp.ID) != "" {
-			previousResponseID = resp.ID
+			latestResponseID = resp.ID
 		}
 		if err := validateOpenAIResponse(resp); err != nil {
 			return CoordinatorProviderOutput{}, err
@@ -102,7 +99,7 @@ func (p *OpenAIProvider) ExecuteInboundRequest(ctx context.Context, input Coordi
 			}
 
 			return CoordinatorProviderOutput{
-				ProviderResponseID:   previousResponseID,
+				ProviderResponseID:   latestResponseID,
 				ProviderName:         "openai",
 				Model:                string(resp.Model),
 				Summary:              strings.TrimSpace(parsed.Summary),
@@ -137,7 +134,9 @@ func (p *OpenAIProvider) ExecuteInboundRequest(ctx context.Context, input Coordi
 				},
 			})
 		}
-		pendingInput = responses.ResponseNewParamsInputUnion{OfInputItemList: toolOutputs}
+		pendingInput = responses.ResponseNewParamsInputUnion{
+			OfInputItemList: buildStatelessContinuationInput(resp, toolOutputs),
+		}
 	}
 
 	return CoordinatorProviderOutput{}, fmt.Errorf("openai coordinator tool loop terminated without final output")
@@ -152,10 +151,49 @@ func (p *OpenAIProvider) newCoordinatorResponseParams(input CoordinatorProviderI
 		MaxToolCalls:      openai.Int(1),
 		ParallelToolCalls: openai.Bool(false),
 		Instructions:      openai.String(strings.TrimSpace(p.coordinatorInstructions())),
+		Include:           coordinatorResponseIncludes(p.model),
 		Input:             responses.ResponseNewParamsInputUnion{OfString: openai.String(buildProviderPrompt(input))},
 		Text:              responses.ResponseTextConfigParam{Format: coordinatorResponseFormat()},
 		Tools:             coordinatorResponseTools(toolDefs),
 	}
+}
+
+func coordinatorResponseIncludes(model string) []responses.ResponseIncludable {
+	model = strings.ToLower(strings.TrimSpace(model))
+	if strings.HasPrefix(model, "gpt-5") || strings.HasPrefix(model, "o") {
+		return []responses.ResponseIncludable{responses.ResponseIncludableReasoningEncryptedContent}
+	}
+	return nil
+}
+
+func buildStatelessContinuationInput(resp *responses.Response, toolOutputs []responses.ResponseInputItemUnionParam) []responses.ResponseInputItemUnionParam {
+	items := make([]responses.ResponseInputItemUnionParam, 0, len(toolOutputs)+len(resp.Output))
+	if resp != nil {
+		for _, item := range resp.Output {
+			switch item.Type {
+			case "function_call":
+				call := item.AsFunctionCall()
+				callParam := call.ToParam()
+				items = append(items, responses.ResponseInputItemUnionParam{
+					OfFunctionCall: &callParam,
+				})
+			case "reasoning":
+				reasoning := item.AsReasoning()
+				reasoningParam := reasoning.ToParam()
+				items = append(items, responses.ResponseInputItemUnionParam{
+					OfReasoning: &reasoningParam,
+				})
+			case "message":
+				message := item.AsMessage()
+				messageParam := message.ToParam()
+				items = append(items, responses.ResponseInputItemUnionParam{
+					OfOutputMessage: &messageParam,
+				})
+			}
+		}
+	}
+	items = append(items, toolOutputs...)
+	return items
 }
 
 func (p *OpenAIProvider) coordinatorInstructions() string {

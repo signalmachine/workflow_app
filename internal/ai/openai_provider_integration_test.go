@@ -93,8 +93,7 @@ func TestCoordinatorProcessNextQueuedWithOpenAIToolLoopIntegration(t *testing.T)
 		t.Fatalf("queue request: %v", err)
 	}
 
-	provider := &OpenAIProvider{
-		responsesAPI: &fakeOpenAIResponsesAPI{responses: []*responses.Response{
+	fakeAPI := &fakeOpenAIResponsesAPI{responses: []*responses.Response{
 			mustResponseFromJSON(t, `{
 				"id":"resp_tool_1",
 				"created_at":1,
@@ -104,7 +103,7 @@ func TestCoordinatorProcessNextQueuedWithOpenAIToolLoopIntegration(t *testing.T)
 				"metadata":{},
 				"model":"gpt-5.2",
 				"object":"response",
-				"output":[{"id":"fc_1","type":"function_call","status":"completed","call_id":"call_1","name":"reporting.list_inbound_request_status_summary","arguments":"{}"}],
+				"output":[{"id":"fc_1","type":"function_call","status":"completed","call_id":"call_1","name":"reporting_list_inbound_request_status_summary","arguments":"{}"}],
 				"parallel_tool_calls":false,
 				"temperature":0.1,
 				"tool_choice":"auto",
@@ -134,7 +133,9 @@ func TestCoordinatorProcessNextQueuedWithOpenAIToolLoopIntegration(t *testing.T)
 				"text":{"format":{"type":"json_schema","name":"inbound_request_review","schema":{"type":"object"}}},
 				"usage":{"input_tokens":30,"input_tokens_details":{"cached_tokens":0},"output_tokens":20,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":50}
 			}`),
-		}},
+		}}
+	provider := &OpenAIProvider{
+		responsesAPI:      fakeAPI,
 		aiService:         NewService(db),
 		reportingService:  reporting.NewService(db),
 		model:             "gpt-5.2",
@@ -200,6 +201,22 @@ func TestCoordinatorProcessNextQueuedWithOpenAIToolLoopIntegration(t *testing.T)
 	if got := int(artifactPayload["tool_loop_iterations"].(float64)); got != 2 {
 		t.Fatalf("unexpected artifact tool loop iterations: %d", got)
 	}
+
+	if len(fakeAPI.seenParams) != 2 {
+		t.Fatalf("unexpected response call count: %d", len(fakeAPI.seenParams))
+	}
+	secondCallJSON := mustMarshalResponseNewParamsJSON(t, fakeAPI.seenParams[1])
+	if _, ok := secondCallJSON["previous_response_id"]; ok {
+		t.Fatalf("expected stateless continuation without previous_response_id: %+v", secondCallJSON)
+	}
+	inputItems, ok := secondCallJSON["input"].([]any)
+	if !ok || len(inputItems) != 2 {
+		t.Fatalf("unexpected stateless continuation input: %+v", secondCallJSON["input"])
+	}
+	include, ok := secondCallJSON["include"].([]any)
+	if !ok || len(include) != 1 || include[0] != string(responses.ResponseIncludableReasoningEncryptedContent) {
+		t.Fatalf("unexpected include payload: %+v", secondCallJSON["include"])
+	}
 }
 
 func TestOpenAIProviderBlocksDeniedToolPolicyIntegration(t *testing.T) {
@@ -245,7 +262,7 @@ func TestOpenAIProviderBlocksDeniedToolPolicyIntegration(t *testing.T) {
 				"metadata":{},
 				"model":"gpt-5.2",
 				"object":"response",
-				"output":[{"id":"fc_1","type":"function_call","status":"completed","call_id":"call_1","name":"reporting.list_inbound_request_status_summary","arguments":"{}"}],
+				"output":[{"id":"fc_1","type":"function_call","status":"completed","call_id":"call_1","name":"reporting_list_inbound_request_status_summary","arguments":"{}"}],
 				"parallel_tool_calls":false,
 				"temperature":0.1,
 				"tool_choice":"auto",
@@ -382,9 +399,11 @@ func TestOpenAIProviderParsesSpecialistDelegationIntegration(t *testing.T) {
 
 type fakeOpenAIResponsesAPI struct {
 	responses []*responses.Response
+	seenParams []responses.ResponseNewParams
 }
 
-func (f *fakeOpenAIResponsesAPI) New(context.Context, responses.ResponseNewParams, ...option.RequestOption) (*responses.Response, error) {
+func (f *fakeOpenAIResponsesAPI) New(_ context.Context, params responses.ResponseNewParams, _ ...option.RequestOption) (*responses.Response, error) {
+	f.seenParams = append(f.seenParams, params)
 	if len(f.responses) == 0 {
 		return nil, errors.New("unexpected extra response request")
 	}
@@ -401,6 +420,21 @@ func mustResponseFromJSON(t *testing.T, body string) *responses.Response {
 		t.Fatalf("unmarshal fake response: %v", err)
 	}
 	return &resp
+}
+
+func mustMarshalResponseNewParamsJSON(t *testing.T, params responses.ResponseNewParams) map[string]any {
+	t.Helper()
+
+	body, err := json.Marshal(params)
+	if err != nil {
+		t.Fatalf("marshal response params: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		t.Fatalf("unmarshal response params: %v", err)
+	}
+	return decoded
 }
 
 func seedAIOrgAndUser(t *testing.T, ctx context.Context, db *sql.DB, roleCode, existingOrgID string) (string, string) {
