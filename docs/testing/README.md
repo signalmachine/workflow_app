@@ -177,6 +177,37 @@ For implementation work in this repository, the normal verification path is:
 6. if migrations changed, verify that `go run ./cmd/migrate` applies cleanly against the configured development database
 7. document any blocker explicitly if full verification cannot run
 
+Current race-testing stance:
+
+1. `go test -race` is not currently part of the repository's standard full-suite verification path
+2. use targeted `go test -race ./path/to/package` runs when changing concurrency-sensitive code or when a bug smells like shared-memory or goroutine coordination risk
+3. the most likely candidates for targeted race runs are queue claim or processing paths, session or token flows, and any later code that introduces shared in-memory coordination
+4. do not assume a full-repo `go test -race ./...` run is required or currently practical for every implementation slice unless the repository guidance is updated explicitly
+
+Lightweight Go test matrix:
+
+1. default implementation baseline:
+   `go build ./...`
+   `set -a; source .env; set +a; go test -p 1 ./...`
+2. focused package development:
+   `go test ./path/to/package`
+   Use for normal slice development before rerunning the full suite.
+3. concurrency-sensitive changes:
+   `go test -race ./path/to/package`
+   Use for queue claim or processing paths, session or token flows, and other shared-memory coordination risks.
+4. flaky or cache-sensitive reruns:
+   `go test -count=1 ./path/to/package`
+   Use when cached results would hide the current state or when reproducing a suspected flake.
+5. order-coupling suspicion:
+   `go test -shuffle=on ./path/to/package`
+   Use when tests may depend on execution order, leaked state, or shared fixture assumptions.
+6. provider-backed AI changes with live credentials:
+   `set -a; source .env; set +a; go run ./cmd/verify-agent`
+   Use as the focused live verification layer on top of the standard Go test suite.
+7. performance, benchmark, fuzz, or full-repo `-race` runs:
+   opt-in only
+   Use when the active change or a concrete defect justifies the extra cost; these are not current repository-wide default checks.
+
 ## 13. Bottom line
 
 The user does not need to know deep Go testing mechanics to get strong results from Codex.

@@ -43,6 +43,9 @@ Current useful commands:
 - `go run ./cmd/migrate` to apply embedded PostgreSQL migrations
 - `go build ./...` to verify the current workspace builds
 - `set -a; source .env; set +a; go test -p 1 ./...` to run the current automated test suite against the configured test database without package-level advisory-lock contention
+- `go test -race ./path/to/package` to run targeted race detection for concurrency-sensitive packages; this is not yet part of the repository's standard full-suite verification path
+- `go test -shuffle=on ./path/to/package` to detect hidden test-order coupling in focused packages when test isolation is in doubt
+- `go test -count=1 ./path/to/package` to disable cached test results for focused reruns and flake investigation
 - `git diff --check` to catch whitespace and Markdown formatting issues
 
 ## Writing Style & Naming Conventions
@@ -93,6 +96,9 @@ For implementation work:
 - if a failure is caused by using a non-standard command path for this repository, rerun verification using the documented repository command before treating it as a product defect
 - run `go build ./...` before closing out the task
 - run `set -a; source .env; set +a; go test -p 1 ./...` before closing out the task when code or persistence behavior changed
+- use `go test -race ./path/to/package` selectively when changing concurrency-sensitive code such as queue claim or processing paths, session or token flows, or other shared in-memory coordination; do not treat full-repo `-race` as the current standard verification path unless the repository guidance is updated explicitly
+- use `go test -shuffle=on ./path/to/package` when test-order coupling, shared fixtures, or hidden state leakage is a realistic risk
+- use `go test -count=1 ./path/to/package` for focused reruns when you need to bypass cached results or investigate a flaky failure
 - database-backed tests in this repository are expected to run with the configured test database loaded from `.env`; do not treat direct `go test` runs without that environment as the normal verification path, even when the tests are not explicitly labeled as integration-only
 - if migrations or persistence behavior change, verify against the configured development and test databases unless an explicit blocker is documented
 - while the application remains pre-production, it is acceptable to drop and recreate the configured test database to recover from schema drift, failed migration experiments, or other disposable development-state issues

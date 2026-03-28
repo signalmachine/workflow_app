@@ -54,6 +54,14 @@ Run tests with the configured test database:
 set -a; source .env; set +a; go test -p 1 ./...
 ```
 
+Run targeted race detection for concurrency-sensitive packages when needed:
+
+```bash
+go test -race ./path/to/package
+```
+
+`go test -race` is not currently part of the repository's standard full-suite verification path.
+
 Optional OpenAI configuration for the Milestone 6 live-provider path:
 
 ```bash
