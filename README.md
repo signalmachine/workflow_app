@@ -32,6 +32,8 @@ Thin-v1 default rule:
 
 The planning documents in [`new_app_docs/`](./new_app_docs) remain the canonical source for scope, sequencing, and module boundaries.
 
+The durable workflow-reference layer for supported operator paths, reusable end-to-end validation checklists, and later user-guide preparation lives in [`docs/workflows/`](./docs/workflows).
+
 Testing guidance for collaborating with Codex on Go tests lives in [`docs/testing/README.md`](./docs/testing/README.md).
 
 ## Current commands

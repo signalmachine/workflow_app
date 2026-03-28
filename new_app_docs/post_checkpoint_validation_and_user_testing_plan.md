@@ -160,6 +160,7 @@ Next-session execution order for workflows 2 through 4:
 2. workflow 3: start from a processed proposal that identifies a submitted document, request approval through the shared seam, decide that approval, and verify downstream approval plus document-review continuity
 3. workflow 4: force or reproduce one failed provider or failed-processing path, then verify failure reason, timestamps, and troubleshooting continuity across exact request detail, filtered review, and any linked proposal or run views
 4. after each workflow, record explicit pass or fail evidence in this document and `new_app_tracker.md` before moving to the next workflow
+5. if the workflow support reference or reusable live checklist changes materially, update `docs/workflows/application_workflow_catalog.md` and `docs/workflows/end_to_end_validation_checklist.md` in the same change
 
 ### 5.6 Immediate blocker-remediation slice
 

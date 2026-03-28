@@ -18,8 +18,9 @@ Rules:
 6. this document is a companion summary and is not mandatory reading for every implementation session
 7. `docs/implementation_objectives/implementation_principles.md` is a reference-only companion note that provides implementation-principles guidance, but it is not the sole source of implementation principles and it is not part of the canonical planning set
 8. the normal session-start source of truth remains `AGENTS.md`, `README.md`, `new_app_docs/`, and optional reference material when needed
-9. when high-level objectives, rules, principles, specifications, or invariants change in those canonical sources, this summary should be reviewed and updated if needed
-10. when implementation-time codebase review surfaces drift, an issue, an inconsistency, or a conflict, contributors should report it and either fix it in the same change when appropriate or document it in the canonical implementation plan docs for a future session
+9. `docs/workflows/` should be maintained as the durable workflow-reference layer for supported operator paths, workflow status, and reusable end-to-end validation checklists, while `new_app_docs/` remains the live planning source
+10. when high-level objectives, rules, principles, specifications, or invariants change in those canonical sources, this summary should be reviewed and updated if needed
+11. when implementation-time codebase review surfaces drift, an issue, an inconsistency, or a conflict, contributors should report it and either fix it in the same change when appropriate or document it in the canonical implementation plan docs for a future session
 
 ## 2. Product identity
 
@@ -80,6 +81,7 @@ Implementation consequences:
 11. queued or otherwise submitted-but-unprocessed request removal should normally be soft cancel rather than hard deletion so auditability and recovery remain intact
 12. draft requests may still be hard-deleted completely because they have not yet entered the AI processing queue
 13. queued or cancelled pre-processing requests may return to `draft` for amendment and later resubmission while preserving the same intake identity
+14. every meaningful feature, control seam, state transition, and support surface should tie to one or more workflows, even when the thing itself is not a workflow record
 
 ## 4. Versioning stance and thin-v1 objective
 
@@ -112,6 +114,7 @@ Current checkpoint result:
 3. the current codebase should therefore be treated as thin-v1 checkpoint complete at its planned foundation depth
 4. the next active step after checkpoint closeout is a validation-led slice for live provider readiness and canonical end-to-end workflow testing rather than implicit new feature expansion
 5. that post-checkpoint slice should continue focused review plus structured end-to-end testing until the canonical supervised user-testing workflows have no known blocking defects
+6. this workflow-critical testing stance should remain a durable repository policy beyond thin v1 whenever the real question is operator workflow reliability on the shared application seam rather than isolated package correctness
 
 ## 5. Highest-priority v1 capabilities
 

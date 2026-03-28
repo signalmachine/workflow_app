@@ -63,6 +63,7 @@ Planned next-session review and testing order:
 5. for each workflow, verify request lifecycle state, AI run and artifact continuity, proposal or approval linkage, and exact browser-review continuity rather than treating one successful page render as sufficient evidence
 6. if a blocker appears, fix only the narrowest shared-backend or browser continuity gap required for that workflow and record the blocker explicitly in this tracker and the validation plan
 7. finish the session with `go build ./...` plus `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./...`, then update this tracker with concrete pass or fail results and the revised readiness state
+8. update `docs/workflows/application_workflow_catalog.md` and `docs/workflows/end_to_end_validation_checklist.md` if the durable workflow reference or reusable workflow checklist has drifted
 
 Follow-on rule:
 

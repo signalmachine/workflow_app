@@ -17,6 +17,8 @@ This folder exists to prepare a clean restart with:
 
 This planning set is the repository's canonical planning source.
 
+For the durable workflow-reference layer that should survive after the active thin-v1 planning phase, use `docs/workflows/`.
+
 `workflow_app` still plans for multi-agent architecture in v1, but only at foundation depth:
 
 1. one coordinator routing bounded work to specialist agents
@@ -41,6 +43,7 @@ Read these in order:
 12. `non_browser_auth_evolution_plan.md`
 13. `new_app_tracker.md`
 14. `app_v2_plans/README.md`
+15. `../docs/workflows/README.md` for the durable workflow-reference layer after the active planning read
 
 ## Reset decision
 

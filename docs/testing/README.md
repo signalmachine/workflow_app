@@ -15,8 +15,11 @@ In this repository, testing should prioritize:
 3. service-layer behavior at module boundaries
 4. transaction safety, auditability, and idempotency
 5. realistic integration coverage for the document -> approval -> posting -> inventory/execution chain
+6. bounded end-to-end workflow validation when the real question is whether the shared operator seam behaves correctly in the live application
 
 This repository is not primarily a pure-library codebase. It is a persistence-heavy business system. That means testing should not over-focus on isolated units while under-testing the service and database paths that actually own correctness.
+
+When the repository is evaluating operator readiness, user-testing readiness, or other workflow-critical behavior, the key question is often no longer "does the code compile" or "do isolated services work." The key question becomes "is the real operator workflow reliable enough on the actual shared seam." That question must be answered through bounded end-to-end review and live workflow testing on the real `/app` plus `/api/...` seam, not just through unit or package verification.
 
 ## 2. What Codex can do well in testing
 
@@ -87,6 +90,7 @@ Testing is most effective when it follows these rules:
 8. keep fixtures realistic but not bloated
 9. avoid fragile tests that assert irrelevant ordering or incidental formatting
 10. test behaviors that matter to future refactors, not just what was easy to assert
+11. when end-to-end workflow behavior is the real risk, use a documented workflow checklist and explicit boundary assertions instead of ad hoc exploratory manual testing
 
 ## 6. Recommended testing hierarchy
 
@@ -99,6 +103,21 @@ Use this rough priority order unless there is a special reason not to:
 5. repo-wide build and test verification after meaningful changes
 
 For this repository, service integration tests are often the highest-value test type.
+
+That does not replace workflow testing.
+
+For workflow-critical slices, the preferred sequence is:
+
+1. focused code review on the next high-risk workflow
+2. narrow fix if a real blocker exists
+3. live end-to-end workflow execution on the shared `/app` plus `/api/...` seam
+4. explicit documentation of pass/fail results, blockers, and readiness state
+
+This fits the repository architecture because:
+
+1. the app is queue-oriented, persist-first, and review-driven
+2. the important risks are continuity, control boundaries, approval transitions, and operator-visible state
+3. those risks often do not appear in unit tests alone
 
 ## 7. When Codex should prefer integration tests
 
@@ -176,6 +195,30 @@ For implementation work in this repository, the normal verification path is:
 5. when provider-backed AI execution changes and live credentials are available, run `set -a; source .env; set +a; go run ./cmd/verify-agent` as the focused opt-in verification path on top of the shared backend contract
 6. if migrations changed, verify that `go run ./cmd/migrate` applies cleanly against the configured development database
 7. document any blocker explicitly if full verification cannot run
+
+## 12.1 Workflow-critical validation policy
+
+For workflow-critical changes and readiness review, use explicit end-to-end workflow testing, not only package verification.
+
+Current canonical workflow set:
+
+1. login -> submit inbound request -> queue processing -> AI review visible
+2. draft request -> continue editing -> queue -> processing -> downstream continuity
+3. processed proposal -> request approval -> approval decision -> downstream continuity
+4. failed provider or failed processing path -> failure visibility -> troubleshooting continuity
+5. cross-link continuity from request, proposal, approval, and downstream review back to the originating `REQ-...` request and AI trail
+
+For each workflow, assert boundary-by-boundary:
+
+1. request persistence and lifecycle transitions
+2. AI run, step, artifact, recommendation, and delegation persistence where expected
+3. approval creation and decision behavior where expected
+4. downstream review visibility through `/api/review/...` and `/app/...`
+5. exact continuity across linked review pages and upstream provenance
+
+Do not treat broad exploratory manual testing without a checklist as the default approach.
+
+Use the durable workflow-reference layer in `docs/workflows/` and the active planning docs in `new_app_docs/` together.
 
 Current race-testing stance:
 
