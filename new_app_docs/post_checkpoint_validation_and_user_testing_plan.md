@@ -91,6 +91,12 @@ Current result on 2026-03-28:
 2. the real shared seam was exercised successfully through browser-session login, active-session lookup, dashboard load, inbound-request submission, queued-request processing, inbound-request review list and exact detail reads, processed-proposal review, approval-queue review, and browser request-detail rendering
 3. the shared seam therefore appears operational outside direct service calls and outside repository-only tests
 
+Next-session Step 2 start order:
+
+1. rerun `set -a; source .env; set +a; go run ./cmd/verify-agent` first so the live provider seam is reconfirmed before wider browser checks continue
+2. run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
+3. use the real shared `/app` plus `/api/...` seam rather than direct service calls for the remaining workflows unless a live blocker forces lower-level diagnosis
+
 ### 5.3 Step 3: execute canonical end-to-end workflows
 
 Run a small, explicit workflow set rather than broad exploratory testing first.
@@ -110,7 +116,9 @@ Current workflow result on 2026-03-28:
 3. that first live result exposed a concrete blocker: the provider-backed recommendation and artifact were generic and stale because they described the request as merely being in `processing` based on the queue-status summary tool output rather than centering the actual request message
 4. that blocker is now cleared on 2026-03-28: `internal/ai` was hardened so request evidence is primary, queue summary is explicitly secondary, stale `processing`-style briefs fail validation, and the OpenAI provider gets one bounded repair turn before failing when the first structured brief stays too generic
 5. after that hardening, `go build ./...`, `set -a; source .env; set +a; timeout 600s go test -p 1 ./...`, and `set -a; source .env; set +a; go run ./cmd/verify-agent` all passed, and the live verification summary returned a request-specific warehouse-pump inspection brief
-6. workflows 2 through 4 remain unexecuted in the live environment and must still be run explicitly
+6. a second shared-backend continuity gap is now also closed inside the same validation slice: processed-proposal review now keeps document and suggested-queue continuity visible before approval exists by deriving those fields from recommendation payload when needed, and operators can now request workflow approval directly from processed proposals through both `/api/review/processed-proposals/{recommendation_id}/request-approval` and `/app/review/proposals/{recommendation_id}/request-approval` with atomic recommendation-link persistence
+7. after that approval-request slice, `go build ./...`, `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./...`, and targeted browser-rendering coverage all passed
+8. workflows 2 through 4 still remain to be executed explicitly in the live environment, but workflow 3 no longer has a known shared-backend blocker at the proposal-to-approval transition
 
 ### 5.4 Step 4: assert each workflow boundary explicitly
 
@@ -144,6 +152,14 @@ Current interim result on 2026-03-28:
 1. not ready yet for supervised AI-backed user testing
 2. the first blocking defect on the live provider path is now cleared: the final persisted brief is request-centered again on the live OpenAI path, and stale queue-status wording is rejected before persistence
 3. additional workflow coverage is still required for draft-amend continuity, approval-producing flows, and failed-provider or failed-processing visibility before readiness can be stated
+4. the proposal-to-approval shared seam is now available for that remaining workflow coverage, so the next validation pass should use the real browser plus shared API path rather than treating approval-request continuity as a missing backend capability
+
+Next-session execution order for workflows 2 through 4:
+
+1. workflow 2: save a draft, continue editing it, queue it, process it, and verify the resulting request plus proposal continuity in both `/api/review/...` and `/app/...`
+2. workflow 3: start from a processed proposal that identifies a submitted document, request approval through the shared seam, decide that approval, and verify downstream approval plus document-review continuity
+3. workflow 4: force or reproduce one failed provider or failed-processing path, then verify failure reason, timestamps, and troubleshooting continuity across exact request detail, filtered review, and any linked proposal or run views
+4. after each workflow, record explicit pass or fail evidence in this document and `new_app_tracker.md` before moving to the next workflow
 
 ### 5.6 Immediate blocker-remediation slice
 

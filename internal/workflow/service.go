@@ -153,6 +153,46 @@ func (s *Service) RequestApproval(ctx context.Context, input RequestApprovalInpu
 	return approval, nil
 }
 
+func (s *Service) RequestApprovalTx(ctx context.Context, tx *sql.Tx, input RequestApprovalInput) (Approval, error) {
+	if input.QueueCode == "" {
+		return Approval{}, ErrApprovalQueueRequired
+	}
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin, identityaccess.RoleOperator); err != nil {
+		return Approval{}, err
+	}
+
+	documentState, err := loadDocumentState(ctx, tx, input.Actor.OrgID, input.DocumentID)
+	if err != nil {
+		return Approval{}, err
+	}
+	if documentState != string(documents.StatusSubmitted) {
+		return Approval{}, documents.ErrInvalidDocumentState
+	}
+
+	approval, err := insertApprovalTx(ctx, tx, input)
+	if err != nil {
+		return Approval{}, err
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
+		EventType:   "workflow.approval_requested",
+		EntityType:  "workflow.approval",
+		EntityID:    approval.ID,
+		Payload: map[string]any{
+			"document_id": approval.DocumentID,
+			"queue_code":  approval.QueueCode,
+			"reason":      strings.TrimSpace(input.Reason),
+		},
+	}); err != nil {
+		return Approval{}, err
+	}
+
+	return approval, nil
+}
+
 func (s *Service) DecideApproval(ctx context.Context, input DecideApprovalInput) (Approval, documents.Document, error) {
 	input.ApprovalID = strings.TrimSpace(input.ApprovalID)
 	input.Decision = strings.TrimSpace(input.Decision)

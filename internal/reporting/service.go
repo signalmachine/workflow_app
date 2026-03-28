@@ -516,6 +516,7 @@ type ProcessedProposalReview struct {
 	RecommendationType   string
 	RecommendationStatus string
 	Summary              string
+	SuggestedQueueCode   sql.NullString
 	ApprovalID           sql.NullString
 	ApprovalStatus       sql.NullString
 	ApprovalQueueCode    sql.NullString
@@ -3076,6 +3077,7 @@ SELECT
 	rec.recommendation_type,
 	rec.status,
 	rec.summary,
+	NULLIF(BTRIM(rec.payload->>'queue_code'), ''),
 	rec.approval_id,
 	ap.status,
 	ap.queue_code,
@@ -3094,7 +3096,14 @@ JOIN ai.agent_recommendations rec
 LEFT JOIN workflow.approvals ap
 	ON ap.id = rec.approval_id
 LEFT JOIN documents.documents d
-	ON d.id = ap.document_id
+	ON d.id = COALESCE(
+		ap.document_id,
+		CASE
+			WHEN BTRIM(rec.payload->>'document_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+			THEN (BTRIM(rec.payload->>'document_id'))::uuid
+			ELSE NULL
+		END
+	)
 WHERE r.org_id = $1
   AND ($2 = '' OR r.id = NULLIF($2, '')::uuid)
   AND ($3 = '' OR rec.id = NULLIF($3, '')::uuid)
@@ -3120,6 +3129,7 @@ LIMIT 200;`
 			&proposal.RecommendationType,
 			&proposal.RecommendationStatus,
 			&proposal.Summary,
+			&proposal.SuggestedQueueCode,
 			&proposal.ApprovalID,
 			&proposal.ApprovalStatus,
 			&proposal.ApprovalQueueCode,

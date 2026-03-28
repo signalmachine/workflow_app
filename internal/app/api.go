@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"workflow_app/internal/ai"
 	"workflow_app/internal/attachments"
 	"workflow_app/internal/documents"
 	"workflow_app/internal/identityaccess"
@@ -60,6 +61,7 @@ const (
 	reviewInboundRequestsPath  = "/api/review/inbound-requests"
 	reviewInboundSummaryPath   = "/api/review/inbound-request-status-summary"
 	reviewProposalListPath     = "/api/review/processed-proposals"
+	reviewProposalActionPrefix = "/api/review/processed-proposals/"
 	reviewProposalSummaryPath  = "/api/review/processed-proposal-status-summary"
 	reviewApprovalQueuePath    = "/api/review/approval-queue"
 	reviewDocumentsPath        = "/api/review/documents"
@@ -123,6 +125,10 @@ type operatorReviewReader interface {
 
 type approvalDecisionService interface {
 	DecideApproval(ctx context.Context, input workflow.DecideApprovalInput) (workflow.Approval, documents.Document, error)
+}
+
+type proposalApprovalService interface {
+	RequestProcessedProposalApproval(ctx context.Context, input requestProcessedProposalApprovalInput) (workflow.Approval, reporting.ProcessedProposalReview, error)
 }
 
 type browserSessionService interface {
@@ -214,6 +220,11 @@ type decideApprovalRequest struct {
 	DecisionNote string `json:"decision_note"`
 }
 
+type requestProcessedProposalApprovalRequest struct {
+	QueueCode string `json:"queue_code"`
+	Reason    string `json:"reason"`
+}
+
 type sessionLoginRequest struct {
 	OrgSlug     string `json:"org_slug"`
 	Email       string `json:"email"`
@@ -230,15 +241,16 @@ type AgentAPIHandler struct {
 	submissionService inboundRequestSubmitter
 	reviewService     operatorReviewReader
 	approvalService   approvalDecisionService
+	proposalApproval  proposalApprovalService
 	authService       browserSessionService
 }
 
 func NewAgentAPIHandler(db *sql.DB) http.Handler {
 	documentService := documents.NewService(db)
 	authService := identityaccess.NewService(db)
-	return NewAgentAPIHandlerWithDependencies(func() (ProcessNextQueuedInboundRequester, error) {
+	return newAgentAPIHandlerWithDependencies(func() (ProcessNextQueuedInboundRequester, error) {
 		return NewOpenAIAgentProcessorFromEnv(db)
-	}, NewSubmissionService(db), reporting.NewService(db), workflow.NewService(db, documentService), authService)
+	}, NewSubmissionService(db), reporting.NewService(db), workflow.NewService(db, documentService), newProcessedProposalApprovalService(db), authService)
 }
 
 func NewAgentAPIHandlerWithProcessorLoader(loader queuedInboundRequestProcessorLoader) http.Handler {
@@ -250,11 +262,16 @@ func NewAgentAPIHandlerWithServices(loader queuedInboundRequestProcessorLoader, 
 }
 
 func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoader, submissionService inboundRequestSubmitter, reviewService operatorReviewReader, approvalService approvalDecisionService, authService browserSessionService) http.Handler {
+	return newAgentAPIHandlerWithDependencies(loader, submissionService, reviewService, approvalService, nil, authService)
+}
+
+func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoader, submissionService inboundRequestSubmitter, reviewService operatorReviewReader, approvalService approvalDecisionService, proposalApproval proposalApprovalService, authService browserSessionService) http.Handler {
 	handler := &AgentAPIHandler{
 		loadProcessor:     loader,
 		submissionService: submissionService,
 		reviewService:     reviewService,
 		approvalService:   approvalService,
+		proposalApproval:  proposalApproval,
 		authService:       authService,
 	}
 	mux := http.NewServeMux()
@@ -298,6 +315,7 @@ func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(reviewInboundRequestsPath+"/", handler.handleGetInboundRequestDetail)
 	mux.HandleFunc(reviewInboundSummaryPath, handler.handleListInboundRequestStatusSummary)
 	mux.HandleFunc(reviewProposalListPath, handler.handleListProcessedProposals)
+	mux.HandleFunc(reviewProposalActionPrefix, handler.handleProcessedProposalAction)
 	mux.HandleFunc(reviewProposalSummaryPath, handler.handleListProcessedProposalStatusSummary)
 	mux.HandleFunc(reviewApprovalQueuePath, handler.handleListApprovalQueue)
 	mux.HandleFunc(reviewDocumentsPath, handler.handleListDocuments)
@@ -1091,6 +1109,67 @@ func (h *AgentAPIHandler) handleListProcessedProposals(w http.ResponseWriter, r 
 		response.Items = append(response.Items, mapProcessedProposalReview(item))
 	}
 	writeJSON(w, http.StatusOK, response)
+}
+
+func (h *AgentAPIHandler) handleProcessedProposalAction(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == reviewProposalListPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+		return
+	}
+	if h.proposalApproval == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "proposal approval service unavailable"})
+		return
+	}
+
+	recommendationID, action, ok := parseChildActionPath(reviewProposalListPath, r.URL.Path)
+	if !ok || action != "request-approval" {
+		http.NotFound(w, r)
+		return
+	}
+	if !uuidPattern.MatchString(recommendationID) {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid review filter"})
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+	defer r.Body.Close()
+
+	var req requestProcessedProposalApprovalRequest
+	if err := decodeJSONBody(r, &req, false); err != nil {
+		writeJSONBodyError(w, err)
+		return
+	}
+
+	approval, proposal, err := h.proposalApproval.RequestProcessedProposalApproval(r.Context(), requestProcessedProposalApprovalInput{
+		RecommendationID: recommendationID,
+		QueueCode:        strings.TrimSpace(req.QueueCode),
+		Reason:           strings.TrimSpace(req.Reason),
+		Actor:            actor,
+	})
+	if err != nil {
+		handleReviewError(w, err, "failed to request proposal approval")
+		return
+	}
+
+	response := processedProposalApprovalResponse{
+		RecommendationID:     proposal.RecommendationID,
+		RecommendationStatus: ai.RecommendationStatusApprovalRequested,
+		ApprovalID:           approval.ID,
+		ApprovalStatus:       approval.Status,
+		ApprovalQueueCode:    approval.QueueCode,
+		DocumentID:           approval.DocumentID,
+		DocumentStatus:       stringPtr(proposal.DocumentStatus),
+		RequestedAt:          approval.RequestedAt,
+	}
+	writeJSON(w, http.StatusCreated, response)
 }
 
 func (h *AgentAPIHandler) handleListProcessedProposalStatusSummary(w http.ResponseWriter, r *http.Request) {
@@ -2377,6 +2456,7 @@ type processedProposalReviewResponse struct {
 	RecommendationType   string    `json:"recommendation_type"`
 	RecommendationStatus string    `json:"recommendation_status"`
 	Summary              string    `json:"summary"`
+	SuggestedQueueCode   *string   `json:"suggested_queue_code,omitempty"`
 	ApprovalID           *string   `json:"approval_id,omitempty"`
 	ApprovalStatus       *string   `json:"approval_status,omitempty"`
 	ApprovalQueueCode    *string   `json:"approval_queue_code,omitempty"`
@@ -2420,12 +2500,31 @@ type approvalDecisionResponse struct {
 	DecidedAt       *time.Time `json:"decided_at,omitempty"`
 }
 
+type processedProposalApprovalResponse struct {
+	RecommendationID     string    `json:"recommendation_id"`
+	RecommendationStatus string    `json:"recommendation_status"`
+	ApprovalID           string    `json:"approval_id"`
+	ApprovalStatus       string    `json:"approval_status"`
+	ApprovalQueueCode    string    `json:"approval_queue_code"`
+	DocumentID           string    `json:"document_id"`
+	DocumentStatus       *string   `json:"document_status,omitempty"`
+	RequestedAt          time.Time `json:"requested_at"`
+}
+
 func handleReviewError(w http.ResponseWriter, err error, fallback string) {
 	switch {
 	case errors.Is(err, identityaccess.ErrUnauthorized):
 		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
 	case errors.Is(err, reporting.ErrInvalidReviewFilter):
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid review filter"})
+	case errors.Is(err, workflow.ErrApprovalQueueRequired):
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "approval queue is required"})
+	case errors.Is(err, ErrProcessedProposalDocumentMissing):
+		writeJSON(w, http.StatusConflict, errorResponse{Error: "processed proposal document is required"})
+	case errors.Is(err, ErrProcessedProposalApprovalExists), errors.Is(err, ai.ErrRecommendationApprovalLinked):
+		writeJSON(w, http.StatusConflict, errorResponse{Error: "processed proposal already linked to approval"})
+	case errors.Is(err, ErrProcessedProposalNotFound), errors.Is(err, ai.ErrRecommendationNotFound):
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "record not found"})
 	case errors.Is(err, sql.ErrNoRows), errors.Is(err, reporting.ErrWorkOrderNotFound):
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "record not found"})
 	default:
@@ -2867,6 +2966,7 @@ func mapProcessedProposalReview(item reporting.ProcessedProposalReview) processe
 		RecommendationType:   item.RecommendationType,
 		RecommendationStatus: item.RecommendationStatus,
 		Summary:              item.Summary,
+		SuggestedQueueCode:   stringPtr(item.SuggestedQueueCode),
 		ApprovalID:           stringPtr(item.ApprovalID),
 		ApprovalStatus:       stringPtr(item.ApprovalStatus),
 		ApprovalQueueCode:    stringPtr(item.ApprovalQueueCode),

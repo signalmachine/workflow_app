@@ -161,10 +161,12 @@ type webProposalsData struct {
 }
 
 type webProposalDetailData struct {
-	Session identityaccess.SessionContext
-	Notice  string
-	Error   string
-	Review  reporting.ProcessedProposalReview
+	Session                identityaccess.SessionContext
+	Notice                 string
+	Error                  string
+	Review                 reporting.ProcessedProposalReview
+	ApprovalReason         string
+	ApprovalQueueCodeDraft string
 }
 
 type webApprovalsData struct {
@@ -776,6 +778,15 @@ func (h *AgentAPIHandler) handleWebProposals(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *AgentAPIHandler) handleWebProposalDetail(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		recommendationID, action, ok := parseChildActionPath(webProposalsPath, r.URL.Path)
+		if !ok || action != "request-approval" {
+			http.NotFound(w, r)
+			return
+		}
+		h.handleWebProposalAction(w, r, recommendationID, action)
+		return
+	}
 	if r.Method != http.MethodGet {
 		http.NotFound(w, r)
 		return
@@ -811,12 +822,63 @@ func (h *AgentAPIHandler) handleWebProposalDetail(w http.ResponseWriter, r *http
 		ActivePath: webProposalsPath,
 		Session:    &sessionContext,
 		ProposalDetail: &webProposalDetailData{
-			Session: sessionContext,
-			Notice:  strings.TrimSpace(r.URL.Query().Get("notice")),
-			Error:   strings.TrimSpace(r.URL.Query().Get("error")),
-			Review:  proposals[0],
+			Session:                sessionContext,
+			Notice:                 strings.TrimSpace(r.URL.Query().Get("notice")),
+			Error:                  strings.TrimSpace(r.URL.Query().Get("error")),
+			Review:                 proposals[0],
+			ApprovalQueueCodeDraft: proposalQueueCode(proposals[0]),
 		},
 	})
+}
+
+func (h *AgentAPIHandler) handleWebProposalAction(w http.ResponseWriter, r *http.Request, recommendationID, action string) {
+	if h.proposalApproval == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("proposal approval service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("unauthorized"), http.StatusSeeOther)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, webProposalsPath+"?error="+url.QueryEscape("invalid proposal form"), http.StatusSeeOther)
+		return
+	}
+
+	returnTo := sanitizeWebReturnPath(r.FormValue("return_to"))
+	if returnTo == "" {
+		returnTo = webProposalDetailPrefix + url.PathEscape(recommendationID)
+	}
+
+	switch action {
+	case "request-approval":
+		if _, _, err := h.proposalApproval.RequestProcessedProposalApproval(r.Context(), requestProcessedProposalApprovalInput{
+			RecommendationID: recommendationID,
+			QueueCode:        strings.TrimSpace(r.FormValue("queue_code")),
+			Reason:           strings.TrimSpace(r.FormValue("reason")),
+			Actor:            actor,
+		}); err != nil {
+			http.Redirect(w, r, appendWebMessage(returnTo, "error", "failed to request approval"), http.StatusSeeOther)
+			return
+		}
+		http.Redirect(w, r, appendWebMessage(returnTo, "notice", "Approval requested."), http.StatusSeeOther)
+		return
+	default:
+		http.NotFound(w, r)
+		return
+	}
+}
+
+func proposalQueueCode(review reporting.ProcessedProposalReview) string {
+	if review.ApprovalQueueCode.Valid {
+		return review.ApprovalQueueCode.String
+	}
+	if review.SuggestedQueueCode.Valid {
+		return review.SuggestedQueueCode.String
+	}
+	return ""
 }
 
 func (h *AgentAPIHandler) handleWebApprovals(w http.ResponseWriter, r *http.Request) {
@@ -3118,6 +3180,7 @@ const webAppHTML = `<!DOCTYPE html>
               <tr><th>Request</th><td><a href="/app/inbound-requests/{{.Review.RequestReference}}">{{.Review.RequestReference}}</a> | <span class="status-pill {{statusClass .Review.RequestStatus}}">{{.Review.RequestStatus}}</span></td></tr>
               <tr><th>Approval</th><td>{{if .Review.ApprovalID.Valid}}<a href="{{approvalReviewHref .Review.ApprovalID.String}}">{{if .Review.ApprovalQueueCode.Valid}}{{.Review.ApprovalQueueCode.String}}{{else}}approval{{end}}</a>{{if .Review.ApprovalStatus.Valid}} | <span class="status-pill {{statusClass .Review.ApprovalStatus.String}}">{{.Review.ApprovalStatus.String}}</span>{{end}}{{else}}-{{end}}</td></tr>
               <tr><th>Document</th><td>{{if .Review.DocumentID.Valid}}<a href="{{documentReviewHref .Review.DocumentID.String}}">{{.Review.DocumentTitle.String}}</a>{{if .Review.DocumentStatus.Valid}} | <span class="status-pill {{statusClass .Review.DocumentStatus.String}}">{{.Review.DocumentStatus.String}}</span>{{end}}{{else}}-{{end}}</td></tr>
+              <tr><th>Suggested queue</th><td>{{if .Review.SuggestedQueueCode.Valid}}{{.Review.SuggestedQueueCode.String}}{{else}}-{{end}}</td></tr>
             </tbody>
           </table>
         </section>
@@ -3133,6 +3196,20 @@ const webAppHTML = `<!DOCTYPE html>
           </table>
         </section>
       </div>
+      {{if and (not .Review.ApprovalID.Valid) .Review.DocumentID.Valid}}
+      <section class="panel">
+        <h2>Request approval</h2>
+        <form method="post" action="/app/review/proposals/{{.Review.RecommendationID}}/request-approval">
+          <input type="hidden" name="return_to" value="/app/review/proposals/{{.Review.RecommendationID}}">
+          <input type="text" name="queue_code" value="{{.ApprovalQueueCodeDraft}}" placeholder="queue code">
+          <input type="text" name="reason" value="{{.ApprovalReason}}" placeholder="reason">
+          <div class="inline-form">
+            <button type="submit">Request approval</button>
+            <a href="{{documentReviewHref .Review.DocumentID.String}}">Open document</a>
+          </div>
+        </form>
+      </section>
+      {{end}}
     </div>
     {{end}}
 

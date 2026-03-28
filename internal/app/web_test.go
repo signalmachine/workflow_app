@@ -1337,6 +1337,61 @@ func TestHandleWebProposalsAddsSummaryAndExactLinks(t *testing.T) {
 	}
 }
 
+func TestHandleWebProposalDetailShowsRequestApprovalFormWhenDocumentExists(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listProcessedProposals: func(context.Context, reporting.ListProcessedProposalsInput) ([]reporting.ProcessedProposalReview, error) {
+				return []reporting.ProcessedProposalReview{
+					{
+						RequestReference:     "REQ-000123",
+						RequestStatus:        "processed",
+						RecommendationID:     "rec-123",
+						RunID:                "run-123",
+						RecommendationType:   "request_approval",
+						RecommendationStatus: "proposed",
+						Summary:              "Request finance approval for the invoice.",
+						SuggestedQueueCode:   sql.NullString{String: "finance_review", Valid: true},
+						DocumentID:           sql.NullString{String: "doc-123", Valid: true},
+						DocumentTitle:        sql.NullString{String: "Invoice proposal", Valid: true},
+						DocumentTypeCode:     sql.NullString{String: "invoice", Valid: true},
+						DocumentStatus:       sql.NullString{String: "submitted", Valid: true},
+						CreatedAt:            time.Date(2026, 3, 27, 11, 0, 0, 0, time.UTC),
+					},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review/proposals/rec-123", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `/app/review/proposals/rec-123/request-approval`) {
+		t.Fatalf("expected request-approval form action, body=%s", body)
+	}
+	if !strings.Contains(body, `name="queue_code" value="finance_review"`) {
+		t.Fatalf("expected suggested queue value, body=%s", body)
+	}
+	if !strings.Contains(body, `Open document`) {
+		t.Fatalf("expected document continuity action, body=%s", body)
+	}
+}
+
 func TestHandleWebAppDashboardAddsExactProposalAndApprovalLinks(t *testing.T) {
 	handler := NewAgentAPIHandlerWithDependencies(
 		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },

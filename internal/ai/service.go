@@ -14,18 +14,19 @@ import (
 )
 
 var (
-	ErrRunNotFound            = errors.New("ai run not found")
-	ErrRunNotActive           = errors.New("ai run is not active")
-	ErrToolNotFound           = errors.New("ai tool not found")
-	ErrStepNotFound           = errors.New("ai step not found")
-	ErrArtifactNotFound       = errors.New("ai artifact not found")
-	ErrRecommendationNotFound = errors.New("ai recommendation not found")
-	ErrApprovalNotFound       = errors.New("approval not found")
-	ErrInvalidAgentRole       = errors.New("invalid agent role")
-	ErrInvalidRunStatus       = errors.New("invalid run status")
-	ErrInvalidStepStatus      = errors.New("invalid step status")
-	ErrInvalidPolicy          = errors.New("invalid tool policy")
-	ErrInvalidDelegation      = errors.New("invalid delegation")
+	ErrRunNotFound                  = errors.New("ai run not found")
+	ErrRunNotActive                 = errors.New("ai run is not active")
+	ErrToolNotFound                 = errors.New("ai tool not found")
+	ErrStepNotFound                 = errors.New("ai step not found")
+	ErrArtifactNotFound             = errors.New("ai artifact not found")
+	ErrRecommendationNotFound       = errors.New("ai recommendation not found")
+	ErrRecommendationApprovalLinked = errors.New("ai recommendation already linked to approval")
+	ErrApprovalNotFound             = errors.New("approval not found")
+	ErrInvalidAgentRole             = errors.New("invalid agent role")
+	ErrInvalidRunStatus             = errors.New("invalid run status")
+	ErrInvalidStepStatus            = errors.New("invalid step status")
+	ErrInvalidPolicy                = errors.New("invalid tool policy")
+	ErrInvalidDelegation            = errors.New("invalid delegation")
 )
 
 const (
@@ -555,6 +556,10 @@ func (s *Service) LinkRecommendationApproval(ctx context.Context, input LinkReco
 	return recommendation, nil
 }
 
+func (s *Service) LinkRecommendationApprovalTx(ctx context.Context, tx *sql.Tx, input LinkRecommendationApprovalInput) (Recommendation, error) {
+	return linkRecommendationApprovalTx(ctx, tx, input.Actor.OrgID, input)
+}
+
 func (s *Service) RecordDelegation(ctx context.Context, input RecordDelegationInput) (Delegation, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -1025,6 +1030,9 @@ func linkRecommendationApprovalTx(ctx context.Context, tx *sql.Tx, orgID string,
 	recommendation, err := getRecommendationForUpdate(ctx, tx, orgID, input.RecommendationID)
 	if err != nil {
 		return Recommendation{}, err
+	}
+	if recommendation.ApprovalID.Valid {
+		return Recommendation{}, ErrRecommendationApprovalLinked
 	}
 
 	const statement = `

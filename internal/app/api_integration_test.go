@@ -2578,6 +2578,185 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	requireContains(t, recommendationAuditRecorder.Body.String(), "/app/review/proposals/"+proposalListResponse.Items[0].RecommendationID)
 }
 
+func TestAgentAPIRequestProcessedProposalApprovalIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
+
+	intakeService := intake.NewService(db)
+	request := createQueuedRequest(t, ctx, db, operator, "Request approval for the submitted invoice proposal.")
+	if _, err := intakeService.ClaimNextQueued(ctx, intake.ClaimNextQueuedInput{
+		Channel: "browser",
+		Actor:   operator,
+	}); err != nil {
+		t.Fatalf("claim queued request: %v", err)
+	}
+	if _, err := intakeService.AdvanceRequest(ctx, intake.AdvanceRequestInput{
+		RequestID: request.ID,
+		Status:    intake.StatusProcessed,
+		Actor:     operator,
+	}); err != nil {
+		t.Fatalf("mark request processed: %v", err)
+	}
+
+	documentService := documents.NewService(db)
+	doc, err := documentService.CreateDraft(ctx, documents.CreateDraftInput{
+		TypeCode: "invoice",
+		Title:    "Proposal-backed invoice",
+		Actor:    operator,
+	})
+	if err != nil {
+		t.Fatalf("create document draft: %v", err)
+	}
+	doc, err = documentService.Submit(ctx, documents.SubmitInput{
+		DocumentID: doc.ID,
+		Actor:      operator,
+	})
+	if err != nil {
+		t.Fatalf("submit document: %v", err)
+	}
+
+	aiService := ai.NewService(db)
+	run, err := aiService.StartRun(ctx, ai.StartRunInput{
+		AgentRole:        ai.RunRoleSpecialist,
+		CapabilityCode:   "workflow.approvals",
+		InboundRequestID: request.ID,
+		RequestText:      "request approval for submitted invoice proposal",
+		Metadata: map[string]any{
+			"request_reference": request.RequestReference,
+		},
+		Actor: operator,
+	})
+	if err != nil {
+		t.Fatalf("start run: %v", err)
+	}
+	recommendation, err := aiService.CreateRecommendation(ctx, ai.CreateRecommendationInput{
+		RunID:              run.ID,
+		RecommendationType: "request_approval",
+		Summary:            "Request finance approval for the submitted invoice.",
+		Payload: map[string]any{
+			"document_id": doc.ID,
+			"queue_code":  "finance-review",
+		},
+		Actor: operator,
+	})
+	if err != nil {
+		t.Fatalf("create recommendation: %v", err)
+	}
+
+	handler := app.NewAgentAPIHandler(db)
+	cookies := issueBrowserSessionCookies(t, ctx, db, handler, orgID, operatorUserID)
+
+	preReq := httptest.NewRequest(http.MethodGet, "/api/review/processed-proposals?recommendation_id="+recommendation.ID, nil)
+	applyResponseCookies(preReq, cookies)
+	preRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(preRecorder, preReq)
+	if preRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected pre-action proposal status: got %d body=%s", preRecorder.Code, preRecorder.Body.String())
+	}
+
+	var preResponse struct {
+		Items []struct {
+			RecommendationID   string  `json:"recommendation_id"`
+			SuggestedQueueCode *string `json:"suggested_queue_code"`
+			DocumentID         *string `json:"document_id"`
+			ApprovalID         *string `json:"approval_id"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(preRecorder.Body.Bytes(), &preResponse); err != nil {
+		t.Fatalf("decode pre-action proposal review: %v", err)
+	}
+	if len(preResponse.Items) != 1 {
+		t.Fatalf("unexpected pre-action proposal count: %d", len(preResponse.Items))
+	}
+	if preResponse.Items[0].DocumentID == nil || *preResponse.Items[0].DocumentID != doc.ID {
+		t.Fatalf("unexpected pre-action proposal document: %+v", preResponse.Items[0])
+	}
+	if preResponse.Items[0].SuggestedQueueCode == nil || *preResponse.Items[0].SuggestedQueueCode != "finance-review" {
+		t.Fatalf("unexpected suggested queue: %+v", preResponse.Items[0])
+	}
+	if preResponse.Items[0].ApprovalID != nil {
+		t.Fatalf("expected no approval before action: %+v", preResponse.Items[0])
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/review/processed-proposals/"+recommendation.ID+"/request-approval", bytes.NewBufferString(`{"reason":"finance review required before posting"}`))
+	req.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(req, cookies)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected request-approval status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	var response struct {
+		RecommendationID     string  `json:"recommendation_id"`
+		RecommendationStatus string  `json:"recommendation_status"`
+		ApprovalID           string  `json:"approval_id"`
+		ApprovalStatus       string  `json:"approval_status"`
+		ApprovalQueueCode    string  `json:"approval_queue_code"`
+		DocumentID           string  `json:"document_id"`
+		DocumentStatus       *string `json:"document_status"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode request-approval response: %v", err)
+	}
+	if response.RecommendationID != recommendation.ID || response.ApprovalID == "" {
+		t.Fatalf("unexpected request-approval ids: %+v", response)
+	}
+	if response.RecommendationStatus != ai.RecommendationStatusApprovalRequested || response.ApprovalStatus != "pending" {
+		t.Fatalf("unexpected request-approval states: %+v", response)
+	}
+	if response.ApprovalQueueCode != "finance-review" || response.DocumentID != doc.ID {
+		t.Fatalf("unexpected request-approval linkage: %+v", response)
+	}
+	if response.DocumentStatus == nil || *response.DocumentStatus != string(documents.StatusSubmitted) {
+		t.Fatalf("unexpected request-approval document status: %+v", response)
+	}
+
+	postReq := httptest.NewRequest(http.MethodGet, "/api/review/processed-proposals?recommendation_id="+recommendation.ID, nil)
+	applyResponseCookies(postReq, cookies)
+	postRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(postRecorder, postReq)
+	if postRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected post-action proposal status: got %d body=%s", postRecorder.Code, postRecorder.Body.String())
+	}
+
+	var postResponse struct {
+		Items []struct {
+			RecommendationStatus string  `json:"recommendation_status"`
+			ApprovalID           *string `json:"approval_id"`
+			ApprovalStatus       *string `json:"approval_status"`
+			ApprovalQueueCode    *string `json:"approval_queue_code"`
+			DocumentID           *string `json:"document_id"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(postRecorder.Body.Bytes(), &postResponse); err != nil {
+		t.Fatalf("decode post-action proposal review: %v", err)
+	}
+	if len(postResponse.Items) != 1 {
+		t.Fatalf("unexpected post-action proposal count: %d", len(postResponse.Items))
+	}
+	if postResponse.Items[0].ApprovalID == nil || *postResponse.Items[0].ApprovalID != response.ApprovalID {
+		t.Fatalf("unexpected post-action approval linkage: %+v", postResponse.Items[0])
+	}
+	if postResponse.Items[0].ApprovalStatus == nil || *postResponse.Items[0].ApprovalStatus != "pending" {
+		t.Fatalf("unexpected post-action approval status: %+v", postResponse.Items[0])
+	}
+	if postResponse.Items[0].ApprovalQueueCode == nil || *postResponse.Items[0].ApprovalQueueCode != "finance-review" {
+		t.Fatalf("unexpected post-action queue code: %+v", postResponse.Items[0])
+	}
+	if postResponse.Items[0].DocumentID == nil || *postResponse.Items[0].DocumentID != doc.ID {
+		t.Fatalf("unexpected post-action document: %+v", postResponse.Items[0])
+	}
+}
+
 func TestAgentAPIReviewSurfacesRejectInvalidExactIDFiltersIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()
