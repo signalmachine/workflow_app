@@ -1,8 +1,8 @@
 # workflow_app Post-Checkpoint Validation And User Testing Plan
 
 Date: 2026-03-29
-Status: Paused after partial validation
-Purpose: define the first explicit post-checkpoint validation step, record the bounded partial result reached before pause, and preserve the exact work that should resume after the next readiness-hardening milestone.
+Status: Paused after partial validation; Milestone 9 is complete and the remaining live workflows are ready to resume
+Purpose: define the first explicit post-checkpoint validation step, record the bounded partial result reached before pause, and preserve the exact work that should resume now that the readiness-hardening milestone is closed.
 
 ## 1. Why this plan exists
 
@@ -16,7 +16,7 @@ That does not yet answer a narrower operational question:
 
 The next step should therefore be validation-led rather than breadth-led.
 
-As of 2026-03-29, that validation pass is intentionally paused after partial completion so one bounded readiness-hardening milestone can land before the remaining live workflows resume.
+As of 2026-03-29, that validation pass remains intentionally paused after partial completion, but the Milestone 9 readiness-hardening prerequisite is now complete so the remaining live workflows should be the next active step.
 
 ## 2. Planning decision
 
@@ -26,7 +26,7 @@ The first post-checkpoint slice was:
 
 The next active slice is now:
 
-1. Milestone 9 user-testing readiness hardening
+1. resume the paused post-checkpoint live workflow validation from the remaining workflows captured below
 
 The paused validation slice is not:
 
@@ -55,7 +55,7 @@ Reason:
 Pause outcome:
 
 1. treat this document as the canonical record of completed validation evidence and remaining workflow work
-2. do not continue Step 2 through Step 5 again until Milestone 9 is complete or an explicit blocker changes that order
+2. the Milestone 9 prerequisite is now satisfied, so the remaining work should resume from Step 2 through Step 5 rather than reopening readiness hardening
 3. resume from the remaining workflows rather than restarting the whole validation phase later
 
 ## 4. Objective
@@ -111,7 +111,7 @@ After the focused live verification passes:
 
 Next-session start point:
 
-1. start with Step 2 on the real `/app` plus `/api/...` seam rather than reopening Step 1
+1. Milestone 9 is now complete, so start with Step 2 on the real `/app` plus `/api/...` seam rather than reopening readiness hardening
 2. run `set -a; source .env; set +a; go run ./cmd/app`
 3. execute the canonical browser-facing workflow set in Step 3 and record concrete pass or fail results in this document and the tracker
 
@@ -183,7 +183,7 @@ Current interim result on 2026-03-29:
 2. the first blocking defect on the live provider path is now cleared: the final persisted brief is request-centered again on the live OpenAI path, and stale queue-status wording is rejected before persistence
 3. additional workflow coverage is still required for draft-amend continuity, approval-producing flows, and failed-provider or failed-processing visibility before readiness can be stated
 4. the proposal-to-approval shared seam is now available for that remaining workflow coverage, so the remaining live workflows are deferred rather than blocked by a missing backend capability
-5. the next active work should now be Milestone 9 user-testing readiness hardening before workflows 2 through 4 resume
+5. Milestone 9 is now complete, so the next active work should be workflows 2 through 4 in the order listed below
 
 Deferred resume order for workflows 2 through 4 after Milestone 9:
 
@@ -225,7 +225,7 @@ Result on 2026-03-28:
 
 ## 7. Resume order after Milestone 9
 
-When Milestone 9 is complete, resume this paused validation slice in this order:
+With Milestone 9 now complete, resume this paused validation slice in this order:
 
 1. rerun `set -a; source .env; set +a; go run ./cmd/verify-agent`
 2. run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`

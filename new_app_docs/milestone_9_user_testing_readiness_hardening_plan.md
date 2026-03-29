@@ -1,7 +1,7 @@
 # workflow_app Milestone 9 User-Testing Readiness Hardening Plan
 
 Date: 2026-03-29
-Status: Active milestone; slices 1 through 3 complete, but closeout verification remains incomplete
+Status: Complete on 2026-03-29; all three slices landed and closeout verification passed
 Purpose: define the bounded readiness-hardening milestone that should land before the paused post-checkpoint live workflow validation resumes.
 
 ## 1. Why this milestone exists
@@ -141,12 +141,13 @@ For every Milestone 9 implementation slice:
 3. run `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...`
 4. rerun narrower focused checks where the slice materially changes live seams, auth flows, or AI execution behavior
 
-Current incomplete closeout note:
+Closeout result on 2026-03-29:
 
-1. the shared web or API seam decomposition slice is implemented, `go build ./cmd/... ./internal/...` passed, and focused `go test ./internal/app ...` coverage passed
-2. the documented full-suite command `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` was attempted from the sandbox and failed only because the sandbox could not reach the configured PostgreSQL test database
-3. an unrestricted rerun was started during this session, but the session ended before a clean completion result was captured in the task log
-4. the next session should begin by rerunning that documented full-suite command outside the sandbox, recording the result, and only then deciding whether Milestone 9 can close and the paused live workflow validation can resume
+1. the shared web or API seam decomposition slice remained implemented without contract drift
+2. `go build ./cmd/... ./internal/...` passed
+3. `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` passed against the configured PostgreSQL test database
+4. `set -a; source .env; set +a; go run ./cmd/verify-agent` also passed again on the configured live-provider path, returning a processed request with completed coordinator and specialist runs plus a request-specific warehouse-pump recommendation summary
+5. the tracker and README now record Milestone 9 as complete and point the repository back to the paused live workflow validation as the next active step
 
 At Milestone 9 closeout:
 
