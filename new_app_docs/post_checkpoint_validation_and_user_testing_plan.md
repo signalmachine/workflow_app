@@ -1,7 +1,7 @@
 # workflow_app Post-Checkpoint Validation And User Testing Plan
 
 Date: 2026-03-29
-Status: Validation resumed from the live-provider checkpoint on 2026-03-29 after a clean Milestone 9 review; the next step is the remaining live workflows
+Status: Validation resumed from the live-provider checkpoint on 2026-03-29 after a clean Milestone 9 review; the remaining work is now explicitly split into Phase 1 foundational workflows and Phase 2 residual failure-path plus readiness work
 Purpose: define the first explicit post-checkpoint validation step, record the bounded partial result reached before pause, and preserve the exact work that should resume after the Milestone 9 implementation is reviewed against the plan docs.
 
 ## 1. Why this plan exists
@@ -27,7 +27,10 @@ The first post-checkpoint slice was:
 The next active slice is now:
 
 1. continue the paused post-checkpoint live workflow validation from the remaining workflows captured below
-2. record pass or fail evidence for each workflow and end with one explicit readiness result
+2. execute that remaining work in two phases so the essential foundational workflows land first
+3. keep Phase 1 intentionally fast by prioritizing the highest-signal foundational workflows and avoiding deeper failure-mode work until Phase 2
+4. Phase 1 should include only quick-complete items that can be verified without deliberate failure reproduction or broad exploratory review
+5. record pass or fail evidence for each workflow and end with one explicit readiness result
 
 The paused validation slice is not:
 
@@ -115,7 +118,9 @@ Current resumed start point on 2026-03-29:
 1. the complete review of the Milestone 9 implementation against `milestone_9_user_testing_readiness_hardening_plan.md` and the related canonical planning docs is complete and found no material drift
 2. the post-review `set -a; source .env; set +a; go run ./cmd/verify-agent` rerun also passed, returning `REQ-000001` in `processed` state with a completed coordinator run and a request-specific urgent warehouse-pump recommendation summary
 3. next run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
-4. execute the canonical browser-facing workflow set in Step 3 and record concrete pass or fail results in this document and the tracker
+4. execute Phase 1 first from the canonical browser-facing workflow set in Step 3 and record concrete pass or fail results in this document and the tracker
+5. keep Phase 1 bounded to the low-friction foundational workflows so it can complete relatively quickly before the slower residual work begins
+6. treat deeper failure-path work, wider downstream inspection sweeps, and residual exploratory checks as explicit Phase 2 material
 
 Current result on 2026-03-28:
 
@@ -189,13 +194,16 @@ Current interim result on 2026-03-29:
 6. additional live workflow coverage is still required for draft-amend continuity, approval-producing flows, and failed-provider or failed-processing visibility before readiness can be stated
 7. the proposal-to-approval shared seam is now available for that remaining workflow coverage, so the remaining live workflows are deferred rather than blocked by a missing backend capability
 
-Deferred resume order for workflows 2 through 4 after Milestone 9:
+Deferred phased resume order for workflows 2 through 4 after Milestone 9:
 
-1. workflow 2: save a draft, continue editing it, queue it, process it, and verify the resulting request plus proposal continuity in both `/api/review/...` and `/app/...`
-2. workflow 3: start from a processed proposal that identifies a submitted document, request approval through the shared seam, decide that approval, and verify downstream approval plus document-review continuity
-3. workflow 4: force or reproduce one failed provider or failed-processing path, then verify the already-landed shared-seam exact-request continuity plus failure reason, timestamps, filtered review continuity, and any linked proposal or run views in the real live environment
-4. after each workflow, record explicit pass or fail evidence in this document and `new_app_tracker.md` before moving to the next workflow
-5. if the workflow support reference or reusable live checklist changes materially, update `docs/workflows/application_workflow_catalog.md` and `docs/workflows/end_to_end_validation_checklist.md` in the same change
+1. Phase 1, workflow 2: save a draft, continue editing it, queue it, process it, and verify the resulting request plus proposal continuity in both `/api/review/...` and `/app/...`
+2. Phase 1, workflow 3: start from a processed proposal that identifies a submitted document, request approval through the shared seam, decide that approval, and verify downstream approval plus document-review continuity
+3. Phase 1 quick-complete assertions should stay narrow: exact `REQ-...` request detail loads, exact processed-proposal detail loads, exact approval detail loads, and the direct cross-links between those pages or endpoints remain intact after the workflow actions
+4. keep Phase 1 focused on those fastest high-signal continuity assertions rather than broad exploratory checks
+5. after each Phase 1 workflow, record explicit pass or fail evidence in this document and `new_app_tracker.md` before moving to the next workflow
+6. Phase 2, workflow 4: force or reproduce one failed provider or failed-processing path, then verify the already-landed shared-seam exact-request continuity plus failure reason, timestamps, filtered review continuity, and any linked proposal or run views in the real live environment
+7. after Phase 2, record the final readiness result explicitly in this document and `new_app_tracker.md`
+8. if the workflow support reference or reusable live checklist changes materially, update `docs/workflows/application_workflow_catalog.md` and `docs/workflows/end_to_end_validation_checklist.md` in the same change
 
 ### 5.6 Immediate blocker-remediation slice
 
@@ -233,11 +241,13 @@ With the Milestone 9 review now complete, continue this resumed validation slice
 
 1. treat the post-review `set -a; source .env; set +a; go run ./cmd/verify-agent` rerun as complete
 2. run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
-3. execute workflow 2 for draft save or edit -> queue -> process continuity
-4. execute workflow 3 for processed proposal -> request approval -> approval decision continuity
-5. execute workflow 4 for failed provider or failed processing visibility
-6. update this document and `new_app_tracker.md` with explicit pass or fail evidence after each workflow
-7. end with one explicit readiness result rather than leaving user-testing readiness implicit
+3. Phase 1: execute workflow 2 for draft save or edit -> queue -> process continuity
+4. Phase 1: execute workflow 3 for processed proposal -> request approval -> approval decision continuity
+5. keep Phase 1 intentionally fast and bounded to those foundational workflows plus their direct continuity checks
+6. use only quick-complete assertions in Phase 1: exact request, proposal, and approval detail continuity plus the direct browser or API cross-links needed to prove the workflow stayed connected
+7. update this document and `new_app_tracker.md` with explicit Phase 1 pass or fail evidence
+8. Phase 2: execute workflow 4 for failed provider or failed processing visibility
+9. end with one explicit readiness result rather than leaving user-testing readiness implicit
 
 ## 8. Guardrails
 

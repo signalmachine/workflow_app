@@ -1,7 +1,7 @@
 # workflow_app Tracker
 
 Date: 2026-03-29
-Status: Milestone 9 review completed cleanly on 2026-03-29; post-checkpoint validation has resumed from the live-provider verification checkpoint, and the next step is the remaining live workflow validation
+Status: Milestone 9 review completed cleanly on 2026-03-29; post-checkpoint validation is now split into Phase 1 foundational workflow validation and Phase 2 residual failure-path plus readiness work
 Purpose: track the `workflow_app` plan and guard against scope drift during bootstrap and implementation.
 
 ## 1. Current status
@@ -52,15 +52,20 @@ Planned next step:
 1. treat Milestone 9 as closed after the successful 2026-03-29 closeout verification
 2. treat the required same-day Milestone 9 implementation review against the milestone plan and related canonical planning docs as complete with no material drift recorded
 3. treat the post-review `set -a; source .env; set +a; go run ./cmd/verify-agent` rerun as complete, with the live provider seam reconfirmed at the resumed-validation start point
-4. continue the remaining canonical live workflows for draft-amend continuity, approval-producing flow continuity, and failed-provider or failed-processing visibility in the documented order
-5. end the resumed validation slice with one explicit readiness result for supervised AI-backed user testing or with an explicit blocker list if readiness is not yet achieved
+4. Phase 1 should cover the essential foundational workflow reviews and testing first and should be completed relatively quickly
+5. Phase 1 should include only the quick-complete items: draft save and continue edit -> queue -> process continuity, processed proposal -> request approval -> approval decision continuity, exact `REQ-...` request-detail continuity, exact processed-proposal continuity, exact approval-detail continuity, and the direct browser or API cross-links that prove those workflows stay connected without deeper exploratory testing
+5. Phase 2 should cover the remaining heavier validation work: failed-provider or failed-processing live-path visibility plus the final readiness conclusion for supervised AI-backed user testing
+6. Phase 1 should avoid slower edge-case exploration, deliberate failure reproduction, broader downstream inspection sweeps, and any residual exploratory review that is not needed to prove the foundational workflows
+7. end the full resumed validation slice with one explicit readiness result or with an explicit blocker list if readiness is not yet achieved
 
 Planned next-session review and testing order:
 
 1. the complete review of the Milestone 9 implementation against `milestone_9_user_testing_readiness_hardening_plan.md` and the related canonical planning docs is now complete and found no material drift
 2. the post-review `set -a; source .env; set +a; go run ./cmd/verify-agent` rerun is also complete and reconfirmed the live provider seam at the start of the resumed validation session
-3. next run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app` and execute the remaining bounded workflows in `post_checkpoint_validation_and_user_testing_plan.md`
-4. update `docs/workflows/application_workflow_catalog.md` and `docs/workflows/end_to_end_validation_checklist.md` later if the durable workflow reference or reusable workflow checklist drifts when the resumed live workflow validation completes
+3. next run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app` and execute Phase 1 first from `post_checkpoint_validation_and_user_testing_plan.md`
+4. keep Phase 1 intentionally fast by focusing on quick-complete workflow checks only: draft-amend continuity, proposal-to-approval continuity, exact detail continuity, and the direct supporting cross-links
+5. record explicit Phase 1 pass or fail evidence before promoting Phase 2
+6. update `docs/workflows/application_workflow_catalog.md` and `docs/workflows/end_to_end_validation_checklist.md` later if the durable workflow reference or reusable workflow checklist drifts when the resumed live workflow validation completes
 
 Follow-on rule:
 
@@ -83,7 +88,7 @@ Recommended sequence after checkpoint closeout:
 1. treat the current repository state as the thin-v1 foundation checkpoint rather than an implicitly unfinished milestone chain
 2. treat the bounded Milestone 9 readiness-hardening plan in `milestone_9_user_testing_readiness_hardening_plan.md` as complete rather than still active
 3. keep the paused post-checkpoint validation slice intact, but treat the completed Milestone 9 implementation review as satisfied
-4. resume the remaining canonical live workflows for draft-amend continuity, approval-producing flow continuity, and failed-provider or failed-processing visibility
+4. resume the remaining canonical live workflows in two phases: Phase 1 for draft-amend continuity plus approval-producing flow continuity, then Phase 2 for failed-provider or failed-processing visibility and final readiness closeout
 5. once those workflows finish, decide explicitly whether the next session is:
 6. one bounded post-checkpoint shared-backend or correctness slice, or
 7. one explicitly promoted v2 work item under `new_app_docs/app_v2_plans/`
