@@ -1,7 +1,7 @@
 # workflow_app Milestone 9 User-Testing Readiness Hardening Plan
 
 Date: 2026-03-29
-Status: Active milestone; slices 1 and 2 complete, slice 3 pending
+Status: Active milestone; slices 1 through 3 complete, but closeout verification remains incomplete
 Purpose: define the bounded readiness-hardening milestone that should land before the paused post-checkpoint live workflow validation resumes.
 
 ## 1. Why this milestone exists
@@ -97,7 +97,9 @@ Goal:
 
 Status:
 
-1. pending
+1. done
+2. `internal/app` is now decomposed by seam rather than concentrated in two oversized files: API session, inbound, review, and approval handlers now live in dedicated files, and web session or inbound plus review surfaces now do the same
+3. the shared HTTP contracts and route registration stayed unchanged while browser rendering, auth, inbound lifecycle, review reads, and approval actions became easier to inspect in isolation
 
 Required outcomes:
 
@@ -138,6 +140,13 @@ For every Milestone 9 implementation slice:
 2. run `go build ./cmd/... ./internal/...`
 3. run `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...`
 4. rerun narrower focused checks where the slice materially changes live seams, auth flows, or AI execution behavior
+
+Current incomplete closeout note:
+
+1. the shared web or API seam decomposition slice is implemented, `go build ./cmd/... ./internal/...` passed, and focused `go test ./internal/app ...` coverage passed
+2. the documented full-suite command `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` was attempted from the sandbox and failed only because the sandbox could not reach the configured PostgreSQL test database
+3. an unrestricted rerun was started during this session, but the session ended before a clean completion result was captured in the task log
+4. the next session should begin by rerunning that documented full-suite command outside the sandbox, recording the result, and only then deciding whether Milestone 9 can close and the paused live workflow validation can resume
 
 At Milestone 9 closeout:
 
