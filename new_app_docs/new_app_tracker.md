@@ -1,7 +1,7 @@
 # workflow_app Tracker
 
 Date: 2026-03-29
-Status: Milestone 9 complete on 2026-03-29; post-checkpoint validation remains paused after partial completion but is now ready to resume from the remaining live workflows
+Status: Milestone 9 complete on 2026-03-29; post-checkpoint validation remains paused after partial completion, and the next step is a complete Milestone 9 review before the remaining live workflows resume
 Purpose: track the `workflow_app` plan and guard against scope drift during bootstrap and implementation.
 
 ## 1. Current status
@@ -50,15 +50,16 @@ The thin-v1 checkpoint closeout is complete, and the next active step is now exp
 Planned next step:
 
 1. treat Milestone 9 as closed after the successful 2026-03-29 closeout verification
-2. keep the post-checkpoint validation slice paused only in the sense that the remaining live workflows are not yet executed, not because readiness hardening remains incomplete
-3. resume the remaining canonical live workflows for draft-amend continuity, approval-producing flow continuity, and failed-provider or failed-processing visibility in the documented order
-4. end the resumed validation slice with one explicit readiness result for supervised AI-backed user testing or with an explicit blocker list if readiness is not yet achieved
+2. begin the next session with a complete Milestone 9 implementation review against the milestone plan and the related canonical planning docs
+3. keep the post-checkpoint validation slice paused until that review either confirms clean alignment or records any concrete drift that must be fixed first
+4. if the review is clean, resume the remaining canonical live workflows for draft-amend continuity, approval-producing flow continuity, and failed-provider or failed-processing visibility in the documented order
+5. end the resumed validation slice with one explicit readiness result for supervised AI-backed user testing or with an explicit blocker list if readiness is not yet achieved
 
 Planned next-session review and testing order:
 
-1. return to `post_checkpoint_validation_and_user_testing_plan.md` and resume the deferred live workflows in the documented order
-2. rerun `set -a; source .env; set +a; go run ./cmd/verify-agent` before broader browser checks so the live provider seam is reconfirmed at the start of the resumed validation session
-3. run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app` and execute the remaining bounded workflows
+1. begin with a complete review of the Milestone 9 implementation against `milestone_9_user_testing_readiness_hardening_plan.md` and the related canonical planning docs
+2. if that review finds no material drift, rerun `set -a; source .env; set +a; go run ./cmd/verify-agent` before broader browser checks so the live provider seam is reconfirmed at the start of the resumed validation session
+3. then run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app` and execute the remaining bounded workflows in `post_checkpoint_validation_and_user_testing_plan.md`
 4. update `docs/workflows/application_workflow_catalog.md` and `docs/workflows/end_to_end_validation_checklist.md` later if the durable workflow reference or reusable workflow checklist drifts when the resumed live workflow validation completes
 
 Follow-on rule:
@@ -81,8 +82,8 @@ Recommended sequence after checkpoint closeout:
 
 1. treat the current repository state as the thin-v1 foundation checkpoint rather than an implicitly unfinished milestone chain
 2. treat the bounded Milestone 9 readiness-hardening plan in `milestone_9_user_testing_readiness_hardening_plan.md` as complete rather than still active
-3. keep the paused post-checkpoint validation slice intact, but return to it as the next active work
-4. resume the remaining canonical live workflows for draft-amend continuity, approval-producing flow continuity, and failed-provider or failed-processing visibility
+3. keep the paused post-checkpoint validation slice intact, but start by reviewing the completed Milestone 9 implementation against its plan docs before resuming live workflows
+4. after that review, resume the remaining canonical live workflows for draft-amend continuity, approval-producing flow continuity, and failed-provider or failed-processing visibility
 5. once those workflows finish, decide explicitly whether the next session is:
 6. one bounded post-checkpoint shared-backend or correctness slice, or
 7. one explicitly promoted v2 work item under `new_app_docs/app_v2_plans/`
@@ -102,8 +103,8 @@ Reason:
 9. the browser milestone is complete enough that residual browser work should now be treated as regression fixes or later UX refinement rather than as an active milestone plan
 10. the verification gap is now closed, and the foundation checklist review found no material missing v1 structure
 11. the next unanswered question is still operational readiness for supervised AI-backed user testing rather than missing thin-v1 foundation breadth
-12. the bounded readiness-hardening milestone has now landed cleanly, so deeper workflow testing should resume from the deferred validation plan rather than widening hardening again
-13. the correct next move is therefore the deferred live workflows, not another implicit Milestone 9 extension or a silent scope drift into unrelated work
+12. the bounded readiness-hardening milestone has now landed cleanly, but one explicit implementation-versus-plan review should happen before deeper workflow testing resumes
+13. the correct next move is therefore a complete Milestone 9 review followed by the deferred live workflows, not another implicit Milestone 9 extension or a silent scope drift into unrelated work
 
 ## 2.1.1 Next-session decision gate
 

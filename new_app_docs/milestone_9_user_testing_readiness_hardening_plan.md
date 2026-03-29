@@ -147,7 +147,7 @@ Closeout result on 2026-03-29:
 2. `go build ./cmd/... ./internal/...` passed
 3. `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` passed against the configured PostgreSQL test database
 4. `set -a; source .env; set +a; go run ./cmd/verify-agent` also passed again on the configured live-provider path, returning a processed request with completed coordinator and specialist runs plus a request-specific warehouse-pump recommendation summary
-5. the tracker and README now record Milestone 9 as complete and point the repository back to the paused live workflow validation as the next active step
+5. the tracker and README now record Milestone 9 as complete and set the next session to begin with a full implementation-versus-plan review before the paused live workflow validation resumes
 
 At Milestone 9 closeout:
 
