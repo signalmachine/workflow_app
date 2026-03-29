@@ -2360,6 +2360,214 @@ func TestAgentAPIDraftLifecycleIntegration(t *testing.T) {
 	}
 }
 
+func TestAgentAPIDraftEditQueueProcessContinuityIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	_ = startSession(t, ctx, db, orgID, operatorUserID)
+
+	processor, err := app.NewAgentProcessor(db, fakeCoordinatorProvider{
+		output: ai.CoordinatorProviderOutput{
+			ProviderName:       "openai",
+			ProviderResponseID: "resp_draft_continuity_123",
+			Model:              "gpt-5.2",
+			Summary:            "Review the amended pump request before dispatch.",
+			Priority:           "urgent",
+			ArtifactTitle:      "Draft continuity review brief",
+			ArtifactBody:       "The amended draft describes an urgent warehouse pump failure that should move into controlled review.",
+			Rationale: []string{
+				"The request stayed on the same REQ reference from draft through processing.",
+			},
+			NextActions: []string{
+				"Open the processed proposal and confirm the request evidence stayed intact.",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new agent processor: %v", err)
+	}
+
+	handler := app.NewAgentAPIHandlerWithDependencies(
+		func() (app.ProcessNextQueuedInboundRequester, error) { return processor, nil },
+		app.NewSubmissionService(db),
+		reporting.NewService(db),
+		nil,
+		identityaccess.NewService(db),
+	)
+	accessToken := issueBearerAccessToken(t, ctx, db, handler, orgID, operatorUserID)
+	cookies := issueBrowserSessionCookies(t, ctx, db, handler, orgID, operatorUserID)
+
+	saveDraftReq := httptest.NewRequest(http.MethodPost, "/api/inbound-requests", bytes.NewBufferString(`{
+		"origin_type":"human",
+		"channel":"browser",
+		"metadata":{"submitter_label":"front desk"},
+		"message":{"message_role":"request","text_content":"Initial draft for the pump issue."},
+		"queue_for_review":false
+	}`))
+	saveDraftReq.Header.Set("Content-Type", "application/json")
+	applyBearer(saveDraftReq, accessToken)
+	saveDraftRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(saveDraftRecorder, saveDraftReq)
+	if saveDraftRecorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected save-draft status: got %d body=%s", saveDraftRecorder.Code, saveDraftRecorder.Body.String())
+	}
+
+	var draftResponse struct {
+		RequestID        string `json:"request_id"`
+		RequestReference string `json:"request_reference"`
+		MessageID        string `json:"message_id"`
+		Status           string `json:"status"`
+	}
+	if err := json.Unmarshal(saveDraftRecorder.Body.Bytes(), &draftResponse); err != nil {
+		t.Fatalf("decode save-draft response: %v", err)
+	}
+	if draftResponse.Status != intake.StatusDraft || draftResponse.RequestID == "" || draftResponse.RequestReference == "" || draftResponse.MessageID == "" {
+		t.Fatalf("unexpected initial draft response: %+v", draftResponse)
+	}
+
+	updateReq := httptest.NewRequest(http.MethodPost, "/api/inbound-requests/"+draftResponse.RequestID+"/draft", bytes.NewBufferString(`{
+		"message_id":"`+draftResponse.MessageID+`",
+		"origin_type":"human",
+		"channel":"browser",
+		"message":{"message_role":"request","text_content":"Amended draft describing the urgent warehouse pump failure."}
+	}`))
+	updateReq.Header.Set("Content-Type", "application/json")
+	applyBearer(updateReq, accessToken)
+	updateRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(updateRecorder, updateReq)
+	if updateRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected draft update status: got %d body=%s", updateRecorder.Code, updateRecorder.Body.String())
+	}
+
+	queueReq := httptest.NewRequest(http.MethodPost, "/api/inbound-requests/"+draftResponse.RequestID+"/queue", nil)
+	applyBearer(queueReq, accessToken)
+	queueRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(queueRecorder, queueReq)
+	if queueRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected queue status: got %d body=%s", queueRecorder.Code, queueRecorder.Body.String())
+	}
+
+	var queueResponse struct {
+		RequestReference string `json:"request_reference"`
+		Status           string `json:"status"`
+	}
+	if err := json.Unmarshal(queueRecorder.Body.Bytes(), &queueResponse); err != nil {
+		t.Fatalf("decode queue response: %v", err)
+	}
+	if queueResponse.Status != intake.StatusQueued || queueResponse.RequestReference != draftResponse.RequestReference {
+		t.Fatalf("unexpected queue response: %+v", queueResponse)
+	}
+
+	processReq := httptest.NewRequest(http.MethodPost, "/api/agent/process-next-queued-inbound-request", bytes.NewBufferString(`{"channel":"browser"}`))
+	processReq.Header.Set("Content-Type", "application/json")
+	applyBearer(processReq, accessToken)
+	processRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(processRecorder, processReq)
+	if processRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected process status: got %d body=%s", processRecorder.Code, processRecorder.Body.String())
+	}
+
+	var processResponse struct {
+		Processed        bool   `json:"processed"`
+		RequestReference string `json:"request_reference"`
+		RequestStatus    string `json:"request_status"`
+		RecommendationID string `json:"recommendation_id"`
+	}
+	if err := json.Unmarshal(processRecorder.Body.Bytes(), &processResponse); err != nil {
+		t.Fatalf("decode process response: %v", err)
+	}
+	if !processResponse.Processed || processResponse.RequestReference != draftResponse.RequestReference || processResponse.RequestStatus != intake.StatusProcessed || processResponse.RecommendationID == "" {
+		t.Fatalf("unexpected process response: %+v", processResponse)
+	}
+
+	detailReq := httptest.NewRequest(http.MethodGet, "/api/review/inbound-requests/"+draftResponse.RequestReference, nil)
+	applyBearer(detailReq, accessToken)
+	detailRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(detailRecorder, detailReq)
+	if detailRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected exact detail status: got %d body=%s", detailRecorder.Code, detailRecorder.Body.String())
+	}
+
+	var detailResponse struct {
+		Request struct {
+			RequestReference string `json:"request_reference"`
+			Status           string `json:"status"`
+		} `json:"request"`
+		Messages []struct {
+			TextContent string `json:"text_content"`
+		} `json:"messages"`
+		Proposals []struct {
+			RecommendationID string `json:"recommendation_id"`
+			RequestReference string `json:"request_reference"`
+			RequestStatus    string `json:"request_status"`
+		} `json:"proposals"`
+	}
+	if err := json.Unmarshal(detailRecorder.Body.Bytes(), &detailResponse); err != nil {
+		t.Fatalf("decode exact detail response: %v", err)
+	}
+	if detailResponse.Request.RequestReference != draftResponse.RequestReference || detailResponse.Request.Status != intake.StatusProcessed {
+		t.Fatalf("unexpected exact request detail: %+v", detailResponse.Request)
+	}
+	if len(detailResponse.Messages) == 0 || detailResponse.Messages[0].TextContent != "Amended draft describing the urgent warehouse pump failure." {
+		t.Fatalf("unexpected exact request message continuity: %+v", detailResponse.Messages)
+	}
+	if len(detailResponse.Proposals) != 1 || detailResponse.Proposals[0].RecommendationID != processResponse.RecommendationID || detailResponse.Proposals[0].RequestReference != draftResponse.RequestReference || detailResponse.Proposals[0].RequestStatus != intake.StatusProcessed {
+		t.Fatalf("unexpected exact request proposal continuity: %+v", detailResponse.Proposals)
+	}
+
+	proposalsReq := httptest.NewRequest(http.MethodGet, "/api/review/processed-proposals?request_reference="+url.QueryEscape(draftResponse.RequestReference), nil)
+	applyBearer(proposalsReq, accessToken)
+	proposalsRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(proposalsRecorder, proposalsReq)
+	if proposalsRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected proposal list status: got %d body=%s", proposalsRecorder.Code, proposalsRecorder.Body.String())
+	}
+
+	var proposalsResponse struct {
+		Items []struct {
+			RecommendationID string `json:"recommendation_id"`
+			RequestReference string `json:"request_reference"`
+			RequestStatus    string `json:"request_status"`
+			Summary          string `json:"summary"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(proposalsRecorder.Body.Bytes(), &proposalsResponse); err != nil {
+		t.Fatalf("decode proposal list response: %v", err)
+	}
+	if len(proposalsResponse.Items) != 1 || proposalsResponse.Items[0].RecommendationID != processResponse.RecommendationID || proposalsResponse.Items[0].RequestReference != draftResponse.RequestReference || proposalsResponse.Items[0].RequestStatus != intake.StatusProcessed {
+		t.Fatalf("unexpected processed proposal continuity: %+v", proposalsResponse.Items)
+	}
+	if proposalsResponse.Items[0].Summary != "Review the amended pump request before dispatch." {
+		t.Fatalf("unexpected processed proposal summary: %+v", proposalsResponse.Items[0])
+	}
+
+	webDetailReq := httptest.NewRequest(http.MethodGet, "/app/inbound-requests/"+draftResponse.RequestReference, nil)
+	applyResponseCookies(webDetailReq, cookies)
+	webDetailRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(webDetailRecorder, webDetailReq)
+	if webDetailRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected web exact request status: got %d body=%s", webDetailRecorder.Code, webDetailRecorder.Body.String())
+	}
+	requireContains(t, webDetailRecorder.Body.String(), draftResponse.RequestReference)
+	requireContains(t, webDetailRecorder.Body.String(), "Amended draft describing the urgent warehouse pump failure.")
+	requireContains(t, webDetailRecorder.Body.String(), "/app/review/proposals/"+processResponse.RecommendationID)
+
+	webProposalReq := httptest.NewRequest(http.MethodGet, "/app/review/proposals/"+processResponse.RecommendationID, nil)
+	applyResponseCookies(webProposalReq, cookies)
+	webProposalRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(webProposalRecorder, webProposalReq)
+	if webProposalRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected web exact proposal status: got %d body=%s", webProposalRecorder.Code, webProposalRecorder.Body.String())
+	}
+	requireContains(t, webProposalRecorder.Body.String(), "Review the amended pump request before dispatch.")
+	requireContains(t, webProposalRecorder.Body.String(), "/app/inbound-requests/"+draftResponse.RequestReference)
+}
+
 func TestAgentAPIInboundRequestCancelRejectsInvalidJSONIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()
@@ -2973,6 +3181,199 @@ func TestAgentAPIRequestProcessedProposalApprovalIntegration(t *testing.T) {
 	if postResponse.Items[0].DocumentID == nil || *postResponse.Items[0].DocumentID != doc.ID {
 		t.Fatalf("unexpected post-action document: %+v", postResponse.Items[0])
 	}
+}
+
+func TestAgentAPIProcessedProposalApprovalDecisionContinuityIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	_, approverUserID := seedOrgAndUserInOrg(t, ctx, db, identityaccess.RoleApprover, orgID)
+	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
+
+	documentService := documents.NewService(db)
+	aiService := ai.NewService(db)
+	intakeService := intake.NewService(db)
+
+	doc, err := documentService.CreateDraft(ctx, documents.CreateDraftInput{
+		TypeCode: "invoice",
+		Title:    "Submitted continuity invoice",
+		Actor:    operator,
+	})
+	if err != nil {
+		t.Fatalf("create continuity document: %v", err)
+	}
+	doc, err = documentService.Submit(ctx, documents.SubmitInput{
+		DocumentID: doc.ID,
+		Actor:      operator,
+	})
+	if err != nil {
+		t.Fatalf("submit continuity document: %v", err)
+	}
+
+	request := createQueuedRequest(t, ctx, db, operator, "Create an approval-producing proposal for the submitted continuity invoice.")
+	request, err = intakeService.ClaimNextQueued(ctx, intake.ClaimNextQueuedInput{
+		Channel: "browser",
+		Actor:   operator,
+	})
+	if err != nil {
+		t.Fatalf("claim continuity request: %v", err)
+	}
+	request, err = intakeService.AdvanceRequest(ctx, intake.AdvanceRequestInput{
+		RequestID: request.ID,
+		Status:    intake.StatusProcessed,
+		Actor:     operator,
+	})
+	if err != nil {
+		t.Fatalf("advance continuity request: %v", err)
+	}
+
+	run, err := aiService.StartRun(ctx, ai.StartRunInput{
+		InboundRequestID: request.ID,
+		AgentRole:        ai.RunRoleCoordinator,
+		CapabilityCode:   ai.DefaultCoordinatorCapabilityCode,
+		Actor:            operator,
+	})
+	if err != nil {
+		t.Fatalf("start continuity run: %v", err)
+	}
+
+	recommendation, err := aiService.CreateRecommendation(ctx, ai.CreateRecommendationInput{
+		RunID:              run.ID,
+		RecommendationType: "request_approval",
+		Summary:            "Request finance approval for the submitted continuity invoice.",
+		Payload:            map[string]any{"document_id": doc.ID, "queue_code": "finance-review"},
+		Actor:              operator,
+	})
+	if err != nil {
+		t.Fatalf("create continuity recommendation: %v", err)
+	}
+
+	handler := app.NewAgentAPIHandler(db)
+	operatorCookies := issueBrowserSessionCookies(t, ctx, db, handler, orgID, operatorUserID)
+	approverCookies := issueBrowserSessionCookies(t, ctx, db, handler, orgID, approverUserID)
+
+	requestApprovalReq := httptest.NewRequest(http.MethodPost, "/api/review/processed-proposals/"+recommendation.ID+"/request-approval", bytes.NewBufferString(`{"reason":"finance review required before approval decision"}`))
+	requestApprovalReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(requestApprovalReq, operatorCookies)
+	requestApprovalRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(requestApprovalRecorder, requestApprovalReq)
+	if requestApprovalRecorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected request-approval status: got %d body=%s", requestApprovalRecorder.Code, requestApprovalRecorder.Body.String())
+	}
+
+	var requestApprovalResponse struct {
+		RecommendationID     string `json:"recommendation_id"`
+		RecommendationStatus string `json:"recommendation_status"`
+		ApprovalID           string `json:"approval_id"`
+		ApprovalStatus       string `json:"approval_status"`
+		ApprovalQueueCode    string `json:"approval_queue_code"`
+		DocumentID           string `json:"document_id"`
+	}
+	if err := json.Unmarshal(requestApprovalRecorder.Body.Bytes(), &requestApprovalResponse); err != nil {
+		t.Fatalf("decode request-approval response: %v", err)
+	}
+	if requestApprovalResponse.RecommendationID != recommendation.ID || requestApprovalResponse.RecommendationStatus != ai.RecommendationStatusApprovalRequested || requestApprovalResponse.ApprovalID == "" || requestApprovalResponse.ApprovalStatus != "pending" || requestApprovalResponse.ApprovalQueueCode != "finance-review" || requestApprovalResponse.DocumentID != doc.ID {
+		t.Fatalf("unexpected request-approval continuity response: %+v", requestApprovalResponse)
+	}
+
+	decisionReq := httptest.NewRequest(http.MethodPost, "/api/approvals/"+requestApprovalResponse.ApprovalID+"/decision", bytes.NewBufferString(`{"decision":"approved","decision_note":"Approved from continuity flow."}`))
+	decisionReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(decisionReq, approverCookies)
+	decisionRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(decisionRecorder, decisionReq)
+	if decisionRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected approval decision status: got %d body=%s", decisionRecorder.Code, decisionRecorder.Body.String())
+	}
+
+	var decisionResponse struct {
+		ApprovalID      string  `json:"approval_id"`
+		Status          string  `json:"status"`
+		QueueCode       string  `json:"queue_code"`
+		DocumentID      string  `json:"document_id"`
+		DocumentStatus  string  `json:"document_status"`
+		DecisionNote    *string `json:"decision_note"`
+		DecidedByUserID *string `json:"decided_by_user_id"`
+	}
+	if err := json.Unmarshal(decisionRecorder.Body.Bytes(), &decisionResponse); err != nil {
+		t.Fatalf("decode approval decision response: %v", err)
+	}
+	if decisionResponse.ApprovalID != requestApprovalResponse.ApprovalID || decisionResponse.Status != "approved" || decisionResponse.QueueCode != "finance-review" || decisionResponse.DocumentID != doc.ID || decisionResponse.DocumentStatus != string(documents.StatusApproved) {
+		t.Fatalf("unexpected approval decision continuity: %+v", decisionResponse)
+	}
+	if decisionResponse.DecisionNote == nil || *decisionResponse.DecisionNote != "Approved from continuity flow." || decisionResponse.DecidedByUserID == nil || *decisionResponse.DecidedByUserID != approverUserID {
+		t.Fatalf("unexpected approval decision metadata: %+v", decisionResponse)
+	}
+
+	proposalsReq := httptest.NewRequest(http.MethodGet, "/api/review/processed-proposals?recommendation_id="+recommendation.ID, nil)
+	applyResponseCookies(proposalsReq, operatorCookies)
+	proposalsRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(proposalsRecorder, proposalsReq)
+	if proposalsRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected processed proposals status: got %d body=%s", proposalsRecorder.Code, proposalsRecorder.Body.String())
+	}
+	requireContains(t, proposalsRecorder.Body.String(), `"recommendation_id":"`+recommendation.ID+`"`)
+	requireContains(t, proposalsRecorder.Body.String(), `"approval_id":"`+requestApprovalResponse.ApprovalID+`"`)
+	requireContains(t, proposalsRecorder.Body.String(), `"approval_status":"approved"`)
+	requireContains(t, proposalsRecorder.Body.String(), `"document_id":"`+doc.ID+`"`)
+
+	approvalQueueReq := httptest.NewRequest(http.MethodGet, "/api/review/approval-queue?approval_id="+requestApprovalResponse.ApprovalID, nil)
+	applyResponseCookies(approvalQueueReq, approverCookies)
+	approvalQueueRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(approvalQueueRecorder, approvalQueueReq)
+	if approvalQueueRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected exact approval queue status: got %d body=%s", approvalQueueRecorder.Code, approvalQueueRecorder.Body.String())
+	}
+	requireContains(t, approvalQueueRecorder.Body.String(), `"approval_id":"`+requestApprovalResponse.ApprovalID+`"`)
+	requireContains(t, approvalQueueRecorder.Body.String(), `"approval_status":"approved"`)
+	requireContains(t, approvalQueueRecorder.Body.String(), `"document_id":"`+doc.ID+`"`)
+
+	documentsReq := httptest.NewRequest(http.MethodGet, "/api/review/documents?document_id="+doc.ID, nil)
+	applyResponseCookies(documentsReq, approverCookies)
+	documentsRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(documentsRecorder, documentsReq)
+	if documentsRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected exact documents status: got %d body=%s", documentsRecorder.Code, documentsRecorder.Body.String())
+	}
+	requireContains(t, documentsRecorder.Body.String(), `"document_id":"`+doc.ID+`"`)
+	requireContains(t, documentsRecorder.Body.String(), `"approval_id":"`+requestApprovalResponse.ApprovalID+`"`)
+	requireContains(t, documentsRecorder.Body.String(), `"approval_status":"approved"`)
+
+	webProposalReq := httptest.NewRequest(http.MethodGet, "/app/review/proposals/"+recommendation.ID, nil)
+	applyResponseCookies(webProposalReq, operatorCookies)
+	webProposalRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(webProposalRecorder, webProposalReq)
+	if webProposalRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected web proposal detail status: got %d body=%s", webProposalRecorder.Code, webProposalRecorder.Body.String())
+	}
+	requireContains(t, webProposalRecorder.Body.String(), "/app/review/approvals/"+requestApprovalResponse.ApprovalID)
+	requireContains(t, webProposalRecorder.Body.String(), "/app/inbound-requests/"+request.RequestReference)
+
+	webApprovalReq := httptest.NewRequest(http.MethodGet, "/app/review/approvals/"+requestApprovalResponse.ApprovalID, nil)
+	applyResponseCookies(webApprovalReq, approverCookies)
+	webApprovalRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(webApprovalRecorder, webApprovalReq)
+	if webApprovalRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected web approval detail status: got %d body=%s", webApprovalRecorder.Code, webApprovalRecorder.Body.String())
+	}
+	requireContains(t, webApprovalRecorder.Body.String(), "/app/review/documents/"+doc.ID)
+	requireContains(t, webApprovalRecorder.Body.String(), "finance-review")
+
+	webDocumentReq := httptest.NewRequest(http.MethodGet, "/app/review/documents/"+doc.ID, nil)
+	applyResponseCookies(webDocumentReq, approverCookies)
+	webDocumentRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(webDocumentRecorder, webDocumentReq)
+	if webDocumentRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected web document detail status: got %d body=%s", webDocumentRecorder.Code, webDocumentRecorder.Body.String())
+	}
+	requireContains(t, webDocumentRecorder.Body.String(), "/app/review/approvals/"+requestApprovalResponse.ApprovalID)
+	requireContains(t, webDocumentRecorder.Body.String(), "/app/review/proposals/"+recommendation.ID)
+	requireContains(t, webDocumentRecorder.Body.String(), "/app/inbound-requests/"+request.RequestReference)
 }
 
 func TestAgentAPIReviewSurfacesRejectInvalidExactIDFiltersIntegration(t *testing.T) {

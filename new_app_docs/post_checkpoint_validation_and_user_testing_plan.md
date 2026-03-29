@@ -191,8 +191,9 @@ Current interim result on 2026-03-29:
 3. a bounded shared-backend failure-path continuity slice is now also closed at repo-verification depth: when queued-request processing fails after claim, the API failure response preserves the exact `REQ-...` request reference and the browser failure redirect lands on the failed request detail instead of a generic dashboard error, while exact request detail still exposes failed request, run, and step continuity for troubleshooting
 4. the Milestone 9 implementation review is now also complete and found no material drift across the auth, AI, and seam-decomposition slices
 5. a fresh post-review `set -a; source .env; set +a; go run ./cmd/verify-agent` rerun also passed on 2026-03-29, so the live provider seam is reconfirmed at the resumed-validation start point
-6. additional live workflow coverage is still required for draft-amend continuity, approval-producing flows, and failed-provider or failed-processing visibility before readiness can be stated
-7. the proposal-to-approval shared seam is now available for that remaining workflow coverage, so the remaining live workflows are deferred rather than blocked by a missing backend capability
+6. the bounded repo-verification pass for the planned Phase 1 foundational workflows is now also complete on 2026-03-29: new `internal/app` integration coverage exercises the full draft save and edit -> queue -> process continuity chain plus the full processed proposal -> request approval -> approval decision continuity chain across both `/api/...` and `/app/...`, and `go build ./cmd/... ./internal/...` plus `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -count=1 -p 1 ./cmd/... ./internal/...` both passed after that addition
+7. additional live workflow coverage is still required for draft-amend continuity, approval-producing flows, and failed-provider or failed-processing visibility before readiness can be stated
+8. the proposal-to-approval shared seam is now available for that remaining workflow coverage, so the remaining live workflows are deferred rather than blocked by a missing backend capability
 
 Deferred phased resume order for workflows 2 through 4 after Milestone 9:
 
@@ -200,7 +201,7 @@ Deferred phased resume order for workflows 2 through 4 after Milestone 9:
 2. Phase 1, workflow 3: start from a processed proposal that identifies a submitted document, request approval through the shared seam, decide that approval, and verify downstream approval plus document-review continuity
 3. Phase 1 quick-complete assertions should stay narrow: exact `REQ-...` request detail loads, exact processed-proposal detail loads, exact approval detail loads, and the direct cross-links between those pages or endpoints remain intact after the workflow actions
 4. keep Phase 1 focused on those fastest high-signal continuity assertions rather than broad exploratory checks
-5. after each Phase 1 workflow, record explicit pass or fail evidence in this document and `new_app_tracker.md` before moving to the next workflow
+5. the matching repo-verification slice for workflows 2 and 3 is now complete through `internal/app` integration coverage, but the real-browser or live-seam pass still must record explicit pass or fail evidence in this document and `new_app_tracker.md` before moving to the next workflow
 6. Phase 2, workflow 4: force or reproduce one failed provider or failed-processing path, then verify the already-landed shared-seam exact-request continuity plus failure reason, timestamps, filtered review continuity, and any linked proposal or run views in the real live environment
 7. after Phase 2, record the final readiness result explicitly in this document and `new_app_tracker.md`
 8. if the workflow support reference or reusable live checklist changes materially, update `docs/workflows/application_workflow_catalog.md` and `docs/workflows/end_to_end_validation_checklist.md` in the same change
@@ -245,7 +246,7 @@ With the Milestone 9 review now complete, continue this resumed validation slice
 4. Phase 1: execute workflow 3 for processed proposal -> request approval -> approval decision continuity
 5. keep Phase 1 intentionally fast and bounded to those foundational workflows plus their direct continuity checks
 6. use only quick-complete assertions in Phase 1: exact request, proposal, and approval detail continuity plus the direct browser or API cross-links needed to prove the workflow stayed connected
-7. update this document and `new_app_tracker.md` with explicit Phase 1 pass or fail evidence
+7. treat the matching repo-verification slice as complete, then update this document and `new_app_tracker.md` with explicit live Phase 1 pass or fail evidence
 8. Phase 2: execute workflow 4 for failed provider or failed processing visibility
 9. end with one explicit readiness result rather than leaving user-testing readiness implicit
 

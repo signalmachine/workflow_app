@@ -112,7 +112,8 @@ Current status:
 
 1. implemented
 2. repo_verified
-3. pending_live_validation
+3. exact draft save and edit -> queue -> process continuity is now repo_verified on 2026-03-29 through `internal/app` integration coverage across both `/api/...` and `/app/...`
+4. pending_live_validation
 
 ### 2.4 Processed proposal review and continuity
 
@@ -137,8 +138,9 @@ Current status:
 
 1. implemented
 2. repo_verified
-3. partially live_validated
-4. pending_live_validation for the approval-producing live branch
+3. exact processed-proposal detail continuity after draft-originated processing is now repo_verified on 2026-03-29 through `internal/app` integration coverage across both `/api/...` and `/app/...`
+4. partially live_validated
+5. pending_live_validation for the approval-producing live branch
 
 ### 2.5 Processed proposal to approval request
 
@@ -161,7 +163,8 @@ Current status:
 
 1. implemented
 2. repo_verified
-3. pending_live_validation
+3. full proposal -> request-approval continuity is now repo_verified on 2026-03-29 through `internal/app` integration coverage across both `/api/...` and `/app/...`
+4. pending_live_validation
 
 ### 2.6 Approval decision and downstream continuity
 
@@ -186,7 +189,8 @@ Current status:
 
 1. implemented
 2. repo_verified
-3. pending_live_validation for the full proposal-requested-approval path
+3. full proposal-requested approval -> approval decision -> exact approval and document continuity is now repo_verified on 2026-03-29 through `internal/app` integration coverage across both `/api/...` and `/app/...`
+4. pending_live_validation for the full proposal-requested-approval path
 
 ### 2.7 Failed provider or failed processing visibility
 
