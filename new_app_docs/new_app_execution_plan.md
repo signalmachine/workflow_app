@@ -258,6 +258,7 @@ Planned implementation checkpoint:
 3. `internal/ai` now uses the official OpenAI Go SDK and the Responses API for the first real provider-backed path
 4. the first coordinator flow can now claim one queued inbound request, assemble request, attachment, and derived-text context, call the provider, persist the resulting coordinator run and step, write a provider brief artifact plus operator-review recommendation, and transition the request to `processed` or `failed`
 5. the provider-backed coordinator path now includes a hard-capped Responses tool loop, per-capability tool-policy enforcement, and the first reporting read tool for inbound-request status summaries, with tool-execution metadata persisted in the coordinator step, artifact, and recommendation payloads
+
 6. the coordinator can now optionally route one allowlisted specialist delegation through a durable child run and delegation record, with the final provider-backed artifact and recommendation persisting on that specialist run while the coordinator run remains the bounded parent
 6. provider configuration remains optional so the default local build and database-backed test flow does not require external credentials
 6. `.env.example` now documents the OpenAI variables needed for later live-provider slices
@@ -375,7 +376,31 @@ That slice should:
 4. continue focused review plus fix plus test loops until those workflows have no known blocking defects
 5. end with one explicit readiness result for supervised AI-backed user testing or with an explicit blocker list
 
-## 12. Execution warning
+## 12. Milestone 9: User-testing readiness hardening
+
+Goal:
+
+1. strengthen the current implementation baseline before the paused live workflow validation resumes
+
+Scope:
+
+1. auth hardening on top of the existing browser-session and bearer-session foundations
+2. bounded coordinator or specialist read-tool expansion inside the current multi-agent architecture
+3. shared web or API seam decomposition where the current file concentration materially increases implementation and regression risk
+
+Exit criteria:
+
+1. the active auth path is materially stronger for guided user testing
+2. the bounded AI capability surface is stronger without weakening approval and posting boundaries
+3. the highest-risk shared web or API file concentration is reduced enough to support safer iteration
+4. the repository is ready to resume the paused live workflow validation captured in `post_checkpoint_validation_and_user_testing_plan.md`
+
+Planning note:
+
+1. this milestone exists because the post-checkpoint validation slice produced useful live signal but also identified bounded readiness gaps that are better addressed before further deep workflow testing
+2. this milestone should stay bounded to readiness hardening rather than broad product expansion
+
+## 13. Execution warning
 
 Do not add CRM breadth, advanced projects, portal work, payroll, broad UI work, or advanced agent-autonomy features during milestones 0 through 5.
 
@@ -386,7 +411,7 @@ During Milestone 7, backend corrections and narrow shared-backend enhancements a
 
 Do not treat Milestone 8 as permission to build the mobile product itself, fork the backend into web-specific versus mobile-specific truth models, or let backend hardening erase the still-required Milestone 7 browser completion criteria.
 
-## 13. Quality and sophistication rule
+## 14. Quality and sophistication rule
 
 `workflow_app` is allowed to be thin in breadth, but it is not allowed to be weak in foundation design.
 

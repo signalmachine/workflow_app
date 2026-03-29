@@ -25,6 +25,19 @@ For the durable workflow-reference layer that should survive after the active th
 2. durable run history, tool policy, artifacts, and delegation traces
 3. no advanced autonomy features unless they are required for foundation correctness
 
+Anything in `examples/` is read-only and reference-only:
+
+1. these folders are typically preserved from older implementations or planning eras
+2. they must not be changed or updated as part of active `workflow_app` implementation work
+3. they are not part of the active `workflow_app` implementation surface
+
+The reference codebase in `examples/accounting-agent-app-for-reference-only/` may still be used during implementation review and selective borrowing, but it must stay reference-only within that broader rule:
+
+1. it was a proof-of-concept application rather than the architectural target for this repository
+2. it used one single-agent pattern rather than the coordinator-plus-specialist architecture planned for `workflow_app`
+3. it still matters because it worked within its intended limits and achieved its objectives, so implementation decisions in `workflow_app` may continue to compare against it for practical operator usefulness and readiness signal
+4. it must not be changed, updated, or treated as part of the active `workflow_app` implementation surface
+
 ## Recommended reading order
 
 Read these in order:
@@ -41,9 +54,11 @@ Read these in order:
 10. `ai_provider_execution_plan.md`
 11. `web_application_layer_plan.md`
 12. `non_browser_auth_evolution_plan.md`
-13. `new_app_tracker.md`
-14. `app_v2_plans/README.md`
-15. `../docs/workflows/README.md` for the durable workflow-reference layer after the active planning read
+13. `post_checkpoint_validation_and_user_testing_plan.md`
+14. `milestone_9_user_testing_readiness_hardening_plan.md`
+15. `new_app_tracker.md`
+16. `app_v2_plans/README.md`
+17. `../docs/workflows/README.md` for the durable workflow-reference layer after the active planning read
 
 ## Reset decision
 

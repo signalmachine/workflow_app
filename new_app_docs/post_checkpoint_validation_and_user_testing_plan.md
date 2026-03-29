@@ -1,8 +1,8 @@
 # workflow_app Post-Checkpoint Validation And User Testing Plan
 
-Date: 2026-03-28
-Status: Active validation slice
-Purpose: define the first explicit post-checkpoint implementation and validation step so the next session starts from a deliberate plan instead of reopening thin-v1 by momentum.
+Date: 2026-03-29
+Status: Paused after partial validation
+Purpose: define the first explicit post-checkpoint validation step, record the bounded partial result reached before pause, and preserve the exact work that should resume after the next readiness-hardening milestone.
 
 ## 1. Why this plan exists
 
@@ -16,19 +16,49 @@ That does not yet answer a narrower operational question:
 
 The next step should therefore be validation-led rather than breadth-led.
 
+As of 2026-03-29, that validation pass is intentionally paused after partial completion so one bounded readiness-hardening milestone can land before the remaining live workflows resume.
+
 ## 2. Planning decision
 
-The next active slice is:
+The first post-checkpoint slice was:
 
 1. a bounded post-checkpoint validation and live-workflow hardening pass
 
-It is not:
+The next active slice is now:
+
+1. Milestone 9 user-testing readiness hardening
+
+The paused validation slice is not:
 
 1. a broad new feature milestone
 2. silent reopening of thin-v1 scope
 3. a v2 breadth promotion
 
-## 3. Objective
+The new active milestone is also not:
+
+1. a broad product expansion
+2. a restart of thin-v1 foundation work
+3. a substitute for the remaining live workflows captured below
+
+## 3. Pause decision
+
+The validation slice is not being marked complete.
+
+It is being paused deliberately with explicit carry-forward work.
+
+Reason:
+
+1. the slice already produced useful signal through the first real provider-backed seam pass
+2. that signal exposed bounded readiness gaps that are better addressed before further deep live-workflow testing
+3. continuing the remaining live workflows immediately would produce lower-value testing signal while those known gaps remain open
+
+Pause outcome:
+
+1. treat this document as the canonical record of completed validation evidence and remaining workflow work
+2. do not continue Step 2 through Step 5 again until Milestone 9 is complete or an explicit blocker changes that order
+3. resume from the remaining workflows rather than restarting the whole validation phase later
+
+## 4. Objective
 
 Drive `workflow_app` to supervised AI-backed user-testing readiness by:
 
@@ -37,7 +67,7 @@ Drive `workflow_app` to supervised AI-backed user-testing readiness by:
 3. repeating focused review plus structured testing until the canonical user-testing flows have no known blocking defects
 4. recording any remaining non-blocking defects or gaps explicitly instead of inferring readiness from repository tests alone
 
-## 4. Validation stance
+## 5. Validation stance
 
 Do not choose between code review and testing as if they are substitutes.
 
@@ -55,7 +85,7 @@ Reason:
 2. end-to-end testing is the only credible way to assess readiness for an AI-agent-first operator workflow
 3. testing without targeted review can become slow and noisy when a live-path defect blocks the whole chain
 
-## 5. Planned execution order
+## 6. Planned execution order
 
 ### 5.1 Step 1: restore live-provider verification
 
@@ -147,14 +177,15 @@ Readiness bar:
 2. no unresolved high-severity correctness, control-boundary, or operator-continuity defect remains in the canonical workflows
 3. any residual low-severity defects are explicitly recorded and consciously accepted rather than ignored
 
-Current interim result on 2026-03-28:
+Current interim result on 2026-03-29:
 
 1. not ready yet for supervised AI-backed user testing
 2. the first blocking defect on the live provider path is now cleared: the final persisted brief is request-centered again on the live OpenAI path, and stale queue-status wording is rejected before persistence
 3. additional workflow coverage is still required for draft-amend continuity, approval-producing flows, and failed-provider or failed-processing visibility before readiness can be stated
-4. the proposal-to-approval shared seam is now available for that remaining workflow coverage, so the next validation pass should use the real browser plus shared API path rather than treating approval-request continuity as a missing backend capability
+4. the proposal-to-approval shared seam is now available for that remaining workflow coverage, so the remaining live workflows are deferred rather than blocked by a missing backend capability
+5. the next active work should now be Milestone 9 user-testing readiness hardening before workflows 2 through 4 resume
 
-Next-session execution order for workflows 2 through 4:
+Deferred resume order for workflows 2 through 4 after Milestone 9:
 
 1. workflow 2: save a draft, continue editing it, queue it, process it, and verify the resulting request plus proposal continuity in both `/api/review/...` and `/app/...`
 2. workflow 3: start from a processed proposal that identifies a submitted document, request approval through the shared seam, decide that approval, and verify downstream approval plus document-review continuity
@@ -192,7 +223,19 @@ Result on 2026-03-28:
 3. repository verification and live provider verification both passed after that change
 4. the next session should resume workflows 2 through 4 from section 5.3 rather than reopening this blocker-remediation slice
 
-## 6. Guardrails
+## 7. Resume order after Milestone 9
+
+When Milestone 9 is complete, resume this paused validation slice in this order:
+
+1. rerun `set -a; source .env; set +a; go run ./cmd/verify-agent`
+2. run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
+3. execute workflow 2 for draft save or edit -> queue -> process continuity
+4. execute workflow 3 for processed proposal -> request approval -> approval decision continuity
+5. execute workflow 4 for failed provider or failed processing visibility
+6. update this document and `new_app_tracker.md` with explicit pass or fail evidence after each workflow
+7. end with one explicit readiness result rather than leaving user-testing readiness implicit
+
+## 8. Guardrails
 
 During this slice:
 
@@ -202,9 +245,9 @@ During this slice:
 4. prefer fixing the real shared backend or provider seam over adding testing-only workarounds
 5. keep the testing centered on the real operator chain rather than synthetic isolated demos
 
-## 7. Exit criteria
+## 9. Exit criteria
 
-This slice is complete only when:
+This paused slice should only be marked complete when:
 
 1. `go build ./...` passes
 2. `set -a; source .env; set +a; go test -p 1 ./...` passes
@@ -213,7 +256,7 @@ This slice is complete only when:
 5. those workflows have no known blocking defects that would invalidate supervised user testing
 6. the repository has one explicit readiness statement for supervised AI-backed user testing
 
-## 8. Result handling
+## 10. Result handling
 
 If the slice succeeds:
 
