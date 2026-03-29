@@ -1,7 +1,7 @@
 # workflow_app Post-Checkpoint Validation And User Testing Plan
 
 Date: 2026-03-29
-Status: Paused after partial validation; Milestone 9 is complete, and the next step is a full Milestone 9 review before the remaining live workflows resume
+Status: Validation resumed from the live-provider checkpoint on 2026-03-29 after a clean Milestone 9 review; the next step is the remaining live workflows
 Purpose: define the first explicit post-checkpoint validation step, record the bounded partial result reached before pause, and preserve the exact work that should resume after the Milestone 9 implementation is reviewed against the plan docs.
 
 ## 1. Why this plan exists
@@ -16,7 +16,7 @@ That does not yet answer a narrower operational question:
 
 The next step should therefore be validation-led rather than breadth-led.
 
-As of 2026-03-29, that validation pass remains intentionally paused after partial completion. The Milestone 9 readiness-hardening prerequisite is complete, but the next active step should first be a full review of the Milestone 9 implementation against the milestone plan and related canonical docs before the remaining live workflows resume.
+As of 2026-03-29, the Milestone 9 readiness-hardening prerequisite is complete, and the required same-day implementation review against the milestone plan and related canonical docs also completed cleanly. The paused validation slice has therefore resumed from the live-provider verification checkpoint, and the next active work is the remaining live workflows captured below.
 
 ## 2. Planning decision
 
@@ -26,8 +26,8 @@ The first post-checkpoint slice was:
 
 The next active slice is now:
 
-1. review the completed Milestone 9 implementation against its plan docs
-2. then resume the paused post-checkpoint live workflow validation from the remaining workflows captured below
+1. continue the paused post-checkpoint live workflow validation from the remaining workflows captured below
+2. record pass or fail evidence for each workflow and end with one explicit readiness result
 
 The paused validation slice is not:
 
@@ -110,11 +110,11 @@ After the focused live verification passes:
 2. exercise the shared `/app` plus `/api/...` seam against the real database and real provider path
 3. confirm that the application remains operable outside direct service calls and outside repository-only tests
 
-Next-session start point:
+Current resumed start point on 2026-03-29:
 
-1. start with a complete review of the Milestone 9 implementation against `milestone_9_user_testing_readiness_hardening_plan.md` and the related canonical planning docs
-2. if that review is clean, continue with Step 2 on the real `/app` plus `/api/...` seam rather than reopening readiness hardening
-3. run `set -a; source .env; set +a; go run ./cmd/app`
+1. the complete review of the Milestone 9 implementation against `milestone_9_user_testing_readiness_hardening_plan.md` and the related canonical planning docs is complete and found no material drift
+2. the post-review `set -a; source .env; set +a; go run ./cmd/verify-agent` rerun also passed, returning `REQ-000001` in `processed` state with a completed coordinator run and a request-specific urgent warehouse-pump recommendation summary
+3. next run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
 4. execute the canonical browser-facing workflow set in Step 3 and record concrete pass or fail results in this document and the tracker
 
 Current result on 2026-03-28:
@@ -184,9 +184,10 @@ Current interim result on 2026-03-29:
 1. not ready yet for supervised AI-backed user testing
 2. the first blocking defect on the live provider path is now cleared: the final persisted brief is request-centered again on the live OpenAI path, and stale queue-status wording is rejected before persistence
 3. a bounded shared-backend failure-path continuity slice is now also closed at repo-verification depth: when queued-request processing fails after claim, the API failure response preserves the exact `REQ-...` request reference and the browser failure redirect lands on the failed request detail instead of a generic dashboard error, while exact request detail still exposes failed request, run, and step continuity for troubleshooting
-4. additional live workflow coverage is still required for draft-amend continuity, approval-producing flows, and failed-provider or failed-processing visibility before readiness can be stated
-5. the proposal-to-approval shared seam is now available for that remaining workflow coverage, so the remaining live workflows are deferred rather than blocked by a missing backend capability
-6. Milestone 9 is now complete, so the next active work should be a full Milestone 9 review followed by workflows 2 through 4 in the order listed below
+4. the Milestone 9 implementation review is now also complete and found no material drift across the auth, AI, and seam-decomposition slices
+5. a fresh post-review `set -a; source .env; set +a; go run ./cmd/verify-agent` rerun also passed on 2026-03-29, so the live provider seam is reconfirmed at the resumed-validation start point
+6. additional live workflow coverage is still required for draft-amend continuity, approval-producing flows, and failed-provider or failed-processing visibility before readiness can be stated
+7. the proposal-to-approval shared seam is now available for that remaining workflow coverage, so the remaining live workflows are deferred rather than blocked by a missing backend capability
 
 Deferred resume order for workflows 2 through 4 after Milestone 9:
 
@@ -226,18 +227,17 @@ Result on 2026-03-28:
 3. repository verification and live provider verification both passed after that change
 4. the next session should resume workflows 2 through 4 from section 5.3 rather than reopening this blocker-remediation slice
 
-## 7. Resume order after Milestone 9
+## 7. Resume order after Milestone 9 review
 
-With Milestone 9 now complete, resume this paused validation slice in this order:
+With the Milestone 9 review now complete, continue this resumed validation slice in this order:
 
-1. review the completed Milestone 9 implementation against `milestone_9_user_testing_readiness_hardening_plan.md` and the related canonical planning docs
-2. rerun `set -a; source .env; set +a; go run ./cmd/verify-agent`
-3. run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
-4. execute workflow 2 for draft save or edit -> queue -> process continuity
-5. execute workflow 3 for processed proposal -> request approval -> approval decision continuity
-6. execute workflow 4 for failed provider or failed processing visibility
-7. update this document and `new_app_tracker.md` with explicit pass or fail evidence after each workflow
-8. end with one explicit readiness result rather than leaving user-testing readiness implicit
+1. treat the post-review `set -a; source .env; set +a; go run ./cmd/verify-agent` rerun as complete
+2. run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
+3. execute workflow 2 for draft save or edit -> queue -> process continuity
+4. execute workflow 3 for processed proposal -> request approval -> approval decision continuity
+5. execute workflow 4 for failed provider or failed processing visibility
+6. update this document and `new_app_tracker.md` with explicit pass or fail evidence after each workflow
+7. end with one explicit readiness result rather than leaving user-testing readiness implicit
 
 ## 8. Guardrails
 
