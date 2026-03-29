@@ -81,6 +81,7 @@ Expected outputs:
 2. inbound request lifecycle transitions
 3. AI run, step, artifact, recommendation, and optional delegation records
 4. request-detail and proposal continuity in `/api/review/...` and `/app/...`
+5. provider-backed review can use bounded request-scoped detail and processed-proposal continuity tools in addition to secondary org-level status summary context
 
 Current status:
 

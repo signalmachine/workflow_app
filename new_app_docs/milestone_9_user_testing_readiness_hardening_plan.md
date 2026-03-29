@@ -1,7 +1,7 @@
 # workflow_app Milestone 9 User-Testing Readiness Hardening Plan
 
 Date: 2026-03-29
-Status: Active milestone; slice 1 auth hardening complete, slices 2 and 3 pending
+Status: Active milestone; slices 1 and 2 complete, slice 3 pending
 Purpose: define the bounded readiness-hardening milestone that should land before the paused post-checkpoint live workflow validation resumes.
 
 ## 1. Why this milestone exists
@@ -78,7 +78,9 @@ Goal:
 
 Status:
 
-1. pending
+1. done
+2. the OpenAI-backed coordinator now exposes request-scoped read-only tools for current inbound-request detail and current processed-proposal continuity in addition to the existing org-level status summary tool
+3. tool-policy enforcement, durable tool execution traces, artifacts, recommendations, and bounded delegation remain unchanged while the coordinator gains more request-relevant context than queue summary alone
 
 Required outcomes:
 

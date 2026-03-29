@@ -17,9 +17,11 @@ import (
 )
 
 const (
-	openAIProviderTimeout            = 45 * time.Second
-	openAIMaxCoordinatorToolLoops    = 3
-	openAICoordinatorSummaryToolName = "reporting_list_inbound_request_status_summary"
+	openAIProviderTimeout             = 45 * time.Second
+	openAIMaxCoordinatorToolLoops     = 3
+	openAICoordinatorSummaryToolName  = "reporting_list_inbound_request_status_summary"
+	openAICurrentRequestDetailTool    = "reporting_get_current_inbound_request_detail"
+	openAICurrentRequestProposalsTool = "reporting_list_current_processed_proposals"
 )
 
 type openAIResponsesAPI interface {
@@ -215,6 +217,7 @@ You may use the available read tools when they improve prioritization context.
 Do not propose direct writes, approval decisions, postings, or autonomous follow-up actions.
 If a tool call is denied or unavailable, continue without it and produce the best safe review possible.
 Focus on a safe summary, priority, rationale, and next actions for a human operator.
+Prefer request-scoped tools that inspect the current request or its existing proposal continuity before using org-wide queue summary.
 If the request clearly needs deeper review framing, you may delegate to exactly one specialist by filling specialist_delegation with an allowlisted capability and a concrete reason.
 Allowed specialist capabilities:
 - inbound_request.operations_triage
@@ -235,6 +238,30 @@ func (p *OpenAIProvider) coordinatorToolDefinitions() map[string]coordinatorTool
 				"required":             []string{},
 			},
 			Execute: p.executeInboundRequestStatusSummaryTool,
+		},
+		openAICurrentRequestDetailTool: {
+			ToolName:     openAICurrentRequestDetailTool,
+			Description:  "Return request-scoped review detail for the current inbound request, including lifecycle metadata, messages, attachments, prior runs, recommendations, and proposal continuity.",
+			MutatesState: false,
+			Parameters: map[string]any{
+				"type":                 "object",
+				"additionalProperties": false,
+				"properties":           map[string]any{},
+				"required":             []string{},
+			},
+			Execute: p.executeCurrentInboundRequestDetailTool,
+		},
+		openAICurrentRequestProposalsTool: {
+			ToolName:     openAICurrentRequestProposalsTool,
+			Description:  "Return processed proposal review rows already linked to the current inbound request so the coordinator can reuse existing proposal, approval, queue, and document continuity when present.",
+			MutatesState: false,
+			Parameters: map[string]any{
+				"type":                 "object",
+				"additionalProperties": false,
+				"properties":           map[string]any{},
+				"required":             []string{},
+			},
+			Execute: p.executeCurrentProcessedProposalsTool,
 		},
 	}
 }
@@ -304,6 +331,269 @@ func (p *OpenAIProvider) executeInboundRequestStatusSummaryTool(ctx context.Cont
 		preview = fmt.Sprintf("returned %d status groups; top status=%s", len(payload), payload[0].Status)
 	}
 	return string(body), preview, nil
+}
+
+func (p *OpenAIProvider) executeCurrentInboundRequestDetailTool(ctx context.Context, input CoordinatorProviderInput) (string, string, error) {
+	detail, err := p.reportingService.GetInboundRequestDetail(ctx, reporting.GetInboundRequestDetailInput{
+		RequestReference: input.RequestReference,
+		Actor:            input.Actor,
+	})
+	if err != nil {
+		return "", "", fmt.Errorf("get inbound request detail: %w", err)
+	}
+
+	type requestMetadata struct {
+		RequestID                string         `json:"request_id"`
+		RequestReference         string         `json:"request_reference"`
+		Status                   string         `json:"status"`
+		OriginType               string         `json:"origin_type"`
+		Channel                  string         `json:"channel"`
+		CancellationReason       string         `json:"cancellation_reason,omitempty"`
+		FailureReason            string         `json:"failure_reason,omitempty"`
+		ReceivedAt               string         `json:"received_at"`
+		QueuedAt                 *string        `json:"queued_at"`
+		ProcessingStartedAt      *string        `json:"processing_started_at"`
+		ProcessedAt              *string        `json:"processed_at"`
+		FailedAt                 *string        `json:"failed_at"`
+		CancelledAt              *string        `json:"cancelled_at"`
+		UpdatedAt                string         `json:"updated_at"`
+		MessageCount             int            `json:"message_count"`
+		AttachmentCount          int            `json:"attachment_count"`
+		LastRunID                *string        `json:"last_run_id"`
+		LastRunStatus            *string        `json:"last_run_status"`
+		LastRecommendationID     *string        `json:"last_recommendation_id"`
+		LastRecommendationStatus *string        `json:"last_recommendation_status"`
+		Metadata                 map[string]any `json:"metadata"`
+	}
+	type messageItem struct {
+		MessageID       string  `json:"message_id"`
+		Role            string  `json:"role"`
+		TextContent     string  `json:"text_content"`
+		AttachmentCount int     `json:"attachment_count"`
+		CreatedAt       string  `json:"created_at"`
+		CreatedByUserID *string `json:"created_by_user_id"`
+	}
+	type attachmentItem struct {
+		AttachmentID      string  `json:"attachment_id"`
+		RequestMessageID  string  `json:"request_message_id"`
+		LinkRole          string  `json:"link_role"`
+		OriginalFileName  string  `json:"original_file_name"`
+		MediaType         string  `json:"media_type"`
+		SizeBytes         int64   `json:"size_bytes"`
+		DerivedTextCount  int     `json:"derived_text_count"`
+		LatestDerivedText *string `json:"latest_derived_text"`
+	}
+	type runItem struct {
+		RunID          string  `json:"run_id"`
+		AgentRole      string  `json:"agent_role"`
+		CapabilityCode string  `json:"capability_code"`
+		Status         string  `json:"status"`
+		Summary        string  `json:"summary"`
+		StartedAt      string  `json:"started_at"`
+		CompletedAt    *string `json:"completed_at"`
+	}
+	type recommendationItem struct {
+		RecommendationID   string  `json:"recommendation_id"`
+		RunID              string  `json:"run_id"`
+		RecommendationType string  `json:"recommendation_type"`
+		Status             string  `json:"status"`
+		Summary            string  `json:"summary"`
+		ApprovalID         *string `json:"approval_id"`
+		CreatedAt          string  `json:"created_at"`
+		UpdatedAt          string  `json:"updated_at"`
+	}
+
+	metadata := map[string]any{}
+	if len(detail.Request.Metadata) > 0 {
+		if err := json.Unmarshal(detail.Request.Metadata, &metadata); err != nil {
+			metadata = map[string]any{
+				"raw_json": string(detail.Request.Metadata),
+			}
+		}
+	}
+	payload := map[string]any{
+		"request": requestMetadata{
+			RequestID:                detail.Request.RequestID,
+			RequestReference:         detail.Request.RequestReference,
+			Status:                   detail.Request.Status,
+			OriginType:               detail.Request.OriginType,
+			Channel:                  detail.Request.Channel,
+			CancellationReason:       strings.TrimSpace(detail.Request.CancellationReason),
+			FailureReason:            strings.TrimSpace(detail.Request.FailureReason),
+			ReceivedAt:               detail.Request.ReceivedAt.UTC().Format(time.RFC3339),
+			QueuedAt:                 formatNullTime(detail.Request.QueuedAt),
+			ProcessingStartedAt:      formatNullTime(detail.Request.ProcessingStartedAt),
+			ProcessedAt:              formatNullTime(detail.Request.ProcessedAt),
+			FailedAt:                 formatNullTime(detail.Request.FailedAt),
+			CancelledAt:              formatNullTime(detail.Request.CancelledAt),
+			UpdatedAt:                detail.Request.UpdatedAt.UTC().Format(time.RFC3339),
+			MessageCount:             detail.Request.MessageCount,
+			AttachmentCount:          detail.Request.AttachmentCount,
+			LastRunID:                formatNullString(detail.Request.LastRunID),
+			LastRunStatus:            formatNullString(detail.Request.LastRunStatus),
+			LastRecommendationID:     formatNullString(detail.Request.LastRecommendationID),
+			LastRecommendationStatus: formatNullString(detail.Request.LastRecommendationStatus),
+			Metadata:                 metadata,
+		},
+		"counts": map[string]any{
+			"message_count":        len(detail.Messages),
+			"attachment_count":     len(detail.Attachments),
+			"run_count":            len(detail.Runs),
+			"step_count":           len(detail.Steps),
+			"delegation_count":     len(detail.Delegations),
+			"artifact_count":       len(detail.Artifacts),
+			"recommendation_count": len(detail.Recommendations),
+			"proposal_count":       len(detail.Proposals),
+		},
+	}
+
+	messages := make([]messageItem, 0, len(detail.Messages))
+	for _, message := range detail.Messages {
+		messages = append(messages, messageItem{
+			MessageID:       message.MessageID,
+			Role:            message.MessageRole,
+			TextContent:     strings.TrimSpace(message.TextContent),
+			AttachmentCount: message.AttachmentCount,
+			CreatedAt:       message.CreatedAt.UTC().Format(time.RFC3339),
+			CreatedByUserID: formatNullString(message.CreatedByUserID),
+		})
+	}
+	payload["messages"] = messages
+
+	attachments := make([]attachmentItem, 0, len(detail.Attachments))
+	for _, attachment := range detail.Attachments {
+		attachments = append(attachments, attachmentItem{
+			AttachmentID:      attachment.AttachmentID,
+			RequestMessageID:  attachment.RequestMessageID,
+			LinkRole:          attachment.LinkRole,
+			OriginalFileName:  attachment.OriginalFileName,
+			MediaType:         attachment.MediaType,
+			SizeBytes:         attachment.SizeBytes,
+			DerivedTextCount:  attachment.DerivedTextCount,
+			LatestDerivedText: formatNullString(attachment.LatestDerivedText),
+		})
+	}
+	payload["attachments"] = attachments
+
+	runs := make([]runItem, 0, len(detail.Runs))
+	for _, run := range detail.Runs {
+		runs = append(runs, runItem{
+			RunID:          run.RunID,
+			AgentRole:      run.AgentRole,
+			CapabilityCode: run.CapabilityCode,
+			Status:         run.Status,
+			Summary:        strings.TrimSpace(run.Summary),
+			StartedAt:      run.StartedAt.UTC().Format(time.RFC3339),
+			CompletedAt:    formatNullTime(run.CompletedAt),
+		})
+	}
+	payload["runs"] = runs
+
+	recommendations := make([]recommendationItem, 0, len(detail.Recommendations))
+	for _, recommendation := range detail.Recommendations {
+		recommendations = append(recommendations, recommendationItem{
+			RecommendationID:   recommendation.RecommendationID,
+			RunID:              recommendation.RunID,
+			RecommendationType: recommendation.RecommendationType,
+			Status:             recommendation.Status,
+			Summary:            strings.TrimSpace(recommendation.Summary),
+			ApprovalID:         formatNullString(recommendation.ApprovalID),
+			CreatedAt:          recommendation.CreatedAt.UTC().Format(time.RFC3339),
+			UpdatedAt:          recommendation.UpdatedAt.UTC().Format(time.RFC3339),
+		})
+	}
+	payload["recommendations"] = recommendations
+
+	proposals, err := marshalCurrentProcessedProposals(detail.Proposals)
+	if err != nil {
+		return "", "", err
+	}
+	payload["processed_proposals"] = proposals
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return "", "", fmt.Errorf("marshal inbound request detail: %w", err)
+	}
+
+	preview := fmt.Sprintf(
+		"returned request detail with %d messages, %d runs, and %d proposals",
+		len(detail.Messages),
+		len(detail.Runs),
+		len(detail.Proposals),
+	)
+	return string(body), preview, nil
+}
+
+func (p *OpenAIProvider) executeCurrentProcessedProposalsTool(ctx context.Context, input CoordinatorProviderInput) (string, string, error) {
+	proposals, err := p.reportingService.ListProcessedProposals(ctx, reporting.ListProcessedProposalsInput{
+		RequestReference: input.RequestReference,
+		Actor:            input.Actor,
+	})
+	if err != nil {
+		return "", "", fmt.Errorf("list processed proposals for current request: %w", err)
+	}
+
+	payload, err := marshalCurrentProcessedProposals(proposals)
+	if err != nil {
+		return "", "", err
+	}
+
+	body, err := json.Marshal(map[string]any{
+		"request_reference":   input.RequestReference,
+		"processed_proposals": payload,
+	})
+	if err != nil {
+		return "", "", fmt.Errorf("marshal current processed proposals: %w", err)
+	}
+
+	preview := fmt.Sprintf("returned %d processed proposals", len(proposals))
+	return string(body), preview, nil
+}
+
+func marshalCurrentProcessedProposals(proposals []reporting.ProcessedProposalReview) ([]map[string]any, error) {
+	payload := make([]map[string]any, 0, len(proposals))
+	for _, proposal := range proposals {
+		payload = append(payload, map[string]any{
+			"request_id":            proposal.RequestID,
+			"request_reference":     proposal.RequestReference,
+			"request_status":        proposal.RequestStatus,
+			"recommendation_id":     proposal.RecommendationID,
+			"run_id":                proposal.RunID,
+			"recommendation_type":   proposal.RecommendationType,
+			"recommendation_status": proposal.RecommendationStatus,
+			"summary":               strings.TrimSpace(proposal.Summary),
+			"suggested_queue_code":  formatNullString(proposal.SuggestedQueueCode),
+			"approval_id":           formatNullString(proposal.ApprovalID),
+			"approval_status":       formatNullString(proposal.ApprovalStatus),
+			"approval_queue_code":   formatNullString(proposal.ApprovalQueueCode),
+			"document_id":           formatNullString(proposal.DocumentID),
+			"document_type_code":    formatNullString(proposal.DocumentTypeCode),
+			"document_title":        formatNullString(proposal.DocumentTitle),
+			"document_number":       formatNullString(proposal.DocumentNumber),
+			"document_status":       formatNullString(proposal.DocumentStatus),
+			"created_at":            proposal.CreatedAt.UTC().Format(time.RFC3339),
+		})
+	}
+	return payload, nil
+}
+
+func formatNullString(value sql.NullString) *string {
+	if !value.Valid {
+		return nil
+	}
+	trimmed := strings.TrimSpace(value.String)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
+}
+
+func formatNullTime(value sql.NullTime) *string {
+	if !value.Valid {
+		return nil
+	}
+	formatted := value.Time.UTC().Format(time.RFC3339)
+	return &formatted
 }
 
 func (p *OpenAIProvider) executeCoordinatorTool(ctx context.Context, input CoordinatorProviderInput, toolDefs map[string]coordinatorToolDefinition, iteration int, call responses.ResponseFunctionToolCall) (string, CoordinatorToolExecution) {

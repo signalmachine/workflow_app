@@ -482,6 +482,227 @@ func TestOpenAIProviderRepairsGenericTransientStatusOnlyBriefIntegration(t *test
 	}
 }
 
+func TestOpenAIProviderExecutesCurrentRequestReadToolsIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedAIOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	session := startAISession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: session.ID}
+
+	intakeService := intake.NewService(db)
+	request, err := intakeService.CreateDraft(ctx, intake.CreateDraftInput{
+		OriginType: intake.OriginHuman,
+		Channel:    "browser",
+		Metadata: map[string]any{
+			"submitter_label": "dispatch",
+		},
+		Actor: operator,
+	})
+	if err != nil {
+		t.Fatalf("create draft: %v", err)
+	}
+	if _, err := intakeService.AddMessage(ctx, intake.AddMessageInput{
+		RequestID:   request.ID,
+		MessageRole: intake.MessageRoleRequest,
+		TextContent: "Warehouse pump failure needs review before dispatching a technician.",
+		Actor:       operator,
+	}); err != nil {
+		t.Fatalf("add message: %v", err)
+	}
+	request, err = intakeService.QueueRequest(ctx, intake.QueueRequestInput{
+		RequestID: request.ID,
+		Actor:     operator,
+	})
+	if err != nil {
+		t.Fatalf("queue request: %v", err)
+	}
+	request, err = intakeService.ClaimNextQueued(ctx, intake.ClaimNextQueuedInput{
+		Channel: "browser",
+		Actor:   operator,
+	})
+	if err != nil {
+		t.Fatalf("claim request: %v", err)
+	}
+
+	aiService := NewService(db)
+	priorRun, err := aiService.StartRun(ctx, StartRunInput{
+		AgentRole:        RunRoleCoordinator,
+		CapabilityCode:   DefaultCoordinatorCapabilityCode,
+		InboundRequestID: request.ID,
+		RequestText:      "prior review for warehouse pump request",
+		Metadata: map[string]any{
+			"request_reference": request.RequestReference,
+		},
+		Actor: operator,
+	})
+	if err != nil {
+		t.Fatalf("start prior run: %v", err)
+	}
+	priorRun, err = aiService.CompleteRun(ctx, CompleteRunInput{
+		RunID:   priorRun.ID,
+		Status:  RunStatusCompleted,
+		Summary: "prior operator review remained open",
+		Metadata: map[string]any{
+			"request_reference": request.RequestReference,
+		},
+		Actor: operator,
+	})
+	if err != nil {
+		t.Fatalf("complete prior run: %v", err)
+	}
+	artifact, err := aiService.CreateArtifact(ctx, CreateArtifactInput{
+		RunID:        priorRun.ID,
+		ArtifactType: coordinatorArtifactType,
+		Title:        "Prior warehouse pump review",
+		Payload: map[string]any{
+			"detail": "Previous review found likely equipment failure.",
+		},
+		Actor: operator,
+	})
+	if err != nil {
+		t.Fatalf("create prior artifact: %v", err)
+	}
+	if _, err := aiService.CreateRecommendation(ctx, CreateRecommendationInput{
+		RunID:              priorRun.ID,
+		ArtifactID:         artifact.ID,
+		RecommendationType: coordinatorRecommendationType,
+		Summary:            "Prior proposal suggested operations queue follow-up",
+		Payload: map[string]any{
+			"queue_code": "operations-review",
+		},
+		Actor: operator,
+	}); err != nil {
+		t.Fatalf("create prior recommendation: %v", err)
+	}
+
+	if _, err := aiService.RegisterTool(ctx, RegisterToolInput{
+		ToolName:     openAICurrentRequestProposalsTool,
+		DisplayName:  "Current Request Processed Proposals",
+		ModuleCode:   "reporting",
+		MutatesState: false,
+		Actor:        operator,
+	}); err != nil {
+		t.Fatalf("register proposals tool: %v", err)
+	}
+	if _, err := aiService.SetToolPolicy(ctx, SetToolPolicyInput{
+		CapabilityCode: DefaultCoordinatorCapabilityCode,
+		ToolName:       openAICurrentRequestProposalsTool,
+		Policy:         PolicyDeny,
+		Rationale:      "exercise policy enforcement on request-scoped tools",
+		Actor:          operator,
+	}); err != nil {
+		t.Fatalf("set proposals tool policy: %v", err)
+	}
+
+	provider := &OpenAIProvider{
+		responsesAPI: &fakeOpenAIResponsesAPI{responses: []*responses.Response{
+			mustResponseFromJSON(t, `{
+				"id":"resp_detail_1",
+				"created_at":1,
+				"error":{},
+				"incomplete_details":{},
+				"instructions":"coordinator",
+				"metadata":{},
+				"model":"gpt-5.2",
+				"object":"response",
+				"output":[{"id":"fc_1","type":"function_call","status":"completed","call_id":"call_1","name":"reporting_get_current_inbound_request_detail","arguments":"{}"}],
+				"parallel_tool_calls":false,
+				"temperature":0.1,
+				"tool_choice":"auto",
+				"tools":[],
+				"top_p":1,
+				"status":"completed",
+				"text":{"format":{"type":"json_schema","name":"inbound_request_review","schema":{"type":"object"}}},
+				"usage":{"input_tokens":18,"input_tokens_details":{"cached_tokens":0},"output_tokens":9,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":27}
+			}`),
+			mustResponseFromJSON(t, `{
+				"id":"resp_detail_2",
+				"created_at":2,
+				"error":{},
+				"incomplete_details":{},
+				"instructions":"coordinator",
+				"metadata":{},
+				"model":"gpt-5.2",
+				"object":"response",
+				"output":[{"id":"fc_2","type":"function_call","status":"completed","call_id":"call_2","name":"reporting_list_current_processed_proposals","arguments":"{}"}],
+				"parallel_tool_calls":false,
+				"temperature":0.1,
+				"tool_choice":"auto",
+				"tools":[],
+				"top_p":1,
+				"status":"completed",
+				"text":{"format":{"type":"json_schema","name":"inbound_request_review","schema":{"type":"object"}}},
+				"usage":{"input_tokens":14,"input_tokens_details":{"cached_tokens":0},"output_tokens":8,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":22}
+			}`),
+			mustResponseFromJSON(t, `{
+				"id":"resp_detail_3",
+				"created_at":3,
+				"error":{},
+				"incomplete_details":{},
+				"instructions":"coordinator",
+				"metadata":{},
+				"model":"gpt-5.2",
+				"object":"response",
+				"output":[{"id":"msg_3","type":"message","status":"completed","role":"assistant","content":[{"type":"output_text","text":"{\"summary\":\"Operator review is required for the warehouse pump failure with prior proposal continuity already on file.\",\"priority\":\"high\",\"artifact_title\":\"Inbound request review brief\",\"artifact_body\":\"Current-request detail shows the warehouse pump failure request and prior proposal continuity, while the denied proposal-list tool does not block safe operator follow-up.\",\"rationale\":[\"The persisted request evidence centers on a warehouse pump failure.\",\"Prior run history exists for this same request and can inform the next controlled review step.\"],\"next_actions\":[\"Review the current request detail and confirm whether the prior operations queue suggestion still fits.\",\"Decide whether to continue through a fresh controlled workflow proposal.\"],\"specialist_delegation\":null}","annotations":[]}]}],
+				"parallel_tool_calls":false,
+				"temperature":0.1,
+				"tool_choice":"auto",
+				"tools":[],
+				"top_p":1,
+				"status":"completed",
+				"text":{"format":{"type":"json_schema","name":"inbound_request_review","schema":{"type":"object"}}},
+				"usage":{"input_tokens":20,"input_tokens_details":{"cached_tokens":0},"output_tokens":18,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":38}
+			}`),
+		}},
+		aiService:         aiService,
+		reportingService:  reporting.NewService(db),
+		model:             "gpt-5.2",
+		maxToolIterations: 3,
+	}
+
+	output, err := provider.ExecuteInboundRequest(ctx, CoordinatorProviderInput{
+		CapabilityCode:   DefaultCoordinatorCapabilityCode,
+		Actor:            operator,
+		RequestReference: request.RequestReference,
+		Channel:          "browser",
+		OriginType:       intake.OriginHuman,
+		Metadata:         json.RawMessage(`{"submitter_label":"dispatch"}`),
+		Messages: []CoordinatorMessage{
+			{Role: intake.MessageRoleRequest, TextContent: "Warehouse pump failure needs review before dispatching a technician."},
+		},
+	})
+	if err != nil {
+		t.Fatalf("execute inbound request: %v", err)
+	}
+
+	if output.ToolLoopIterations != 3 {
+		t.Fatalf("unexpected tool loop iterations: %d", output.ToolLoopIterations)
+	}
+	if len(output.ToolExecutions) != 2 {
+		t.Fatalf("unexpected tool execution count: %d", len(output.ToolExecutions))
+	}
+	if output.ToolExecutions[0].ToolName != openAICurrentRequestDetailTool || output.ToolExecutions[0].Outcome != "executed" {
+		t.Fatalf("unexpected detail tool execution: %+v", output.ToolExecutions[0])
+	}
+	if !strings.Contains(output.ToolExecutions[0].ResultPreview, "request detail") {
+		t.Fatalf("unexpected detail tool preview: %+v", output.ToolExecutions[0])
+	}
+	if output.ToolExecutions[1].ToolName != openAICurrentRequestProposalsTool {
+		t.Fatalf("unexpected proposals tool execution: %+v", output.ToolExecutions[1])
+	}
+	if output.ToolExecutions[1].Outcome != "blocked_by_policy" || output.ToolExecutions[1].Policy != PolicyDeny {
+		t.Fatalf("unexpected proposals tool policy result: %+v", output.ToolExecutions[1])
+	}
+	if !strings.Contains(strings.ToLower(output.Summary), "warehouse") {
+		t.Fatalf("expected request-centered summary, got %+v", output)
+	}
+}
+
 type fakeOpenAIResponsesAPI struct {
 	responses  []*responses.Response
 	seenParams []responses.ResponseNewParams
