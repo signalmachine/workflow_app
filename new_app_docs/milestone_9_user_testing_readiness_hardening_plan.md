@@ -19,7 +19,7 @@ They are readiness gaps inside the already chosen architecture:
 Reference-codebase stance for this milestone:
 
 1. anything under `examples/` remains read-only reference material during Milestone 9
-2. `examples/accounting-agent-app-for-reference-only/` remains a valid reference codebase during Milestone 9 implementation
+2. the historical accounting-agent proof-of-concept remains a valid external comparison point during Milestone 9 implementation via https://github.com/signalmachine/accounting-agent-app
 3. no folder under `examples/` should be treated as part of the active `workflow_app` codebase
 4. the accounting-agent reference app should be used as a practical comparison point for operator usefulness, guardrail quality, and implementation clarity
 5. it must not be treated as the target architecture because it was a proof-of-concept single-agent application rather than the coordinator-plus-specialist architecture chosen for `workflow_app`
@@ -129,7 +129,7 @@ During Milestone 9:
 3. do not broaden scope into new business workflows, new modules, or v2 surfaces
 4. do not reopen the paused validation slice as if it were still the active milestone
 5. record any new scope decision in the canonical tracker before widening beyond the slices above
-6. continue to use `examples/accounting-agent-app-for-reference-only/` as a reference input when it sharpens implementation decisions, but borrow selectively and only when the result still fits `workflow_app`'s multi-agent architecture
+6. continue to use https://github.com/signalmachine/accounting-agent-app as a reference input when it sharpens implementation decisions, but borrow selectively and only when the result still fits `workflow_app`'s multi-agent architecture
 7. do not modify anything under `examples/` and do not let Milestone 9 implementation work spill into that reference tree
 
 ## 7. Verification expectations

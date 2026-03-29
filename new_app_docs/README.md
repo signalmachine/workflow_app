@@ -31,7 +31,7 @@ Anything in `examples/` is read-only and reference-only:
 2. they must not be changed or updated as part of active `workflow_app` implementation work
 3. they are not part of the active `workflow_app` implementation surface
 
-The reference codebase in `examples/accounting-agent-app-for-reference-only/` may still be used during implementation review and selective borrowing, but it must stay reference-only within that broader rule:
+The former accounting-agent proof-of-concept may still be used as external historical reference material during implementation review and selective borrowing, but it is no longer kept inside this repository. Use https://github.com/signalmachine/accounting-agent-app when that comparison is materially useful, and keep the same boundary:
 
 1. it was a proof-of-concept application rather than the architectural target for this repository
 2. it used one single-agent pattern rather than the coordinator-plus-specialist architecture planned for `workflow_app`

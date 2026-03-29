@@ -32,7 +32,7 @@ Thin-v1 default rule:
 
 The planning documents in [`new_app_docs/`](./new_app_docs) remain the canonical source for scope, sequencing, and module boundaries.
 
-Anything under [`examples/`](./examples) is reference-only, read-only material from older implementations or planning eras and is not part of the active `workflow_app` implementation surface.
+Anything under [`examples/`](./examples) is reference-only, read-only material from older implementations or planning eras and is not part of the active `workflow_app` implementation surface. The retired accounting-agent proof-of-concept now lives only as an external historical reference at https://github.com/signalmachine/accounting-agent-app.
 
 The durable workflow-reference layer for supported operator paths, reusable end-to-end validation checklists, and later user-guide preparation lives in [`docs/workflows/`](./docs/workflows).
 
