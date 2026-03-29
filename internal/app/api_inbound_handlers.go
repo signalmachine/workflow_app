@@ -57,7 +57,11 @@ func (h *AgentAPIHandler) handleProcessNextQueuedInboundRequest(w http.ResponseW
 		case errors.Is(err, identityaccess.ErrUnauthorized):
 			writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
 		default:
-			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to process queued inbound request"})
+			writeJSON(w, http.StatusInternalServerError, processNextQueuedErrorResponse{
+				Error:            "failed to process queued inbound request",
+				RequestReference: result.Request.RequestReference,
+				RunID:            result.Run.ID,
+			})
 		}
 		return
 	}

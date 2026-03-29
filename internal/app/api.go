@@ -191,6 +191,12 @@ type processNextQueuedResponse struct {
 	RecommendationSummary string `json:"recommendation_summary,omitempty"`
 }
 
+type processNextQueuedErrorResponse struct {
+	Error            string `json:"error"`
+	RequestReference string `json:"request_reference,omitempty"`
+	RunID            string `json:"run_id,omitempty"`
+}
+
 type submitInboundRequestResponse struct {
 	RequestID           string     `json:"request_id"`
 	RequestReference    string     `json:"request_reference"`

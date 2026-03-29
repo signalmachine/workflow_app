@@ -183,15 +183,16 @@ Current interim result on 2026-03-29:
 
 1. not ready yet for supervised AI-backed user testing
 2. the first blocking defect on the live provider path is now cleared: the final persisted brief is request-centered again on the live OpenAI path, and stale queue-status wording is rejected before persistence
-3. additional workflow coverage is still required for draft-amend continuity, approval-producing flows, and failed-provider or failed-processing visibility before readiness can be stated
-4. the proposal-to-approval shared seam is now available for that remaining workflow coverage, so the remaining live workflows are deferred rather than blocked by a missing backend capability
-5. Milestone 9 is now complete, so the next active work should be a full Milestone 9 review followed by workflows 2 through 4 in the order listed below
+3. a bounded shared-backend failure-path continuity slice is now also closed at repo-verification depth: when queued-request processing fails after claim, the API failure response preserves the exact `REQ-...` request reference and the browser failure redirect lands on the failed request detail instead of a generic dashboard error, while exact request detail still exposes failed request, run, and step continuity for troubleshooting
+4. additional live workflow coverage is still required for draft-amend continuity, approval-producing flows, and failed-provider or failed-processing visibility before readiness can be stated
+5. the proposal-to-approval shared seam is now available for that remaining workflow coverage, so the remaining live workflows are deferred rather than blocked by a missing backend capability
+6. Milestone 9 is now complete, so the next active work should be a full Milestone 9 review followed by workflows 2 through 4 in the order listed below
 
 Deferred resume order for workflows 2 through 4 after Milestone 9:
 
 1. workflow 2: save a draft, continue editing it, queue it, process it, and verify the resulting request plus proposal continuity in both `/api/review/...` and `/app/...`
 2. workflow 3: start from a processed proposal that identifies a submitted document, request approval through the shared seam, decide that approval, and verify downstream approval plus document-review continuity
-3. workflow 4: force or reproduce one failed provider or failed-processing path, then verify failure reason, timestamps, and troubleshooting continuity across exact request detail, filtered review, and any linked proposal or run views
+3. workflow 4: force or reproduce one failed provider or failed-processing path, then verify the already-landed shared-seam exact-request continuity plus failure reason, timestamps, filtered review continuity, and any linked proposal or run views in the real live environment
 4. after each workflow, record explicit pass or fail evidence in this document and `new_app_tracker.md` before moving to the next workflow
 5. if the workflow support reference or reusable live checklist changes materially, update `docs/workflows/application_workflow_catalog.md` and `docs/workflows/end_to_end_validation_checklist.md` in the same change
 

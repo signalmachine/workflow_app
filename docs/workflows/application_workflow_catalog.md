@@ -55,7 +55,8 @@ Current status:
 
 1. implemented
 2. repo_verified
-3. pending_live_validation
+3. exact request-continuity on process failure is repo_verified through both `/api/...` and `/app/...`
+4. pending_live_validation
 
 Primary continuity surfaces:
 

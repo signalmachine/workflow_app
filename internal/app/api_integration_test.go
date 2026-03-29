@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -712,6 +713,86 @@ func TestAgentBrowserDraftLifecycleIntegration(t *testing.T) {
 	if remaining != 0 {
 		t.Fatalf("expected deleted draft to be removed, found %d", remaining)
 	}
+}
+
+func TestAgentBrowserProcessNextQueuedInboundRequestFailureRedirectsToExactRequestIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	orgSlug, userEmail := loadOrgSlugAndUserEmail(t, ctx, db, orgID, operatorUserID)
+
+	processor, err := app.NewAgentProcessor(db, fakeCoordinatorProvider{
+		err: errors.New("provider-backed coordinator execution failed"),
+	})
+	if err != nil {
+		t.Fatalf("new agent processor: %v", err)
+	}
+
+	handler := app.NewAgentAPIHandlerWithDependencies(
+		func() (app.ProcessNextQueuedInboundRequester, error) { return processor, nil },
+		app.NewSubmissionService(db),
+		reporting.NewService(db),
+		nil,
+		identityaccess.NewService(db),
+	)
+
+	loginReq := httptest.NewRequest(
+		http.MethodPost,
+		"/app/login",
+		strings.NewReader("org_slug="+orgSlug+"&email="+userEmail+"&password="+url.QueryEscape(testLoginPassword)+"&device_label=browser-failure"),
+	)
+	loginReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	loginRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(loginRecorder, loginReq)
+	if loginRecorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected web login status: got %d body=%s", loginRecorder.Code, loginRecorder.Body.String())
+	}
+
+	submitReq := newMultipartRequest(t, http.MethodPost, "/app/inbound-requests", map[string]string{
+		"submitter_label": "front desk",
+		"message_text":    "Force a queued-request failure and keep exact request troubleshooting continuity.",
+	}, nil)
+	applyResponseCookies(submitReq, loginRecorder.Result().Cookies())
+	submitRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(submitRecorder, submitReq)
+	if submitRecorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected web submit status: got %d body=%s", submitRecorder.Code, submitRecorder.Body.String())
+	}
+
+	detailPath := submitRecorder.Result().Header.Get("Location")
+	requestReference := requireRequestReferenceFromPath(t, detailPath)
+
+	processReq := httptest.NewRequest(http.MethodPost, "/app/agent/process-next-queued-inbound-request", nil)
+	applyResponseCookies(processReq, loginRecorder.Result().Cookies())
+	processRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(processRecorder, processReq)
+	if processRecorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected web process failure status: got %d body=%s", processRecorder.Code, processRecorder.Body.String())
+	}
+
+	failureDetailPath := processRecorder.Result().Header.Get("Location")
+	requireContains(t, failureDetailPath, "/app/inbound-requests/"+requestReference)
+	requireContains(t, failureDetailPath, "error=failed+to+process+queued+inbound+request")
+
+	failureDetailReq := httptest.NewRequest(http.MethodGet, failureDetailPath, nil)
+	applyResponseCookies(failureDetailReq, loginRecorder.Result().Cookies())
+	failureDetailRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(failureDetailRecorder, failureDetailReq)
+	if failureDetailRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected failed detail status: got %d body=%s", failureDetailRecorder.Code, failureDetailRecorder.Body.String())
+	}
+
+	failureDetailBody := failureDetailRecorder.Body.String()
+	requireContains(t, failureDetailBody, "failed to process queued inbound request")
+	requireContains(t, failureDetailBody, "provider-backed coordinator execution failed")
+	requireContains(t, failureDetailBody, "AI runs")
+	requireContains(t, failureDetailBody, "AI steps")
+	requireContains(t, failureDetailBody, "Provider execution failed")
 }
 
 func TestAgentBrowserDashboardStatusCoverageIntegration(t *testing.T) {
@@ -1650,6 +1731,113 @@ func TestAgentAPIProcessNextQueuedInboundRequestReturnsNotProcessedWhenQueueEmpt
 	}
 	if response.Processed {
 		t.Fatal("expected queue-empty response")
+	}
+}
+
+func TestAgentAPIProcessNextQueuedInboundRequestFailureReturnsRequestReferenceIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	session := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: session.ID}
+
+	request := createQueuedRequest(t, ctx, db, operator, "Force a provider failure so operator troubleshooting can continue from the exact request.")
+	processor, err := app.NewAgentProcessor(db, fakeCoordinatorProvider{
+		err: errors.New("provider-backed coordinator execution failed"),
+	})
+	if err != nil {
+		t.Fatalf("new agent processor: %v", err)
+	}
+
+	handler := app.NewAgentAPIHandlerWithDependencies(
+		func() (app.ProcessNextQueuedInboundRequester, error) {
+			return processor, nil
+		},
+		app.NewSubmissionService(db),
+		reporting.NewService(db),
+		nil,
+		identityaccess.NewService(db),
+	)
+	accessToken := issueBearerAccessToken(t, ctx, db, handler, orgID, operatorUserID)
+
+	processReq := httptest.NewRequest(http.MethodPost, "/api/agent/process-next-queued-inbound-request", bytes.NewBufferString(`{"channel":"browser"}`))
+	processReq.Header.Set("Content-Type", "application/json")
+	applyBearer(processReq, accessToken)
+
+	processRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(processRecorder, processReq)
+
+	if processRecorder.Code != http.StatusInternalServerError {
+		t.Fatalf("unexpected process failure status: got %d body=%s", processRecorder.Code, processRecorder.Body.String())
+	}
+
+	var processResponse struct {
+		Error            string  `json:"error"`
+		RequestReference string  `json:"request_reference"`
+		RunID            *string `json:"run_id"`
+	}
+	if err := json.Unmarshal(processRecorder.Body.Bytes(), &processResponse); err != nil {
+		t.Fatalf("decode process failure response: %v", err)
+	}
+	if processResponse.Error != "failed to process queued inbound request" {
+		t.Fatalf("unexpected process failure response: %+v", processResponse)
+	}
+	if processResponse.RequestReference != request.RequestReference {
+		t.Fatalf("unexpected failure request reference: got %s want %s", processResponse.RequestReference, request.RequestReference)
+	}
+	if processResponse.RunID == nil || *processResponse.RunID == "" {
+		t.Fatalf("expected failed processing response to preserve run continuity: %+v", processResponse)
+	}
+
+	detailReq := httptest.NewRequest(http.MethodGet, "/api/review/inbound-requests/"+request.RequestReference, nil)
+	applyBearer(detailReq, accessToken)
+	detailRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(detailRecorder, detailReq)
+
+	if detailRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected detail status after failed processing: got %d body=%s", detailRecorder.Code, detailRecorder.Body.String())
+	}
+
+	var detailResponse struct {
+		Request struct {
+			RequestReference string  `json:"request_reference"`
+			Status           string  `json:"status"`
+			FailureReason    string  `json:"failure_reason"`
+			FailedAt         *string `json:"failed_at"`
+		} `json:"request"`
+		Runs []struct {
+			RunID   string `json:"run_id"`
+			Status  string `json:"status"`
+			Summary string `json:"summary"`
+		} `json:"runs"`
+		Steps []struct {
+			StepID string `json:"step_id"`
+			Status string `json:"status"`
+			Title  string `json:"step_title"`
+		} `json:"steps"`
+	}
+	if err := json.Unmarshal(detailRecorder.Body.Bytes(), &detailResponse); err != nil {
+		t.Fatalf("decode failed detail response: %v", err)
+	}
+	if detailResponse.Request.RequestReference != request.RequestReference || detailResponse.Request.Status != intake.StatusFailed {
+		t.Fatalf("unexpected failed request detail: %+v", detailResponse.Request)
+	}
+	if detailResponse.Request.FailureReason != "provider-backed coordinator execution failed" || detailResponse.Request.FailedAt == nil {
+		t.Fatalf("unexpected failed request troubleshooting detail: %+v", detailResponse.Request)
+	}
+	if len(detailResponse.Runs) == 0 || detailResponse.Runs[0].Status != ai.RunStatusFailed {
+		t.Fatalf("expected failed AI run continuity, got %+v", detailResponse.Runs)
+	}
+	if len(detailResponse.Steps) == 0 || detailResponse.Steps[0].Status != ai.StepStatusFailed {
+		t.Fatalf("expected failed AI step continuity, got %+v", detailResponse.Steps)
+	}
+	if detailResponse.Steps[0].Title != "Provider execution failed" {
+		t.Fatalf("unexpected failed step title: %+v", detailResponse.Steps[0])
 	}
 }
 

@@ -331,6 +331,10 @@ func (h *AgentAPIHandler) handleWebProcessNextQueuedInboundRequest(w http.Respon
 			http.Redirect(w, r, webAppPath+"?notice="+url.QueryEscape("No queued inbound requests."), http.StatusSeeOther)
 			return
 		}
+		if result.Request.RequestReference != "" {
+			http.Redirect(w, r, webInboundDetailPrefix+url.PathEscape(result.Request.RequestReference)+"?error="+url.QueryEscape("failed to process queued inbound request"), http.StatusSeeOther)
+			return
+		}
 		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("failed to process queued inbound request"), http.StatusSeeOther)
 		return
 	}
