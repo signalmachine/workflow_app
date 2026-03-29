@@ -41,8 +41,8 @@ Current useful commands:
 - `rg --files new_app_docs docs examples` to list the working document set
 - `sed -n '1,160p' new_app_docs/README.md` to check the canonical reading order
 - `go run ./cmd/migrate` to apply embedded PostgreSQL migrations
-- `go build ./...` to verify the current workspace builds
-- `set -a; source .env; set +a; go test -p 1 ./...` to run the current automated test suite against the configured test database without package-level advisory-lock contention
+- `go build ./cmd/... ./internal/...` to verify the active implementation workspace builds without pulling the read-only `examples/` tree into module verification
+- `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` to run the current automated test suite against the configured test database without package-level advisory-lock contention and without pulling the read-only `examples/` tree into module verification
 - `go test -race ./path/to/package` to run targeted race detection for concurrency-sensitive packages; this is not yet part of the repository's standard full-suite verification path
 - `go test -shuffle=on ./path/to/package` to detect hidden test-order coupling in focused packages when test isolation is in doubt
 - `go test -count=1 ./path/to/package` to disable cached test results for focused reruns and flake investigation
@@ -69,6 +69,8 @@ When working primarily in a non-backend layer such as the web UI, browser applic
 Everything meaningful in the system should tie to one or more workflows. Not every component is itself a workflow, but every meaningful feature, state transition, support seam, review surface, and operational control should support, constrain, observe, or expose a workflow. If a proposed capability cannot be tied clearly to one or more workflows, treat it as suspect until that relationship is made explicit in code, docs, or planning material.
 
 For the promoted web layer, prefer a Go-native server-rendered stack by default. Use Go `html/template` plus standard browser behavior as the baseline, prefer `htmx` for progressive enhancement where partial-page updates materially improve operator flow, and use `Alpine.js` only for small local UI state when plain HTML becomes awkward. Avoid introducing a separate Node or SPA toolchain unless the canonical planning docs are explicitly updated to require it.
+
+The promoted web layer and the later mobile client should continue to share one backend foundation and auth model rather than splitting into web-specific versus mobile-specific backends.
 
 Shared foundation entities should have one canonical identity reused across modules. Do not let accounting, inventory, execution, CRM-style support flows, or later features create duplicate module-local truth models when they should reference the same underlying record.
 
@@ -100,8 +102,8 @@ For implementation work:
 - if any verification command fails, investigate the cause before proceeding
 - do not continue past a failing check without either fixing the issue and rerunning the relevant verification successfully, or documenting the blocker explicitly in the same change
 - if a failure is caused by using a non-standard command path for this repository, rerun verification using the documented repository command before treating it as a product defect
-- run `go build ./...` before closing out the task
-- run `set -a; source .env; set +a; go test -p 1 ./...` before closing out the task when code or persistence behavior changed
+- run `go build ./cmd/... ./internal/...` before closing out the task
+- run `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` before closing out the task when code or persistence behavior changed
 - use `go test -race ./path/to/package` selectively when changing concurrency-sensitive code such as queue claim or processing paths, session or token flows, or other shared in-memory coordination; do not treat full-repo `-race` as the current standard verification path unless the repository guidance is updated explicitly
 - use `go test -shuffle=on ./path/to/package` when test-order coupling, shared fixtures, or hidden state leakage is a realistic risk
 - use `go test -count=1 ./path/to/package` for focused reruns when you need to bypass cached results or investigate a flaky failure

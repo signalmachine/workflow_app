@@ -46,6 +46,7 @@ func TestAgentAPISessionLoginCurrentSessionAndLogoutIntegration(t *testing.T) {
 	loginReq := httptest.NewRequest(http.MethodPost, "/api/session/login", bytes.NewBufferString(`{
 		"org_slug":"`+orgSlug+`",
 		"email":"`+userEmail+`",
+		"password":"`+testLoginPassword+`",
 		"device_label":"browser-integration"
 	}`))
 	loginReq.Header.Set("Content-Type", "application/json")
@@ -134,6 +135,7 @@ func TestAgentAPITokenSessionIssueRefreshAndRevokeIntegration(t *testing.T) {
 	loginReq := httptest.NewRequest(http.MethodPost, "/api/session/token", bytes.NewBufferString(`{
 		"org_slug":"`+orgSlug+`",
 		"email":"`+userEmail+`",
+		"password":"`+testLoginPassword+`",
 		"device_label":"mobile-integration"
 	}`))
 	loginReq.Header.Set("Content-Type", "application/json")
@@ -290,7 +292,8 @@ func TestAgentAPISubmitInboundRequestWithBrowserSessionCookies(t *testing.T) {
 
 	loginReq := httptest.NewRequest(http.MethodPost, "/api/session/login", bytes.NewBufferString(`{
 		"org_slug":"`+orgSlug+`",
-		"email":"`+userEmail+`"
+		"email":"`+userEmail+`",
+		"password":"`+testLoginPassword+`"
 	}`))
 	loginReq.Header.Set("Content-Type", "application/json")
 	loginRecorder := httptest.NewRecorder()
@@ -402,7 +405,7 @@ func TestAgentBrowserAppFlowIntegration(t *testing.T) {
 	loginReq := httptest.NewRequest(
 		http.MethodPost,
 		"/app/login",
-		strings.NewReader("org_slug="+orgSlug+"&email="+userEmail+"&device_label=browser-ui"),
+		strings.NewReader("org_slug="+orgSlug+"&email="+userEmail+"&password="+url.QueryEscape(testLoginPassword)+"&device_label=browser-ui"),
 	)
 	loginReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	loginRecorder := httptest.NewRecorder()
@@ -543,7 +546,7 @@ func TestAgentBrowserDraftLifecycleIntegration(t *testing.T) {
 	loginReq := httptest.NewRequest(
 		http.MethodPost,
 		"/app/login",
-		strings.NewReader("org_slug="+orgSlug+"&email="+userEmail+"&device_label=browser-draft"),
+		strings.NewReader("org_slug="+orgSlug+"&email="+userEmail+"&password="+url.QueryEscape(testLoginPassword)+"&device_label=browser-draft"),
 	)
 	loginReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	loginRecorder := httptest.NewRecorder()
@@ -820,7 +823,7 @@ func TestAgentBrowserDashboardStatusCoverageIntegration(t *testing.T) {
 	loginReq := httptest.NewRequest(
 		http.MethodPost,
 		"/app/login",
-		strings.NewReader("org_slug="+orgSlug+"&email="+userEmail+"&device_label=browser-status"),
+		strings.NewReader("org_slug="+orgSlug+"&email="+userEmail+"&password="+url.QueryEscape(testLoginPassword)+"&device_label=browser-status"),
 	)
 	loginReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	loginRecorder := httptest.NewRecorder()
@@ -996,7 +999,7 @@ LIMIT 1`,
 	loginReq := httptest.NewRequest(
 		http.MethodPost,
 		"/app/login",
-		strings.NewReader("org_slug="+orgSlug+"&email="+userEmail+"&device_label=browser-ui"),
+		strings.NewReader("org_slug="+orgSlug+"&email="+userEmail+"&password="+url.QueryEscape(testLoginPassword)+"&device_label=browser-ui"),
 	)
 	loginReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	loginRecorder := httptest.NewRecorder()
@@ -1476,6 +1479,33 @@ func TestAgentAPISessionLoginRejectsUnknownMembership(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/session/login", bytes.NewBufferString(`{
 		"org_slug":"missing-org",
 		"email":"missing@example.com"
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("unexpected login failure status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestAgentAPISessionLoginRejectsWrongPassword(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	orgSlug, userEmail := loadOrgSlugAndUserEmail(t, ctx, db, orgID, operatorUserID)
+
+	handler := app.NewAgentAPIHandler(db)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/session/login", bytes.NewBufferString(`{
+		"org_slug":"`+orgSlug+`",
+		"email":"`+userEmail+`",
+		"password":"wrong-password"
 	}`))
 	req.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
@@ -2478,7 +2508,7 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 	loginReq := httptest.NewRequest(
 		http.MethodPost,
 		"/app/login",
-		strings.NewReader("org_slug="+orgSlug+"&email="+userEmail+"&device_label=browser-review"),
+		strings.NewReader("org_slug="+orgSlug+"&email="+userEmail+"&password="+url.QueryEscape(testLoginPassword)+"&device_label=browser-review"),
 	)
 	loginReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	loginRecorder := httptest.NewRecorder()
@@ -3020,6 +3050,14 @@ func seedOrgAndUserInOrg(t *testing.T, ctx context.Context, db *sql.DB, roleCode
 		t.Fatalf("insert membership: %v", err)
 	}
 
+	if err := identityaccess.NewService(db).SetUserPassword(ctx, identityaccess.SetUserPasswordInput{
+		UserID:    userID,
+		Password:  testLoginPassword,
+		UpdatedAt: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("set test user password: %v", err)
+	}
+
 	return orgID, userID
 }
 
@@ -3046,6 +3084,7 @@ func issueBrowserSessionCookies(t *testing.T, ctx context.Context, db *sql.DB, h
 	loginReq := httptest.NewRequest(http.MethodPost, "/api/session/login", bytes.NewBufferString(`{
 		"org_slug":"`+orgSlug+`",
 		"email":"`+userEmail+`",
+		"password":"`+testLoginPassword+`",
 		"device_label":"integration-browser"
 	}`))
 	loginReq.Header.Set("Content-Type", "application/json")
@@ -3066,6 +3105,7 @@ func issueBearerAccessToken(t *testing.T, ctx context.Context, db *sql.DB, handl
 	loginReq := httptest.NewRequest(http.MethodPost, "/api/session/token", bytes.NewBufferString(`{
 		"org_slug":"`+orgSlug+`",
 		"email":"`+userEmail+`",
+		"password":"`+testLoginPassword+`",
 		"device_label":"integration-token"
 	}`))
 	loginReq.Header.Set("Content-Type", "application/json")

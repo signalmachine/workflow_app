@@ -8,7 +8,7 @@ Purpose: define the next authentication path for lightweight non-browser clients
 
 The current backend already has one credible session foundation, but it is exposed through two uneven client paths:
 
-1. browser users authenticate through `POST /api/session/login`, which resolves org slug plus user email into one active-org session and sets the `workflow_session_id` plus `workflow_refresh_token` cookies
+1. browser users authenticate through `POST /api/session/login`, which resolves org slug plus user email plus password into one active-org session and sets the `workflow_session_id` plus `workflow_refresh_token` cookies
 2. browser reads and writes then authenticate through those cookies on the shared `/api/...` seam
 3. queued-agent automation can still use `X-Workflow-Org-ID`, `X-Workflow-User-ID`, and `X-Workflow-Session-ID` as a narrow pre-production compatibility path for the queued-request processing endpoint
 4. the durable truth for both paths is still `identityaccess.sessions`, with one session bound to one active org context at a time

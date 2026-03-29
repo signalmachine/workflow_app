@@ -1431,6 +1431,7 @@ func (h *AgentAPIHandler) handleWebLogin(w http.ResponseWriter, r *http.Request)
 	session, err := h.authService.StartBrowserSession(r.Context(), identityaccess.StartBrowserSessionInput{
 		OrgSlug:     strings.TrimSpace(r.FormValue("org_slug")),
 		Email:       strings.TrimSpace(r.FormValue("email")),
+		Password:    r.FormValue("password"),
 		DeviceLabel: deviceLabel,
 		ExpiresAt:   time.Now().UTC().Add(browserSessionDuration),
 	})
@@ -2657,6 +2658,9 @@ const webAppHTML = `<!DOCTYPE html>
         </label>
         <label>User email
           <input type="email" name="email" autocomplete="email" required>
+        </label>
+        <label>Password
+          <input type="password" name="password" autocomplete="current-password" required>
         </label>
         <label>Device label
           <input type="text" name="device_label" value="browser">

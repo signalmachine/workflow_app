@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -18,6 +20,7 @@ var (
 	ErrSessionNotActive  = errors.New("session not active")
 	ErrMembershipMissing = errors.New("membership not found")
 	ErrSessionInvalid    = errors.New("session invalid")
+	ErrPasswordInvalid   = errors.New("password invalid")
 )
 
 const (
@@ -57,6 +60,7 @@ type StartSessionInput struct {
 type StartBrowserSessionInput struct {
 	OrgSlug     string
 	Email       string
+	Password    string
 	DeviceLabel string
 	ExpiresAt   time.Time
 }
@@ -64,9 +68,16 @@ type StartBrowserSessionInput struct {
 type StartTokenSessionInput struct {
 	OrgSlug              string
 	Email                string
+	Password             string
 	DeviceLabel          string
 	SessionExpiresAt     time.Time
 	AccessTokenExpiresAt time.Time
+}
+
+type SetUserPasswordInput struct {
+	UserID    string
+	Password  string
+	UpdatedAt time.Time
 }
 
 type BrowserSession struct {
@@ -183,6 +194,10 @@ func (s *Service) StartBrowserSession(ctx context.Context, input StartBrowserSes
 		_ = tx.Rollback()
 		return BrowserSession{}, err
 	}
+	if !passwordMatches(strings.TrimSpace(input.Password), profile.PasswordHash) {
+		_ = tx.Rollback()
+		return BrowserSession{}, ErrUnauthorized
+	}
 
 	refreshToken, refreshTokenHash, err := newRefreshToken()
 	if err != nil {
@@ -227,6 +242,10 @@ func (s *Service) StartTokenSession(ctx context.Context, input StartTokenSession
 	if err != nil {
 		_ = tx.Rollback()
 		return TokenSession{}, err
+	}
+	if !passwordMatches(strings.TrimSpace(input.Password), profile.PasswordHash) {
+		_ = tx.Rollback()
+		return TokenSession{}, ErrUnauthorized
 	}
 
 	refreshToken, refreshTokenHash, err := newRefreshToken()
@@ -414,6 +433,37 @@ func (s *Service) RevokeAccessTokenSession(ctx context.Context, accessToken stri
 	return nil
 }
 
+func (s *Service) SetUserPassword(ctx context.Context, input SetUserPasswordInput) error {
+	passwordHash, err := HashPassword(input.Password)
+	if err != nil {
+		return err
+	}
+
+	updatedAt := input.UpdatedAt.UTC()
+	if updatedAt.IsZero() {
+		updatedAt = time.Now().UTC()
+	}
+
+	const statement = `
+UPDATE identityaccess.users
+SET password_hash = $2,
+	password_updated_at = $3
+WHERE id = $1;`
+
+	result, err := s.db.ExecContext(ctx, statement, strings.TrimSpace(input.UserID), passwordHash, updatedAt)
+	if err != nil {
+		return fmt.Errorf("set user password: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("set user password rows affected: %w", err)
+	}
+	if rows == 0 {
+		return ErrUnauthorized
+	}
+	return nil
+}
+
 func AuthorizeTx(ctx context.Context, tx *sql.Tx, actor Actor, allowedRoles ...string) error {
 	const query = `
 SELECT m.role_code
@@ -505,6 +555,7 @@ type browserProfile struct {
 	OrgName         string
 	UserEmail       string
 	UserDisplayName string
+	PasswordHash    string
 }
 
 func loadBrowserProfileTx(ctx context.Context, tx *sql.Tx, orgSlug, email string) (browserProfile, error) {
@@ -516,7 +567,8 @@ SELECT
 	o.slug,
 	o.name,
 	u.email,
-	u.display_name
+	u.display_name,
+	u.password_hash
 FROM identityaccess.memberships m
 JOIN identityaccess.orgs o
   ON o.id = m.org_id
@@ -538,6 +590,7 @@ FOR UPDATE OF m;`
 		&profile.OrgName,
 		&profile.UserEmail,
 		&profile.UserDisplayName,
+		&profile.PasswordHash,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return browserProfile{}, ErrUnauthorized
@@ -546,6 +599,24 @@ FOR UPDATE OF m;`
 	}
 
 	return profile, nil
+}
+
+func HashPassword(password string) (string, error) {
+	if len(password) < 12 {
+		return "", ErrPasswordInvalid
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", fmt.Errorf("hash password: %w", err)
+	}
+	return string(hash), nil
+}
+
+func passwordMatches(password, passwordHash string) bool {
+	if strings.TrimSpace(password) == "" || strings.TrimSpace(passwordHash) == "" {
+		return false
+	}
+	return bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(password)) == nil
 }
 
 func authenticateSessionTx(ctx context.Context, tx *sql.Tx, sessionID, refreshToken string, updateLastSeen bool) (SessionContext, error) {

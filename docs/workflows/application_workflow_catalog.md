@@ -42,7 +42,7 @@ Workflow-review policy:
 ### 2.1 Browser session login and active-session continuity
 
 Purpose:
-allow an operator to start a browser-scoped session, load `/app`, and continue through the shared backend seam.
+allow an operator to start a password-backed browser-scoped session, load `/app`, and continue through the shared backend seam that later non-browser and mobile clients will also reuse.
 
 Entry points:
 
@@ -55,7 +55,7 @@ Current status:
 
 1. implemented
 2. repo_verified
-3. live_validated
+3. pending_live_validation
 
 Primary continuity surfaces:
 

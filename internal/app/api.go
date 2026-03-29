@@ -228,6 +228,7 @@ type requestProcessedProposalApprovalRequest struct {
 type sessionLoginRequest struct {
 	OrgSlug     string `json:"org_slug"`
 	Email       string `json:"email"`
+	Password    string `json:"password"`
 	DeviceLabel string `json:"device_label"`
 }
 
@@ -361,6 +362,7 @@ func (h *AgentAPIHandler) handleSessionLogin(w http.ResponseWriter, r *http.Requ
 	session, err := h.authService.StartBrowserSession(r.Context(), identityaccess.StartBrowserSessionInput{
 		OrgSlug:     req.OrgSlug,
 		Email:       req.Email,
+		Password:    req.Password,
 		DeviceLabel: deviceLabel,
 		ExpiresAt:   time.Now().UTC().Add(browserSessionDuration),
 	})
@@ -415,6 +417,7 @@ func (h *AgentAPIHandler) handleSessionTokenLogin(w http.ResponseWriter, r *http
 	session, err := h.authService.StartTokenSession(r.Context(), identityaccess.StartTokenSessionInput{
 		OrgSlug:              req.OrgSlug,
 		Email:                req.Email,
+		Password:             req.Password,
 		DeviceLabel:          deviceLabel,
 		SessionExpiresAt:     time.Now().UTC().Add(browserSessionDuration),
 		AccessTokenExpiresAt: time.Now().UTC().Add(accessTokenDuration),

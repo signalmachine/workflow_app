@@ -153,6 +153,8 @@ type fakeCoordinatorProvider struct {
 	err    error
 }
 
+const testLoginPassword = "workflow-test-password"
+
 func (f fakeCoordinatorProvider) ExecuteInboundRequest(context.Context, ai.CoordinatorProviderInput) (ai.CoordinatorProviderOutput, error) {
 	if f.err != nil {
 		return ai.CoordinatorProviderOutput{}, f.err
@@ -190,6 +192,14 @@ func seedOrgAndUser(t *testing.T, ctx context.Context, db *sql.DB, roleCode stri
 		roleCode,
 	); err != nil {
 		t.Fatalf("insert membership: %v", err)
+	}
+
+	if err := identityaccess.NewService(db).SetUserPassword(ctx, identityaccess.SetUserPasswordInput{
+		UserID:    userID,
+		Password:  testLoginPassword,
+		UpdatedAt: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("set test user password: %v", err)
 	}
 
 	return orgID, userID

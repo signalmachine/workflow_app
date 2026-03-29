@@ -189,9 +189,9 @@ These are usually solvable, but they are real constraints.
 For implementation work in this repository, the normal verification path is:
 
 1. run `gopls` diagnostics on edited Go files
-2. run `go build ./...`
+2. run `go build ./cmd/... ./internal/...`
 3. run targeted package tests when developing a slice
-4. run `set -a; source .env; set +a; go test -p 1 ./...` when code or persistence behavior changed because the shared test database uses an advisory lock and package-parallel full-suite runs can contend on it
+4. run `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` when code or persistence behavior changed because the shared test database uses an advisory lock and package-parallel full-suite runs can contend on it
 5. when provider-backed AI execution changes and live credentials are available, run `set -a; source .env; set +a; go run ./cmd/verify-agent` as the focused opt-in verification path on top of the shared backend contract
 6. if migrations changed, verify that `go run ./cmd/migrate` applies cleanly against the configured development database
 7. document any blocker explicitly if full verification cannot run
@@ -230,8 +230,8 @@ Current race-testing stance:
 Lightweight Go test matrix:
 
 1. default implementation baseline:
-   `go build ./...`
-   `set -a; source .env; set +a; go test -p 1 ./...`
+   `go build ./cmd/... ./internal/...`
+   `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...`
 2. focused package development:
    `go test ./path/to/package`
    Use for normal slice development before rerunning the full suite.

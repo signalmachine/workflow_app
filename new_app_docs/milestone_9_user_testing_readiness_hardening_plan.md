@@ -1,7 +1,7 @@
 # workflow_app Milestone 9 User-Testing Readiness Hardening Plan
 
 Date: 2026-03-29
-Status: Planned next milestone
+Status: Active milestone; slice 1 auth hardening complete, slices 2 and 3 pending
 Purpose: define the bounded readiness-hardening milestone that should land before the paused post-checkpoint live workflow validation resumes.
 
 ## 1. Why this milestone exists
@@ -57,6 +57,12 @@ Goal:
 
 1. move the active sign-in and session-issuance path beyond org-slug-plus-email-only issuance
 
+Status:
+
+1. done
+2. browser-session and bearer-session issuance now require org slug, user email, and a password verified against the shared `identityaccess.users` credential record
+3. the browser and later mobile or non-browser clients still share one session foundation, one tenant-context model, and one shared `/api/...` seam
+
 Required outcomes:
 
 1. one explicit target auth model is chosen and documented before implementation widens
@@ -70,6 +76,10 @@ Goal:
 
 1. keep the existing coordinator-plus-specialist architecture but make it materially more useful through a stronger bounded read-tool surface
 
+Status:
+
+1. pending
+
 Required outcomes:
 
 1. the coordinator can gather more request-relevant review context than queue summary alone
@@ -82,6 +92,10 @@ Required outcomes:
 Goal:
 
 1. reduce the maintenance and regression risk concentrated in the very large shared browser and API files
+
+Status:
+
+1. pending
 
 Required outcomes:
 
@@ -119,14 +133,14 @@ During Milestone 9:
 For every Milestone 9 implementation slice:
 
 1. add or update tests appropriate to the change
-2. run `go build ./...`
-3. run `set -a; source .env; set +a; go test -p 1 ./...`
+2. run `go build ./cmd/... ./internal/...`
+3. run `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...`
 4. rerun narrower focused checks where the slice materially changes live seams, auth flows, or AI execution behavior
 
 At Milestone 9 closeout:
 
-1. `go build ./...` passes
-2. `set -a; source .env; set +a; go test -p 1 ./...` passes
+1. `go build ./cmd/... ./internal/...` passes
+2. `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` passes
 3. the tracker and README reflect the milestone result and the resumed next step
 4. the repository is ready to resume the paused live workflow validation captured in `post_checkpoint_validation_and_user_testing_plan.md`
 
