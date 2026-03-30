@@ -16,7 +16,7 @@ That does not yet answer a narrower operational question:
 
 The next step should therefore be validation-led rather than breadth-led.
 
-As of 2026-03-29, the Milestone 9 readiness-hardening prerequisite is complete, and the required same-day implementation review against the milestone plan and related canonical docs also completed cleanly. On 2026-03-30, a full end-to-end review identified one bounded shared-backend correctness slice that should land before the deferred live workflows resume, and that slice is now implemented and verified. That same verification effort also exposed one bounded test-harness weakness around stale advisory-lock sessions in the disposable test database, and that harness-hardening slice is now also implemented and verified. A final bounded pre-validation slice is now also planned: refresh the current web visual layer so the remaining browser-led workflow validation runs against a more credible operator surface rather than the current underpowered styling baseline. Active workflow-validation sequencing should now be maintained in `docs/workflows/workflow_validation_track.md`, while product changes discovered by that validation should be planned in `new_app_docs/`.
+As of 2026-03-29, the Milestone 9 readiness-hardening prerequisite is complete, and the required same-day implementation review against the milestone plan and related canonical docs also completed cleanly. On 2026-03-30, a full end-to-end review identified one bounded shared-backend correctness slice that should land before the deferred live workflows resume, and that slice is now implemented and verified. That same verification effort also exposed one bounded test-harness weakness around stale advisory-lock sessions in the disposable test database, and that harness-hardening slice is now also implemented and verified. Two bounded pre-validation implementation slices are now also planned: first refresh the current web visual layer so the remaining browser-led workflow validation runs against a more credible operator surface, then land the dedicated dashboard, intake, operations-feed, and agent-chat surfaces that should exist before the next live operator review pass. Active workflow-validation sequencing should now be maintained in `docs/workflows/workflow_validation_track.md`, while product changes discovered by that validation should be planned in `new_app_docs/`.
 
 ## 1.1 Handoff result
 
@@ -42,11 +42,12 @@ The first post-checkpoint slice was:
 The next active slice is now:
 
 1. land the bounded web visual-refresh slice from `web_visual_refresh_plan.md`
-2. then resume the deferred live workflow validation rather than discarding it or silently treating it as complete
-3. start with the paused Phase 1 workflow set once that refresh is complete
-4. keep the later Phase 1 intentionally fast by prioritizing the highest-signal foundational workflows and avoiding deeper failure-mode work until Phase 2
-5. Phase 1 should still include only quick-complete items that can be verified without deliberate failure reproduction or broad exploratory review
-6. record pass or fail evidence for each deferred workflow and end with one explicit readiness result when that work later resumes
+2. then land the bounded browser-surface restructuring from `operator_communication_and_intake_surfaces_plan.md`
+3. only then resume the deferred live workflow validation rather than discarding it or silently treating it as complete
+4. start with the paused Phase 1 workflow set once those implementation slices are complete
+5. keep the later Phase 1 intentionally fast by prioritizing the highest-signal foundational workflows and avoiding deeper failure-mode work until Phase 2
+6. Phase 1 should still include only quick-complete items that can be verified without deliberate failure reproduction or broad exploratory review
+7. record pass or fail evidence for each deferred workflow and end with one explicit readiness result when that work later resumes
 
 The paused validation slice is not:
 
@@ -79,7 +80,7 @@ Pause outcome:
 2. the Milestone 9 prerequisite is now satisfied, and the implementation-versus-plan review is already complete
 3. the bounded shared-backend correctness-hardening slice is now implemented and verified
 4. the bounded test-harness hardening slice is now complete
-5. the next session should first land the bounded visual-refresh slice and then resume from the remaining workflows rather than restarting the whole validation phase later
+5. the next session should first land the bounded visual-refresh slice, then the bounded dashboard and intake and coordinator-communication slice, and only then resume from the remaining workflows rather than restarting the whole validation phase later
 
 ## 4. Objective
 
@@ -110,7 +111,7 @@ Reason:
 
 ## 6. Planned execution order
 
-### 5.1 Step 1: restore live-provider verification
+### 6.1 Step 1: restore live-provider verification
 
 Start with the focused live verification path:
 
@@ -124,7 +125,7 @@ Current known blocker entering this plan:
 2. current Step 1 result: `go build ./...`, `set -a; source .env; set +a; go test -p 1 ./...`, and `set -a; source .env; set +a; go run ./cmd/verify-agent` all passed on 2026-03-28
 3. remaining work in this plan is now Step 2 through Step 5 browser and end-to-end workflow validation rather than restoration of the live provider seam
 
-### 5.2 Step 2: validate the core application seam
+### 6.2 Step 2: validate the core application seam
 
 After the focused live verification passes:
 
@@ -157,7 +158,7 @@ Next-session Step 2 start order:
 3. run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
 4. use the real shared `/app` plus `/api/...` seam rather than direct service calls for the remaining workflows unless a live blocker forces lower-level diagnosis
 
-### 5.3 Step 3: execute canonical end-to-end workflows
+### 6.3 Step 3: execute canonical end-to-end workflows
 
 Run a small, explicit workflow set rather than broad exploratory testing first.
 
@@ -180,7 +181,7 @@ Current workflow result on 2026-03-28:
 7. after that approval-request slice, `go build ./...`, `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./...`, and targeted browser-rendering coverage all passed
 8. workflows 2 through 4 still remain to be executed explicitly in the live environment, but workflow 3 no longer has a known shared-backend blocker at the proposal-to-approval transition
 
-### 5.4 Step 4: assert each workflow boundary explicitly
+### 6.4 Step 4: assert each workflow boundary explicitly
 
 For each canonical workflow, verify:
 
@@ -192,7 +193,7 @@ For each canonical workflow, verify:
 
 Do not mark a workflow passed only because the final page renders.
 
-### 5.5 Step 5: summarize readiness
+### 6.5 Step 5: summarize readiness
 
 End the slice with one explicit result:
 
@@ -229,7 +230,7 @@ Deferred phased resume order for workflows 2 through 4 after Milestone 9:
 7. after Phase 2, record the final readiness result explicitly in this document and `new_app_tracker.md`
 8. if the workflow support reference or reusable live checklist changes materially, update `docs/workflows/application_workflow_catalog.md` and `docs/workflows/end_to_end_validation_checklist.md` in the same change
 
-### 5.6 Immediate blocker-remediation slice
+### 6.6 Immediate blocker-remediation slice
 
 Before continuing the remaining live workflows, clear the first known provider-quality blocker explicitly.
 
