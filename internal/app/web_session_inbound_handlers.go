@@ -129,6 +129,38 @@ func (h *AgentAPIHandler) handleWebInboundRequests(w http.ResponseWriter, r *htt
 	})
 }
 
+func (h *AgentAPIHandler) handleWebSubmitInboundRequestPage(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != webSubmitInboundPagePath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webLoginPath+"?notice="+url.QueryEscape("Please sign in."), http.StatusSeeOther)
+		return
+	}
+
+	data := webInboundSubmitData{
+		Session:          sessionContext,
+		Notice:           strings.TrimSpace(r.URL.Query().Get("notice")),
+		Error:            strings.TrimSpace(r.URL.Query().Get("error")),
+		RequestReference: strings.TrimSpace(r.URL.Query().Get("request_reference")),
+		RequestStatus:    strings.TrimSpace(r.URL.Query().Get("request_status")),
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:         "workflow_app",
+		ActivePath:    webSubmitInboundPagePath,
+		Session:       &sessionContext,
+		InboundSubmit: &data,
+	})
+}
+
 func (h *AgentAPIHandler) handleWebLogin(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != webLoginPath {
 		http.NotFound(w, r)
@@ -237,6 +269,7 @@ func (h *AgentAPIHandler) handleWebSubmitInboundRequest(w http.ResponseWriter, r
 	requestID := strings.TrimSpace(r.FormValue("request_id"))
 	messageID := strings.TrimSpace(r.FormValue("message_id"))
 	returnTo := sanitizeWebReturnPath(r.FormValue("return_to"))
+	fromSubmitPage := requestID == "" && returnTo == webSubmitInboundPagePath
 	if returnTo == "" {
 		if requestID != "" {
 			returnTo = webInboundDetailPrefix + url.PathEscape(requestID)
@@ -260,6 +293,13 @@ func (h *AgentAPIHandler) handleWebSubmitInboundRequest(w http.ResponseWriter, r
 		})
 		if err != nil {
 			http.Redirect(w, r, appendWebMessage(returnTo, "error", "failed to save inbound draft"), http.StatusSeeOther)
+			return
+		}
+		if fromSubmitPage {
+			target := appendWebMessage(webSubmitInboundPagePath, "notice", "Draft saved.")
+			target = appendWebMessage(target, "request_reference", result.Request.RequestReference)
+			target = appendWebMessage(target, "request_status", result.Request.Status)
+			http.Redirect(w, r, target, http.StatusSeeOther)
 			return
 		}
 		http.Redirect(w, r, webInboundDetailPrefix+url.PathEscape(result.Request.RequestReference)+"?notice="+url.QueryEscape("Draft saved."), http.StatusSeeOther)
@@ -305,6 +345,13 @@ func (h *AgentAPIHandler) handleWebSubmitInboundRequest(w http.ResponseWriter, r
 		})
 		if err != nil {
 			http.Redirect(w, r, appendWebMessage(returnTo, "error", "failed to submit inbound request"), http.StatusSeeOther)
+			return
+		}
+		if fromSubmitPage {
+			target := appendWebMessage(webSubmitInboundPagePath, "notice", "Inbound request submitted.")
+			target = appendWebMessage(target, "request_reference", result.Request.RequestReference)
+			target = appendWebMessage(target, "request_status", result.Request.Status)
+			http.Redirect(w, r, target, http.StatusSeeOther)
 			return
 		}
 		http.Redirect(w, r, webInboundDetailPrefix+url.PathEscape(result.Request.RequestReference)+"?notice="+url.QueryEscape("Inbound request submitted."), http.StatusSeeOther)

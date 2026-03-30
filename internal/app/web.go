@@ -85,6 +85,14 @@ type webInboundRequestsData struct {
 	Requests         []reporting.InboundRequestReview
 }
 
+type webInboundSubmitData struct {
+	Session          identityaccess.SessionContext
+	Notice           string
+	Error            string
+	RequestReference string
+	RequestStatus    string
+}
+
 type webDocumentsData struct {
 	Session    identityaccess.SessionContext
 	Notice     string
@@ -294,6 +302,7 @@ type webPageData struct {
 	LoginPath               string
 	Session                 *identityaccess.SessionContext
 	Dashboard               *webAppDashboardData
+	InboundSubmit           *webInboundSubmitData
 	InboundRequests         *webInboundRequestsData
 	Detail                  *webInboundDetailData
 	Documents               *webDocumentsData
@@ -1431,7 +1440,8 @@ const webAppHTML = `<!DOCTYPE html>
         <div>
           <div class="meta">Signed in as {{.Session.UserEmail}} in {{.Session.OrgName}} ({{.Session.RoleCode}})</div>
           <div class="nav-links" style="margin-top:12px;">
-            <a href="/app" {{if eq .ActivePath "/app"}}class="active"{{end}}>Operations</a>
+            <a href="/app" {{if eq .ActivePath "/app"}}class="active"{{end}}>Home</a>
+            <a href="/app/submit-inbound-request" {{if eq .ActivePath "/app/submit-inbound-request"}}class="active"{{end}}>Submit request</a>
             <a href="/app/review/inbound-requests" {{if eq .ActivePath "/app/review/inbound-requests"}}class="active"{{end}}>Inbound requests</a>
             <a href="/app/review/documents" {{if eq .ActivePath "/app/review/documents"}}class="active"{{end}}>Documents</a>
             <a href="/app/review/accounting" {{if eq .ActivePath "/app/review/accounting"}}class="active"{{end}}>Accounting</a>
@@ -1489,7 +1499,7 @@ const webAppHTML = `<!DOCTYPE html>
           <div class="hero-card">
             <div class="eyebrow">Operations home</div>
             <h3>Review queue posture, launch the next run, and keep request continuity visible.</h3>
-            <p>The home surface stays focused on current intake and downstream control paths while the dedicated request-submission page remains a later browser restructuring slice.</p>
+            <p>Home stays dashboard-first: use the dedicated submission page for new intake, then return here for current status, approvals, and downstream review continuity.</p>
             <div class="hero-metrics">
               <div class="metric-tile">
                 <strong>{{len .InboundSummary}}</strong>
@@ -1507,6 +1517,15 @@ const webAppHTML = `<!DOCTYPE html>
           </div>
           <div class="card-stack">
             <div class="hero-card">
+              <div class="eyebrow">Quick links</div>
+              <h3>Move directly into intake or review</h3>
+              <p>Start new persisted intake on its own page, then continue through request detail, proposal review, approvals, and downstream inspection without mixing those jobs back into the dashboard.</p>
+              <div class="page-actions" style="margin-top:16px;">
+                <a href="/app/submit-inbound-request" class="pill-link">Open submission page</a>
+                <a href="/app/review/inbound-requests" class="pill-link">Open inbound review</a>
+              </div>
+            </div>
+            <div class="hero-card">
               <div class="eyebrow">Coordinator queue</div>
               <h3>Run the next queued request</h3>
               <p>Process one queued request through the provider-backed coordinator using the same backend seam exercised by the API.</p>
@@ -1515,50 +1534,7 @@ const webAppHTML = `<!DOCTYPE html>
               </form>
             </div>
             <div class="section-note">
-              Use the review surfaces below to jump from draft, queued, failed, or processed requests without losing the request reference.
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="page-header">
-          <div>
-            <div class="eyebrow">Request intake</div>
-            <h2>Submit inbound request</h2>
-            <p class="meta">Capture the request, supporting evidence, and the exact message that should enter the queue.</p>
-          </div>
-        </div>
-        <div class="split">
-          <div>
-            <form method="post" action="/app/inbound-requests" enctype="multipart/form-data">
-              <label>Submitter label
-                <input type="text" name="submitter_label" placeholder="front desk">
-              </label>
-              <label>Request message
-                <textarea name="message_text" required placeholder="Describe the request, evidence, and expected follow-up."></textarea>
-              </label>
-              <label>Attachments
-                <input type="file" name="attachments" multiple>
-              </label>
-              <div class="inline-form">
-                <button type="submit" name="intent" value="queue">Queue inbound request</button>
-                <button type="submit" name="intent" value="save_draft" class="secondary">Save draft</button>
-              </div>
-            </form>
-          </div>
-          <div class="card-stack">
-            <div class="detail-card">
-              <strong>Draft path</strong>
-              <div class="meta">Save a parked request first when the operator still expects more detail, attachments, or amendment before queueing.</div>
-            </div>
-            <div class="detail-card">
-              <strong>Queued path</strong>
-              <div class="meta">Queue the request when the coordinator should pick it up as durable intake truth rather than an immediate chat response.</div>
-            </div>
-            <div class="detail-card">
-              <strong>Continuity rule</strong>
-              <div class="meta">Keep the exact REQ-... reference visible across detail, proposal, approval, and downstream review surfaces.</div>
+              Use the submission page for new intake and the review surfaces below to jump from draft, queued, failed, or processed requests without losing the request reference.
             </div>
           </div>
         </div>
@@ -1738,6 +1714,98 @@ const webAppHTML = `<!DOCTYPE html>
             {{end}}
           </tbody>
         </table>
+        </div>
+      </section>
+    </div>
+    {{end}}
+
+    {{with .InboundSubmit}}
+    <div class="stack">
+      {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+      {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+
+      <section class="panel">
+        <div class="hero-grid">
+          <div class="hero-card">
+            <div class="eyebrow">Dedicated intake</div>
+            <h3>Submit one inbound request without diluting the dashboard.</h3>
+            <p>Capture the request message, supporting evidence, and operator label on a focused page that keeps queue-oriented intake separate from review and approval work.</p>
+            <div class="page-actions" style="margin-top:16px;">
+              <a href="/app" class="pill-link">Back to dashboard</a>
+              <a href="/app/review/inbound-requests" class="pill-link">Open inbound review</a>
+            </div>
+          </div>
+          <div class="card-stack">
+            <div class="detail-card">
+              <strong>Draft path</strong>
+              <div class="meta">Save a parked request first when the operator still expects more detail, attachments, or amendment before queueing.</div>
+            </div>
+            <div class="detail-card">
+              <strong>Queued path</strong>
+              <div class="meta">Queue the request when the coordinator should pick it up as durable intake truth rather than an immediate chat response.</div>
+            </div>
+            <div class="detail-card">
+              <strong>Continuity rule</strong>
+              <div class="meta">Keep the exact REQ-... reference visible across detail, proposal, approval, and downstream review surfaces.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {{if .RequestReference}}
+      <section class="panel">
+        <div class="page-header">
+          <div>
+            <div class="eyebrow">Submission result</div>
+            <h2>{{.RequestReference}}</h2>
+            <p class="meta">The request is now in <span class="status-pill {{statusClass .RequestStatus}}">{{.RequestStatus}}</span> state on the persisted intake path.</p>
+          </div>
+        </div>
+        <div class="page-actions">
+          <a href="/app/inbound-requests/{{.RequestReference}}" class="pill-link">Open exact request detail</a>
+          <a href="/app" class="pill-link">Return to dashboard</a>
+          <a href="/app/review/inbound-requests?request_reference={{.RequestReference}}" class="pill-link">Open request review</a>
+        </div>
+      </section>
+      {{end}}
+
+      <section class="panel">
+        <div class="page-header">
+          <div>
+            <div class="eyebrow">Request intake</div>
+            <h2>Submit inbound request</h2>
+            <p class="meta">Capture the request, supporting evidence, and the exact message that should enter the queue.</p>
+          </div>
+        </div>
+        <div class="split">
+          <div>
+            <form method="post" action="/app/inbound-requests" enctype="multipart/form-data">
+              <input type="hidden" name="return_to" value="/app/submit-inbound-request">
+              <label>Submitter label
+                <input type="text" name="submitter_label" placeholder="front desk">
+              </label>
+              <label>Request message
+                <textarea name="message_text" required placeholder="Describe the request, evidence, and expected follow-up."></textarea>
+              </label>
+              <label>Attachments
+                <input type="file" name="attachments" multiple>
+              </label>
+              <div class="inline-form">
+                <button type="submit" name="intent" value="queue">Queue inbound request</button>
+                <button type="submit" name="intent" value="save_draft" class="secondary">Save draft</button>
+              </div>
+            </form>
+          </div>
+          <div class="card-stack">
+            <div class="detail-card">
+              <strong>What success looks like</strong>
+              <div class="meta">A successful submit or draft save returns the exact REQ-... reference here so the operator can continue into detail or review without guessing.</div>
+            </div>
+            <div class="detail-card">
+              <strong>Workflow boundary</strong>
+              <div class="meta">This page persists intake truth only. Later approval, proposal, and execution actions still happen on their dedicated workflow surfaces.</div>
+            </div>
+          </div>
         </div>
       </section>
     </div>

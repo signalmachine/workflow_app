@@ -1637,6 +1637,12 @@ func TestHandleWebAppDashboardRendersRefreshedEnterpriseShell(t *testing.T) {
 	if !strings.Contains(body, `class="nav-links"`) {
 		t.Fatalf("expected refreshed navigation links container, body=%s", body)
 	}
+	if !strings.Contains(body, `/app/submit-inbound-request" class="pill-link">Open submission page</a>`) {
+		t.Fatalf("expected dashboard link to dedicated submission page, body=%s", body)
+	}
+	if strings.Contains(body, `action="/app/inbound-requests" enctype="multipart/form-data"`) {
+		t.Fatalf("expected dashboard to stop embedding the inbound request form, body=%s", body)
+	}
 }
 
 func TestHandleWebAppDashboardAddsRecoveryActionsForRecentRequests(t *testing.T) {
@@ -1965,6 +1971,108 @@ func TestHandleWebSubmitInboundRequestSaveDraftRedirectsToDetail(t *testing.T) {
 	location := recorder.Header().Get("Location")
 	if !strings.Contains(location, "/app/inbound-requests/REQ-000123?notice=Draft+saved.") {
 		t.Fatalf("unexpected redirect location: %s", location)
+	}
+}
+
+func TestHandleWebSubmitInboundRequestPageRendersDedicatedFormAndResultState(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		nil,
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/submit-inbound-request?notice=Inbound+request+submitted.&request_reference=REQ-000123&request_status=queued", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `Dedicated intake`) {
+		t.Fatalf("expected dedicated intake hero copy, body=%s", body)
+	}
+	if !strings.Contains(body, `name="return_to" value="/app/submit-inbound-request"`) {
+		t.Fatalf("expected dedicated submission form return target, body=%s", body)
+	}
+	if !strings.Contains(body, `REQ-000123`) {
+		t.Fatalf("expected exact request reference result card, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/inbound-requests/REQ-000123" class="pill-link">Open exact request detail</a>`) {
+		t.Fatalf("expected exact request detail continuation link, body=%s", body)
+	}
+}
+
+func TestHandleWebSubmitInboundRequestFromDedicatedPageRedirectsBackWithReference(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		stubSubmissionService{
+			submitInboundRequest: func(context.Context, SubmitInboundRequestInput) (SubmitInboundRequestResult, error) {
+				return SubmitInboundRequestResult{
+					Request: intake.InboundRequest{
+						ID:               "req-123",
+						RequestReference: "REQ-000123",
+						Status:           intake.StatusQueued,
+					},
+					Message: intake.Message{ID: "msg-123"},
+				}, nil
+			},
+		},
+		nil,
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	form := url.Values{}
+	form.Set("submitter_label", "front desk")
+	form.Set("message_text", "Queue this request from the dedicated intake page")
+	form.Set("return_to", "/app/submit-inbound-request")
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	for key, values := range form {
+		for _, value := range values {
+			if err := writer.WriteField(key, value); err != nil {
+				t.Fatalf("write multipart field: %v", err)
+			}
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close multipart writer: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/app/inbound-requests", &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	location := recorder.Header().Get("Location")
+	if !strings.Contains(location, "/app/submit-inbound-request?notice=Inbound+request+submitted.") {
+		t.Fatalf("unexpected redirect location: %s", location)
+	}
+	if !strings.Contains(location, "request_reference=REQ-000123") {
+		t.Fatalf("expected request reference in redirect location: %s", location)
+	}
+	if !strings.Contains(location, "request_status=queued") {
+		t.Fatalf("expected request status in redirect location: %s", location)
 	}
 }
 

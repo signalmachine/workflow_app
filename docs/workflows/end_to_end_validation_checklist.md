@@ -1,7 +1,7 @@
 # workflow_app End-to-End Validation Checklist
 
 Date: 2026-03-30
-Status: Durable checklist with pre-validation browser-review precheck for the refreshed web shell
+Status: Durable checklist with pre-validation browser-review precheck for the refreshed web shell and dedicated intake page
 Purpose: provide a reusable bounded checklist for live review and testing of application end-to-end workflows on the real `/app` plus `/api/...` seam.
 
 ## 1. Use of this checklist
@@ -29,14 +29,14 @@ Policy:
 3. review `docs/workflows/application_workflow_catalog.md`
 4. rerun `set -a; source .env; set +a; go run ./cmd/verify-agent`
 5. run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
-6. if the refreshed web visual slice is newly landed and not yet closed, review `/app/login`, `/app`, `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, and `/app/review/proposals` on desktop and a narrow-width viewport and record pass or blocker evidence before resuming live workflow validation
+6. if the refreshed web visual slice or the dedicated intake-page split is newly landed and not yet closed, review `/app/login`, `/app`, `/app/submit-inbound-request`, `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, and `/app/review/proposals` on desktop and a narrow-width viewport and record pass or blocker evidence before resuming live workflow validation
 
 ## 3. Workflow checklist
 
 ### 3.1 Submit and process inbound request
 
 1. log in through the real browser or shared session API
-2. submit a new inbound request
+2. submit a new inbound request from `/app/submit-inbound-request`
 3. process the next queued inbound request
 4. verify request status continuity
 5. verify AI run, step, artifact, and recommendation continuity

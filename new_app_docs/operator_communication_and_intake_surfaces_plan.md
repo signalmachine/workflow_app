@@ -1,7 +1,7 @@
 # workflow_app Operator Communication And Intake Surfaces Plan
 
 Date: 2026-03-30
-Status: Planned post-refresh implementation slice
+Status: Partially implemented post-refresh implementation slice; dashboard-only home and dedicated inbound-request submission page are landed, operations feed and agent chat remain planned
 Purpose: define the next bounded browser-surface product changes after the visual-refresh pass: a pure dashboard home page, a dedicated inbound-request submission page, a one-way operations feed, and a separate two-way agent chat surface.
 
 ## 1. Why this plan exists
@@ -90,12 +90,12 @@ Key rule:
 
 ## 4. Implementation order
 
-After the bounded visual-refresh slice lands:
+Implementation status:
 
-1. make `Home` a pure dashboard
-2. move `Submit inbound request` to a dedicated page with clear result messaging and `REQ-...` continuity
-3. add `Operations feed` as the durable one-way coordinator or system communication page
-4. add `Agent chat` as the separate two-way coordinator communication page
+1. `Home` is now a pure dashboard
+2. `Submit inbound request` now has a dedicated page with clear result messaging and exact `REQ-...` continuity
+3. `Operations feed` remains the next planned durable one-way coordinator or system communication page
+4. `Agent chat` remains the following planned separate two-way coordinator communication page
 
 ## 5. Architecture guardrails
 

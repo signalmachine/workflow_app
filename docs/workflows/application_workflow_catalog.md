@@ -1,7 +1,7 @@
 # workflow_app Application Workflow Catalog
 
-Date: 2026-03-28
-Status: Initial durable workflow catalog
+Date: 2026-03-30
+Status: Active durable workflow catalog updated for the dashboard-only home plus dedicated intake-page split
 Purpose: capture the application workflows and related feature continuity in one durable reference document for implementation review, testing, onboarding, and later user-guide preparation.
 
 ## 1. How to read this document
@@ -60,9 +60,10 @@ Current status:
 
 Primary continuity surfaces:
 
-1. dashboard
-2. session introspection
-3. subsequent browser-authenticated `/api/...` writes and review reads
+1. dashboard home
+2. dedicated request-submission page
+3. session introspection
+4. subsequent browser-authenticated `/api/...` writes and review reads
 
 ### 2.2 Inbound request submit and queue processing
 
@@ -72,9 +73,10 @@ capture a request durably, process it through the AI seam, and surface the resul
 Entry points:
 
 1. `POST /api/inbound-requests`
-2. `/app/inbound-requests`
-3. `POST /api/agent/process-next-queued-inbound-request`
-4. `/app/agent/process-next-queued-inbound-request`
+2. `/app/submit-inbound-request`
+3. `POST /app/inbound-requests`
+4. `POST /api/agent/process-next-queued-inbound-request`
+5. `/app/agent/process-next-queued-inbound-request`
 
 Expected outputs:
 
@@ -88,7 +90,8 @@ Current status:
 
 1. implemented
 2. repo_verified
-3. live_validated
+3. dedicated browser submission-page continuity is repo_verified
+4. live_validated
 
 ### 2.3 Draft save, amend, queue, cancel, and delete lifecycle
 
