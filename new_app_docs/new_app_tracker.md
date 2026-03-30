@@ -1,7 +1,7 @@
 # workflow_app Tracker
 
 Date: 2026-03-30
-Status: Milestone 9 review completed cleanly on 2026-03-29; the bounded shared-backend correctness-hardening slice and the bounded test-harness advisory-lock hardening slice are now landed and verified, the next session should land the bounded web visual-refresh slice, and workflow validation now continues on the separate `docs/workflows/` track
+Status: Milestone 9 review completed cleanly on 2026-03-29; the bounded shared-backend correctness-hardening slice, the bounded test-harness advisory-lock hardening slice, and the bounded web visual-refresh implementation slice are now landed, automated verification is complete, bounded manual browser-review evidence for the refreshed pages is still pending, and workflow validation continues on the separate `docs/workflows/` track
 Purpose: track the `workflow_app` plan and guard against scope drift during bootstrap and implementation.
 
 ## 1. Current status
@@ -28,7 +28,7 @@ Purpose: track the `workflow_app` plan and guard against scope drift during boot
 | Post-checkpoint validation Step 1 live-provider verification | done | On 2026-03-28 the OpenAI Responses loop was hardened to use provider-safe tool names plus stateless continuation compatible with `store: false`; `go build ./...`, `set -a; source .env; set +a; go test -p 1 ./...`, and `set -a; source .env; set +a; go run ./cmd/verify-agent` all passed after that fix |
 | Workflow validation track handoff | done | Active workflow testing, live review, and readiness evidence now move to `docs/workflows/workflow_validation_track.md` so `new_app_docs/` stays focused on implementation planning. Future workflow-review findings should add bounded fix plans back into `new_app_docs/` before implementation begins. |
 | Post-checkpoint validation Step 2-5 browser and workflow checks | deferred_to_workflow_track | The active validation order, deferred workflow backlog, and issue-handling rule now live in `docs/workflows/workflow_validation_track.md`; use that track plus `docs/workflows/end_to_end_validation_checklist.md` for future live workflow review rather than treating this tracker row as the active testing plan. |
-| Web visual refresh slice | planned | `web_visual_refresh_plan.md` is now the next active implementation slice: land the bounded low-glare enterprise-style visual refresh on the current web layer before the later browser-surface product slices. |
+| Web visual refresh slice | implemented_pending_browser_review | The shared web template now uses a low-glare slate-and-blue enterprise visual system with refreshed sans-serif typography, navigation, cards, forms, tables, and targeted page-hierarchy updates on `/app`, `/app/login`, `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, and `/app/review/proposals`, backed by focused `internal/app` HTTP test coverage plus repository build and test verification. Bounded manual browser-review evidence for desktop and narrow-width layouts on those exact pages is still pending before this slice should be marked fully done. |
 | Dedicated inbound-request page and dashboard-only home | planned | After the visual refresh, `operator_communication_and_intake_surfaces_plan.md` should move request submission off the home page, keep `Home` primarily as a dashboard, and add clear success or failure submission results with exact `REQ-...` continuity. |
 | Operations feed surface | planned | As part of the post-refresh browser-surface restructuring, `operator_communication_and_intake_surfaces_plan.md` should add a durable one-way coordinator or system communication page for operational updates and request-status visibility. |
 | Agent chat surface | planned | In the same planned browser-surface restructuring, `operator_communication_and_intake_surfaces_plan.md` should add a separate two-way coordinator chat surface for guidance, explanation, and issue-oriented conversation without collapsing the product into a generic chat-first app. |
@@ -99,8 +99,8 @@ Recommended sequence after checkpoint closeout:
 3. keep the paused post-checkpoint validation slice intact, but treat the completed Milestone 9 implementation review as satisfied
 4. the bounded shared-backend correctness-hardening slice is now complete: draft-save ownership validation, existing-draft metadata persistence, atomic draft-save composition, and browser-session cookie security hardening are all landed and verified
 5. the bounded test-harness hardening slice around disposable test-database advisory-lock behavior and clearer blocked-test diagnostics is now complete
-6. the next implementation step is the bounded web visual-refresh slice in `web_visual_refresh_plan.md`
-7. after that slice lands, implement the browser-surface restructuring in `operator_communication_and_intake_surfaces_plan.md`
+6. the bounded web visual-refresh implementation slice is now landed in code, but its required manual browser-review evidence is still pending
+7. once that bounded browser-review evidence is recorded cleanly, implement the browser-surface restructuring in `operator_communication_and_intake_surfaces_plan.md`
 8. keep workflow validation on the separate `docs/workflows/` track rather than folding it back into the implementation sequence here
 9. once those implementation slices and the later workflow validation pass have both progressed, decide explicitly whether the next session is:
 10. one bounded post-checkpoint shared-backend or correctness slice, or
@@ -123,9 +123,9 @@ Reason:
 11. the next unanswered question is still operational readiness for supervised AI-backed user testing rather than missing thin-v1 foundation breadth
 12. the bounded readiness-hardening milestone has now landed cleanly, and the explicit implementation-versus-plan review is also complete with no material drift recorded
 13. the bounded shared-backend correctness slice and the bounded test-harness hardening slice are now both complete
-14. the remaining underpowered browser presentation is a worthwhile bounded pre-validation concern because the next planned work is explicitly browser-led
-15. the coordinator-communication and intake-surface restructuring is also now an explicit implementation concern rather than an informal later idea
-16. the correct next move is therefore the bounded visual-refresh slice first, then the bounded browser-surface restructuring, while workflow validation continues on its own track rather than being silently mixed back into implementation planning
+14. the previously underpowered browser presentation was a worthwhile bounded pre-validation concern, and the implementation pass for that refresh is now landed
+15. the coordinator-communication and intake-surface restructuring is still the next explicit implementation concern once the refresh has its manual browser-review evidence recorded
+16. the correct next move is therefore to finish the refresh slice through bounded browser-review evidence, then land the bounded browser-surface restructuring, while workflow validation continues on its own track rather than being silently mixed back into implementation planning
 
 ## 2.1.1 Next-session decision gate
 

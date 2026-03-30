@@ -1589,6 +1589,56 @@ func TestHandleWebAppDashboardAddsStatusSpecificEntryPointActions(t *testing.T) 
 	}
 }
 
+func TestHandleWebAppDashboardRendersRefreshedEnterpriseShell(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listInboundRequestStatusSummary: func(context.Context, identityaccess.Actor) ([]reporting.InboundRequestStatusSummary, error) {
+				return []reporting.InboundRequestStatusSummary{
+					{
+						Status:          "queued",
+						RequestCount:    2,
+						MessageCount:    3,
+						AttachmentCount: 1,
+						LatestUpdatedAt: time.Date(2026, 3, 30, 9, 0, 0, 0, time.UTC),
+					},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `Operator control surface`) {
+		t.Fatalf("expected refreshed masthead badge, body=%s", body)
+	}
+	if !strings.Contains(body, `Current posture`) {
+		t.Fatalf("expected refreshed masthead status card, body=%s", body)
+	}
+	if !strings.Contains(body, `class="hero-card"`) {
+		t.Fatalf("expected refreshed dashboard hero card, body=%s", body)
+	}
+	if !strings.Contains(body, `class="nav-links"`) {
+		t.Fatalf("expected refreshed navigation links container, body=%s", body)
+	}
+}
+
 func TestHandleWebAppDashboardAddsRecoveryActionsForRecentRequests(t *testing.T) {
 	handler := NewAgentAPIHandlerWithDependencies(
 		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
@@ -1709,6 +1759,100 @@ func TestHandleWebInboundRequestsAddsAIRunAndProposalLinks(t *testing.T) {
 	}
 }
 
+func TestHandleWebInboundRequestsRendersRefreshedFilterLayout(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listInboundRequestStatusSummary: func(context.Context, identityaccess.Actor) ([]reporting.InboundRequestStatusSummary, error) {
+				return []reporting.InboundRequestStatusSummary{
+					{
+						Status:          "queued",
+						RequestCount:    1,
+						MessageCount:    2,
+						AttachmentCount: 0,
+						LatestUpdatedAt: time.Date(2026, 3, 30, 9, 0, 0, 0, time.UTC),
+					},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review/inbound-requests?status=queued&request_reference=REQ-000123", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `Filter by request state or exact`) {
+		t.Fatalf("expected refreshed inbound review intro copy, body=%s", body)
+	}
+	if !strings.Contains(body, `class="filter-grid"`) {
+		t.Fatalf("expected refreshed inbound review filter layout, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/inbound-requests" class="pill-link">Clear filters</a>`) {
+		t.Fatalf("expected inbound review clear-filters action, body=%s", body)
+	}
+}
+
+func TestHandleWebProposalsRendersRefreshedFilterLayout(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listProcessedProposalStatusSummary: func(context.Context, identityaccess.Actor) ([]reporting.ProcessedProposalStatusSummary, error) {
+				return []reporting.ProcessedProposalStatusSummary{
+					{
+						RecommendationStatus: "approval_requested",
+						ProposalCount:        1,
+						RequestCount:         1,
+						DocumentCount:        1,
+						LatestCreatedAt:      time.Date(2026, 3, 30, 10, 0, 0, 0, time.UTC),
+					},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review/proposals?status=approval_requested", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `Track the coordinator handoff from exact inbound request reference`) {
+		t.Fatalf("expected refreshed proposal review intro copy, body=%s", body)
+	}
+	if !strings.Contains(body, `class="filter-grid"`) {
+		t.Fatalf("expected refreshed proposal review filter layout, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/proposals" class="pill-link">Clear filters</a>`) {
+		t.Fatalf("expected proposal review clear-filters action, body=%s", body)
+	}
+}
+
 func TestHandleWebInboundRequestDetailShowsDraftLifecycleActions(t *testing.T) {
 	handler := NewAgentAPIHandlerWithDependencies(
 		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
@@ -1821,6 +1965,35 @@ func TestHandleWebSubmitInboundRequestSaveDraftRedirectsToDetail(t *testing.T) {
 	location := recorder.Header().Get("Location")
 	if !strings.Contains(location, "/app/inbound-requests/REQ-000123?notice=Draft+saved.") {
 		t.Fatalf("unexpected redirect location: %s", location)
+	}
+}
+
+func TestHandleWebAppUnauthenticatedRendersRefreshedLoginSurface(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		nil,
+		nil,
+		stubBrowserSessionService{},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app", nil)
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `Browser session`) {
+		t.Fatalf("expected refreshed login eyebrow, body=%s", body)
+	}
+	if !strings.Contains(body, `This sign-in surface only issues the browser-session path.`) {
+		t.Fatalf("expected refreshed login guidance note, body=%s", body)
+	}
+	if !strings.Contains(body, `class="panel login-panel"`) {
+		t.Fatalf("expected refreshed login panel class, body=%s", body)
 	}
 }
 

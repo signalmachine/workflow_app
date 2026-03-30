@@ -1,7 +1,7 @@
 # workflow_app Workflow Validation Track
 
 Date: 2026-03-30
-Status: Active validation track, separate from implementation planning
+Status: Active validation track, separate from implementation planning; the web visual-refresh implementation is landed and now awaits bounded manual browser-review evidence before the deferred live workflows resume
 Purpose: keep workflow testing, live review, and readiness evidence on a workflow-validation track in `docs/workflows/` rather than inside the normal product-implementation planning stream in `new_app_docs/`.
 
 ## 1. Why this document exists
@@ -39,7 +39,7 @@ The implementation track is currently prioritized ahead of resumed live workflow
 
 Current order:
 
-1. complete the bounded web visual-refresh slice from `new_app_docs/web_visual_refresh_plan.md`
+1. record the bounded manual browser-review evidence for the landed web visual-refresh slice from `new_app_docs/web_visual_refresh_plan.md` on the exact refreshed pages and widths
 2. complete the next planned browser-surface product slices from `new_app_docs/operator_communication_and_intake_surfaces_plan.md`
 3. then resume the deferred live workflow validation on the real seam
 

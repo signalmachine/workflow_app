@@ -932,86 +932,284 @@ const webAppHTML = `<!DOCTYPE html>
   <title>{{.Title}}</title>
   <style>
     :root {
-      --bg: #f5efe3;
-      --panel: rgba(255,255,255,0.88);
-      --ink: #1f1f1f;
-      --muted: #5d5d5d;
-      --line: #d8cdb8;
-      --accent: #0f766e;
-      --accent-soft: #dff3f1;
+      --bg: #edf3f8;
+      --bg-muted: #e3ebf2;
+      --panel: rgba(250, 252, 254, 0.96);
+      --panel-strong: rgba(255, 255, 255, 0.98);
+      --ink: #122033;
+      --ink-soft: #22354d;
+      --muted: #5c6d81;
+      --line: #cfdae5;
+      --line-strong: #b8c6d4;
+      --accent: #175cd3;
+      --accent-strong: #1349a5;
+      --accent-soft: #dbeafe;
+      --accent-faint: #eef5ff;
       --warn: #9a3412;
-      --warn-soft: #fde8d8;
-      --bad: #991b1b;
-      --bad-soft: #fee2e2;
-      --good: #166534;
-      --good-soft: #dcfce7;
-      --shadow: 0 24px 60px rgba(60, 41, 12, 0.12);
+      --warn-soft: #ffedd5;
+      --bad: #b42318;
+      --bad-soft: #fee4e2;
+      --good: #027a48;
+      --good-soft: #d1fadf;
+      --neutral-soft: #e7edf4;
+      --shadow: 0 28px 72px rgba(17, 38, 63, 0.12);
+      --shadow-soft: 0 14px 30px rgba(17, 38, 63, 0.08);
+      --radius-lg: 22px;
+      --radius-md: 16px;
+      --radius-sm: 12px;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: Georgia, "Times New Roman", serif;
+      font-family: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
       color: var(--ink);
       background:
-        radial-gradient(circle at top left, rgba(15,118,110,0.18), transparent 28%),
-        radial-gradient(circle at top right, rgba(154,52,18,0.16), transparent 30%),
-        linear-gradient(180deg, #f7f2e8 0%, #efe6d6 100%);
+        radial-gradient(circle at top left, rgba(23,92,211,0.12), transparent 30%),
+        radial-gradient(circle at top right, rgba(41,112,255,0.08), transparent 26%),
+        linear-gradient(180deg, #f6f9fc 0%, var(--bg) 46%, var(--bg-muted) 100%);
+      min-height: 100vh;
+      line-height: 1.5;
     }
-    a { color: #0f5e58; }
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a:hover { color: var(--accent-strong); }
     .shell {
-      width: min(1200px, calc(100% - 32px));
-      margin: 24px auto 48px;
+      width: min(1240px, calc(100% - 32px));
+      margin: 24px auto 56px;
     }
     .masthead, .panel {
       background: var(--panel);
       border: 1px solid var(--line);
       box-shadow: var(--shadow);
-      backdrop-filter: blur(10px);
-      border-radius: 18px;
+      backdrop-filter: blur(14px);
+      border-radius: var(--radius-lg);
     }
     .masthead {
-      padding: 24px;
-      margin-bottom: 18px;
+      padding: 28px;
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .masthead::after {
+      content: "";
+      position: absolute;
+      inset: auto -60px -80px auto;
+      width: 220px;
+      height: 220px;
+      background: radial-gradient(circle, rgba(23,92,211,0.16), transparent 68%);
+      pointer-events: none;
     }
     .masthead h1 {
-      margin: 0 0 8px;
-      font-size: clamp(2rem, 4vw, 3.4rem);
-      line-height: 1;
-      letter-spacing: -0.04em;
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3.3rem);
+      line-height: 0.96;
+      letter-spacing: -0.045em;
     }
     .masthead p, .meta {
       margin: 0;
       color: var(--muted);
     }
+    .brand-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: start;
+    }
+    .brand-mark {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      margin-bottom: 14px;
+      border-radius: 999px;
+      background: var(--accent-faint);
+      border: 1px solid rgba(23, 92, 211, 0.14);
+      color: var(--accent-strong);
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+    .brand-mark::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--accent), #51a2ff);
+      box-shadow: 0 0 0 6px rgba(23, 92, 211, 0.12);
+    }
+    .masthead-copy {
+      max-width: 760px;
+      position: relative;
+      z-index: 1;
+    }
+    .masthead-copy p {
+      margin-top: 12px;
+      max-width: 62ch;
+      font-size: 1.02rem;
+      color: var(--ink-soft);
+    }
+    .masthead-status {
+      min-width: 240px;
+      padding: 16px 18px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(238, 245, 255, 0.92), rgba(226, 237, 249, 0.82));
+      border: 1px solid rgba(23, 92, 211, 0.12);
+      box-shadow: var(--shadow-soft);
+      position: relative;
+      z-index: 1;
+    }
+    .masthead-status strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--accent-strong);
+    }
     .nav {
-      margin-top: 16px;
+      margin-top: 20px;
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
-      align-items: center;
+      gap: 16px;
+      align-items: end;
       justify-content: space-between;
+    }
+    .nav-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .nav-links a {
+      padding: 8px 12px;
+      border-radius: 999px;
+      color: var(--ink-soft);
+      background: rgba(255, 255, 255, 0.62);
+      border: 1px solid transparent;
+      transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+    }
+    .nav-links a:hover,
+    .nav-links a.active {
+      color: var(--accent-strong);
+      background: var(--accent-faint);
+      border-color: rgba(23, 92, 211, 0.16);
     }
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 18px;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
       align-items: start;
     }
-    .panel { padding: 18px; }
+    .panel { padding: 22px; }
     .panel h2, .panel h3 {
       margin-top: 0;
-      margin-bottom: 12px;
-      font-size: 1.15rem;
+      margin-bottom: 10px;
+      font-size: 1.12rem;
+      letter-spacing: -0.02em;
+    }
+    .panel > p.meta,
+    .panel > .meta {
+      margin-bottom: 18px;
+    }
+    .page-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: start;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    .page-header h2 {
+      margin-bottom: 4px;
+      font-size: clamp(1.45rem, 2vw, 1.9rem);
+    }
+    .eyebrow {
+      margin-bottom: 8px;
+      color: var(--accent-strong);
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+    .page-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+    .pill-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--ink-soft);
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.9fr);
+      gap: 20px;
+      align-items: stretch;
+    }
+    .hero-card {
+      padding: 20px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,0.78), rgba(240,246,252,0.96));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+    }
+    .hero-card h3 {
+      margin-bottom: 8px;
+      font-size: 1.2rem;
+    }
+    .hero-card p {
+      margin: 0;
+      color: var(--ink-soft);
+    }
+    .hero-metrics {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+    .metric-tile {
+      padding: 14px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.78);
+    }
+    .metric-tile strong {
+      display: block;
+      font-size: 1.35rem;
+      line-height: 1.1;
+      margin-bottom: 6px;
+    }
+    .section-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    .section-note {
+      padding: 14px 16px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--line);
+      background: rgba(237, 245, 255, 0.72);
+      color: var(--ink-soft);
     }
     .notice, .error {
-      padding: 12px 14px;
-      border-radius: 12px;
+      padding: 14px 16px;
+      border-radius: var(--radius-sm);
       margin-bottom: 16px;
       border: 1px solid transparent;
+      box-shadow: var(--shadow-soft);
     }
     .notice {
       background: var(--accent-soft);
-      border-color: rgba(15,118,110,0.16);
+      border-color: rgba(23, 92, 211, 0.14);
     }
     .error {
       background: var(--warn-soft);
@@ -1019,117 +1217,226 @@ const webAppHTML = `<!DOCTYPE html>
       color: var(--warn);
     }
     form { display: grid; gap: 12px; }
-    label { font-weight: 600; }
+    label {
+      display: grid;
+      gap: 6px;
+      font-weight: 600;
+      color: var(--ink-soft);
+    }
     input, textarea, select, button {
       width: 100%;
       font: inherit;
-      padding: 10px 12px;
-      border-radius: 12px;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,0.9);
+      padding: 11px 13px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--line-strong);
+      background: rgba(255,255,255,0.96);
       color: var(--ink);
+      transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+    }
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: rgba(23, 92, 211, 0.48);
+      box-shadow: 0 0 0 4px rgba(23, 92, 211, 0.12);
     }
     textarea { min-height: 132px; resize: vertical; }
     button {
-      background: var(--accent);
+      width: auto;
+      min-width: 160px;
+      background: linear-gradient(180deg, var(--accent) 0%, var(--accent-strong) 100%);
       color: #fff;
-      border: none;
+      border: 1px solid rgba(19, 73, 165, 0.22);
       cursor: pointer;
       font-weight: 700;
+      box-shadow: 0 10px 22px rgba(23, 92, 211, 0.18);
     }
     button.secondary {
-      background: #6b5c43;
+      background: linear-gradient(180deg, #475467 0%, #344054 100%);
+      border-color: rgba(52, 64, 84, 0.24);
+      box-shadow: 0 10px 22px rgba(52, 64, 84, 0.16);
+    }
+    button.ghost {
+      background: rgba(255,255,255,0.82);
+      color: var(--ink-soft);
+      border: 1px solid var(--line);
+      box-shadow: none;
     }
     table {
       width: 100%;
       border-collapse: collapse;
       font-size: 0.96rem;
+      min-width: 640px;
     }
     th, td {
       text-align: left;
-      padding: 10px 8px;
-      border-top: 1px solid var(--line);
+      padding: 12px 10px;
+      border-top: 1px solid rgba(207, 218, 229, 0.8);
       vertical-align: top;
     }
-    th { color: var(--muted); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.08em; }
+    thead th { border-top: none; }
+    th {
+      color: var(--muted);
+      font-size: 0.79rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      background: rgba(237, 243, 248, 0.75);
+    }
+    tbody tr:hover td { background: rgba(238, 245, 255, 0.45); }
+    .table-wrap {
+      overflow-x: auto;
+      margin: 0 -4px;
+      padding: 0 4px;
+    }
     .status-pill {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 4px 10px;
+      padding: 5px 10px;
       border-radius: 999px;
       font-size: 0.82rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.05em;
+      white-space: nowrap;
     }
     .status-good { background: var(--good-soft); color: var(--good); }
     .status-bad { background: var(--bad-soft); color: var(--bad); }
-    .status-neutral { background: #ece8df; color: #5f513d; }
+    .status-neutral { background: var(--neutral-soft); color: var(--ink-soft); }
     pre {
       margin: 0;
       white-space: pre-wrap;
       word-break: break-word;
-      background: #f4efe7;
+      background: #f5f8fb;
       border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 12px;
+      border-radius: var(--radius-sm);
+      padding: 14px;
       overflow-x: auto;
+      color: var(--ink-soft);
     }
     .split {
       display: grid;
       grid-template-columns: 1.2fr 0.8fr;
-      gap: 18px;
+      gap: 20px;
     }
     .summary-list {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
     }
     .summary-card {
-      padding: 14px;
+      padding: 16px;
       border: 1px solid var(--line);
-      border-radius: 14px;
-      background: rgba(255,255,255,0.68);
+      border-radius: var(--radius-md);
+      background: linear-gradient(180deg, rgba(255,255,255,0.78), rgba(242,247,252,0.92));
+      box-shadow: var(--shadow-soft);
     }
     .summary-card strong {
       display: block;
-      font-size: 1.4rem;
+      font-size: 1.55rem;
       margin-bottom: 6px;
     }
     .inline-form {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 10px;
       align-items: center;
     }
-    .inline-form input[type="text"] { min-width: 220px; }
-    .stack { display: grid; gap: 18px; }
+    .inline-form > * {
+      flex: 1 1 180px;
+    }
+    .inline-form button,
+    .inline-form a {
+      flex: 0 0 auto;
+    }
+    .stack { display: grid; gap: 20px; }
     .detail-block + .detail-block { margin-top: 16px; }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-top: 16px;
+    }
+    .detail-card,
+    .detail-block {
+      padding: 14px 16px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.66);
+    }
+    .detail-card strong,
+    .detail-block strong {
+      color: var(--ink-soft);
+    }
+    .card-stack {
+      display: grid;
+      gap: 14px;
+    }
+    .empty-state {
+      padding: 18px;
+      border: 1px dashed var(--line-strong);
+      border-radius: var(--radius-md);
+      color: var(--muted);
+      background: rgba(255,255,255,0.54);
+    }
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      align-items: end;
+    }
+    .filter-grid .filter-actions {
+      display: flex;
+      align-items: end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .login-panel {
+      max-width: 620px;
+      margin: 0 auto;
+    }
+    .login-panel form {
+      margin-top: 18px;
+    }
+    .login-panel .section-note {
+      margin-top: 16px;
+    }
     @media (max-width: 880px) {
       .split { grid-template-columns: 1fr; }
+      .hero-grid { grid-template-columns: 1fr; }
+      .brand-row { flex-direction: column; }
+      .masthead-status { min-width: 0; width: 100%; }
+      .shell { width: min(100% - 20px, 1240px); }
+      .masthead, .panel { border-radius: 18px; }
     }
   </style>
 </head>
 <body>
   <div class="shell">
     <section class="masthead">
-      <h1>workflow_app</h1>
-      <p>AI-agent-first intake, review, approvals, and operator control on one browser surface.</p>
+      <div class="brand-row">
+        <div class="masthead-copy">
+          <div class="brand-mark">Operator control surface</div>
+          <h1>workflow_app</h1>
+          <p>AI-agent-first intake, review, approvals, and operator control on one shared browser seam with durable request continuity.</p>
+        </div>
+        <div class="masthead-status">
+          <strong>Current posture</strong>
+          <div class="meta">Low-glare operator dashboard for intake, proposals, approvals, and review continuity.</div>
+        </div>
+      </div>
       {{if .Session}}
       <div class="nav">
         <div>
           <div class="meta">Signed in as {{.Session.UserEmail}} in {{.Session.OrgName}} ({{.Session.RoleCode}})</div>
-          <div class="meta" style="margin-top:8px;">
-            <a href="/app">Operations</a> |
-            <a href="/app/review/inbound-requests">Inbound requests</a> |
-            <a href="/app/review/documents">Documents</a> |
-            <a href="/app/review/accounting">Accounting</a> |
-            <a href="/app/review/approvals">Approvals</a> |
-            <a href="/app/review/proposals">Proposals</a> |
-            <a href="/app/review/inventory">Inventory</a> |
-            <a href="/app/review/work-orders">Work orders</a> |
-            <a href="/app/review/audit">Audit</a>
+          <div class="nav-links" style="margin-top:12px;">
+            <a href="/app" {{if eq .ActivePath "/app"}}class="active"{{end}}>Operations</a>
+            <a href="/app/review/inbound-requests" {{if eq .ActivePath "/app/review/inbound-requests"}}class="active"{{end}}>Inbound requests</a>
+            <a href="/app/review/documents" {{if eq .ActivePath "/app/review/documents"}}class="active"{{end}}>Documents</a>
+            <a href="/app/review/accounting" {{if eq .ActivePath "/app/review/accounting"}}class="active"{{end}}>Accounting</a>
+            <a href="/app/review/approvals" {{if eq .ActivePath "/app/review/approvals"}}class="active"{{end}}>Approvals</a>
+            <a href="/app/review/proposals" {{if eq .ActivePath "/app/review/proposals"}}class="active"{{end}}>Proposals</a>
+            <a href="/app/review/inventory" {{if eq .ActivePath "/app/review/inventory"}}class="active"{{end}}>Inventory</a>
+            <a href="/app/review/work-orders" {{if eq .ActivePath "/app/review/work-orders"}}class="active"{{end}}>Work orders</a>
+            <a href="/app/review/audit" {{if eq .ActivePath "/app/review/audit"}}class="active"{{end}}>Audit</a>
           </div>
         </div>
         <form method="post" action="/app/logout" style="display:inline-grid;">
@@ -1140,10 +1447,16 @@ const webAppHTML = `<!DOCTYPE html>
     </section>
 
     {{if .ShowLogin}}
-    <section class="panel" style="max-width: 560px;">
+    <section class="panel login-panel">
       {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
       {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
-      <h2>Sign in</h2>
+      <div class="page-header">
+        <div>
+          <div class="eyebrow">Browser session</div>
+          <h2>Sign in</h2>
+          <p class="meta">Use the shared operator account to enter the dashboard, review requests, and supervise the coordinator queue.</p>
+        </div>
+      </div>
       <form method="post" action="{{.LoginPath}}">
         <label>Org slug
           <input type="text" name="org_slug" autocomplete="organization" required>
@@ -1159,6 +1472,7 @@ const webAppHTML = `<!DOCTYPE html>
         </label>
         <button type="submit">Start browser session</button>
       </form>
+      <div class="section-note">Thin v1 keeps one shared backend seam for the browser and later non-browser clients. This sign-in surface only issues the browser-session path.</div>
     </section>
     {{end}}
 
@@ -1168,9 +1482,52 @@ const webAppHTML = `<!DOCTYPE html>
       {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
 
       <section class="panel">
+        <div class="hero-grid">
+          <div class="hero-card">
+            <div class="eyebrow">Operations home</div>
+            <h3>Review queue posture, launch the next run, and keep request continuity visible.</h3>
+            <p>The home surface stays focused on current intake and downstream control paths while the dedicated request-submission page remains a later browser restructuring slice.</p>
+            <div class="hero-metrics">
+              <div class="metric-tile">
+                <strong>{{len .InboundSummary}}</strong>
+                <div class="meta">Tracked request states</div>
+              </div>
+              <div class="metric-tile">
+                <strong>{{len .InboundRequests}}</strong>
+                <div class="meta">Recent inbound requests</div>
+              </div>
+              <div class="metric-tile">
+                <strong>{{len .Approvals}}</strong>
+                <div class="meta">Pending approvals shown</div>
+              </div>
+            </div>
+          </div>
+          <div class="card-stack">
+            <div class="hero-card">
+              <div class="eyebrow">Coordinator queue</div>
+              <h3>Run the next queued request</h3>
+              <p>Process one queued request through the provider-backed coordinator using the same backend seam exercised by the API.</p>
+              <form method="post" action="/app/agent/process-next-queued-inbound-request" style="margin-top:16px;">
+                <button type="submit">Process next queued request</button>
+              </form>
+            </div>
+            <div class="section-note">
+              Use the review surfaces below to jump from draft, queued, failed, or processed requests without losing the request reference.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="page-header">
+          <div>
+            <div class="eyebrow">Request intake</div>
+            <h2>Submit inbound request</h2>
+            <p class="meta">Capture the request, supporting evidence, and the exact message that should enter the queue.</p>
+          </div>
+        </div>
         <div class="split">
           <div>
-            <h2>Submit inbound request</h2>
             <form method="post" action="/app/inbound-requests" enctype="multipart/form-data">
               <label>Submitter label
                 <input type="text" name="submitter_label" placeholder="front desk">
@@ -1187,19 +1544,31 @@ const webAppHTML = `<!DOCTYPE html>
               </div>
             </form>
           </div>
-          <div>
-            <h2>Agent queue</h2>
-            <p class="meta">Process the next queued request through the provider-backed coordinator on the same backend seam used by the API.</p>
-            <form method="post" action="/app/agent/process-next-queued-inbound-request">
-              <button type="submit">Process next queued request</button>
-            </form>
+          <div class="card-stack">
+            <div class="detail-card">
+              <strong>Draft path</strong>
+              <div class="meta">Save a parked request first when the operator still expects more detail, attachments, or amendment before queueing.</div>
+            </div>
+            <div class="detail-card">
+              <strong>Queued path</strong>
+              <div class="meta">Queue the request when the coordinator should pick it up as durable intake truth rather than an immediate chat response.</div>
+            </div>
+            <div class="detail-card">
+              <strong>Continuity rule</strong>
+              <div class="meta">Keep the exact REQ-... reference visible across detail, proposal, approval, and downstream review surfaces.</div>
+            </div>
           </div>
         </div>
       </section>
 
       <section class="panel">
-        <h2>Operator starting points</h2>
-        <p class="meta">Start from parked, in-flight, failed, or cancelled request states without reopening broad review pages first.</p>
+        <div class="page-header">
+          <div>
+            <div class="eyebrow">Starting points</div>
+            <h2>Operator starting points</h2>
+            <p class="meta">Start from parked, in-flight, failed, or cancelled request states without reopening broad review pages first.</p>
+          </div>
+        </div>
         <div class="summary-list">
           {{range .InboundSummary}}
           <div class="summary-card">
@@ -1218,8 +1587,16 @@ const webAppHTML = `<!DOCTYPE html>
 
       <div class="grid">
         <section class="panel">
-          <h2>Recent inbound requests</h2>
-          <p class="meta"><a href="/app/review/inbound-requests">Open full inbound-request review</a></p>
+          <div class="page-header">
+            <div>
+              <div class="eyebrow">Recent intake</div>
+              <h2>Recent inbound requests</h2>
+            </div>
+            <div class="page-actions">
+              <a href="/app/review/inbound-requests" class="pill-link">Open full inbound-request review</a>
+            </div>
+          </div>
+          <div class="table-wrap">
           <table>
             <thead>
               <tr>
@@ -1259,11 +1636,20 @@ const webAppHTML = `<!DOCTYPE html>
               {{end}}
             </tbody>
           </table>
+          </div>
         </section>
 
         <section class="panel">
-          <h2>Pending approvals</h2>
-          <p class="meta"><a href="/app/review/approvals?status=pending">Open full approval review</a></p>
+          <div class="page-header">
+            <div>
+              <div class="eyebrow">Control boundary</div>
+              <h2>Pending approvals</h2>
+            </div>
+            <div class="page-actions">
+              <a href="/app/review/approvals?status=pending" class="pill-link">Open full approval review</a>
+            </div>
+          </div>
+          <div class="table-wrap">
           <table>
             <thead>
               <tr>
@@ -1300,12 +1686,22 @@ const webAppHTML = `<!DOCTYPE html>
               {{end}}
             </tbody>
           </table>
+          </div>
         </section>
       </div>
 
       <section class="panel">
-        <h2>Processed proposals</h2>
-        <p class="meta"><a href="/app/review/proposals">Open full proposal review</a></p>
+        <div class="page-header">
+          <div>
+            <div class="eyebrow">Downstream review</div>
+            <h2>Processed proposals</h2>
+            <p class="meta">Watch the handoff from request intake into recommendation, approval, and document continuity.</p>
+          </div>
+          <div class="page-actions">
+            <a href="/app/review/proposals" class="pill-link">Open full proposal review</a>
+          </div>
+        </div>
+        <div class="table-wrap">
         <table>
           <thead>
             <tr>
@@ -1339,6 +1735,7 @@ const webAppHTML = `<!DOCTYPE html>
             {{end}}
           </tbody>
         </table>
+        </div>
       </section>
     </div>
     {{end}}
@@ -1349,16 +1746,34 @@ const webAppHTML = `<!DOCTYPE html>
       {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
 
       <section class="panel">
-        <h2>Inbound-request review</h2>
-        <form method="get" action="/app/review/inbound-requests" class="inline-form">
-          <input type="text" name="status" value="{{.Status}}" placeholder="status">
-          <input type="text" name="request_reference" value="{{.RequestReference}}" placeholder="REQ-... reference">
-          <button type="submit">Filter requests</button>
+        <div class="page-header">
+          <div>
+            <div class="eyebrow">Inbound review</div>
+            <h2>Inbound-request review</h2>
+            <p class="meta">Filter by request state or exact REQ-... continuity when operators need the intake queue without broad dashboard context.</p>
+          </div>
+        </div>
+        <form method="get" action="/app/review/inbound-requests" class="filter-grid">
+          <label>Status
+            <input type="text" name="status" value="{{.Status}}" placeholder="queued">
+          </label>
+          <label>Request reference
+            <input type="text" name="request_reference" value="{{.RequestReference}}" placeholder="REQ-... reference">
+          </label>
+          <div class="filter-actions">
+            <button type="submit">Filter requests</button>
+            <a href="/app/review/inbound-requests" class="pill-link">Clear filters</a>
+          </div>
         </form>
       </section>
 
       <section class="panel">
-        <h2>Request status summary</h2>
+        <div class="page-header">
+          <div>
+            <div class="eyebrow">Queue posture</div>
+            <h2>Request status summary</h2>
+          </div>
+        </div>
         <div class="summary-list">
           {{range .StatusSummary}}
           <div class="summary-card">
@@ -1375,6 +1790,7 @@ const webAppHTML = `<!DOCTYPE html>
       </section>
 
       <section class="panel">
+        <div class="table-wrap">
         <table>
           <thead>
             <tr>
@@ -1427,6 +1843,7 @@ const webAppHTML = `<!DOCTYPE html>
             {{end}}
           </tbody>
         </table>
+        </div>
       </section>
     </div>
     {{end}}
@@ -1578,16 +1995,36 @@ const webAppHTML = `<!DOCTYPE html>
       {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
       {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
       <section class="panel">
-        <h2>Proposal review</h2>
-        <form method="get" action="/app/review/proposals" class="inline-form">
-          <input type="text" name="recommendation_id" value="{{.RecommendationID}}" placeholder="recommendation id">
-          <input type="text" name="status" value="{{.Status}}" placeholder="recommendation status">
-          <input type="text" name="request_reference" value="{{.RequestReference}}" placeholder="REQ-... reference">
-          <button type="submit">Filter proposals</button>
+        <div class="page-header">
+          <div>
+            <div class="eyebrow">Downstream review</div>
+            <h2>Proposal review</h2>
+            <p class="meta">Track the coordinator handoff from exact inbound request reference into recommendation, approval, and draft document continuity.</p>
+          </div>
+        </div>
+        <form method="get" action="/app/review/proposals" class="filter-grid">
+          <label>Recommendation ID
+            <input type="text" name="recommendation_id" value="{{.RecommendationID}}" placeholder="recommendation id">
+          </label>
+          <label>Status
+            <input type="text" name="status" value="{{.Status}}" placeholder="approval_requested">
+          </label>
+          <label>Request reference
+            <input type="text" name="request_reference" value="{{.RequestReference}}" placeholder="REQ-... reference">
+          </label>
+          <div class="filter-actions">
+            <button type="submit">Filter proposals</button>
+            <a href="/app/review/proposals" class="pill-link">Clear filters</a>
+          </div>
         </form>
       </section>
       <section class="panel">
-        <h2>Proposal status summary</h2>
+        <div class="page-header">
+          <div>
+            <div class="eyebrow">Proposal posture</div>
+            <h2>Proposal status summary</h2>
+          </div>
+        </div>
         <div class="summary-list">
           {{range .StatusSummary}}
           <div class="summary-card">
@@ -1603,6 +2040,7 @@ const webAppHTML = `<!DOCTYPE html>
         </div>
       </section>
       <section class="panel">
+        <div class="table-wrap">
         <table>
           <thead>
             <tr>
@@ -1648,6 +2086,7 @@ const webAppHTML = `<!DOCTYPE html>
             {{end}}
           </tbody>
         </table>
+        </div>
       </section>
     </div>
     {{end}}
@@ -2744,19 +3183,34 @@ const webAppHTML = `<!DOCTYPE html>
       {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
 
       <section class="panel">
-          <h2>Inbound request {{.Detail.Request.RequestReference}}</h2>
-                <div class="detail-block">
-                  <span class="status-pill {{statusClass .Detail.Request.Status}}">{{.Detail.Request.Status}}</span>
-                  <p class="meta">Channel: {{.Detail.Request.Channel}} | Origin: {{.Detail.Request.OriginType}} | Received: {{formatTime .Detail.Request.ReceivedAt}}</p>
-                  {{if .Detail.Request.CancelledAt.Valid}}<p class="meta">Cancelled: {{formatTime .Detail.Request.CancelledAt.Time}}</p>{{end}}
-                  {{if .Detail.Request.CancellationReason}}<p class="meta">{{.Detail.Request.CancellationReason}}</p>{{end}}
-                  {{if .Detail.Request.FailedAt.Valid}}<p class="meta">Failed: {{formatTime .Detail.Request.FailedAt.Time}}</p>{{end}}
-                  {{if .Detail.Request.FailureReason}}<p class="meta">{{.Detail.Request.FailureReason}}</p>{{end}}
-                  <p class="meta">
-                    <a href="{{inboundRequestReview .Detail.Request.RequestReference}}">Filtered request review</a> |
-                    <a href="/app/review/audit?entity_type=ai.inbound_request&amp;entity_id={{.Detail.Request.RequestID}}">Audit trail</a>
-                  </p>
-                </div>
+        <div class="page-header">
+          <div>
+            <div class="eyebrow">Request detail</div>
+            <h2>Inbound request {{.Detail.Request.RequestReference}}</h2>
+            <p class="meta">Review the persisted request, message and attachment evidence, lifecycle controls, and AI execution trace for one exact intake reference.</p>
+          </div>
+          <div class="page-actions">
+            <a href="{{inboundRequestReview .Detail.Request.RequestReference}}" class="pill-link">Filtered request review</a>
+            <a href="/app/review/audit?entity_type=ai.inbound_request&amp;entity_id={{.Detail.Request.RequestID}}" class="pill-link">Audit trail</a>
+          </div>
+        </div>
+        <div class="detail-grid">
+          <div class="detail-card">
+            <strong>Status</strong><br>
+            <span class="status-pill {{statusClass .Detail.Request.Status}}">{{.Detail.Request.Status}}</span>
+          </div>
+          <div class="detail-card">
+            <strong>Channel</strong><br>{{.Detail.Request.Channel}}
+          </div>
+          <div class="detail-card">
+            <strong>Origin</strong><br>{{.Detail.Request.OriginType}}
+          </div>
+          <div class="detail-card">
+            <strong>Received</strong><br>{{formatTime .Detail.Request.ReceivedAt}}
+          </div>
+        </div>
+        {{if .Detail.Request.CancelledAt.Valid}}<div class="detail-block">Cancelled: {{formatTime .Detail.Request.CancelledAt.Time}}{{if .Detail.Request.CancellationReason}} | {{.Detail.Request.CancellationReason}}{{end}}</div>{{end}}
+        {{if .Detail.Request.FailedAt.Valid}}<div class="detail-block">Failed: {{formatTime .Detail.Request.FailedAt.Time}}{{if .Detail.Request.FailureReason}} | {{.Detail.Request.FailureReason}}{{end}}</div>{{end}}
         {{if eq .Detail.Request.Status "draft"}}
         <div class="detail-block">
           <h3>Edit draft</h3>
@@ -2823,7 +3277,7 @@ const webAppHTML = `<!DOCTYPE html>
             <div class="meta">{{formatTime .CreatedAt}}</div>
           </div>
           {{else}}
-          <p>No messages.</p>
+          <div class="empty-state">No messages.</div>
           {{end}}
         </section>
 
@@ -2838,7 +3292,7 @@ const webAppHTML = `<!DOCTYPE html>
             {{end}}
           </div>
           {{else}}
-          <p>No attachments.</p>
+          <div class="empty-state">No attachments.</div>
           {{end}}
         </section>
       </div>
@@ -2859,7 +3313,7 @@ const webAppHTML = `<!DOCTYPE html>
             </div>
           </div>
           {{else}}
-          <p>No AI runs yet.</p>
+          <div class="empty-state">No AI runs yet.</div>
           {{end}}
         </section>
 
@@ -2890,7 +3344,7 @@ const webAppHTML = `<!DOCTYPE html>
             </details>
           </div>
           {{else}}
-          <p>No AI steps yet.</p>
+          <div class="empty-state">No AI steps yet.</div>
           {{end}}
         </section>
 
@@ -2903,7 +3357,7 @@ const webAppHTML = `<!DOCTYPE html>
             <pre>{{prettyJSON .Payload}}</pre>
           </div>
           {{else}}
-          <p>No artifacts yet.</p>
+          <div class="empty-state">No artifacts yet.</div>
           {{end}}
         </section>
       </div>
@@ -2926,7 +3380,7 @@ const webAppHTML = `<!DOCTYPE html>
             </div>
           </div>
           {{else}}
-          <p>No delegations yet.</p>
+          <div class="empty-state">No delegations yet.</div>
           {{end}}
         </section>
 
@@ -2945,7 +3399,7 @@ const webAppHTML = `<!DOCTYPE html>
             <pre>{{prettyJSON .Payload}}</pre>
           </div>
           {{else}}
-          <p>No recommendations yet.</p>
+          <div class="empty-state">No recommendations yet.</div>
           {{end}}
         </section>
 
@@ -2975,7 +3429,7 @@ const webAppHTML = `<!DOCTYPE html>
             {{end}}
           </div>
           {{else}}
-          <p>No downstream proposals yet.</p>
+          <div class="empty-state">No downstream proposals yet.</div>
           {{end}}
         </section>
       </div>

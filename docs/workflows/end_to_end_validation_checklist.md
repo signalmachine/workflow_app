@@ -1,7 +1,7 @@
 # workflow_app End-to-End Validation Checklist
 
-Date: 2026-03-28
-Status: Initial durable checklist
+Date: 2026-03-30
+Status: Durable checklist with pre-validation browser-review precheck for the refreshed web shell
 Purpose: provide a reusable bounded checklist for live review and testing of application end-to-end workflows on the real `/app` plus `/api/...` seam.
 
 ## 1. Use of this checklist
@@ -29,6 +29,7 @@ Policy:
 3. review `docs/workflows/application_workflow_catalog.md`
 4. rerun `set -a; source .env; set +a; go run ./cmd/verify-agent`
 5. run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
+6. if the refreshed web visual slice is newly landed and not yet closed, review `/app/login`, `/app`, `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, and `/app/review/proposals` on desktop and a narrow-width viewport and record pass or blocker evidence before resuming live workflow validation
 
 ## 3. Workflow checklist
 

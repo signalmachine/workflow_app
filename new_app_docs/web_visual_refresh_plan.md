@@ -1,8 +1,19 @@
 # workflow_app Web Visual Refresh Plan
 
 Date: 2026-03-30
-Status: Planned pre-validation implementation slice
+Status: Implemented in code on 2026-03-30; manual browser-review evidence still pending
 Purpose: define one bounded UI-refresh pass that makes the promoted web layer look more professional and operator-ready before the deferred live workflow review resumes.
+
+## 0. Current implementation status
+
+As of 2026-03-30, the implementation pass for this slice is landed in code:
+
+1. the shared web template now uses a low-glare blue-gray enterprise visual system instead of the earlier warm beige palette
+2. the typography has moved to a cleaner sans-serif stack
+3. the targeted page set in section 3.1 now has refreshed navigation, hierarchy, cards, forms, tables, and filter layout treatment
+4. focused `internal/app` HTTP coverage now asserts the refreshed dashboard shell, login surface, inbound-request review filters, and proposal-review filters
+5. repository verification is complete through `go build ./cmd/... ./internal/...` and `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...`
+6. the remaining open item for full closeout is the bounded manual browser review on desktop and narrow-width layouts required by section 7
 
 ## 1. Why this plan exists
 
