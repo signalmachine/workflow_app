@@ -134,7 +134,23 @@ func (h *AgentAPIHandler) handleWebLogin(w http.ResponseWriter, r *http.Request)
 		http.NotFound(w, r)
 		return
 	}
-	if r.Method != http.MethodPost {
+	switch r.Method {
+	case http.MethodGet:
+		if _, err := h.sessionContextFromRequest(r); err == nil {
+			http.Redirect(w, r, webAppPath, http.StatusSeeOther)
+			return
+		}
+		h.renderWebPage(w, webPageData{
+			Title:      "workflow_app",
+			Notice:     strings.TrimSpace(r.URL.Query().Get("notice")),
+			Error:      strings.TrimSpace(r.URL.Query().Get("error")),
+			ShowLogin:  true,
+			LoginPath:  webLoginPath,
+			ActivePath: webLoginPath,
+		})
+		return
+	case http.MethodPost:
+	default:
 		http.NotFound(w, r)
 		return
 	}

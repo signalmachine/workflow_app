@@ -1,7 +1,7 @@
 # workflow_app Web Visual Refresh Follow-Up Plan
 
 Date: 2026-03-30
-Status: Planned bounded corrective slice
+Status: Implemented in code on 2026-03-30; bounded browser-review evidence still pending
 Purpose: capture the concrete follow-up work discovered during code review of the landed web visual-refresh implementation so those issues are fixed as one bounded implementation step before the broader browser-surface restructuring continues.
 
 ## 1. Why this plan exists
@@ -87,3 +87,16 @@ Reason:
 1. the review findings are direct regressions or drift introduced by the landed refresh itself
 2. leaving them open would weaken the signal from the next browser-led implementation and validation work
 3. the corrective scope is bounded enough that it should not materially delay the later browser-surface restructuring
+
+## 8. Implementation result
+
+Implementation landed on 2026-03-30:
+
+1. `GET /app/login` now renders the same shared sign-in surface used for unauthenticated browser entry while preserving the existing `POST /app/login` action
+2. authenticated requests to `GET /app/login` now redirect back to `/app` rather than showing a redundant sign-in screen
+3. the shared table minimum-width rule now applies only to tables inside `.table-wrap`, so previously unwrapped review and detail pages no longer inherit unsafe narrow-width overflow by default
+4. focused `internal/app` HTTP tests now cover the new login GET behavior and the shared wrapped-table CSS rule
+
+Remaining closeout:
+
+1. bounded manual browser review is still required on desktop and a narrow-width viewport for the pages listed in section 6

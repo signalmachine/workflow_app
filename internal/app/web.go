@@ -1264,7 +1264,7 @@ const webAppHTML = `<!DOCTYPE html>
       width: 100%;
       border-collapse: collapse;
       font-size: 0.96rem;
-      min-width: 640px;
+      min-width: 0;
     }
     th, td {
       text-align: left;
@@ -1285,6 +1285,9 @@ const webAppHTML = `<!DOCTYPE html>
       overflow-x: auto;
       margin: 0 -4px;
       padding: 0 4px;
+    }
+    .table-wrap > table {
+      min-width: 640px;
     }
     .status-pill {
       display: inline-flex;

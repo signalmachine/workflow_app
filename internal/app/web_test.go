@@ -1997,6 +1997,110 @@ func TestHandleWebAppUnauthenticatedRendersRefreshedLoginSurface(t *testing.T) {
 	}
 }
 
+func TestHandleWebLoginGetRendersRefreshedLoginSurface(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		nil,
+		nil,
+		stubBrowserSessionService{},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/login?notice=Sign+in+required", nil)
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `Sign in`) {
+		t.Fatalf("expected login heading, body=%s", body)
+	}
+	if !strings.Contains(body, `form method="post" action="/app/login"`) {
+		t.Fatalf("expected login form action, body=%s", body)
+	}
+	if !strings.Contains(body, `Sign in required`) {
+		t.Fatalf("expected notice to render on login page, body=%s", body)
+	}
+}
+
+func TestHandleWebLoginGetRedirectsAuthenticatedSessionToDashboard(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		nil,
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/login", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if location := recorder.Header().Get("Location"); location != "/app" {
+		t.Fatalf("unexpected redirect location: %s", location)
+	}
+}
+
+func TestHandleWebApprovalDetailUsesContainedTablesOnlyForWrappedLayouts(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listApprovalQueue: func(context.Context, reporting.ListApprovalQueueInput) ([]reporting.ApprovalQueueEntry, error) {
+				return []reporting.ApprovalQueueEntry{{
+					ApprovalID:        "approval-123",
+					QueueCode:         "ops_review",
+					QueueStatus:       "pending",
+					ApprovalStatus:    "pending",
+					DocumentID:        "doc-123",
+					DocumentTitle:     "Inbound draft invoice",
+					DocumentTypeCode:  "invoice",
+					DocumentStatus:    "draft",
+					RequestedByUserID: "user-123",
+					RequestedAt:       time.Date(2026, 3, 30, 10, 0, 0, 0, time.UTC),
+				}}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review/approvals", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `.table-wrap > table`) {
+		t.Fatalf("expected wrapped-table min-width rule, body=%s", body)
+	}
+	if strings.Contains(body, "table {\n      width: 100%;\n      border-collapse: collapse;\n      font-size: 0.96rem;\n      min-width: 640px;") {
+		t.Fatalf("expected global table min-width rule to be removed, body=%s", body)
+	}
+}
+
 func testSessionContext() identityaccess.SessionContext {
 	return identityaccess.SessionContext{
 		Actor: identityaccess.Actor{
