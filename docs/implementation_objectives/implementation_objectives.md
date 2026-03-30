@@ -18,7 +18,7 @@ Rules:
 6. this document is a companion summary and is not mandatory reading for every implementation session
 7. `docs/implementation_objectives/implementation_principles.md` is a reference-only companion note that provides implementation-principles guidance, but it is not the sole source of implementation principles and it is not part of the canonical planning set
 8. the normal session-start source of truth remains `AGENTS.md`, `README.md`, `new_app_docs/`, and optional reference material when needed
-9. `docs/workflows/` should be maintained as the durable workflow-reference layer for supported operator paths, workflow status, and reusable end-to-end validation checklists, while `new_app_docs/` remains the live planning source
+9. `docs/workflows/` should be maintained as the separate workflow-reference and workflow-validation layer for supported operator paths, workflow status, reusable end-to-end validation checklists, and live-review evidence, while `new_app_docs/` remains the live implementation-planning source
 10. when high-level objectives, rules, principles, specifications, or invariants change in those canonical sources, this summary should be reviewed and updated if needed
 11. when implementation-time codebase review surfaces drift, an issue, an inconsistency, or a conflict, contributors should report it and either fix it in the same change when appropriate or document it in the canonical implementation plan docs for a future session
 
@@ -112,8 +112,8 @@ Current checkpoint result:
 1. the repository has completed Milestone 0 through Milestone 8 from the active canonical plan
 2. `go build ./...` and `set -a; source .env; set +a; go test -p 1 ./...` both completed cleanly during the 2026-03-27 closeout review
 3. the current codebase should therefore be treated as thin-v1 checkpoint complete at its planned foundation depth
-4. the next active step after checkpoint closeout is a validation-led slice for live provider readiness and canonical end-to-end workflow testing rather than implicit new feature expansion
-5. that post-checkpoint slice should continue focused review plus structured end-to-end testing until the canonical supervised user-testing workflows have no known blocking defects
+4. the next active implementation steps after checkpoint closeout are the bounded web visual-refresh slice and the bounded browser-surface restructuring slice rather than implicit broad feature expansion
+5. live provider readiness and canonical end-to-end workflow testing remain active, but they now continue on the separate `docs/workflows/` validation track rather than inside the implementation-plan stream
 6. this workflow-critical testing stance should remain a durable repository policy beyond thin v1 whenever the real question is operator workflow reliability on the shared application seam rather than isolated package correctness
 
 ## 5. Highest-priority v1 capabilities
