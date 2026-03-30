@@ -43,6 +43,7 @@ Current useful commands:
 - `go run ./cmd/migrate` to apply embedded PostgreSQL migrations
 - `go build ./cmd/... ./internal/...` to verify the active implementation workspace builds without pulling the read-only `examples/` tree into module verification
 - `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` to run the current automated test suite against the configured test database without package-level advisory-lock contention and without pulling the read-only `examples/` tree into module verification
+- `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test ./path/to/package -count=1` to run a focused DB-backed package test with the same configured environment when a narrow rerun is needed; do not treat plain `go test ./path/to/package` as the normal path for DB-backed packages in this repository
 - `go test -race ./path/to/package` to run targeted race detection for concurrency-sensitive packages; this is not yet part of the repository's standard full-suite verification path
 - `go test -shuffle=on ./path/to/package` to detect hidden test-order coupling in focused packages when test isolation is in doubt
 - `go test -count=1 ./path/to/package` to disable cached test results for focused reruns and flake investigation
@@ -108,7 +109,9 @@ For implementation work:
 - use `go test -shuffle=on ./path/to/package` when test-order coupling, shared fixtures, or hidden state leakage is a realistic risk
 - use `go test -count=1 ./path/to/package` for focused reruns when you need to bypass cached results or investigate a flaky failure
 - database-backed tests in this repository are expected to run with the configured test database loaded from `.env`; do not treat direct `go test` runs without that environment as the normal verification path, even when the tests are not explicitly labeled as integration-only
+- when a focused rerun targets a DB-backed package, use the same `.env`-loaded command shape as the canonical suite rather than starting with a bare `go test`
 - if DB-backed verification appears hung, check for stale or overlapping sessions holding the disposable test-database advisory lock before treating the symptom as a product defect; document the blocker and cleanup in the canonical planning docs when it materially affects verification
+- if a DB-backed verification command fails because the sandbox cannot reach the configured test database, rerun the documented `.env`-loaded repository command with the required approval path before treating the failure as a product defect
 - if migrations or persistence behavior change, verify against the configured development and test databases unless an explicit blocker is documented
 - while the application remains pre-production, it is acceptable to drop and recreate the configured test database to recover from schema drift, failed migration experiments, or other disposable development-state issues
 - the disposable database-reset rule applies only to the configured test database, not to the application or development database

@@ -3,11 +3,10 @@ package migrations
 import (
 	"context"
 	"database/sql"
-	"os"
 	"testing"
 	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
+	"workflow_app/internal/testsupport/testdb"
 )
 
 func TestWorkOrderDocumentOwnershipMigrationBackfillsAndRollsBackIntegration(t *testing.T) {
@@ -278,47 +277,15 @@ RETURNING id;`).Scan(&userID); err != nil {
 	return orgID, userID
 }
 
-const (
-	testDatabaseLockKey      int64         = 20260319
-	testDatabaseSetupTimeout time.Duration = 2 * time.Minute
-)
-
 func openTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 
-	databaseURL := os.Getenv("TEST_DATABASE_URL")
-	if databaseURL == "" {
-		t.Fatal("TEST_DATABASE_URL is required")
-	}
+	db := testdb.OpenFromEnv(t)
 
-	db, err := sql.Open("pgx", databaseURL)
-	if err != nil {
-		t.Fatalf("open test database: %v", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), testDatabaseSetupTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), testdb.DefaultSetupTimeout)
 	defer cancel()
 
-	if err := db.PingContext(ctx); err != nil {
-		t.Fatalf("ping test database: %v", err)
-	}
-
-	lockConn, err := db.Conn(ctx)
-	if err != nil {
-		t.Fatalf("open test database lock connection: %v", err)
-	}
-
-	if _, err := lockConn.ExecContext(ctx, `SELECT pg_advisory_lock($1)`, testDatabaseLockKey); err != nil {
-		_ = lockConn.Close()
-		t.Fatalf("acquire test database lock: %v", err)
-	}
-
-	t.Cleanup(func() {
-		unlockCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_, _ = lockConn.ExecContext(unlockCtx, `SELECT pg_advisory_unlock($1)`, testDatabaseLockKey)
-		_ = lockConn.Close()
-	})
+	testdb.MustAcquireAdvisoryLock(t, ctx, db, testdb.DefaultLockKey)
 
 	if _, err := Up(ctx, db); err != nil {
 		t.Fatalf("migrate test database: %v", err)

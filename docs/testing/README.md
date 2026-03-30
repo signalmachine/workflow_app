@@ -196,6 +196,12 @@ For implementation work in this repository, the normal verification path is:
 6. if migrations changed, verify that `go run ./cmd/migrate` applies cleanly against the configured development database
 7. document any blocker explicitly if full verification cannot run
 
+Current disposable test-database advisory-lock behavior:
+
+1. the shared DB-backed test harness now acquires the disposable test-database advisory lock through bounded `pg_try_advisory_lock` retries rather than an unbounded wait
+2. when stale or interrupted sessions still hold that lock, the timeout error now surfaces holder or waiter session details from `pg_locks` and `pg_stat_activity`
+3. if the canonical DB-backed test command still blocks or fails on that path, clean up the stale `TEST_DATABASE_URL` sessions first and then rerun the canonical command before treating the symptom as a product defect
+
 ## 12.1 Workflow-critical validation policy
 
 For workflow-critical changes and readiness review, use explicit end-to-end workflow testing, not only package verification.
