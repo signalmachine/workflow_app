@@ -96,6 +96,7 @@ Implementation status:
 2. `Submit inbound request` now has a dedicated page with clear result messaging and exact `REQ-...` continuity
 3. `Operations feed` remains the next planned durable one-way coordinator or system communication page
 4. `Agent chat` remains the following planned separate two-way coordinator communication page
+5. after items 3 and 4 are complete, take one bounded performance pass on the `internal/app` test suite focused on measuring the slowest cases and landing only low-risk speedups that preserve workflow-critical integration coverage
 
 ## 5. Architecture guardrails
 

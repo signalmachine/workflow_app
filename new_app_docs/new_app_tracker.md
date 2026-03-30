@@ -65,7 +65,8 @@ Planned next step:
 8. the bounded corrective slice in `web_visual_refresh_follow_up_plan.md` is now complete
 9. the first half of `operator_communication_and_intake_surfaces_plan.md` is now complete through the dashboard-only home plus dedicated intake-page split
 10. the next active implementation step is the remaining operations-feed and agent-chat surface work from `operator_communication_and_intake_surfaces_plan.md`
-11. workflow validation remains on the separate `docs/workflows/` track and should feed any discovered product gaps back into `new_app_docs/` as bounded implementation slices
+11. after the current planned operations-feed and agent-chat implementation work is complete, take one bounded performance pass on the `internal/app` test suite to identify the heaviest paths and land only low-risk speedups if they are clearly worthwhile
+12. workflow validation remains on the separate `docs/workflows/` track and should feed any discovered product gaps back into `new_app_docs/` as bounded implementation slices
 
 Planned next-session implementation order:
 
@@ -76,8 +77,9 @@ Planned next-session implementation order:
 5. treat the bounded corrective slice in `web_visual_refresh_follow_up_plan.md` as complete
 6. treat the dashboard-only home plus dedicated intake-page split in `operator_communication_and_intake_surfaces_plan.md` as complete
 7. next implement the remaining operations-feed and agent-chat surfaces from `operator_communication_and_intake_surfaces_plan.md`
-8. keep live workflow validation on the separate `docs/workflows/` track
-9. if that validation later exposes product defects or missing support seams, add bounded fix plans back into `new_app_docs/` before implementation begins
+8. after those currently planned browser-surface implementations are complete, take one bounded performance pass on the `internal/app` test suite focused on identifying the slowest paths and applying only narrow, low-risk speedups that do not weaken workflow-critical coverage
+9. keep live workflow validation on the separate `docs/workflows/` track
+10. if that validation later exposes product defects or missing support seams, add bounded fix plans back into `new_app_docs/` before implementation begins
 
 Follow-on rule:
 
@@ -104,12 +106,13 @@ Recommended sequence after checkpoint closeout:
 5. the bounded test-harness hardening slice around disposable test-database advisory-lock behavior and clearer blocked-test diagnostics is now complete
 6. the bounded web visual-refresh implementation slice is landed in code, but implementation review found one bounded corrective slice around login-route alignment and shared-template narrow-width table containment
 7. the dashboard-only home plus dedicated intake-page split is now landed, so the remaining browser-surface restructuring work is the operations-feed and agent-chat pair from `operator_communication_and_intake_surfaces_plan.md`
-8. keep workflow validation on the separate `docs/workflows/` track rather than folding it back into the implementation sequence here
-9. once those remaining implementation slices and the later workflow validation pass have both progressed, decide explicitly whether the next session is:
-10. one bounded post-checkpoint shared-backend or correctness slice, or
-11. one explicitly promoted v2 work item under `new_app_docs/app_v2_plans/`
-12. keep each newly promoted slice bounded to one concern rather than reopening completed milestone buckets
-13. keep richer draft-attachment editing beyond the landed additive upload flow as residual only if later evidence proves it materially necessary
+8. after those remaining browser-surface implementations land, take one bounded performance pass on the `internal/app` test suite to measure the slowest cases and land only safe optimizations that preserve the repository's workflow-critical integration depth
+9. keep workflow validation on the separate `docs/workflows/` track rather than folding it back into the implementation sequence here
+10. once those remaining implementation slices, that bounded test-performance pass, and the later workflow validation pass have all progressed, decide explicitly whether the next session is:
+11. one bounded post-checkpoint shared-backend or correctness slice, or
+12. one explicitly promoted v2 work item under `new_app_docs/app_v2_plans/`
+13. keep each newly promoted slice bounded to one concern rather than reopening completed milestone buckets
+14. keep richer draft-attachment editing beyond the landed additive upload flow as residual only if later evidence proves it materially necessary
 
 Reason:
 
@@ -128,7 +131,9 @@ Reason:
 13. the bounded shared-backend correctness slice and the bounded test-harness hardening slice are now both complete
 14. the previously underpowered browser presentation was a worthwhile bounded pre-validation concern, and the implementation pass for that refresh is now landed
 15. the coordinator-communication and intake-surface restructuring remains the next explicit implementation concern, but its first half is now complete through the dashboard-only home and dedicated intake page
-16. the remaining promoted browser-surface work is now the operations-feed and agent-chat pair, while workflow validation continues on its own track rather than being silently mixed back into implementation planning
+16. the remaining promoted browser-surface work is now the operations-feed and agent-chat pair
+17. once that pair lands, one bounded `internal/app` test-suite performance pass is also worth doing so long as it stays focused on measurement plus low-risk speedups rather than weakening the suite's workflow-critical coverage
+18. workflow validation continues on its own track rather than being silently mixed back into implementation planning
 
 ## 2.1.1 Next-session decision gate
 
