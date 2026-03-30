@@ -164,7 +164,7 @@ func (h *AgentAPIHandler) handleWebLogin(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	setSessionCookies(w, session.Session.ID, session.RefreshToken, session.Session.ExpiresAt)
+	setSessionCookies(w, sessionCookiesShouldBeSecure(r), session.Session.ID, session.RefreshToken, session.Session.ExpiresAt)
 	http.Redirect(w, r, webAppPath+"?notice="+url.QueryEscape("Signed in."), http.StatusSeeOther)
 }
 
@@ -182,7 +182,7 @@ func (h *AgentAPIHandler) handleWebLogout(w http.ResponseWriter, r *http.Request
 	if ok && h.authService != nil {
 		_ = h.authService.RevokeAuthenticatedSession(r.Context(), sessionID, refreshToken)
 	}
-	clearSessionCookies(w)
+	clearSessionCookies(w, sessionCookiesShouldBeSecure(r))
 	http.Redirect(w, r, webAppPath+"?notice="+url.QueryEscape("Signed out."), http.StatusSeeOther)
 }
 

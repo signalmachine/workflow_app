@@ -98,6 +98,18 @@ type UpdateMessageInput struct {
 	Actor       identityaccess.Actor
 }
 
+type SaveDraftInput struct {
+	RequestID     string
+	MessageID     string
+	OriginType    string
+	Channel       string
+	Metadata      any
+	MessageRole   string
+	TextContent   string
+	EnsureMessage bool
+	Actor         identityaccess.Actor
+}
+
 type QueueRequestInput struct {
 	RequestID string
 	Actor     identityaccess.Actor
@@ -261,6 +273,100 @@ func (s *Service) UpdateMessage(ctx context.Context, input UpdateMessageInput) (
 	}
 
 	return message, nil
+}
+
+func (s *Service) SaveDraftTx(ctx context.Context, tx *sql.Tx, input SaveDraftInput) (InboundRequest, Message, error) {
+	requestID := strings.TrimSpace(input.RequestID)
+	messageID := strings.TrimSpace(input.MessageID)
+	if requestID == "" && messageID != "" {
+		return InboundRequest{}, Message{}, ErrInvalidInboundRequest
+	}
+
+	var (
+		request       InboundRequest
+		message       Message
+		requestEvent  string
+		requestExists = requestID != ""
+		err           error
+	)
+
+	if requestExists {
+		request, err = updateDraftTx(ctx, tx, input)
+		if err != nil {
+			return InboundRequest{}, Message{}, err
+		}
+		requestEvent = "ai.inbound_request_updated"
+	} else {
+		request, err = createDraftTx(ctx, tx, CreateDraftInput{
+			OriginType: input.OriginType,
+			Channel:    input.Channel,
+			Metadata:   input.Metadata,
+			Actor:      input.Actor,
+		})
+		if err != nil {
+			return InboundRequest{}, Message{}, err
+		}
+		requestEvent = "ai.inbound_request_created"
+	}
+
+	switch {
+	case messageID != "":
+		message, err = updateDraftMessageTx(ctx, tx, request.ID, input)
+		if err != nil {
+			return InboundRequest{}, Message{}, err
+		}
+	case strings.TrimSpace(input.TextContent) != "" || input.EnsureMessage:
+		message, err = addMessageTx(ctx, tx, AddMessageInput{
+			RequestID:   request.ID,
+			MessageRole: input.MessageRole,
+			TextContent: input.TextContent,
+			Actor:       input.Actor,
+		})
+		if err != nil {
+			return InboundRequest{}, Message{}, err
+		}
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
+		EventType:   requestEvent,
+		EntityType:  "ai.inbound_request",
+		EntityID:    request.ID,
+		Payload: map[string]any{
+			"origin_type":       request.OriginType,
+			"channel":           request.Channel,
+			"status":            request.Status,
+			"request_reference": request.RequestReference,
+		},
+	}); err != nil {
+		return InboundRequest{}, Message{}, err
+	}
+
+	if message.ID != "" {
+		messageEvent := "ai.inbound_request_message_added"
+		payload := map[string]any{
+			"request_id":   message.RequestID,
+			"message_role": message.MessageRole,
+		}
+		if messageID == "" {
+			payload["message_index"] = message.MessageIndex
+		} else {
+			messageEvent = "ai.inbound_request_message_updated"
+		}
+		if err := audit.WriteTx(ctx, tx, audit.Event{
+			OrgID:       input.Actor.OrgID,
+			ActorUserID: input.Actor.UserID,
+			EventType:   messageEvent,
+			EntityType:  "ai.inbound_request_message",
+			EntityID:    message.ID,
+			Payload:     payload,
+		}); err != nil {
+			return InboundRequest{}, Message{}, err
+		}
+	}
+
+	return request, message, nil
 }
 
 func (s *Service) QueueRequest(ctx context.Context, input QueueRequestInput) (InboundRequest, error) {
@@ -436,19 +542,7 @@ func (s *Service) transitionRequest(
 }
 
 func createDraftTx(ctx context.Context, tx *sql.Tx, input CreateDraftInput) (InboundRequest, error) {
-	originType := strings.TrimSpace(input.OriginType)
-	if originType == "" {
-		originType = OriginHuman
-	}
-	if originType != OriginHuman && originType != OriginSystem {
-		return InboundRequest{}, ErrInvalidInboundRequest
-	}
-	channel := strings.TrimSpace(input.Channel)
-	if channel == "" {
-		channel = "browser"
-	}
-
-	metadata, err := marshalJSON(input.Metadata)
+	originType, channel, metadata, err := normalizeDraftFields(input.OriginType, input.Channel, input.Metadata)
 	if err != nil {
 		return InboundRequest{}, err
 	}
@@ -505,6 +599,63 @@ RETURNING
 		originType,
 		channel,
 		StatusDraft,
+		string(metadata),
+	))
+}
+
+func updateDraftTx(ctx context.Context, tx *sql.Tx, input SaveDraftInput) (InboundRequest, error) {
+	request, err := getInboundRequestForUpdate(ctx, tx, input.Actor.OrgID, input.RequestID)
+	if err != nil {
+		return InboundRequest{}, err
+	}
+	if request.Status != StatusDraft {
+		return InboundRequest{}, ErrInboundRequestState
+	}
+
+	originType, channel, metadata, err := normalizeDraftFields(input.OriginType, input.Channel, input.Metadata)
+	if err != nil {
+		return InboundRequest{}, err
+	}
+
+	const statement = `
+UPDATE ai.inbound_requests
+SET origin_type = $3,
+	channel = $4,
+	metadata = $5::jsonb,
+	updated_at = NOW()
+WHERE org_id = $1
+  AND id = $2
+RETURNING
+	id,
+	org_id,
+	request_number,
+	request_reference,
+	session_id,
+	actor_user_id,
+	origin_type,
+	channel,
+	status,
+	metadata,
+	cancellation_reason,
+	failure_reason,
+	received_at,
+	queued_at,
+	processing_started_at,
+	processed_at,
+	acted_on_at,
+	completed_at,
+	failed_at,
+	cancelled_at,
+	created_at,
+	updated_at;`
+
+	return scanInboundRequest(tx.QueryRowContext(
+		ctx,
+		statement,
+		input.Actor.OrgID,
+		input.RequestID,
+		originType,
+		channel,
 		string(metadata),
 	))
 }
@@ -609,6 +760,22 @@ RETURNING
 		role,
 		strings.TrimSpace(input.TextContent),
 	))
+}
+
+func updateDraftMessageTx(ctx context.Context, tx *sql.Tx, requestID string, input SaveDraftInput) (Message, error) {
+	message, request, err := getMessageForUpdate(ctx, tx, input.Actor.OrgID, input.MessageID)
+	if err != nil {
+		return Message{}, err
+	}
+	if request.ID != requestID {
+		return Message{}, ErrInvalidInboundRequest
+	}
+	return updateMessageTx(ctx, tx, UpdateMessageInput{
+		MessageID:   message.ID,
+		TextContent: input.TextContent,
+		MessageRole: input.MessageRole,
+		Actor:       input.Actor,
+	})
 }
 
 func queueRequestTx(ctx context.Context, tx *sql.Tx, input QueueRequestInput) (InboundRequest, error) {
@@ -1127,6 +1294,28 @@ func marshalJSON(value any) ([]byte, error) {
 		return []byte(`{}`), nil
 	}
 	return payload, nil
+}
+
+func normalizeDraftFields(originTypeInput, channelInput string, metadataInput any) (string, string, []byte, error) {
+	originType := strings.TrimSpace(originTypeInput)
+	if originType == "" {
+		originType = OriginHuman
+	}
+	if originType != OriginHuman && originType != OriginSystem {
+		return "", "", nil, ErrInvalidInboundRequest
+	}
+
+	channel := strings.TrimSpace(channelInput)
+	if channel == "" {
+		channel = "browser"
+	}
+
+	metadata, err := marshalJSON(metadataInput)
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	return originType, channel, metadata, nil
 }
 
 type rowScanner interface {

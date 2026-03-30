@@ -3,6 +3,7 @@ package app_test
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
@@ -1597,6 +1598,73 @@ func TestAgentAPISessionLoginRejectsWrongPassword(t *testing.T) {
 	}
 }
 
+func TestAgentAPISessionLoginSetsSecureCookiesForHTTPSIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	orgSlug, userEmail := loadOrgSlugAndUserEmail(t, ctx, db, orgID, operatorUserID)
+
+	handler := app.NewAgentAPIHandler(db)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/session/login", bytes.NewBufferString(`{
+		"org_slug":"`+orgSlug+`",
+		"email":"`+userEmail+`",
+		"password":"`+testLoginPassword+`"
+	}`))
+	req.TLS = &tls.ConnectionState{}
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected login status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	for _, cookie := range recorder.Result().Cookies() {
+		if (cookie.Name == "workflow_session_id" || cookie.Name == "workflow_refresh_token") && !cookie.Secure {
+			t.Fatalf("expected secure cookie for HTTPS login: %+v", cookie)
+		}
+	}
+}
+
+func TestAgentAPISessionLoginKeepsCookiesUsableForHTTPDevelopmentIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	orgSlug, userEmail := loadOrgSlugAndUserEmail(t, ctx, db, orgID, operatorUserID)
+
+	handler := app.NewAgentAPIHandler(db)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/session/login", bytes.NewBufferString(`{
+		"org_slug":"`+orgSlug+`",
+		"email":"`+userEmail+`",
+		"password":"`+testLoginPassword+`"
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected login status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	for _, cookie := range recorder.Result().Cookies() {
+		if (cookie.Name == "workflow_session_id" || cookie.Name == "workflow_refresh_token") && cookie.Secure {
+			t.Fatalf("expected non-secure cookie for plain HTTP development login: %+v", cookie)
+		}
+	}
+}
+
 func TestAgentAPIProcessNextQueuedInboundRequestIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()
@@ -2357,6 +2425,76 @@ func TestAgentAPIDraftLifecycleIntegration(t *testing.T) {
 	}
 	if remaining != 0 {
 		t.Fatalf("expected deleted draft to be removed, found %d", remaining)
+	}
+}
+
+func TestAgentAPISaveDraftRejectsMismatchedRequestAndMessageIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	session := startSession(t, ctx, db, orgID, operatorUserID)
+
+	handler := app.NewAgentAPIHandlerWithServices(nil, app.NewSubmissionService(db))
+
+	saveDraft := func(text string) struct {
+		RequestID string `json:"request_id"`
+		MessageID string `json:"message_id"`
+	} {
+		t.Helper()
+
+		req := httptest.NewRequest(http.MethodPost, "/api/inbound-requests", bytes.NewBufferString(`{
+			"origin_type":"human",
+			"channel":"browser",
+			"metadata":{"submitter_label":"front desk"},
+			"message":{"message_role":"request","text_content":"`+text+`"},
+			"queue_for_review":false
+		}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Workflow-Org-ID", orgID)
+		req.Header.Set("X-Workflow-User-ID", operatorUserID)
+		req.Header.Set("X-Workflow-Session-ID", session.ID)
+
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, req)
+		if recorder.Code != http.StatusCreated {
+			t.Fatalf("unexpected save-draft status: got %d body=%s", recorder.Code, recorder.Body.String())
+		}
+
+		var response struct {
+			RequestID string `json:"request_id"`
+			MessageID string `json:"message_id"`
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+			t.Fatalf("decode save-draft response: %v", err)
+		}
+		return response
+	}
+
+	firstDraft := saveDraft("First draft.")
+	secondDraft := saveDraft("Second draft.")
+
+	updateReq := httptest.NewRequest(http.MethodPost, "/api/inbound-requests/"+firstDraft.RequestID+"/draft", bytes.NewBufferString(`{
+		"message_id":"`+secondDraft.MessageID+`",
+		"origin_type":"human",
+		"channel":"browser",
+		"metadata":{"submitter_label":"dispatch desk"},
+		"message":{"message_role":"request","text_content":"Should fail."}
+	}`))
+	updateReq.Header.Set("Content-Type", "application/json")
+	updateReq.Header.Set("X-Workflow-Org-ID", orgID)
+	updateReq.Header.Set("X-Workflow-User-ID", operatorUserID)
+	updateReq.Header.Set("X-Workflow-Session-ID", session.ID)
+
+	updateRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(updateRecorder, updateReq)
+
+	if updateRecorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected bad request for mismatched draft update, got %d body=%s", updateRecorder.Code, updateRecorder.Body.String())
 	}
 }
 

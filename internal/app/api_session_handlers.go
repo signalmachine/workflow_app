@@ -52,7 +52,7 @@ func (h *AgentAPIHandler) handleSessionLogin(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	setSessionCookies(w, session.Session.ID, session.RefreshToken, session.Session.ExpiresAt)
+	setSessionCookies(w, sessionCookiesShouldBeSecure(r), session.Session.ID, session.RefreshToken, session.Session.ExpiresAt)
 	writeJSON(w, http.StatusCreated, mapSessionContext(identityaccess.SessionContext{
 		Actor:           identityaccess.Actor{OrgID: session.Session.OrgID, UserID: session.Session.UserID, SessionID: session.Session.ID},
 		Session:         session.Session,
@@ -133,7 +133,7 @@ func (h *AgentAPIHandler) handleCurrentSession(w http.ResponseWriter, r *http.Re
 			return
 		}
 		if refreshToken := cookieValue(r, refreshTokenCookieName); refreshToken != "" {
-			setSessionCookies(w, context.Session.ID, refreshToken, context.Session.ExpiresAt)
+			setSessionCookies(w, sessionCookiesShouldBeSecure(r), context.Session.ID, refreshToken, context.Session.ExpiresAt)
 		}
 		writeJSON(w, http.StatusOK, mapSessionContext(context))
 	default:
@@ -214,7 +214,7 @@ func (h *AgentAPIHandler) handleSessionLogout(w http.ResponseWriter, r *http.Req
 			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to revoke session"})
 			return
 		}
-		clearSessionCookies(w)
+		clearSessionCookies(w, sessionCookiesShouldBeSecure(r))
 	}
 
 	writeJSON(w, http.StatusOK, struct {

@@ -84,12 +84,14 @@ type DownloadAttachmentInput struct {
 }
 
 type SubmissionService struct {
+	db                *sql.DB
 	intakeService     *intake.Service
 	attachmentService *attachments.Service
 }
 
 func NewSubmissionService(db *sql.DB) *SubmissionService {
 	return &SubmissionService{
+		db:                db,
 		intakeService:     intake.NewService(db),
 		attachmentService: attachments.NewService(db),
 	}
@@ -187,113 +189,75 @@ func (s *SubmissionService) SubmitInboundRequest(ctx context.Context, input Subm
 }
 
 func (s *SubmissionService) SaveInboundDraft(ctx context.Context, input SaveInboundDraftInput) (_ SaveInboundDraftResult, err error) {
-	if s == nil || s.intakeService == nil || s.attachmentService == nil {
+	if s == nil || s.db == nil || s.intakeService == nil || s.attachmentService == nil {
 		return SaveInboundDraftResult{}, fmt.Errorf("submission service is not initialized")
 	}
 
-	requestID := strings.TrimSpace(input.RequestID)
 	role := strings.TrimSpace(input.MessageRole)
 	if role == "" {
 		role = intake.MessageRoleRequest
 	}
 
-	var request intake.InboundRequest
-	if requestID == "" {
-		request, err = s.intakeService.CreateDraft(ctx, intake.CreateDraftInput{
-			OriginType: input.OriginType,
-			Channel:    input.Channel,
-			Metadata:   input.Metadata,
-			Actor:      input.Actor,
-		})
-		if err != nil {
-			return SaveInboundDraftResult{}, err
-		}
-		defer func() {
-			if err == nil {
-				return
-			}
-			_ = s.intakeService.DeleteDraft(ctx, intake.DeleteDraftInput{
-				RequestID: request.ID,
-				Actor:     input.Actor,
-			})
-		}()
-	} else {
-		request, err = s.intakeService.GetRequest(ctx, intake.GetRequestInput{
-			RequestID: requestID,
-			Actor:     input.Actor,
-		})
-		if err != nil {
-			return SaveInboundDraftResult{}, err
-		}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return SaveInboundDraftResult{}, fmt.Errorf("begin save inbound draft: %w", err)
 	}
 
-	var message intake.Message
-	messageID := strings.TrimSpace(input.MessageID)
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin, identityaccess.RoleOperator); err != nil {
+		_ = tx.Rollback()
+		return SaveInboundDraftResult{}, err
+	}
+
 	messageText := strings.TrimSpace(input.MessageText)
-	switch {
-	case messageID != "":
-		message, err = s.intakeService.UpdateMessage(ctx, intake.UpdateMessageInput{
-			MessageID:   messageID,
-			TextContent: messageText,
-			MessageRole: role,
-			Actor:       input.Actor,
-		})
-		if err != nil {
-			return SaveInboundDraftResult{}, err
-		}
-	case messageText != "":
-		message, err = s.intakeService.AddMessage(ctx, intake.AddMessageInput{
-			RequestID:   request.ID,
-			MessageRole: role,
-			TextContent: messageText,
-			Actor:       input.Actor,
-		})
-		if err != nil {
-			return SaveInboundDraftResult{}, err
-		}
+	request, message, err := s.intakeService.SaveDraftTx(ctx, tx, intake.SaveDraftInput{
+		RequestID:     input.RequestID,
+		MessageID:     input.MessageID,
+		OriginType:    input.OriginType,
+		Channel:       input.Channel,
+		Metadata:      input.Metadata,
+		MessageRole:   role,
+		TextContent:   messageText,
+		EnsureMessage: len(input.Attachments) > 0,
+		Actor:         input.Actor,
+	})
+	if err != nil {
+		_ = tx.Rollback()
+		return SaveInboundDraftResult{}, err
 	}
 
-	result := SaveInboundDraftResult{
-		Request: request,
-		Message: message,
-	}
+	result := SaveInboundDraftResult{Request: request, Message: message}
 	for _, attachmentInput := range input.Attachments {
 		content, decodeErr := base64.StdEncoding.DecodeString(strings.TrimSpace(attachmentInput.ContentBase64))
 		if decodeErr != nil {
+			_ = tx.Rollback()
 			return SaveInboundDraftResult{}, fmt.Errorf("%w: %v", ErrAttachmentContentEncoding, decodeErr)
 		}
 
-		attachment, createErr := s.attachmentService.CreateAttachment(ctx, attachments.CreateAttachmentInput{
+		attachment, createErr := s.attachmentService.CreateAttachmentTx(ctx, tx, attachments.CreateAttachmentInput{
 			OriginalFileName: attachmentInput.OriginalFileName,
 			MediaType:        attachmentInput.MediaType,
 			Content:          content,
 			Actor:            input.Actor,
 		})
 		if createErr != nil {
+			_ = tx.Rollback()
 			return SaveInboundDraftResult{}, createErr
 		}
-		if message.ID == "" {
-			message, err = s.intakeService.AddMessage(ctx, intake.AddMessageInput{
-				RequestID:   request.ID,
-				MessageRole: role,
-				TextContent: "",
-				Actor:       input.Actor,
-			})
-			if err != nil {
-				return SaveInboundDraftResult{}, err
-			}
-			result.Message = message
-		}
 
-		if _, linkErr := s.attachmentService.LinkRequestMessage(ctx, attachments.LinkRequestMessageInput{
+		if _, linkErr := s.attachmentService.LinkRequestMessageTx(ctx, tx, attachments.LinkRequestMessageInput{
 			RequestMessageID: message.ID,
 			AttachmentID:     attachment.ID,
 			LinkRole:         attachmentInput.LinkRole,
 			Actor:            input.Actor,
 		}); linkErr != nil {
+			_ = tx.Rollback()
 			return SaveInboundDraftResult{}, linkErr
 		}
 		result.Attachments = append(result.Attachments, attachment)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return SaveInboundDraftResult{}, fmt.Errorf("commit save inbound draft: %w", err)
 	}
 
 	return result, nil

@@ -181,6 +181,54 @@ func (s *Service) LinkRequestMessage(ctx context.Context, input LinkRequestMessa
 	return link, nil
 }
 
+func (s *Service) CreateAttachmentTx(ctx context.Context, tx *sql.Tx, input CreateAttachmentInput) (Attachment, error) {
+	attachment, err := createAttachmentTx(ctx, tx, input)
+	if err != nil {
+		return Attachment{}, err
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
+		EventType:   "attachments.attachment_created",
+		EntityType:  "attachments.attachment",
+		EntityID:    attachment.ID,
+		Payload: map[string]any{
+			"media_type":         attachment.MediaType,
+			"original_file_name": attachment.OriginalFileName,
+			"size_bytes":         attachment.SizeBytes,
+		},
+	}); err != nil {
+		return Attachment{}, err
+	}
+
+	return attachment, nil
+}
+
+func (s *Service) LinkRequestMessageTx(ctx context.Context, tx *sql.Tx, input LinkRequestMessageInput) (RequestMessageLink, error) {
+	link, err := linkRequestMessageTx(ctx, tx, input)
+	if err != nil {
+		return RequestMessageLink{}, err
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
+		EventType:   "attachments.request_message_linked",
+		EntityType:  "attachments.request_message_link",
+		EntityID:    link.ID,
+		Payload: map[string]any{
+			"request_message_id": link.RequestMessageID,
+			"attachment_id":      link.AttachmentID,
+			"link_role":          link.LinkRole,
+		},
+	}); err != nil {
+		return RequestMessageLink{}, err
+	}
+
+	return link, nil
+}
+
 func (s *Service) RecordDerivedText(ctx context.Context, input RecordDerivedTextInput) (DerivedText, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {

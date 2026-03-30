@@ -450,13 +450,14 @@ func decodeJSONBody(r *http.Request, dst any, allowEmpty bool) error {
 	return errors.New("invalid JSON request body")
 }
 
-func setSessionCookies(w http.ResponseWriter, sessionID, refreshToken string, expiresAt time.Time) {
+func setSessionCookies(w http.ResponseWriter, secure bool, sessionID, refreshToken string, expiresAt time.Time) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     sessionIDCookieName,
 		Value:    sessionID,
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
+		Secure:   secure,
 		Expires:  expiresAt,
 	})
 	http.SetCookie(w, &http.Cookie{
@@ -465,11 +466,12 @@ func setSessionCookies(w http.ResponseWriter, sessionID, refreshToken string, ex
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
+		Secure:   secure,
 		Expires:  expiresAt,
 	})
 }
 
-func clearSessionCookies(w http.ResponseWriter) {
+func clearSessionCookies(w http.ResponseWriter, secure bool) {
 	for _, name := range []string{sessionIDCookieName, refreshTokenCookieName} {
 		http.SetCookie(w, &http.Cookie{
 			Name:     name,
@@ -477,10 +479,33 @@ func clearSessionCookies(w http.ResponseWriter) {
 			Path:     "/",
 			HttpOnly: true,
 			SameSite: http.SameSiteLaxMode,
+			Secure:   secure,
 			MaxAge:   -1,
 			Expires:  time.Unix(0, 0).UTC(),
 		})
 	}
+}
+
+func sessionCookiesShouldBeSecure(r *http.Request) bool {
+	if r == nil {
+		return false
+	}
+	if r.TLS != nil {
+		return true
+	}
+	for _, header := range []string{"X-Forwarded-Proto", "X-Forwarded-Scheme"} {
+		value := strings.TrimSpace(r.Header.Get(header))
+		if value == "" {
+			continue
+		}
+		if idx := strings.Index(value, ","); idx >= 0 {
+			value = value[:idx]
+		}
+		if strings.EqualFold(strings.TrimSpace(value), "https") {
+			return true
+		}
+	}
+	return false
 }
 
 func sessionCookiesFromRequest(r *http.Request) (string, string, bool) {

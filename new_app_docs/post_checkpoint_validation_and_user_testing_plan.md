@@ -1,7 +1,7 @@
 # workflow_app Post-Checkpoint Validation And User Testing Plan
 
 Date: 2026-03-30
-Status: Validation remains paused after the 2026-03-29 Milestone 9 review; the next session should land one bounded shared-backend correctness-hardening slice before the deferred Phase 1 and Phase 2 live workflow work resumes later
+Status: Validation remains paused after the 2026-03-29 Milestone 9 review, but the bounded shared-backend correctness-hardening slice is now landed and verified; the next session should first land one bounded test-harness hardening slice before resuming the deferred Phase 1 live workflows
 Purpose: define the first explicit post-checkpoint validation step, record the bounded partial result reached before pause, and preserve the exact work that should resume after the Milestone 9 implementation is reviewed against the plan docs.
 
 ## 1. Why this plan exists
@@ -16,7 +16,7 @@ That does not yet answer a narrower operational question:
 
 The next step should therefore be validation-led rather than breadth-led.
 
-As of 2026-03-29, the Milestone 9 readiness-hardening prerequisite is complete, and the required same-day implementation review against the milestone plan and related canonical docs also completed cleanly. On 2026-03-30, however, a full end-to-end review identified one bounded shared-backend correctness slice that should land before the deferred live workflows resume. This document therefore keeps the live validation work paused explicitly while that slice is implemented and verified first.
+As of 2026-03-29, the Milestone 9 readiness-hardening prerequisite is complete, and the required same-day implementation review against the milestone plan and related canonical docs also completed cleanly. On 2026-03-30, a full end-to-end review identified one bounded shared-backend correctness slice that should land before the deferred live workflows resume, and that slice is now implemented and verified. That same verification effort also exposed one bounded test-harness weakness around stale advisory-lock sessions in the disposable test database. This document therefore keeps the live validation work paused explicitly until the next session lands that harness-hardening slice and then resumes the deferred workflows on the real seam.
 
 ## 2. Planning decision
 
@@ -26,9 +26,9 @@ The first post-checkpoint slice was:
 
 The next active slice is now:
 
-1. land one bounded shared-backend correctness-hardening pass before any new live browser workflow work resumes
-2. keep the deferred live workflow validation intact behind that pause rather than discarding it or silently treating it as complete
-3. after the correctness slice lands, resume the remaining live workflow work in two phases so the essential foundational workflows still land first
+1. land one bounded test-harness hardening pass around disposable test-database advisory-lock behavior and stale-session diagnostics
+2. keep the deferred live workflow validation intact rather than discarding it or silently treating it as complete
+3. after that harness slice lands, resume the remaining live workflow work in two phases so the essential foundational workflows still land first
 4. keep the later Phase 1 intentionally fast by prioritizing the highest-signal foundational workflows and avoiding deeper failure-mode work until Phase 2
 5. Phase 1 should still include only quick-complete items that can be verified without deliberate failure reproduction or broad exploratory review
 6. record pass or fail evidence for each deferred workflow and end with one explicit readiness result when that work later resumes
@@ -62,8 +62,8 @@ Pause outcome:
 
 1. treat this document as the canonical record of completed validation evidence and remaining workflow work
 2. the Milestone 9 prerequisite is now satisfied, and the implementation-versus-plan review is already complete
-3. the next session should implement and verify one bounded shared-backend correctness-hardening slice before the remaining live workflow work resumes later
-4. after that slice lands, resume from the remaining workflows rather than restarting the whole validation phase later
+3. the bounded shared-backend correctness-hardening slice is now implemented and verified
+4. the next session should land one bounded test-harness hardening slice and then resume from the remaining workflows rather than restarting the whole validation phase later
 
 ## 4. Objective
 
@@ -121,7 +121,7 @@ Current paused start point after review on 2026-03-30:
 1. the complete review of the Milestone 9 implementation against `milestone_9_user_testing_readiness_hardening_plan.md` and the related canonical planning docs is complete and found no material drift
 2. the post-review `set -a; source .env; set +a; go run ./cmd/verify-agent` rerun also passed, returning `REQ-000001` in `processed` state with a completed coordinator run and a request-specific urgent warehouse-pump recommendation summary
 3. next run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
-4. before any new `cmd/app` live workflow pass, land the bounded correctness-hardening slice described in section 7
+4. the bounded correctness-hardening slice described in section 7 is now landed and verified
 5. after that slice lands, execute Phase 1 first from the canonical browser-facing workflow set in Step 3 and record concrete pass or fail results in this document and the tracker
 6. keep Phase 1 bounded to the low-friction foundational workflows so it can complete relatively quickly before the slower residual work begins
 7. treat deeper failure-path work, wider downstream inspection sweeps, and residual exploratory checks as explicit Phase 2 material
@@ -238,13 +238,11 @@ Result on 2026-03-28:
 1. the blocker-remediation slice succeeded without widening scope into a broader AI redesign
 2. the landed hardening includes stronger coordinator instructions, request-centered validation in the shared coordinator contract, tighter request-evidence prompting, and one bounded OpenAI repair turn for generic first-pass structured output
 3. repository verification and live provider verification both passed after that change
-4. the next session should land the bounded shared-backend correctness slice captured below before the deferred workflows 2 through 4 resume later
+4. the next session should resume the deferred workflows 2 through 4 now that the bounded shared-backend correctness slice captured below is complete
 
-## 7. Next-session correctness slice before live validation resumes
+## 7. Completed correctness slice before live validation resumes
 
-The next session should not resume the live workflow pass first.
-
-It should land one bounded shared-backend correctness-hardening slice first.
+The live workflow pass no longer needs to wait on backend correctness for this slice.
 
 Required outcomes:
 
@@ -261,19 +259,36 @@ Guardrails for this slice:
 2. keep the changes client-neutral and shared-backend-first
 3. do not mix this slice with the deferred real-browser workflow review work captured below
 
+Result on 2026-03-30:
+
+1. draft-save now rejects mismatched `request_id` plus `message_id` combinations through one transactional shared-backend path
+2. existing draft saves now persist updated request metadata such as `submitter_label`
+3. draft-save composition is now atomic across request, message, and attachment work, with regression coverage proving rollback on attachment decode failure
+4. browser-session cookies now set `Secure` on HTTPS requests while preserving the current plain-HTTP local-development path
+5. focused `internal/app` regression coverage landed for ownership validation, metadata persistence, atomic rollback, and cookie security flags
+6. `go build ./cmd/... ./internal/...` passed, `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -v ./internal/intake -count=1` passed after clearing stale test-held migration locks in the disposable test database, and the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` command then completed cleanly
+
+Follow-on harness note for the next session:
+
+1. the product-facing correctness slice is closed, but the test harness still needs one bounded hardening pass
+2. the trigger is now explicit evidence from 2026-03-30 that stale or overlapping DB-backed test sessions can leave the advisory-lock path occupied and make later canonical runs look hung until the disposable test database is cleaned up
+3. the next-session harness slice should stay narrow: improve advisory-lock acquisition behavior in `internal/testsupport/dbtest`, surface clearer blocked-test diagnostics, and make stale-session investigation or cleanup more direct without weakening the repository's serialized disposable-test-database rule
+4. do not widen that slice into broader migration-runner redesign or non-test runtime changes
+
 ## 8. Deferred resume order after the correctness slice
 
 After the correctness slice above lands cleanly, resume the deferred live validation work in this order:
 
-1. treat the post-review `set -a; source .env; set +a; go run ./cmd/verify-agent` rerun as already complete at the paused-validation start point
-2. rerun `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
-3. Phase 1: execute workflow 2 for draft save or edit -> queue -> process continuity
-4. Phase 1: execute workflow 3 for processed proposal -> request approval -> approval decision continuity
-5. keep Phase 1 intentionally fast and bounded to those foundational workflows plus their direct continuity checks
-6. use only quick-complete assertions in Phase 1: exact request, proposal, and approval detail continuity plus the direct browser or API cross-links needed to prove the workflow stayed connected
-7. treat the matching repo-verification slice as already complete, then update this document and `new_app_tracker.md` with explicit live Phase 1 pass or fail evidence
-8. Phase 2: execute workflow 4 for failed provider or failed processing visibility
-9. end with one explicit readiness result rather than leaving user-testing readiness implicit
+1. first land the bounded advisory-lock or test-harness hardening slice described above
+2. treat the post-review `set -a; source .env; set +a; go run ./cmd/verify-agent` rerun as already complete at the paused-validation start point
+3. rerun `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
+4. Phase 1: execute workflow 2 for draft save or edit -> queue -> process continuity
+5. Phase 1: execute workflow 3 for processed proposal -> request approval -> approval decision continuity
+6. keep Phase 1 intentionally fast and bounded to those foundational workflows plus their direct continuity checks
+7. use only quick-complete assertions in Phase 1: exact request, proposal, and approval detail continuity plus the direct browser or API cross-links needed to prove the workflow stayed connected
+8. treat the matching repo-verification slice as already complete, then update this document and `new_app_tracker.md` with explicit harness-slice and live Phase 1 pass or fail evidence
+9. Phase 2: execute workflow 4 for failed provider or failed processing visibility
+10. end with one explicit readiness result rather than leaving user-testing readiness implicit
 
 ## 9. Guardrails
 
