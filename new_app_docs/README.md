@@ -15,9 +15,22 @@ This folder exists to prepare a clean restart with:
 3. documents, ledgers, execution context, approvals, and reports as the real center of gravity
 4. AI-agent-first operation without broad human operational UI
 
-This planning set is the repository's canonical planning source.
+This planning set is the repository's canonical implementation-planning source.
 
-For the durable workflow-reference layer that should survive after the active thin-v1 planning phase, use `docs/workflows/`.
+Use this folder for:
+
+1. product implementation plans
+2. issue-fix planning discovered during implementation or workflow validation
+3. implementation status, sequencing, and next implementation steps
+4. activity tracking for work that changes the product
+
+For the separate workflow-reference and workflow-validation track, use `docs/workflows/`.
+
+Track rule:
+
+1. keep workflow testing and review evidence out of `new_app_docs/` unless it directly promotes a bounded product fix plan
+2. if workflow validation discovers a real product issue, add the resulting fix plan here and track implementation here
+3. workflow validation may be paused or deferred when urgent product fixes need implementation first without treating that pause as drift
 
 `workflow_app` still plans for multi-agent architecture in v1, but only at foundation depth:
 

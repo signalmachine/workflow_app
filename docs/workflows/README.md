@@ -37,6 +37,12 @@ Keep the document roles distinct.
 4. workflow-validation and live-review tracking
 5. feature continuity that should remain understandable after implementation planning moves on
 
+Operational policy:
+
+1. workflow testing and validation may be deferred when urgent product fixes or bounded implementation slices need to land first
+2. those product fixes should be planned and tracked in `new_app_docs/`, not in this folder
+3. this folder should record the workflow-level result as fixed, pending, blocked, or deferred rather than becoming the implementation-plan source for the fix itself
+
 If a planning document and a workflow-reference document disagree:
 
 1. use `new_app_docs/` as the source of truth for active implementation status and planned next work
@@ -72,3 +78,4 @@ When user-visible workflow behavior, workflow status, or review-surface continui
 
 1. update the relevant canonical planning docs in `new_app_docs/`
 2. update the relevant workflow-reference docs in this folder when the durable workflow reference has drifted
+3. if the change came from a workflow-review finding, keep the fix-plan details in `new_app_docs/` and keep only workflow-level status and evidence here

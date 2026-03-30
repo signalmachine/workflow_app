@@ -13,6 +13,7 @@ This document exists to keep them separate:
 1. `new_app_docs/` remains the implementation-planning source for product changes
 2. `docs/workflows/` becomes the workflow-validation and review track
 3. when workflow review finds a real product gap, the resulting fix plan should be added back into `new_app_docs/`
+4. this track may be deferred temporarily when urgent implementation fixes or bounded product slices need to land first
 
 ## 2. Track rule
 
@@ -23,12 +24,14 @@ Use this folder for:
 3. pass or fail evidence
 4. readiness conclusions
 5. validation blockers discovered on the real `/app` plus `/api/...` seam
+6. workflow-level status such as fixed, pending, blocked, or deferred
 
 Do not use this folder for:
 
 1. broad product implementation planning
 2. architectural scope expansion
 3. feature-milestone sequencing unrelated to workflow validation
+4. detailed fix implementation tracking once a workflow issue has been identified
 
 ## 3. Current deferred validation order
 
@@ -55,7 +58,8 @@ When workflow review finds a real defect or missing support seam:
 1. record the validation result here and in the relevant checklist evidence
 2. add the bounded fix plan to `new_app_docs/`
 3. implement and verify that fix on the implementation track
-4. then return here and rerun the affected workflow validation
+4. keep this workflow track limited to issue status and validation evidence while that implementation work happens
+5. then return here and rerun the affected workflow validation
 
 ## 6. Related documents
 
