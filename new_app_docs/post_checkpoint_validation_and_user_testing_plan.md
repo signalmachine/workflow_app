@@ -1,7 +1,7 @@
 # workflow_app Post-Checkpoint Validation And User Testing Plan
 
-Date: 2026-03-29
-Status: Validation resumed from the live-provider checkpoint on 2026-03-29 after a clean Milestone 9 review; the remaining work is now explicitly split into Phase 1 foundational workflows and Phase 2 residual failure-path plus readiness work
+Date: 2026-03-30
+Status: Validation remains paused after the 2026-03-29 Milestone 9 review; the next session should land one bounded shared-backend correctness-hardening slice before the deferred Phase 1 and Phase 2 live workflow work resumes later
 Purpose: define the first explicit post-checkpoint validation step, record the bounded partial result reached before pause, and preserve the exact work that should resume after the Milestone 9 implementation is reviewed against the plan docs.
 
 ## 1. Why this plan exists
@@ -16,7 +16,7 @@ That does not yet answer a narrower operational question:
 
 The next step should therefore be validation-led rather than breadth-led.
 
-As of 2026-03-29, the Milestone 9 readiness-hardening prerequisite is complete, and the required same-day implementation review against the milestone plan and related canonical docs also completed cleanly. The paused validation slice has therefore resumed from the live-provider verification checkpoint, and the next active work is the remaining live workflows captured below.
+As of 2026-03-29, the Milestone 9 readiness-hardening prerequisite is complete, and the required same-day implementation review against the milestone plan and related canonical docs also completed cleanly. On 2026-03-30, however, a full end-to-end review identified one bounded shared-backend correctness slice that should land before the deferred live workflows resume. This document therefore keeps the live validation work paused explicitly while that slice is implemented and verified first.
 
 ## 2. Planning decision
 
@@ -26,17 +26,19 @@ The first post-checkpoint slice was:
 
 The next active slice is now:
 
-1. continue the paused post-checkpoint live workflow validation from the remaining workflows captured below
-2. execute that remaining work in two phases so the essential foundational workflows land first
-3. keep Phase 1 intentionally fast by prioritizing the highest-signal foundational workflows and avoiding deeper failure-mode work until Phase 2
-4. Phase 1 should include only quick-complete items that can be verified without deliberate failure reproduction or broad exploratory review
-5. record pass or fail evidence for each workflow and end with one explicit readiness result
+1. land one bounded shared-backend correctness-hardening pass before any new live browser workflow work resumes
+2. keep the deferred live workflow validation intact behind that pause rather than discarding it or silently treating it as complete
+3. after the correctness slice lands, resume the remaining live workflow work in two phases so the essential foundational workflows still land first
+4. keep the later Phase 1 intentionally fast by prioritizing the highest-signal foundational workflows and avoiding deeper failure-mode work until Phase 2
+5. Phase 1 should still include only quick-complete items that can be verified without deliberate failure reproduction or broad exploratory review
+6. record pass or fail evidence for each deferred workflow and end with one explicit readiness result when that work later resumes
 
 The paused validation slice is not:
 
 1. a broad new feature milestone
 2. silent reopening of thin-v1 scope
 3. a v2 breadth promotion
+4. permission to continue live workflow review in parallel with the next correctness-hardening slice
 
 The new active milestone is also not:
 
@@ -59,8 +61,9 @@ Reason:
 Pause outcome:
 
 1. treat this document as the canonical record of completed validation evidence and remaining workflow work
-2. the Milestone 9 prerequisite is now satisfied, but the next session should first confirm implementation-versus-plan alignment before the remaining work resumes from Step 2 through Step 5
-3. resume from the remaining workflows rather than restarting the whole validation phase later
+2. the Milestone 9 prerequisite is now satisfied, and the implementation-versus-plan review is already complete
+3. the next session should implement and verify one bounded shared-backend correctness-hardening slice before the remaining live workflow work resumes later
+4. after that slice lands, resume from the remaining workflows rather than restarting the whole validation phase later
 
 ## 4. Objective
 
@@ -113,14 +116,15 @@ After the focused live verification passes:
 2. exercise the shared `/app` plus `/api/...` seam against the real database and real provider path
 3. confirm that the application remains operable outside direct service calls and outside repository-only tests
 
-Current resumed start point on 2026-03-29:
+Current paused start point after review on 2026-03-30:
 
 1. the complete review of the Milestone 9 implementation against `milestone_9_user_testing_readiness_hardening_plan.md` and the related canonical planning docs is complete and found no material drift
 2. the post-review `set -a; source .env; set +a; go run ./cmd/verify-agent` rerun also passed, returning `REQ-000001` in `processed` state with a completed coordinator run and a request-specific urgent warehouse-pump recommendation summary
 3. next run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
-4. execute Phase 1 first from the canonical browser-facing workflow set in Step 3 and record concrete pass or fail results in this document and the tracker
-5. keep Phase 1 bounded to the low-friction foundational workflows so it can complete relatively quickly before the slower residual work begins
-6. treat deeper failure-path work, wider downstream inspection sweeps, and residual exploratory checks as explicit Phase 2 material
+4. before any new `cmd/app` live workflow pass, land the bounded correctness-hardening slice described in section 7
+5. after that slice lands, execute Phase 1 first from the canonical browser-facing workflow set in Step 3 and record concrete pass or fail results in this document and the tracker
+6. keep Phase 1 bounded to the low-friction foundational workflows so it can complete relatively quickly before the slower residual work begins
+7. treat deeper failure-path work, wider downstream inspection sweeps, and residual exploratory checks as explicit Phase 2 material
 
 Current result on 2026-03-28:
 
@@ -234,23 +238,44 @@ Result on 2026-03-28:
 1. the blocker-remediation slice succeeded without widening scope into a broader AI redesign
 2. the landed hardening includes stronger coordinator instructions, request-centered validation in the shared coordinator contract, tighter request-evidence prompting, and one bounded OpenAI repair turn for generic first-pass structured output
 3. repository verification and live provider verification both passed after that change
-4. the next session should resume workflows 2 through 4 from section 5.3 rather than reopening this blocker-remediation slice
+4. the next session should land the bounded shared-backend correctness slice captured below before the deferred workflows 2 through 4 resume later
 
-## 7. Resume order after Milestone 9 review
+## 7. Next-session correctness slice before live validation resumes
 
-With the Milestone 9 review now complete, continue this resumed validation slice in this order:
+The next session should not resume the live workflow pass first.
 
-1. treat the post-review `set -a; source .env; set +a; go run ./cmd/verify-agent` rerun as complete
-2. run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
+It should land one bounded shared-backend correctness-hardening slice first.
+
+Required outcomes:
+
+1. draft-save updates must reject mismatched `request_id` plus `message_id` combinations so a message from one draft cannot be edited through another draft request
+2. existing draft saves must persist updated request metadata such as `submitter_label` instead of silently keeping stale request metadata while reporting success
+3. draft-save composition must become atomic across request, message, and attachment work so later decode, create, or link failures do not leave partial mutations committed
+4. browser-session cookies should gain HTTPS-oriented `Secure` hardening without weakening the current local-development path
+5. focused regression coverage should land for each of those seams
+6. verification for this slice should include `go build ./cmd/... ./internal/...` and `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...`
+
+Guardrails for this slice:
+
+1. do not widen this work into general UX polish or a fresh auth redesign
+2. keep the changes client-neutral and shared-backend-first
+3. do not mix this slice with the deferred real-browser workflow review work captured below
+
+## 8. Deferred resume order after the correctness slice
+
+After the correctness slice above lands cleanly, resume the deferred live validation work in this order:
+
+1. treat the post-review `set -a; source .env; set +a; go run ./cmd/verify-agent` rerun as already complete at the paused-validation start point
+2. rerun `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
 3. Phase 1: execute workflow 2 for draft save or edit -> queue -> process continuity
 4. Phase 1: execute workflow 3 for processed proposal -> request approval -> approval decision continuity
 5. keep Phase 1 intentionally fast and bounded to those foundational workflows plus their direct continuity checks
 6. use only quick-complete assertions in Phase 1: exact request, proposal, and approval detail continuity plus the direct browser or API cross-links needed to prove the workflow stayed connected
-7. treat the matching repo-verification slice as complete, then update this document and `new_app_tracker.md` with explicit live Phase 1 pass or fail evidence
+7. treat the matching repo-verification slice as already complete, then update this document and `new_app_tracker.md` with explicit live Phase 1 pass or fail evidence
 8. Phase 2: execute workflow 4 for failed provider or failed processing visibility
 9. end with one explicit readiness result rather than leaving user-testing readiness implicit
 
-## 8. Guardrails
+## 9. Guardrails
 
 During this slice:
 
@@ -260,7 +285,7 @@ During this slice:
 4. prefer fixing the real shared backend or provider seam over adding testing-only workarounds
 5. keep the testing centered on the real operator chain rather than synthetic isolated demos
 
-## 9. Exit criteria
+## 10. Exit criteria
 
 This paused slice should only be marked complete when:
 
@@ -271,7 +296,7 @@ This paused slice should only be marked complete when:
 5. those workflows have no known blocking defects that would invalidate supervised user testing
 6. the repository has one explicit readiness statement for supervised AI-backed user testing
 
-## 10. Result handling
+## 11. Result handling
 
 If the slice succeeds:
 
