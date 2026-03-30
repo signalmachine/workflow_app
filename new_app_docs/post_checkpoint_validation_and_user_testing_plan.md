@@ -1,7 +1,7 @@
 # workflow_app Post-Checkpoint Validation And User Testing Plan
 
 Date: 2026-03-30
-Status: Validation remains paused after the 2026-03-29 Milestone 9 review, and the bounded shared-backend correctness-hardening slice plus the bounded test-harness advisory-lock hardening slice are now landed and verified; the next session should resume the deferred Phase 1 live workflows
+Status: Validation remains paused after the 2026-03-29 Milestone 9 review, and the bounded shared-backend correctness-hardening slice plus the bounded test-harness advisory-lock hardening slice are now landed and verified; one bounded web visual-refresh slice should land next before the deferred Phase 1 live workflows resume
 Purpose: define the first explicit post-checkpoint validation step, record the bounded partial result reached before pause, and preserve the exact work that should resume after the Milestone 9 implementation is reviewed against the plan docs.
 
 ## 1. Why this plan exists
@@ -16,7 +16,7 @@ That does not yet answer a narrower operational question:
 
 The next step should therefore be validation-led rather than breadth-led.
 
-As of 2026-03-29, the Milestone 9 readiness-hardening prerequisite is complete, and the required same-day implementation review against the milestone plan and related canonical docs also completed cleanly. On 2026-03-30, a full end-to-end review identified one bounded shared-backend correctness slice that should land before the deferred live workflows resume, and that slice is now implemented and verified. That same verification effort also exposed one bounded test-harness weakness around stale advisory-lock sessions in the disposable test database, and that harness-hardening slice is now also implemented and verified. This document therefore keeps the live validation work paused only until the next session resumes the deferred workflows on the real seam.
+As of 2026-03-29, the Milestone 9 readiness-hardening prerequisite is complete, and the required same-day implementation review against the milestone plan and related canonical docs also completed cleanly. On 2026-03-30, a full end-to-end review identified one bounded shared-backend correctness slice that should land before the deferred live workflows resume, and that slice is now implemented and verified. That same verification effort also exposed one bounded test-harness weakness around stale advisory-lock sessions in the disposable test database, and that harness-hardening slice is now also implemented and verified. A final bounded pre-validation slice is now also planned: refresh the current web visual layer so the remaining browser-led workflow validation runs against a more credible operator surface rather than the current underpowered styling baseline. This document therefore keeps the live validation work paused until that visual-refresh slice lands and the deferred workflows then resume on the real seam.
 
 ## 2. Planning decision
 
@@ -26,11 +26,12 @@ The first post-checkpoint slice was:
 
 The next active slice is now:
 
-1. resume the deferred live workflow validation rather than discarding it or silently treating it as complete
-2. start with the paused Phase 1 workflow set now that the harness-hardening prerequisite is complete
-3. keep the later Phase 1 intentionally fast by prioritizing the highest-signal foundational workflows and avoiding deeper failure-mode work until Phase 2
-4. Phase 1 should still include only quick-complete items that can be verified without deliberate failure reproduction or broad exploratory review
-5. record pass or fail evidence for each deferred workflow and end with one explicit readiness result when that work later resumes
+1. land the bounded web visual-refresh slice from `web_visual_refresh_plan.md`
+2. then resume the deferred live workflow validation rather than discarding it or silently treating it as complete
+3. start with the paused Phase 1 workflow set once that refresh is complete
+4. keep the later Phase 1 intentionally fast by prioritizing the highest-signal foundational workflows and avoiding deeper failure-mode work until Phase 2
+5. Phase 1 should still include only quick-complete items that can be verified without deliberate failure reproduction or broad exploratory review
+6. record pass or fail evidence for each deferred workflow and end with one explicit readiness result when that work later resumes
 
 The paused validation slice is not:
 
@@ -62,7 +63,8 @@ Pause outcome:
 1. treat this document as the canonical record of completed validation evidence and remaining workflow work
 2. the Milestone 9 prerequisite is now satisfied, and the implementation-versus-plan review is already complete
 3. the bounded shared-backend correctness-hardening slice is now implemented and verified
-4. the bounded test-harness hardening slice is now complete, so the next session should resume from the remaining workflows rather than restarting the whole validation phase later
+4. the bounded test-harness hardening slice is now complete
+5. the next session should first land the bounded visual-refresh slice and then resume from the remaining workflows rather than restarting the whole validation phase later
 
 ## 4. Objective
 
@@ -119,12 +121,13 @@ Current paused start point after review on 2026-03-30:
 
 1. the complete review of the Milestone 9 implementation against `milestone_9_user_testing_readiness_hardening_plan.md` and the related canonical planning docs is complete and found no material drift
 2. the post-review `set -a; source .env; set +a; go run ./cmd/verify-agent` rerun also passed, returning `REQ-000001` in `processed` state with a completed coordinator run and a request-specific urgent warehouse-pump recommendation summary
-3. next run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
+3. next implement the bounded web visual-refresh slice from `web_visual_refresh_plan.md`
 4. the bounded correctness-hardening slice described in section 7 is now landed and verified
 5. the bounded test-harness advisory-lock hardening slice is now also landed: DB-backed tests no longer wait indefinitely on the shared disposable database lock, and blocked-lock failures now report holder-session details for faster cleanup
-6. resume Phase 1 next from the canonical browser-facing workflow set in Step 3 and record concrete pass or fail results in this document and the tracker
-7. keep Phase 1 bounded to the low-friction foundational workflows so it can complete relatively quickly before the slower residual work begins
-8. treat deeper failure-path work, wider downstream inspection sweeps, and residual exploratory checks as explicit Phase 2 material
+6. after that refresh lands, rerun `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
+7. resume Phase 1 next from the canonical browser-facing workflow set in Step 3 and record concrete pass or fail results in this document and the tracker
+8. keep Phase 1 bounded to the low-friction foundational workflows so it can complete relatively quickly before the slower residual work begins
+9. treat deeper failure-path work, wider downstream inspection sweeps, and residual exploratory checks as explicit Phase 2 material
 
 Current result on 2026-03-28:
 
@@ -135,8 +138,9 @@ Current result on 2026-03-28:
 Next-session Step 2 start order:
 
 1. rerun `set -a; source .env; set +a; go run ./cmd/verify-agent` first so the live provider seam is reconfirmed before wider browser checks continue
-2. run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
-3. use the real shared `/app` plus `/api/...` seam rather than direct service calls for the remaining workflows unless a live blocker forces lower-level diagnosis
+2. land the bounded visual-refresh slice from `web_visual_refresh_plan.md`
+3. run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
+4. use the real shared `/app` plus `/api/...` seam rather than direct service calls for the remaining workflows unless a live blocker forces lower-level diagnosis
 
 ### 5.3 Step 3: execute canonical end-to-end workflows
 

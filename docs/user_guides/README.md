@@ -42,6 +42,11 @@ Good starting guides for this folder include:
 4. document and report lookup basics
 5. session and sign-in basics for supported clients
 
+Current guides:
+
+1. `running_the_application.md`
+2. `browser_sign_in_and_admin_bootstrap.md`
+
 ## 4. Organization rule
 
 Prefer many small and clearly named guides over one or two large documents.

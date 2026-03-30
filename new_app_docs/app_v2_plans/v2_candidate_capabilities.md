@@ -49,6 +49,7 @@ Candidate v2 work:
 1. richer review and operator workbenches beyond the promoted usable-v1 web layer
 2. mobile-product depth beyond the v1 shared-backend contract
 3. portal surfaces where later justified
+4. sign-in UX improvements that reduce repeated org-slug entry without weakening the explicit org boundary, such as subdomain-based org context, invitation-prefilled org context, or safe email-first org resolution when unambiguous
 
 ## 6. Operational and financial breadth
 

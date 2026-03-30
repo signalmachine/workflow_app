@@ -11,10 +11,15 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"workflow_app/internal/platform/envload"
 	"workflow_app/internal/platform/migrations"
 )
 
 func main() {
+	if err := envload.LoadDefaultIfPresent(); err != nil {
+		log.Fatalf("load .env: %v", err)
+	}
+
 	var databaseURL string
 	flag.StringVar(&databaseURL, "database-url", os.Getenv("DATABASE_URL"), "PostgreSQL connection string")
 	flag.Parse()

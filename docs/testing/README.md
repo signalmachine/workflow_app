@@ -202,6 +202,13 @@ Current disposable test-database advisory-lock behavior:
 2. when stale or interrupted sessions still hold that lock, the timeout error now surfaces holder or waiter session details from `pg_locks` and `pg_stat_activity`
 3. if the canonical DB-backed test command still blocks or fails on that path, clean up the stale `TEST_DATABASE_URL` sessions first and then rerun the canonical command before treating the symptom as a product defect
 
+Practical cleanup note for stale DB-backed test runs:
+
+1. avoid launching overlapping `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` sessions against the same `TEST_DATABASE_URL`
+2. if the canonical suite appears hung, check for stale `go test` or package test binaries such as `app.test` that may have survived an interrupted run
+3. if multiple stale test processes are still alive, stop those stale processes before rerunning the canonical command so the disposable test-database advisory lock can be acquired cleanly
+4. treat stale-process cleanup as an operational test-environment issue first, not as proof of a product defect
+
 ## 12.1 Workflow-critical validation policy
 
 For workflow-critical changes and readiness review, use explicit end-to-end workflow testing, not only package verification.

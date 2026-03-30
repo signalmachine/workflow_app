@@ -11,6 +11,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"workflow_app/internal/app"
+	"workflow_app/internal/platform/envload"
 )
 
 const (
@@ -22,6 +23,10 @@ const (
 )
 
 func main() {
+	if err := envload.LoadDefaultIfPresent(); err != nil {
+		log.Fatalf("load .env: %v", err)
+	}
+
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
 		log.Fatal("DATABASE_URL is required")

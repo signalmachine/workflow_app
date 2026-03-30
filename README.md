@@ -43,7 +43,7 @@ Testing guidance for collaborating with Codex on Go tests lives in [`docs/testin
 Apply migrations:
 
 ```bash
-DATABASE_URL=postgres://user:pass@localhost:5432/workflow_app?sslmode=disable go run ./cmd/migrate
+go run ./cmd/migrate
 ```
 
 Build the current workspace:
@@ -52,11 +52,28 @@ Build the current workspace:
 go build ./cmd/... ./internal/...
 ```
 
+Bootstrap a friendly main-database admin login for browser sign-in:
+
+```bash
+go run ./cmd/bootstrap-admin -password 'choose-a-strong-password'
+```
+
+The bootstrap command is idempotent. By default it ensures:
+
+1. org name `North Harbor Works`
+2. org slug `north-harbor`
+3. admin email `admin@northharbor.local`
+4. admin display name `North Harbor Admin`
+
+You can override any of those with flags such as `-org-name`, `-org-slug`, `-email`, and `-display-name`.
+
 Run tests with the configured test database:
 
 ```bash
 set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...
 ```
+
+The test suite still uses `TEST_DATABASE_URL`; direct shell exports continue to win over `.env` when both are present. Do not point the canonical test command at the main `DATABASE_URL`.
 
 Run targeted race detection for concurrency-sensitive packages when needed:
 
@@ -76,8 +93,10 @@ OPENAI_MODEL=...
 Run the first application API surface:
 
 ```bash
-set -a; source .env; set +a; go run ./cmd/app
+go run ./cmd/app
 ```
+
+`cmd/app`, `cmd/bootstrap-admin`, `cmd/migrate`, `cmd/set-password`, and `cmd/verify-agent` now auto-load `.env` from the repository root when it is present, without overriding any variables already exported in the shell or passed by flag.
 
 Open the first browser operator surface:
 
@@ -147,6 +166,8 @@ Set or rotate a test user password:
 ```bash
 go run ./cmd/set-password -user-id <user-uuid> -password '<password>'
 ```
+
+For first-run browser access on the main database, prefer `go run ./cmd/bootstrap-admin -password '<password>'` over manual user-ID lookups and password rotation.
 
 Refresh a non-browser bearer session:
 

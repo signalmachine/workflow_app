@@ -11,11 +11,16 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"workflow_app/internal/identityaccess"
+	"workflow_app/internal/platform/envload"
 )
 
 const setPasswordTimeout = 10 * time.Second
 
 func main() {
+	if err := envload.LoadDefaultIfPresent(); err != nil {
+		log.Fatalf("load .env: %v", err)
+	}
+
 	var (
 		databaseURL string
 		userID      string

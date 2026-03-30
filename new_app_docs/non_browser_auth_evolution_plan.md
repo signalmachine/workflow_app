@@ -125,3 +125,20 @@ Completion result:
 1. the current browser-session model remains the active v1 auth path
 2. the next non-browser auth step is now explicit instead of implied
 3. later implementation should add bearer-session support on the same backend foundation rather than improvising a second auth model
+
+## 8. Deferred browser sign-in usability follow-up
+
+The current thin-v1 browser sign-in path intentionally keeps org context explicit:
+
+1. browser login still requires org slug plus user email plus password
+2. that explicit org context remains acceptable for thin v1 because it preserves one clear active-org boundary and does not require a second tenant-resolution model
+
+Optional future improvement:
+
+1. reduce the need to type org slug on every sign-in through one bounded usability improvement such as subdomain-derived org context, invitation or environment-prefilled org context, or safe email-first org resolution when the org match is unambiguous
+
+Scope rule:
+
+1. this is not active thin-v1 work today
+2. do not promote it early unless later evidence shows that the current org-slug requirement is causing a real foundational adoption, continuity, or correctness blocker rather than only a usability polish gap
+3. if it is promoted later, keep the change client-neutral and preserve the same underlying active-org session and tenant-safety rules

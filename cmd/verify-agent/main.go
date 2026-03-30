@@ -16,11 +16,16 @@ import (
 	"workflow_app/internal/attachments"
 	"workflow_app/internal/identityaccess"
 	"workflow_app/internal/intake"
+	"workflow_app/internal/platform/envload"
 )
 
 const verifyTimeout = 2 * time.Minute
 
 func main() {
+	if err := envload.LoadDefaultIfPresent(); err != nil {
+		log.Fatalf("load .env: %v", err)
+	}
+
 	var (
 		databaseURL     string
 		channel         string
