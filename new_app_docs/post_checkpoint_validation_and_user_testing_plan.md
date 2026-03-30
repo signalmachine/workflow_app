@@ -1,8 +1,8 @@
 # workflow_app Post-Checkpoint Validation And User Testing Plan
 
 Date: 2026-03-30
-Status: Validation remains paused after the 2026-03-29 Milestone 9 review, and the bounded shared-backend correctness-hardening slice plus the bounded test-harness advisory-lock hardening slice are now landed and verified; one bounded web visual-refresh slice should land next before the deferred Phase 1 live workflows resume
-Purpose: define the first explicit post-checkpoint validation step, record the bounded partial result reached before pause, and preserve the exact work that should resume after the Milestone 9 implementation is reviewed against the plan docs.
+Status: Handoff note; the active workflow-validation track now lives under `docs/workflows/workflow_validation_track.md`
+Purpose: preserve the original post-checkpoint validation context while handing active workflow-validation sequencing and evidence tracking to `docs/workflows/`.
 
 ## 1. Why this plan exists
 
@@ -16,7 +16,22 @@ That does not yet answer a narrower operational question:
 
 The next step should therefore be validation-led rather than breadth-led.
 
-As of 2026-03-29, the Milestone 9 readiness-hardening prerequisite is complete, and the required same-day implementation review against the milestone plan and related canonical docs also completed cleanly. On 2026-03-30, a full end-to-end review identified one bounded shared-backend correctness slice that should land before the deferred live workflows resume, and that slice is now implemented and verified. That same verification effort also exposed one bounded test-harness weakness around stale advisory-lock sessions in the disposable test database, and that harness-hardening slice is now also implemented and verified. A final bounded pre-validation slice is now also planned: refresh the current web visual layer so the remaining browser-led workflow validation runs against a more credible operator surface rather than the current underpowered styling baseline. This document therefore keeps the live validation work paused until that visual-refresh slice lands and the deferred workflows then resume on the real seam.
+As of 2026-03-29, the Milestone 9 readiness-hardening prerequisite is complete, and the required same-day implementation review against the milestone plan and related canonical docs also completed cleanly. On 2026-03-30, a full end-to-end review identified one bounded shared-backend correctness slice that should land before the deferred live workflows resume, and that slice is now implemented and verified. That same verification effort also exposed one bounded test-harness weakness around stale advisory-lock sessions in the disposable test database, and that harness-hardening slice is now also implemented and verified. A final bounded pre-validation slice is now also planned: refresh the current web visual layer so the remaining browser-led workflow validation runs against a more credible operator surface rather than the current underpowered styling baseline. Active workflow-validation sequencing should now be maintained in `docs/workflows/workflow_validation_track.md`, while product changes discovered by that validation should be planned in `new_app_docs/`.
+
+## 1.1 Handoff result
+
+Current handoff rule:
+
+1. treat this document as historical validation context, not the active implementation next-step tracker
+2. use `docs/workflows/workflow_validation_track.md` for active workflow-testing order and deferred live-review sequencing
+3. use `new_app_docs/` only for implementation slices and fix plans that arise from future workflow review
+
+Historical-note rule:
+
+1. the remaining sections in this document are preserved as historical context from the earlier validation-planning phase
+2. do not treat the sequencing language below as the active next-step source of truth when it conflicts with the newer implementation plans or the workflow-validation track
+3. the active implementation order now lives in `new_app_docs/new_app_tracker.md`
+4. the active workflow-testing order now lives in `docs/workflows/workflow_validation_track.md`
 
 ## 2. Planning decision
 

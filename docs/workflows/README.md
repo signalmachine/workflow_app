@@ -26,7 +26,7 @@ Keep the document roles distinct.
 1. scope
 2. milestones
 3. sequencing
-4. active validation slices
+4. active implementation slices
 5. implementation status and next steps
 
 `docs/workflows/` is the durable reference layer for:
@@ -34,7 +34,8 @@ Keep the document roles distinct.
 1. workflows that exist or are intentionally documented
 2. supported operator paths and review surfaces
 3. workflow-level validation checklists
-4. feature continuity that should remain understandable after implementation planning moves on
+4. workflow-validation and live-review tracking
+5. feature continuity that should remain understandable after implementation planning moves on
 
 If a planning document and a workflow-reference document disagree:
 
@@ -63,6 +64,7 @@ If a capability cannot be tied clearly to one or more workflows:
 
 1. `application_workflow_catalog.md`
 2. `end_to_end_validation_checklist.md`
+3. `workflow_validation_track.md`
 
 ## 4. Maintenance rule
 

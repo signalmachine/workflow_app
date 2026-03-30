@@ -29,7 +29,7 @@ Status meanings used here:
 For live planning and next steps, use:
 
 1. `new_app_docs/new_app_tracker.md`
-2. `new_app_docs/post_checkpoint_validation_and_user_testing_plan.md`
+2. `workflow_validation_track.md`
 
 Workflow-review policy:
 

@@ -54,12 +54,12 @@ Read these in order:
 10. `ai_provider_execution_plan.md`
 11. `web_application_layer_plan.md`
 12. `web_visual_refresh_plan.md`
-13. `non_browser_auth_evolution_plan.md`
-14. `post_checkpoint_validation_and_user_testing_plan.md`
+13. `operator_communication_and_intake_surfaces_plan.md`
+14. `non_browser_auth_evolution_plan.md`
 15. `milestone_9_user_testing_readiness_hardening_plan.md`
 16. `new_app_tracker.md`
 17. `app_v2_plans/README.md`
-18. `../docs/workflows/README.md` for the durable workflow-reference layer after the active planning read
+18. `../docs/workflows/README.md` for the durable workflow-reference and validation-track layer after the active planning read
 
 ## Reset decision
 

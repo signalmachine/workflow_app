@@ -114,6 +114,13 @@ Execution rule:
 2. keep all changes inside the existing web template and shared page rendering seam unless a narrow template decomposition is clearly needed for maintainability
 3. do not reopen backend milestone scope under the cover of UI polish
 
+Suggested implementation posture:
+
+1. prioritize the highest-visibility low-hanging improvements first, especially shared color tokens, typography, spacing, panels, buttons, forms, tables, and status styling
+2. prefer cheap global wins from the shared template over page-by-page redesign
+3. use the bounded page list in section 3.1 to avoid visual-scope drift
+4. avoid pixel-level perfection work when a simpler shared refinement already achieves the objective of a more credible professional operator surface
+
 ## 7. Validation expectations
 
 Required verification for this slice:
