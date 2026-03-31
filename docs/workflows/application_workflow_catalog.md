@@ -1,7 +1,7 @@
 # workflow_app Application Workflow Catalog
 
 Date: 2026-03-30
-Status: Active durable workflow catalog updated for the dashboard-only home plus dedicated intake-page split
+Status: Active durable workflow catalog updated for the dashboard-only home, dedicated intake page, operations feed, and agent-chat surfaces
 Purpose: capture the application workflows and related feature continuity in one durable reference document for implementation review, testing, onboarding, and later user-guide preparation.
 
 ## 1. How to read this document
@@ -240,6 +240,29 @@ Current status:
 1. implemented
 2. repo_verified
 3. partially live_validated
+
+### 2.9 Operations feed and agent-chat continuity
+
+Purpose:
+keep durable one-way coordinator or system updates distinct from guidance-oriented coordinator requests while preserving one shared request-truth model.
+
+Entry points:
+
+1. `/app/operations-feed`
+2. `/app/agent-chat`
+3. `POST /app/inbound-requests` with the dedicated `agent_chat` browser path
+
+Expected outputs:
+
+1. operations feed continuity from recent request, proposal, and approval truth into exact workflow pages
+2. dedicated coordinator-chat request submission that persists onto the shared inbound-request foundation rather than inventing a second conversation store
+3. exact `REQ-...` continuity from queued chat request into request detail, proposal review, and downstream workflow surfaces
+
+Current status:
+
+1. implemented
+2. repo_verified
+3. pending_live_validation
 
 ## 3. Reference rule
 

@@ -1637,6 +1637,12 @@ func TestHandleWebAppDashboardRendersRefreshedEnterpriseShell(t *testing.T) {
 	if !strings.Contains(body, `class="nav-links"`) {
 		t.Fatalf("expected refreshed navigation links container, body=%s", body)
 	}
+	if !strings.Contains(body, `/app/operations-feed" class="pill-link">Open operations feed</a>`) {
+		t.Fatalf("expected dashboard link to operations feed, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/agent-chat" class="pill-link">Open agent chat</a>`) {
+		t.Fatalf("expected dashboard link to agent chat, body=%s", body)
+	}
 	if !strings.Contains(body, `/app/submit-inbound-request" class="pill-link">Open submission page</a>`) {
 		t.Fatalf("expected dashboard link to dedicated submission page, body=%s", body)
 	}
@@ -2066,6 +2072,237 @@ func TestHandleWebSubmitInboundRequestFromDedicatedPageRedirectsBackWithReferenc
 	}
 	location := recorder.Header().Get("Location")
 	if !strings.Contains(location, "/app/submit-inbound-request?notice=Inbound+request+submitted.") {
+		t.Fatalf("unexpected redirect location: %s", location)
+	}
+	if !strings.Contains(location, "request_reference=REQ-000123") {
+		t.Fatalf("expected request reference in redirect location: %s", location)
+	}
+	if !strings.Contains(location, "request_status=queued") {
+		t.Fatalf("expected request status in redirect location: %s", location)
+	}
+}
+
+func TestHandleWebOperationsFeedRendersDurableEventItems(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listInboundRequests: func(context.Context, reporting.ListInboundRequestsInput) ([]reporting.InboundRequestReview, error) {
+				return []reporting.InboundRequestReview{{
+					RequestID:            "req-123",
+					RequestReference:     "REQ-000123",
+					Channel:              "browser",
+					Status:               "failed",
+					MessageCount:         1,
+					AttachmentCount:      0,
+					FailureReason:        "provider timeout",
+					LastRecommendationID: sql.NullString{String: "rec-123", Valid: true},
+					UpdatedAt:            time.Date(2026, 3, 30, 14, 0, 0, 0, time.UTC),
+				}}, nil
+			},
+			listProcessedProposals: func(context.Context, reporting.ListProcessedProposalsInput) ([]reporting.ProcessedProposalReview, error) {
+				return []reporting.ProcessedProposalReview{{
+					RequestReference:     "REQ-000124",
+					RecommendationID:     "rec-124",
+					RecommendationStatus: "approval_requested",
+					Summary:              "Draft invoice ready for review",
+					CreatedAt:            time.Date(2026, 3, 30, 13, 0, 0, 0, time.UTC),
+				}}, nil
+			},
+			listApprovalQueue: func(context.Context, reporting.ListApprovalQueueInput) ([]reporting.ApprovalQueueEntry, error) {
+				return []reporting.ApprovalQueueEntry{{
+					ApprovalID:     "approval-123",
+					QueueCode:      "finance_review",
+					ApprovalStatus: "pending",
+					DocumentID:     "doc-123",
+					DocumentTitle:  "Invoice draft",
+					RequestedAt:    time.Date(2026, 3, 30, 12, 30, 0, 0, time.UTC),
+				}}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/operations-feed", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `Durable operations feed`) {
+		t.Fatalf("expected operations feed hero copy, body=%s", body)
+	}
+	if !strings.Contains(body, `REQ-000123 moved through failed`) {
+		t.Fatalf("expected request-derived feed item, body=%s", body)
+	}
+	if !strings.Contains(body, `provider timeout`) {
+		t.Fatalf("expected request failure summary in feed, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/proposals/rec-124" class="pill-link">Open proposal</a>`) {
+		t.Fatalf("expected proposal continuity link in feed, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/approvals/approval-123" class="pill-link">Open approval</a>`) {
+		t.Fatalf("expected approval continuity link in feed, body=%s", body)
+	}
+}
+
+func TestHandleWebAgentChatFiltersChatRequestsAndProposalContinuity(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listInboundRequests: func(context.Context, reporting.ListInboundRequestsInput) ([]reporting.InboundRequestReview, error) {
+				return []reporting.InboundRequestReview{
+					{
+						RequestID:            "req-chat",
+						RequestReference:     "REQ-000200",
+						Channel:              inboundRequestChannelAgentChat,
+						Status:               "processed",
+						MessageCount:         1,
+						AttachmentCount:      0,
+						LastRecommendationID: sql.NullString{String: "rec-chat", Valid: true},
+						UpdatedAt:            time.Date(2026, 3, 30, 15, 0, 0, 0, time.UTC),
+					},
+					{
+						RequestID:        "req-browser",
+						RequestReference: "REQ-000201",
+						Channel:          inboundRequestChannelBrowser,
+						Status:           "queued",
+						MessageCount:     1,
+						AttachmentCount:  0,
+						UpdatedAt:        time.Date(2026, 3, 30, 14, 0, 0, 0, time.UTC),
+					},
+				}, nil
+			},
+			listProcessedProposals: func(context.Context, reporting.ListProcessedProposalsInput) ([]reporting.ProcessedProposalReview, error) {
+				return []reporting.ProcessedProposalReview{
+					{
+						RequestReference:     "REQ-000200",
+						RecommendationID:     "rec-chat",
+						RecommendationStatus: "approval_requested",
+						Summary:              "Chat follow-up recommendation",
+						CreatedAt:            time.Date(2026, 3, 30, 15, 5, 0, 0, time.UTC),
+					},
+					{
+						RequestReference:     "REQ-000201",
+						RecommendationID:     "rec-browser",
+						RecommendationStatus: "approval_requested",
+						Summary:              "Browser submission recommendation",
+						CreatedAt:            time.Date(2026, 3, 30, 14, 5, 0, 0, time.UTC),
+					},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/agent-chat?request_reference=REQ-000200&request_status=queued", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `Coordinator chat`) {
+		t.Fatalf("expected agent-chat hero copy, body=%s", body)
+	}
+	if !strings.Contains(body, `name="channel" value="agent_chat"`) {
+		t.Fatalf("expected agent-chat form to submit dedicated channel, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/inbound-requests/REQ-000200" class="pill-link">Open exact request detail</a>`) {
+		t.Fatalf("expected result continuity card for chat request, body=%s", body)
+	}
+	if !strings.Contains(body, `REQ-000200`) {
+		t.Fatalf("expected chat request to render, body=%s", body)
+	}
+	if strings.Contains(body, `REQ-000201`) {
+		t.Fatalf("expected browser-channel request to stay out of agent chat page, body=%s", body)
+	}
+	if !strings.Contains(body, `Chat follow-up recommendation`) {
+		t.Fatalf("expected chat proposal summary, body=%s", body)
+	}
+	if strings.Contains(body, `Browser submission recommendation`) {
+		t.Fatalf("expected non-chat proposal to stay out of agent chat page, body=%s", body)
+	}
+}
+
+func TestHandleWebSubmitInboundRequestFromAgentChatUsesDedicatedChannel(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		stubSubmissionService{
+			submitInboundRequest: func(_ context.Context, input SubmitInboundRequestInput) (SubmitInboundRequestResult, error) {
+				if input.Channel != inboundRequestChannelAgentChat {
+					t.Fatalf("expected agent-chat channel, got %q", input.Channel)
+				}
+				return SubmitInboundRequestResult{
+					Request: intake.InboundRequest{
+						ID:               "req-123",
+						RequestReference: "REQ-000123",
+						Status:           intake.StatusQueued,
+					},
+					Message: intake.Message{ID: "msg-123"},
+				}, nil
+			},
+		},
+		nil,
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	form := url.Values{}
+	form.Set("submitter_label", "dispatch desk")
+	form.Set("message_text", "Need coordinator guidance on this issue")
+	form.Set("return_to", "/app/agent-chat")
+	form.Set("channel", "agent_chat")
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	for key, values := range form {
+		for _, value := range values {
+			if err := writer.WriteField(key, value); err != nil {
+				t.Fatalf("write multipart field: %v", err)
+			}
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close multipart writer: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/app/inbound-requests", &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	location := recorder.Header().Get("Location")
+	if !strings.Contains(location, "/app/agent-chat?notice=Inbound+request+submitted.") {
 		t.Fatalf("unexpected redirect location: %s", location)
 	}
 	if !strings.Contains(location, "request_reference=REQ-000123") {

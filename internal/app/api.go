@@ -31,6 +31,8 @@ const (
 	webAppPath                 = "/app"
 	webLoginPath               = "/app/login"
 	webLogoutPath              = "/app/logout"
+	webOperationsFeedPath      = "/app/operations-feed"
+	webAgentChatPath           = "/app/agent-chat"
 	webSubmitInboundPagePath   = "/app/submit-inbound-request"
 	webSubmitInboundPath       = "/app/inbound-requests"
 	webInboundActionsPrefix    = "/app/inbound-requests/"
@@ -287,6 +289,8 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(webAppPath, handler.handleWebAppDashboard)
 	mux.HandleFunc(webLoginPath, handler.handleWebLogin)
 	mux.HandleFunc(webLogoutPath, handler.handleWebLogout)
+	mux.HandleFunc(webOperationsFeedPath, handler.handleWebOperationsFeed)
+	mux.HandleFunc(webAgentChatPath, handler.handleWebAgentChat)
 	mux.HandleFunc(webSubmitInboundPagePath, handler.handleWebSubmitInboundRequestPage)
 	mux.HandleFunc(webSubmitInboundPath, handler.handleWebSubmitInboundRequest)
 	mux.HandleFunc(webProcessNextQueuedPath, handler.handleWebProcessNextQueuedInboundRequest)

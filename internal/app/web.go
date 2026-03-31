@@ -93,6 +93,35 @@ type webInboundSubmitData struct {
 	RequestStatus    string
 }
 
+type webOperationsFeedItem struct {
+	OccurredAt     time.Time
+	Kind           string
+	Title          string
+	Summary        string
+	Status         string
+	PrimaryLabel   string
+	PrimaryHref    string
+	SecondaryLabel string
+	SecondaryHref  string
+}
+
+type webOperationsFeedData struct {
+	Session identityaccess.SessionContext
+	Notice  string
+	Error   string
+	Feed    []webOperationsFeedItem
+}
+
+type webAgentChatData struct {
+	Session          identityaccess.SessionContext
+	Notice           string
+	Error            string
+	RequestReference string
+	RequestStatus    string
+	RecentRequests   []reporting.InboundRequestReview
+	RecentProposals  []reporting.ProcessedProposalReview
+}
+
 type webDocumentsData struct {
 	Session    identityaccess.SessionContext
 	Notice     string
@@ -302,6 +331,8 @@ type webPageData struct {
 	LoginPath               string
 	Session                 *identityaccess.SessionContext
 	Dashboard               *webAppDashboardData
+	OperationsFeed          *webOperationsFeedData
+	AgentChat               *webAgentChatData
 	InboundSubmit           *webInboundSubmitData
 	InboundRequests         *webInboundRequestsData
 	Detail                  *webInboundDetailData
@@ -348,6 +379,146 @@ func appendWebMessage(target, key, message string) string {
 		separator = "&"
 	}
 	return target + separator + key + "=" + url.QueryEscape(message)
+}
+
+const (
+	inboundRequestChannelBrowser   = "browser"
+	inboundRequestChannelAgentChat = "agent_chat"
+)
+
+func normalizeWebInboundChannel(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case inboundRequestChannelAgentChat:
+		return inboundRequestChannelAgentChat
+	default:
+		return inboundRequestChannelBrowser
+	}
+}
+
+func filterInboundRequestsByChannel(items []reporting.InboundRequestReview, channel string) []reporting.InboundRequestReview {
+	channel = strings.TrimSpace(channel)
+	if channel == "" {
+		return nil
+	}
+	filtered := make([]reporting.InboundRequestReview, 0, len(items))
+	for _, item := range items {
+		if strings.EqualFold(strings.TrimSpace(item.Channel), channel) {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
+}
+
+func inboundRequestReferences(items []reporting.InboundRequestReview) map[string]struct{} {
+	refs := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		ref := strings.TrimSpace(item.RequestReference)
+		if ref != "" {
+			refs[ref] = struct{}{}
+		}
+	}
+	return refs
+}
+
+func filterProcessedProposalsByRequestReference(items []reporting.ProcessedProposalReview, requestRefs map[string]struct{}) []reporting.ProcessedProposalReview {
+	if len(requestRefs) == 0 {
+		return nil
+	}
+	filtered := make([]reporting.ProcessedProposalReview, 0, len(items))
+	for _, item := range items {
+		if _, ok := requestRefs[strings.TrimSpace(item.RequestReference)]; ok {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
+}
+
+func buildOperationsFeedFromRequests(items []reporting.InboundRequestReview) []webOperationsFeedItem {
+	feed := make([]webOperationsFeedItem, 0, len(items))
+	for _, item := range items {
+		summary := fmt.Sprintf("%s via %s with %d messages and %d attachments.", item.RequestReference, item.Channel, item.MessageCount, item.AttachmentCount)
+		switch {
+		case item.FailureReason != "":
+			summary = item.FailureReason
+		case item.CancellationReason != "":
+			summary = item.CancellationReason
+		}
+		secondaryLabel := ""
+		secondaryHref := ""
+		if item.LastRecommendationID.Valid {
+			secondaryLabel = "Open proposal"
+			secondaryHref = templateProposalDetailHref(item.LastRecommendationID.String)
+		} else if item.LastRunID.Valid {
+			secondaryLabel = "Open latest run"
+			secondaryHref = templateInboundRequestSectionHref("run:"+item.LastRunID.String, templateAIRunSectionID(item.LastRunID.String))
+		}
+		feed = append(feed, webOperationsFeedItem{
+			OccurredAt:     item.UpdatedAt,
+			Kind:           "Request status",
+			Title:          fmt.Sprintf("%s moved through %s", item.RequestReference, item.Status),
+			Summary:        summary,
+			Status:         item.Status,
+			PrimaryLabel:   "Open request",
+			PrimaryHref:    templateInboundRequestHref(item.RequestReference),
+			SecondaryLabel: secondaryLabel,
+			SecondaryHref:  secondaryHref,
+		})
+	}
+	return feed
+}
+
+func buildOperationsFeedFromProposals(items []reporting.ProcessedProposalReview) []webOperationsFeedItem {
+	feed := make([]webOperationsFeedItem, 0, len(items))
+	for _, item := range items {
+		summary := fmt.Sprintf("%s for %s", item.Summary, item.RequestReference)
+		secondaryLabel := "Open request"
+		secondaryHref := templateInboundRequestHref(item.RequestReference)
+		if item.DocumentID.Valid {
+			secondaryLabel = "Open document"
+			secondaryHref = templateDocumentReviewHref(item.DocumentID.String)
+		} else if item.ApprovalID.Valid {
+			secondaryLabel = "Open approval"
+			secondaryHref = templateApprovalReviewHref(item.ApprovalID.String)
+		}
+		feed = append(feed, webOperationsFeedItem{
+			OccurredAt:     item.CreatedAt,
+			Kind:           "Coordinator proposal",
+			Title:          fmt.Sprintf("%s proposal for %s", item.RecommendationStatus, item.RequestReference),
+			Summary:        summary,
+			Status:         item.RecommendationStatus,
+			PrimaryLabel:   "Open proposal",
+			PrimaryHref:    templateProposalDetailHref(item.RecommendationID),
+			SecondaryLabel: secondaryLabel,
+			SecondaryHref:  secondaryHref,
+		})
+	}
+	return feed
+}
+
+func buildOperationsFeedFromApprovals(items []reporting.ApprovalQueueEntry) []webOperationsFeedItem {
+	feed := make([]webOperationsFeedItem, 0, len(items))
+	for _, item := range items {
+		occurredAt := item.RequestedAt
+		if item.ClosedAt.Valid {
+			occurredAt = item.ClosedAt.Time
+		}
+		summary := fmt.Sprintf("%s on %s", item.QueueCode, item.DocumentTitle)
+		if item.RequestReference.Valid {
+			summary += " for " + item.RequestReference.String
+		}
+		feed = append(feed, webOperationsFeedItem{
+			OccurredAt:     occurredAt,
+			Kind:           "Approval queue",
+			Title:          fmt.Sprintf("%s approval is %s", item.DocumentTitle, item.ApprovalStatus),
+			Summary:        summary,
+			Status:         item.ApprovalStatus,
+			PrimaryLabel:   "Open approval",
+			PrimaryHref:    templateApprovalReviewHref(item.ApprovalID),
+			SecondaryLabel: "Open document",
+			SecondaryHref:  templateDocumentReviewHref(item.DocumentID),
+		})
+	}
+	return feed
 }
 
 func parseMultipartAttachments(form *multipart.Form) ([]SubmitInboundRequestAttachmentInput, error) {
@@ -1441,6 +1612,8 @@ const webAppHTML = `<!DOCTYPE html>
           <div class="meta">Signed in as {{.Session.UserEmail}} in {{.Session.OrgName}} ({{.Session.RoleCode}})</div>
           <div class="nav-links" style="margin-top:12px;">
             <a href="/app" {{if eq .ActivePath "/app"}}class="active"{{end}}>Home</a>
+            <a href="/app/operations-feed" {{if eq .ActivePath "/app/operations-feed"}}class="active"{{end}}>Operations feed</a>
+            <a href="/app/agent-chat" {{if eq .ActivePath "/app/agent-chat"}}class="active"{{end}}>Agent chat</a>
             <a href="/app/submit-inbound-request" {{if eq .ActivePath "/app/submit-inbound-request"}}class="active"{{end}}>Submit request</a>
             <a href="/app/review/inbound-requests" {{if eq .ActivePath "/app/review/inbound-requests"}}class="active"{{end}}>Inbound requests</a>
             <a href="/app/review/documents" {{if eq .ActivePath "/app/review/documents"}}class="active"{{end}}>Documents</a>
@@ -1521,6 +1694,8 @@ const webAppHTML = `<!DOCTYPE html>
               <h3>Move directly into intake or review</h3>
               <p>Start new persisted intake on its own page, then continue through request detail, proposal review, approvals, and downstream inspection without mixing those jobs back into the dashboard.</p>
               <div class="page-actions" style="margin-top:16px;">
+                <a href="/app/operations-feed" class="pill-link">Open operations feed</a>
+                <a href="/app/agent-chat" class="pill-link">Open agent chat</a>
                 <a href="/app/submit-inbound-request" class="pill-link">Open submission page</a>
                 <a href="/app/review/inbound-requests" class="pill-link">Open inbound review</a>
               </div>
@@ -1719,6 +1894,244 @@ const webAppHTML = `<!DOCTYPE html>
     </div>
     {{end}}
 
+    {{with .OperationsFeed}}
+    <div class="stack">
+      {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+      {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+
+      <section class="panel">
+        <div class="hero-grid">
+          <div class="hero-card">
+            <div class="eyebrow">Durable operations feed</div>
+            <h3>Review one-way coordinator and system updates without turning the application into a chat stream.</h3>
+            <p>This page is event-driven and durable. Follow the linked request, proposal, approval, and document surfaces when action is required.</p>
+          </div>
+          <div class="card-stack">
+            <div class="detail-card">
+              <strong>Feed rule</strong>
+              <div class="meta">The operations feed is one-way status and control visibility. Workflow actions still happen on the linked exact pages.</div>
+            </div>
+            <div class="detail-card">
+              <strong>Conversation rule</strong>
+              <div class="meta">Use the separate agent-chat surface for guidance-oriented messages that should enter the persisted intake queue.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="page-header">
+          <div>
+            <div class="eyebrow">Latest events</div>
+            <h2>Operations feed</h2>
+            <p class="meta">Recent request lifecycle changes, coordinator proposals, and approval-boundary events on one durable page.</p>
+          </div>
+          <div class="page-actions">
+            <a href="/app/agent-chat" class="pill-link">Open agent chat</a>
+            <a href="/app/review/inbound-requests" class="pill-link">Open inbound review</a>
+          </div>
+        </div>
+        <div class="card-stack">
+          {{range .Feed}}
+          <div class="detail-card">
+            <div class="page-header">
+              <div>
+                <div class="eyebrow">{{.Kind}}</div>
+                <h3>{{.Title}}</h3>
+                <p class="meta">{{formatTime .OccurredAt}}</p>
+              </div>
+              <div class="page-actions">
+                <span class="status-pill {{statusClass .Status}}">{{.Status}}</span>
+              </div>
+            </div>
+            <p class="meta">{{.Summary}}</p>
+            <div class="page-actions">
+              <a href="{{.PrimaryHref}}" class="pill-link">{{.PrimaryLabel}}</a>
+              {{if .SecondaryHref}}<a href="{{.SecondaryHref}}" class="pill-link">{{.SecondaryLabel}}</a>{{end}}
+            </div>
+          </div>
+          {{else}}
+          <div class="empty-state">No durable operations updates are available yet.</div>
+          {{end}}
+        </div>
+      </section>
+    </div>
+    {{end}}
+
+    {{with .AgentChat}}
+    <div class="stack">
+      {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
+      {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+
+      <section class="panel">
+        <div class="hero-grid">
+          <div class="hero-card">
+            <div class="eyebrow">Coordinator chat</div>
+            <h3>Queue a guidance-oriented coordinator request without collapsing intake, feed, and review into one surface.</h3>
+            <p>Agent chat stays on the same persisted inbound-request model. It is interactive in entry shape, but the response path remains queue-oriented and durable rather than an immediate transient assistant reply.</p>
+          </div>
+          <div class="card-stack">
+            <div class="detail-card">
+              <strong>Persistence rule</strong>
+              <div class="meta">Each chat message becomes one exact request reference on the shared intake foundation.</div>
+            </div>
+            <div class="detail-card">
+              <strong>Control rule</strong>
+              <div class="meta">Chat does not bypass approvals, downstream review, or the request detail trace.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {{if .RequestReference}}
+      <section class="panel">
+        <div class="page-header">
+          <div>
+            <div class="eyebrow">Queued conversation</div>
+            <h2>{{.RequestReference}}</h2>
+            <p class="meta">The coordinator conversation is now on the persisted request path in <span class="status-pill {{statusClass .RequestStatus}}">{{.RequestStatus}}</span> state.</p>
+          </div>
+        </div>
+        <div class="page-actions">
+          <a href="/app/inbound-requests/{{.RequestReference}}" class="pill-link">Open exact request detail</a>
+          <a href="/app/operations-feed" class="pill-link">Open operations feed</a>
+          <a href="/app/review/proposals?request_reference={{.RequestReference}}" class="pill-link">Open proposal continuity</a>
+        </div>
+      </section>
+      {{end}}
+
+      <section class="panel">
+        <div class="page-header">
+          <div>
+            <div class="eyebrow">New coordinator request</div>
+            <h2>Start agent chat</h2>
+            <p class="meta">Ask for clarification, guidance, or issue-oriented follow-up. Queue it as durable intake instead of expecting an immediate inline assistant answer.</p>
+          </div>
+        </div>
+        <div class="split">
+          <div>
+            <form method="post" action="/app/inbound-requests" enctype="multipart/form-data">
+              <input type="hidden" name="return_to" value="/app/agent-chat">
+              <input type="hidden" name="channel" value="agent_chat">
+              <label>Operator label
+                <input type="text" name="submitter_label" placeholder="dispatch desk">
+              </label>
+              <label>Coordinator message
+                <textarea name="message_text" required placeholder="Explain the issue, the question, and any workflow page or request reference that should stay in view."></textarea>
+              </label>
+              <label>Attachments
+                <input type="file" name="attachments" multiple>
+              </label>
+              <div class="inline-form">
+                <button type="submit" name="intent" value="queue">Queue coordinator request</button>
+                <button type="submit" name="intent" value="save_draft" class="secondary">Save chat draft</button>
+              </div>
+            </form>
+          </div>
+          <div class="card-stack">
+            <div class="detail-card">
+              <strong>Good use</strong>
+              <div class="meta">Clarification, request scoping, issue triage, and workflow guidance that should stay visible through exact request detail and later proposal review.</div>
+            </div>
+            <div class="detail-card">
+              <strong>Do not use chat for</strong>
+              <div class="meta">Bypassing approval decisions, treating the feed as a reply thread, or replacing the dedicated request-submission page for normal operational intake.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="grid">
+        <section class="panel">
+          <div class="page-header">
+            <div>
+              <div class="eyebrow">Recent conversations</div>
+              <h2>Recent agent-chat requests</h2>
+            </div>
+            <div class="page-actions">
+              <a href="/app/review/inbound-requests" class="pill-link">Open full inbound review</a>
+            </div>
+          </div>
+          <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Reference</th>
+                <th>Status</th>
+                <th>Messages</th>
+                <th>Updated</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{range .RecentRequests}}
+              <tr>
+                <td><a href="{{inboundRequestHref .RequestReference}}">{{.RequestReference}}</a></td>
+                <td>
+                  <span class="status-pill {{statusClass .Status}}">{{.Status}}</span>
+                  {{if .FailureReason}}<div class="meta">{{.FailureReason}}</div>{{end}}
+                  {{if .CancellationReason}}<div class="meta">{{.CancellationReason}}</div>{{end}}
+                </td>
+                <td>
+                  {{.MessageCount}} messages / {{.AttachmentCount}} files
+                  {{if .LastRecommendationID.Valid}}<div class="meta"><a href="{{proposalDetailHref .LastRecommendationID.String}}">Open latest proposal</a></div>{{end}}
+                </td>
+                <td>{{formatTime .UpdatedAt}}</td>
+              </tr>
+              {{else}}
+              <tr><td colspan="4">No recent agent-chat requests yet.</td></tr>
+              {{end}}
+            </tbody>
+          </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="page-header">
+            <div>
+              <div class="eyebrow">Proposal continuity</div>
+              <h2>Recent agent-chat proposals</h2>
+            </div>
+            <div class="page-actions">
+              <a href="/app/operations-feed" class="pill-link">Open operations feed</a>
+            </div>
+          </div>
+          <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Request</th>
+                <th>Recommendation</th>
+                <th>Approval</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{range .RecentProposals}}
+              <tr>
+                <td><a href="{{inboundRequestHref .RequestReference}}">{{.RequestReference}}</a></td>
+                <td>
+                  <span class="status-pill {{statusClass .RecommendationStatus}}">{{.RecommendationStatus}}</span>
+                  <div>{{.Summary}}</div>
+                  <div class="meta"><a href="{{proposalDetailHref .RecommendationID}}">Open proposal</a></div>
+                </td>
+                <td>
+                  {{if .ApprovalID.Valid}}
+                  <a href="{{approvalReviewHref .ApprovalID.String}}">{{if .ApprovalQueueCode.Valid}}{{.ApprovalQueueCode.String}}{{else}}approval{{end}}</a>
+                  {{else}}
+                  -
+                  {{end}}
+                </td>
+              </tr>
+              {{else}}
+              <tr><td colspan="3">No recent proposals from agent-chat requests yet.</td></tr>
+              {{end}}
+            </tbody>
+          </table>
+          </div>
+        </section>
+      </div>
+    </div>
+    {{end}}
+
     {{with .InboundSubmit}}
     <div class="stack">
       {{if .Notice}}<div class="notice">{{.Notice}}</div>{{end}}
@@ -1781,6 +2194,7 @@ const webAppHTML = `<!DOCTYPE html>
           <div>
             <form method="post" action="/app/inbound-requests" enctype="multipart/form-data">
               <input type="hidden" name="return_to" value="/app/submit-inbound-request">
+              <input type="hidden" name="channel" value="browser">
               <label>Submitter label
                 <input type="text" name="submitter_label" placeholder="front desk">
               </label>
@@ -3289,6 +3703,7 @@ const webAppHTML = `<!DOCTYPE html>
             <input type="hidden" name="request_id" value="{{.Detail.Request.RequestID}}">
             <input type="hidden" name="message_id" value="{{.EditableMessageID}}">
             <input type="hidden" name="return_to" value="/app/inbound-requests/{{.Detail.Request.RequestReference}}">
+            <input type="hidden" name="channel" value="{{.Detail.Request.Channel}}">
             <label>Submitter label
               <input type="text" name="submitter_label" value="{{.EditableSubmitterLabel}}">
             </label>

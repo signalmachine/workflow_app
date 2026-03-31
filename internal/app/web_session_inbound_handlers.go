@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -12,6 +13,139 @@ import (
 	"workflow_app/internal/reporting"
 	"workflow_app/internal/workflow"
 )
+
+func (h *AgentAPIHandler) handleWebOperationsFeed(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != webOperationsFeedPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webLoginPath+"?notice="+url.QueryEscape("Please sign in."), http.StatusSeeOther)
+		return
+	}
+	if h.reviewService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("review service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	data := webOperationsFeedData{
+		Session: sessionContext,
+		Notice:  strings.TrimSpace(r.URL.Query().Get("notice")),
+		Error:   strings.TrimSpace(r.URL.Query().Get("error")),
+	}
+
+	requests, err := h.reviewService.ListInboundRequests(r.Context(), reporting.ListInboundRequestsInput{
+		Limit: 20,
+		Actor: sessionContext.Actor,
+	})
+	if err != nil {
+		data.Error = "failed to load operations feed"
+	} else {
+		data.Feed = append(data.Feed, buildOperationsFeedFromRequests(requests)...)
+	}
+
+	if proposals, proposalErr := h.reviewService.ListProcessedProposals(r.Context(), reporting.ListProcessedProposalsInput{
+		Limit: 20,
+		Actor: sessionContext.Actor,
+	}); proposalErr != nil {
+		if data.Error == "" {
+			data.Error = "failed to load operations feed"
+		}
+	} else {
+		data.Feed = append(data.Feed, buildOperationsFeedFromProposals(proposals)...)
+	}
+
+	if approvals, approvalErr := h.reviewService.ListApprovalQueue(r.Context(), reporting.ListApprovalQueueInput{
+		Limit: 20,
+		Actor: sessionContext.Actor,
+	}); approvalErr != nil {
+		if data.Error == "" {
+			data.Error = "failed to load operations feed"
+		}
+	} else {
+		data.Feed = append(data.Feed, buildOperationsFeedFromApprovals(approvals)...)
+	}
+
+	sort.SliceStable(data.Feed, func(i, j int) bool {
+		if !data.Feed[i].OccurredAt.Equal(data.Feed[j].OccurredAt) {
+			return data.Feed[i].OccurredAt.After(data.Feed[j].OccurredAt)
+		}
+		return data.Feed[i].Title < data.Feed[j].Title
+	})
+	if len(data.Feed) > 30 {
+		data.Feed = data.Feed[:30]
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:          "workflow_app",
+		ActivePath:     webOperationsFeedPath,
+		Session:        &sessionContext,
+		OperationsFeed: &data,
+	})
+}
+
+func (h *AgentAPIHandler) handleWebAgentChat(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != webAgentChatPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		http.Redirect(w, r, webLoginPath+"?notice="+url.QueryEscape("Please sign in."), http.StatusSeeOther)
+		return
+	}
+	if h.reviewService == nil {
+		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("review service unavailable"), http.StatusSeeOther)
+		return
+	}
+
+	data := webAgentChatData{
+		Session:          sessionContext,
+		Notice:           strings.TrimSpace(r.URL.Query().Get("notice")),
+		Error:            strings.TrimSpace(r.URL.Query().Get("error")),
+		RequestReference: strings.TrimSpace(r.URL.Query().Get("request_reference")),
+		RequestStatus:    strings.TrimSpace(r.URL.Query().Get("request_status")),
+	}
+
+	requests, err := h.reviewService.ListInboundRequests(r.Context(), reporting.ListInboundRequestsInput{
+		Limit: 40,
+		Actor: sessionContext.Actor,
+	})
+	if err != nil {
+		data.Error = "failed to load recent coordinator conversations"
+	} else {
+		data.RecentRequests = filterInboundRequestsByChannel(requests, inboundRequestChannelAgentChat)
+	}
+
+	if proposals, proposalErr := h.reviewService.ListProcessedProposals(r.Context(), reporting.ListProcessedProposalsInput{
+		Limit: 40,
+		Actor: sessionContext.Actor,
+	}); proposalErr != nil {
+		if data.Error == "" {
+			data.Error = "failed to load recent coordinator conversations"
+		}
+	} else {
+		data.RecentProposals = filterProcessedProposalsByRequestReference(proposals, inboundRequestReferences(data.RecentRequests))
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:      "workflow_app",
+		ActivePath: webAgentChatPath,
+		Session:    &sessionContext,
+		AgentChat:  &data,
+	})
+}
 
 func (h *AgentAPIHandler) handleWebAppDashboard(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != webAppPath {
@@ -269,7 +403,8 @@ func (h *AgentAPIHandler) handleWebSubmitInboundRequest(w http.ResponseWriter, r
 	requestID := strings.TrimSpace(r.FormValue("request_id"))
 	messageID := strings.TrimSpace(r.FormValue("message_id"))
 	returnTo := sanitizeWebReturnPath(r.FormValue("return_to"))
-	fromSubmitPage := requestID == "" && returnTo == webSubmitInboundPagePath
+	channel := normalizeWebInboundChannel(r.FormValue("channel"))
+	fromStandalonePage := requestID == "" && (returnTo == webSubmitInboundPagePath || returnTo == webAgentChatPath)
 	if returnTo == "" {
 		if requestID != "" {
 			returnTo = webInboundDetailPrefix + url.PathEscape(requestID)
@@ -284,7 +419,7 @@ func (h *AgentAPIHandler) handleWebSubmitInboundRequest(w http.ResponseWriter, r
 			RequestID:   requestID,
 			MessageID:   messageID,
 			OriginType:  intake.OriginHuman,
-			Channel:     "browser",
+			Channel:     channel,
 			Metadata:    map[string]any{"submitter_label": strings.TrimSpace(r.FormValue("submitter_label"))},
 			MessageRole: intake.MessageRoleRequest,
 			MessageText: strings.TrimSpace(r.FormValue("message_text")),
@@ -295,8 +430,8 @@ func (h *AgentAPIHandler) handleWebSubmitInboundRequest(w http.ResponseWriter, r
 			http.Redirect(w, r, appendWebMessage(returnTo, "error", "failed to save inbound draft"), http.StatusSeeOther)
 			return
 		}
-		if fromSubmitPage {
-			target := appendWebMessage(webSubmitInboundPagePath, "notice", "Draft saved.")
+		if fromStandalonePage {
+			target := appendWebMessage(returnTo, "notice", "Draft saved.")
 			target = appendWebMessage(target, "request_reference", result.Request.RequestReference)
 			target = appendWebMessage(target, "request_status", result.Request.Status)
 			http.Redirect(w, r, target, http.StatusSeeOther)
@@ -310,7 +445,7 @@ func (h *AgentAPIHandler) handleWebSubmitInboundRequest(w http.ResponseWriter, r
 				RequestID:   requestID,
 				MessageID:   messageID,
 				OriginType:  intake.OriginHuman,
-				Channel:     "browser",
+				Channel:     channel,
 				Metadata:    map[string]any{"submitter_label": strings.TrimSpace(r.FormValue("submitter_label"))},
 				MessageRole: intake.MessageRoleRequest,
 				MessageText: strings.TrimSpace(r.FormValue("message_text")),
@@ -335,7 +470,7 @@ func (h *AgentAPIHandler) handleWebSubmitInboundRequest(w http.ResponseWriter, r
 
 		result, err := h.submissionService.SubmitInboundRequest(r.Context(), SubmitInboundRequestInput{
 			OriginType:     intake.OriginHuman,
-			Channel:        "browser",
+			Channel:        channel,
 			Metadata:       map[string]any{"submitter_label": strings.TrimSpace(r.FormValue("submitter_label"))},
 			MessageRole:    intake.MessageRoleRequest,
 			MessageText:    strings.TrimSpace(r.FormValue("message_text")),
@@ -347,8 +482,8 @@ func (h *AgentAPIHandler) handleWebSubmitInboundRequest(w http.ResponseWriter, r
 			http.Redirect(w, r, appendWebMessage(returnTo, "error", "failed to submit inbound request"), http.StatusSeeOther)
 			return
 		}
-		if fromSubmitPage {
-			target := appendWebMessage(webSubmitInboundPagePath, "notice", "Inbound request submitted.")
+		if fromStandalonePage {
+			target := appendWebMessage(returnTo, "notice", "Inbound request submitted.")
 			target = appendWebMessage(target, "request_reference", result.Request.RequestReference)
 			target = appendWebMessage(target, "request_status", result.Request.Status)
 			http.Redirect(w, r, target, http.StatusSeeOther)

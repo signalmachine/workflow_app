@@ -1,7 +1,7 @@
 # workflow_app Operator Communication And Intake Surfaces Plan
 
 Date: 2026-03-30
-Status: Partially implemented post-refresh implementation slice; dashboard-only home and dedicated inbound-request submission page are landed, operations feed and agent chat remain planned
+Status: Implemented post-refresh implementation slice; dashboard-only home, dedicated inbound-request submission, operations feed, and agent chat are landed in code and repo verification
 Purpose: define the next bounded browser-surface product changes after the visual-refresh pass: a pure dashboard home page, a dedicated inbound-request submission page, a one-way operations feed, and a separate two-way agent chat surface.
 
 ## 1. Why this plan exists
@@ -94,9 +94,9 @@ Implementation status:
 
 1. `Home` is now a pure dashboard
 2. `Submit inbound request` now has a dedicated page with clear result messaging and exact `REQ-...` continuity
-3. `Operations feed` remains the next planned durable one-way coordinator or system communication page
-4. `Agent chat` remains the following planned separate two-way coordinator communication page
-5. after items 3 and 4 are complete, take one bounded performance pass on the `internal/app` test suite focused on measuring the slowest cases and landing only low-risk speedups that preserve workflow-critical integration coverage
+3. `Operations feed` is now implemented as a durable one-way coordinator or system communication page built from existing request, proposal, and approval truth
+4. `Agent chat` is now implemented as a separate two-way coordinator communication entry surface that still persists onto the shared inbound-request foundation through a dedicated `agent_chat` channel
+5. the next planned step after these browser-surface implementations is one bounded performance pass on the `internal/app` test suite focused on measuring the slowest cases and landing only low-risk speedups that preserve workflow-critical integration coverage
 
 ## 5. Architecture guardrails
 
