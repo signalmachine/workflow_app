@@ -1,6 +1,6 @@
 # Technical Guides
 
-Date: 2026-03-28
+Date: 2026-03-31
 Status: Initialized
 Purpose: provide durable technical reference material for humans and AI coding agents working on `workflow_app`, especially architecture, system patterns, and implementation conventions.
 
@@ -35,15 +35,24 @@ This folder should capture stable technical understanding of the application as 
 
 These guides are intended to become part of the durable technical context that both humans and AI coding agents can use during implementation, review, debugging, and extension work.
 
-## 3. Initial content direction
+## 3. Reading order
 
-Good starting guides for this folder include:
+Start with the most important concepts first:
 
-1. application architecture overview
-2. request intake and async processing patterns
-3. document, approval, and posting lifecycle patterns
-4. browser layer and shared `/app` plus `/api/...` seam guidance
-5. testing and verification patterns for workflow-critical changes
+1. [Application architecture overview](./01_application_architecture_overview.md)
+2. [Module boundaries and shared truth](./02_module_boundaries_and_shared_truth.md)
+3. [Inbound request lifecycle and queue processing](./03_inbound_request_lifecycle.md)
+4. [AI agent architecture](./04_ai_agent_architecture.md)
+5. [Web and API seams](./05_web_and_api_seams.md)
+6. [Identity, sessions, and authentication](./06_identity_session_auth.md)
+7. [Testing and verification](./07_testing_and_verification.md)
+8. [Document lifecycle and posting boundaries](./08_document_lifecycle_and_posting_boundaries.md)
+9. [Workflow approvals and task model](./09_workflow_approvals_and_task_model.md)
+10. [Accounting journal, control accounts, and reversals](./10_accounting_journal_control_accounts_and_reversals.md)
+11. [Inventory movements and reconciliation](./11_inventory_movements_and_reconciliation.md)
+12. [Reporting read model](./12_reporting_read_model.md)
+13. [Attachments and derived text](./13_attachments_and_derived_text.md)
+14. [Data modeling and database schema](./14_data_modeling_and_database_schema.md)
 
 ## 4. Organization rule
 

@@ -38,6 +38,8 @@ go run ./cmd/app
 
 The runnable commands auto-load `.env` from the repository root when it exists. You do not need to `source .env` first for these commands unless you want shell-level overrides.
 
+If you need the browser-login defaults or a friendlier local admin login, see [`browser_sign_in_and_admin_bootstrap.md`](./browser_sign_in_and_admin_bootstrap.md).
+
 Migration rule:
 
 1. run `go run ./cmd/migrate` on first setup for a database
@@ -45,70 +47,19 @@ Migration rule:
 3. run it again when you switch to a fresh or reset main database
 4. do not treat it as a command you must run before every normal app restart when the database is already up to date
 
-## 3. Default bootstrap admin values
-
-If you run `go run ./cmd/bootstrap-admin -password 'choose-a-strong-password'` without extra flags, the command ensures this login exists in the main database:
-
-1. org name `North Harbor Works`
-2. org slug `north-harbor`
-3. admin email `admin@northharbor.local`
-4. admin display name `North Harbor Admin`
-
-Field meaning:
-
-1. org slug is the short login-facing identifier, for example `north-harbor`
-2. org name is the human-readable display name, for example `North Harbor Works`
-3. org ID is a separate internal database UUID and is not what you type into the sign-in form
-
-What `bootstrap` means here:
-
-1. create the minimum first-run records needed so the app is usable
-2. ensure an organization record exists
-3. ensure an admin user record exists
-4. ensure that user has an active admin membership in that organization
-5. hash and store the password so browser sign-in can work immediately
-
-This does not create a separate application instance. It creates one friendly organization and one friendly admin login inside the main application database.
-
-You can override the defaults:
-
-```bash
-go run ./cmd/bootstrap-admin \
-  -org-name "Harborline Services" \
-  -org-slug harborline \
-  -email admin@harborline.local \
-  -display-name "Harborline Admin" \
-  -password 'choose-a-strong-password'
-```
-
-The bootstrap command is idempotent:
-
-1. it creates the org if missing
-2. it creates the user if missing
-3. it creates or reactivates the org membership if missing
-4. it keeps the membership role as `admin`
-5. it updates the password to the value you passed
-
-## 4. Browser sign-in
+## 3. Browser sign-in
 
 Open:
 
 ```text
-http://127.0.0.1:8080/app
+http://127.0.0.1:8080/app/login
 ```
 
-If you used the default bootstrap values, sign in with:
-
-1. Org slug: `north-harbor`
-2. User email: `admin@northharbor.local`
-3. Password: the password you passed to `cmd/bootstrap-admin`
-4. Device label: `browser`
-
-If you sign in with those defaults, you are signing into the organization `North Harbor Works`. The application is multi-tenant at the org level, so the organization is the active tenant context for that browser session.
+You can also start from `/app` if you prefer the main app entry point. The unauthenticated browser flow should route you to the sign-in surface.
 
 The sign-in page expects a real org slug and a real email address. A short value like `admin` in the email field will not work unless there is an actual user with that email in the database.
 
-## 5. Recommended verification commands
+## 4. Recommended verification commands
 
 Use these commands after setup:
 
@@ -119,7 +70,7 @@ set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./inte
 
 The first checks that the runnable workspace builds cleanly. The second verifies the code against the configured test database rather than the main application database.
 
-## 6. Troubleshooting
+## 5. Troubleshooting
 
 If `go run ./cmd/app` prints `DATABASE_URL is required`:
 

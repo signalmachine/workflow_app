@@ -30,6 +30,8 @@ This is preferable to:
 2. manually editing password hashes
 3. using verification-created orgs and users as the long-term browser login
 
+The browser sign-in flow is available at `/app/login`, and `/app` routes unauthenticated visitors to the same sign-in experience.
+
 ## 3. What the bootstrap command does
 
 `cmd/bootstrap-admin` applies the following best-practice setup shape against the main application database:
