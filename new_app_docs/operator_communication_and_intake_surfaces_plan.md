@@ -96,7 +96,7 @@ Implementation status:
 2. `Submit inbound request` now has a dedicated page with clear result messaging and exact `REQ-...` continuity
 3. `Operations feed` is now implemented as a durable one-way coordinator or system communication page built from existing request, proposal, and approval truth
 4. `Agent chat` is now implemented as a separate two-way coordinator communication entry surface that still persists onto the shared inbound-request foundation through a dedicated `agent_chat` channel
-5. the next planned step after these browser-surface implementations is one bounded performance pass on the `internal/app` test suite focused on measuring the slowest cases and landing only low-risk speedups that preserve workflow-critical integration coverage
+5. the bounded follow-on performance pass on the `internal/app` test suite is now also complete: the shared DB-backed harness no longer reruns schema migrations on every `dbtest.Open` call inside one test process, while per-test resets and workflow-critical integration coverage stay intact
 
 ## 5. Architecture guardrails
 

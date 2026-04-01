@@ -1625,7 +1625,7 @@ func TestHandleWebAppDashboardRendersRefreshedEnterpriseShell(t *testing.T) {
 		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
 	}
 	body := recorder.Body.String()
-	if !strings.Contains(body, `Operator control surface`) {
+	if !strings.Contains(body, `class="brand-mark">Control surface</div>`) {
 		t.Fatalf("expected refreshed masthead badge, body=%s", body)
 	}
 	if !strings.Contains(body, `Current posture`) {

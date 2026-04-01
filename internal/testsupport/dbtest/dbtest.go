@@ -3,11 +3,18 @@ package dbtest
 import (
 	"context"
 	"database/sql"
+	"sync"
 	"testing"
 	"time"
 
 	"workflow_app/internal/platform/migrations"
 	"workflow_app/internal/testsupport/testdb"
+)
+
+var (
+	migrateOnce sync.Once
+	migrateErr  error
+	runMigrations = migrations.Up
 )
 
 func Open(t *testing.T) *sql.DB {
@@ -20,11 +27,21 @@ func Open(t *testing.T) *sql.DB {
 
 	testdb.MustAcquireAdvisoryLock(t, ctx, db, testdb.DefaultLockKey)
 
-	if _, err := migrations.Up(ctx, db); err != nil {
+	// The schema is stable for the lifetime of a test process, and each test
+	// already performs a full data reset. Running migrations once keeps the
+	// DB-backed suite isolated without paying repeated no-op migration cost.
+	if err := ensureMigrated(ctx, db); err != nil {
 		t.Fatalf("migrate test database: %v", err)
 	}
 
 	return db
+}
+
+func ensureMigrated(ctx context.Context, db *sql.DB) error {
+	migrateOnce.Do(func() {
+		_, migrateErr = runMigrations(ctx, db)
+	})
+	return migrateErr
 }
 
 func Reset(t *testing.T, db *sql.DB) {

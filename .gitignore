@@ -51,4 +51,5 @@ node_modules/
 .sass-cache/
 
 .claude
+.codex
 .codex/
