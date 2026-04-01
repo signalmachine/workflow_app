@@ -1,0 +1,37 @@
+{{define "slice1_operations_feed"}}
+{{template "slice1_shell_start" .}}
+
+{{template "slice1_page_header" (dict
+  "eyebrow" "Operations feed"
+  "title" "Durable operations feed"
+  "body" "Use one chronological surface for recent request movement, proposal continuity, and approval-state changes without dropping back into the full review family."
+)}}
+
+{{if .OperationsFeed.Feed}}
+<section class="feed-list">
+  {{range .OperationsFeed.Feed}}
+  <article class="feed-item">
+    <div class="feed-head">
+      <div>
+        <div class="eyebrow">{{.Kind}}</div>
+        <h2>{{.Title}}</h2>
+      </div>
+      <div class="meta">{{formatTime .OccurredAt}}</div>
+    </div>
+    <p>{{.Summary}}</p>
+    <div>
+      <span class="status-pill {{statusClass .Status}}">{{.Status}}</span>
+    </div>
+    <div class="button-row">
+      {{if .PrimaryHref}}<a href="{{.PrimaryHref}}" class="pill-link">{{.PrimaryLabel}}</a>{{end}}
+      {{if .SecondaryHref}}<a href="{{.SecondaryHref}}" class="pill-link secondary">{{.SecondaryLabel}}</a>{{end}}
+    </div>
+  </article>
+  {{end}}
+</section>
+{{else}}
+{{template "slice1_empty_state" (dict "title" "No durable events yet" "body" "The feed will populate from request, proposal, and approval truth as operator activity lands in the shared backend." )}}
+{{end}}
+
+{{template "slice1_shell_end" .}}
+{{end}}

@@ -1,0 +1,173 @@
+{{define "slice1_dashboard"}}
+{{template "slice1_shell_start" .}}
+
+{{template "slice1_page_header" (dict
+  "eyebrow" "Dashboard"
+  "title" "Control surface"
+  "body" "Start from one operator story: create or continue requests, watch the queue, and branch into approvals or proposals only when the current state requires it."
+)}}
+
+<section class="hero-card">
+  <div class="hero-grid">
+  <div class="card-stack">
+    <div class="eyebrow">Current posture</div>
+    <h2>Keep request intake and live operational state ahead of broad review browsing.</h2>
+    <p>Slice 1 separates primary workflow destinations from the wider review family so the first-use shell stays calmer without weakening continuity.</p>
+    <div class="nav-links">
+    <div class="button-row">
+      <a href="/app/submit-inbound-request" class="pill-link">Open submission page</a>
+      <a href="/app/operations-feed" class="pill-link">Open operations feed</a>
+      <a href="/app/agent-chat" class="pill-link">Open agent chat</a>
+      <a href="/app/review/inbound-requests" class="pill-link">Open inbound review</a>
+    </div>
+    </div>
+    <form method="post" action="/app/agent/process-next-queued-inbound-request">
+      <button type="submit">Process next queued request</button>
+    </form>
+  </div>
+
+  <div class="detail-grid">
+    {{template "slice1_detail_block" (dict "label" "Primary route" "value" "Dedicated intake" "body" "New requests now have their own entry page instead of competing with the dashboard." )}}
+    {{template "slice1_detail_block" (dict "label" "Operational scan" "value" "Operations feed" "body" "Use the feed for fast state changes, proposal continuity, and approval movement." )}}
+    {{template "slice1_detail_block" (dict "label" "Guidance path" "value" "Agent chat" "body" "Guidance-oriented requests still persist through the same inbound-request model." )}}
+  </div>
+  </div>
+</section>
+
+<section class="status-grid">
+  {{if .Dashboard.InboundSummary}}
+    {{range .Dashboard.InboundSummary}}
+      {{template "slice1_summary_card" (dict
+        "label" .Status
+        "value" .RequestCount
+        "body" (dashboardStatusBlurb .Status)
+        "action_href" (inboundRequestsHref .Status "")
+        "action_label" (dashboardStatusAction .Status)
+      )}}
+    {{end}}
+  {{else}}
+    {{template "slice1_empty_state" (dict "title" "No request summary yet" "body" "The dashboard will surface request-state counts once inbound activity is present for this operator." )}}
+  {{end}}
+</section>
+
+<div class="two-up">
+  <section class="table-card">
+    <div>
+      <div class="eyebrow">Recent inbound requests</div>
+      <h2>Continue from the latest request state</h2>
+      <p class="section-copy">Lifecycle actions stay close to the request detail route, while the dashboard keeps quick continuity into the right next view.</p>
+    </div>
+    {{if .Dashboard.InboundRequests}}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Request</th>
+            <th>Status</th>
+            <th>Context</th>
+            <th>Next step</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .Dashboard.InboundRequests}}
+          <tr>
+            <td><a href="{{inboundRequestHref .RequestReference}}">{{.RequestReference}}</a></td>
+            <td><span class="status-pill {{statusClass .Status}}">{{.Status}}</span></td>
+            <td>
+              {{if .FailureReason}}{{.FailureReason}}
+              {{else if .CancellationReason}}{{.CancellationReason}}
+              {{else}}{{.Channel}} with {{.MessageCount}} messages and {{.AttachmentCount}} attachments
+              {{end}}
+            </td>
+            <td>
+              <a href="{{inboundRequestHref .RequestReference}}">{{dashboardRequestAction .Status}}</a>
+              {{if .LastRunID.Valid}} | <a href="{{inboundSectionHref (print "run:" .LastRunID.String) (runSectionID .LastRunID.String)}}">Open latest run</a>{{end}}
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    {{template "slice1_empty_state" (dict "title" "No recent requests" "body" "Create a request from the dedicated intake page or use agent chat to start the persisted intake loop." )}}
+    {{end}}
+  </section>
+
+  <section class="table-card">
+    <div>
+      <div class="eyebrow">Pending approvals</div>
+      <h2>Watch the current approval queue</h2>
+      <p class="section-copy">The shell keeps approvals visible without making the dashboard another full review page.</p>
+      <div class="meta"><a href="/app/review/approvals?status=pending">Open full approval review</a></div>
+    </div>
+    {{if .Dashboard.Approvals}}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Approval</th>
+            <th>Queue</th>
+            <th>Document</th>
+            <th>Links</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .Dashboard.Approvals}}
+          <tr>
+            <td><a href="{{approvalReviewHref .ApprovalID}}">{{.ApprovalID}}</a></td>
+            <td><a href="{{approvalReviewHref .ApprovalID}}">{{.QueueCode}}</a> | <a href="{{approvalQueueHref .QueueCode "pending"}}">{{.QueueCode}}</a></td>
+            <td>{{.DocumentTitle}}</td>
+            <td><a href="{{approvalReviewHref .ApprovalID}}">Open exact approval</a> | <a href="/app/review/audit?entity_type=documents.document&amp;entity_id={{.DocumentID}}">Audit trail</a></td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    {{template "slice1_empty_state" (dict "title" "No pending approvals" "body" "When processed proposals request approval, the queue will surface here with direct continuity links." )}}
+    {{end}}
+  </section>
+</div>
+
+<section class="table-card">
+  <div>
+    <div class="eyebrow">Recent proposals</div>
+    <h2>Keep proposal continuity visible from the entry shell</h2>
+    <p class="section-copy">The dashboard shows enough downstream state to decide when to continue into proposal review without flattening every workflow into one page.</p>
+  </div>
+  {{if .Dashboard.Proposals}}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Request</th>
+          <th>Proposal</th>
+          <th>Status</th>
+          <th>Summary</th>
+          <th>Continuity</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Dashboard.Proposals}}
+        <tr>
+          <td><a href="{{inboundRequestHref .RequestReference}}">{{.RequestReference}}</a></td>
+          <td><a href="{{proposalDetailHref .RecommendationID}}">{{.RecommendationID}}</a></td>
+          <td><span class="status-pill {{statusClass .RecommendationStatus}}">{{.RecommendationStatus}}</span></td>
+          <td>{{.Summary}}</td>
+          <td>
+            <a href="{{proposalDetailHref .RecommendationID}}">Open exact proposal</a>
+            {{if .ApprovalID.Valid}} | <a href="{{approvalReviewHref .ApprovalID.String}}">Open exact approval</a>{{end}}
+            {{if .DocumentID.Valid}} | <a href="/app/review/audit?entity_type=documents.document&amp;entity_id={{.DocumentID.String}}">Audit trail</a>{{end}}
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  {{template "slice1_empty_state" (dict "title" "No processed proposals yet" "body" "Run queued work or continue through the operations feed when AI-backed request processing creates the next proposal." )}}
+  {{end}}
+</section>
+
+{{template "slice1_shell_end" .}}
+{{end}}

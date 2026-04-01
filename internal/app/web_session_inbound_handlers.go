@@ -85,6 +85,8 @@ func (h *AgentAPIHandler) handleWebOperationsFeed(w http.ResponseWriter, r *http
 	h.renderWebPage(w, webPageData{
 		Title:          "workflow_app",
 		ActivePath:     webOperationsFeedPath,
+		Notice:         data.Notice,
+		Error:          data.Error,
 		Session:        &sessionContext,
 		OperationsFeed: &data,
 	})
@@ -142,6 +144,8 @@ func (h *AgentAPIHandler) handleWebAgentChat(w http.ResponseWriter, r *http.Requ
 	h.renderWebPage(w, webPageData{
 		Title:      "workflow_app",
 		ActivePath: webAgentChatPath,
+		Notice:     data.Notice,
+		Error:      data.Error,
 		Session:    &sessionContext,
 		AgentChat:  &data,
 	})
@@ -210,6 +214,8 @@ func (h *AgentAPIHandler) handleWebAppDashboard(w http.ResponseWriter, r *http.R
 	h.renderWebPage(w, webPageData{
 		Title:      "workflow_app",
 		ActivePath: webAppPath,
+		Notice:     data.Notice,
+		Error:      data.Error,
 		Session:    &sessionContext,
 		Dashboard:  &data,
 	})
@@ -290,6 +296,8 @@ func (h *AgentAPIHandler) handleWebSubmitInboundRequestPage(w http.ResponseWrite
 	h.renderWebPage(w, webPageData{
 		Title:         "workflow_app",
 		ActivePath:    webSubmitInboundPagePath,
+		Notice:        data.Notice,
+		Error:         data.Error,
 		Session:       &sessionContext,
 		InboundSubmit: &data,
 	})

@@ -1,0 +1,126 @@
+{{define "slice1_head"}}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{if .Title}}{{.Title}}{{else}}workflow_app{{end}}</title>
+  <style>{{template "slice1_styles" .}}</style>
+</head>
+{{end}}
+
+{{define "slice1_shell_start"}}
+{{template "slice1_head" .}}
+<body>
+  <div class="shell-grid">
+    <aside class="shell-sidebar">
+      <div class="brand-block">
+        <div class="brand-mark">Control surface</div>
+        <h1>workflow_app</h1>
+        <p>AI-agent-first workflow review on one shared backend truth.</p>
+      </div>
+
+      <div class="nav-stack">
+        <div class="nav-group">
+          <div class="nav-group-label">Primary workflow</div>
+          <a href="/app" class="{{navClass .ActivePath "/app"}}">Dashboard</a>
+          <a href="/app/submit-inbound-request" class="{{navClass .ActivePath "/app/submit-inbound-request"}}">Dedicated intake</a>
+          <a href="/app/operations-feed" class="{{navClass .ActivePath "/app/operations-feed"}}">Operations feed</a>
+          <a href="/app/agent-chat" class="{{navClass .ActivePath "/app/agent-chat"}}">Agent chat</a>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-group-label">Review surfaces</div>
+          <a href="/app/review/inbound-requests" class="{{reviewNavClass .ActivePath}}">Open review workbench</a>
+          <div class="nav-group-copy">Review routes remain live on the shared backend seam while the workbench family moves in Slice 2.</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="shell-main">
+      <div class="topbar">
+        <div>
+          <div class="eyebrow">Operator session</div>
+          {{if .Session}}
+          <div><strong>{{.Session.UserEmail}}</strong> in <strong>{{.Session.OrgSlug}}</strong></div>
+          {{end}}
+          <div class="session-meta">Primary workflow destinations stay separate from secondary review routes in Milestone 10 Slice 1.</div>
+        </div>
+        {{if .Session}}
+        <form method="post" action="/app/logout">
+          <button type="submit" class="secondary">Sign out</button>
+        </form>
+        {{end}}
+      </div>
+
+      <main class="page-stack">
+        {{template "slice1_flash" .}}
+{{end}}
+
+{{define "slice1_shell_end"}}
+      </main>
+    </div>
+  </div>
+</body>
+</html>
+{{end}}
+
+{{define "slice1_public_start"}}
+{{template "slice1_head" .}}
+<body class="login-shell">
+  <div class="public-shell">
+    {{template "slice1_flash" .}}
+{{end}}
+
+{{define "slice1_public_end"}}
+  </div>
+</body>
+</html>
+{{end}}
+
+{{define "slice1_flash"}}
+{{if .Notice}}
+<div class="flash-stack">
+  <div class="flash notice">{{.Notice}}</div>
+</div>
+{{end}}
+{{if .Error}}
+<div class="flash-stack">
+  <div class="flash error">{{.Error}}</div>
+</div>
+{{end}}
+{{end}}
+
+{{define "slice1_page_header"}}
+<section class="page-header">
+  {{if index . "eyebrow"}}<div class="eyebrow">{{index . "eyebrow"}}</div>{{end}}
+  <h1>{{index . "title"}}</h1>
+  {{if index . "body"}}<p>{{index . "body"}}</p>{{end}}
+</section>
+{{end}}
+
+{{define "slice1_summary_card"}}
+<section class="summary-card">
+  {{if index . "label"}}<div class="eyebrow">{{index . "label"}}</div>{{end}}
+  {{if index . "value"}}<div class="count">{{index . "value"}}</div>{{end}}
+  {{if index . "body"}}<div class="meta">{{index . "body"}}</div>{{end}}
+  {{if and (index . "action_href") (index . "action_label")}}
+  <div class="meta"><a href="{{index . "action_href"}}">{{index . "action_label"}}</a></div>
+  {{end}}
+</section>
+{{end}}
+
+{{define "slice1_empty_state"}}
+<div class="empty-state">
+  <h3>{{index . "title"}}</h3>
+  <p>{{index . "body"}}</p>
+</div>
+{{end}}
+
+{{define "slice1_detail_block"}}
+<div class="detail-block">
+  <div class="eyebrow">{{index . "label"}}</div>
+  <div>{{index . "value"}}</div>
+  {{if index . "body"}}<div class="meta">{{index . "body"}}</div>{{end}}
+</div>
+{{end}}

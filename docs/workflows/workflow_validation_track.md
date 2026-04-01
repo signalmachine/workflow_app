@@ -1,7 +1,7 @@
 # workflow_app Workflow Validation Track
 
 Date: 2026-03-30
-Status: Active validation track, separate from implementation planning; the web visual-refresh implementation is landed and now awaits bounded manual browser-review evidence before the deferred live workflows resume
+Status: Active validation track, separate from implementation planning; Milestone 10 Slice 1 is now in code on the rebuilt operator-entry shell and now awaits bounded manual browser-review evidence before the deferred live workflows resume
 Purpose: keep workflow testing, live review, and readiness evidence on a workflow-validation track in `docs/workflows/` rather than inside the normal product-implementation planning stream in `new_app_docs/`.
 
 ## 1. Why this document exists
@@ -35,13 +35,13 @@ Do not use this folder for:
 
 ## 3. Current deferred validation order
 
-The implementation track is currently prioritized ahead of resumed live workflow review.
+The implementation track is currently prioritized ahead of resumed live workflow review while the first Milestone 10 browser slice settles.
 
 Current order:
 
-1. record the bounded manual browser-review evidence for the landed web visual-refresh slice from `new_app_docs/web_visual_refresh_plan.md` on the exact refreshed pages and widths
-2. complete the next planned browser-surface product slices from `new_app_docs/operator_communication_and_intake_surfaces_plan.md`
-3. then resume the deferred live workflow validation on the real seam
+1. record bounded manual browser-review evidence for the rebuilt Milestone 10 Slice 1 operator-entry routes: `/app/login`, `/app`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat` on desktop and a narrow-width viewport
+2. if that browser review is clean, resume the deferred live workflow validation on the real seam with the rebuilt shell plus the still-legacy review/detail family
+3. if that browser review finds a real defect, add the bounded corrective fix plan back into `new_app_docs/` before Slice 2 begins
 
 ## 4. Current workflow-validation backlog
 

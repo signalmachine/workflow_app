@@ -20,40 +20,7 @@ import (
 	"workflow_app/internal/reporting"
 )
 
-var webAppTemplate = template.Must(template.New("app").Funcs(template.FuncMap{
-	"formatTime":             formatTemplateTime,
-	"prettyJSON":             prettyTemplateJSON,
-	"statusClass":            templateStatusClass,
-	"dashboardStatusBlurb":   templateDashboardStatusBlurb,
-	"dashboardStatusAction":  templateDashboardStatusAction,
-	"dashboardRequestAction": templateDashboardRequestAction,
-	"inboundRequestHref":     templateInboundRequestHref,
-	"inboundSectionHref":     templateInboundRequestSectionHref,
-	"runSectionID":           templateAIRunSectionID,
-	"stepSectionID":          templateAIStepSectionID,
-	"delegationSectionID":    templateAIDelegationSectionID,
-	"pageSectionHref":        templatePageSectionHref,
-	"inboundRequestReview":   templateInboundRequestReviewHref,
-	"inboundRequestsHref":    templateInboundRequestsReviewHref,
-	"documentReviewHref":     templateDocumentReviewHref,
-	"accountingReviewHref":   templateAccountingReviewHref,
-	"accountingEntryHref":    templateAccountingEntryHref,
-	"controlAccountHref":     templateControlAccountHref,
-	"taxSummaryHref":         templateTaxSummaryHref,
-	"approvalReviewHref":     templateApprovalReviewHref,
-	"approvalQueueHref":      templateApprovalQueueHref,
-	"proposalDetailHref":     templateProposalDetailHref,
-	"proposalReviewHref":     templateProposalReviewHref,
-	"workOrderReviewHref":    templateWorkOrderReviewHref,
-	"inventoryReviewHref":    templateInventoryReviewHref,
-	"inventoryItemHref":      templateInventoryItemHref,
-	"inventoryLocationHref":  templateInventoryLocationHref,
-	"inventoryMovementHref":  templateInventoryMovementHref,
-	"auditEventHref":         templateAuditEventHref,
-	"auditEntityHref":        templateAuditEntityHref,
-	"auditEntityLabel":       templateAuditEntityLabel,
-	"inboundActionHref":      templateInboundActionHref,
-}).Parse(webAppHTML))
+var webAppTemplate = template.Must(template.New("app").Funcs(webTemplateFuncs()).Parse(webAppHTML))
 
 type webAppDashboardData struct {
 	Session         identityaccess.SessionContext
@@ -354,12 +321,6 @@ type webPageData struct {
 	WorkOrderDetail         *webWorkOrderDetailData
 	Audit                   *webAuditData
 	AuditDetail             *webAuditDetailData
-}
-
-func (h *AgentAPIHandler) renderWebPage(w http.ResponseWriter, data webPageData) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	_ = webAppTemplate.Execute(w, data)
 }
 
 func sanitizeWebReturnPath(raw string) string {
