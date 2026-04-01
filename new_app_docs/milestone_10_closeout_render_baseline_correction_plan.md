@@ -1,7 +1,7 @@
 # workflow_app Milestone 10 Closeout Render-Baseline Correction Plan
 
 Date: 2026-04-01
-Status: Implemented in code and verified through focused `internal/app` coverage plus repo build
+Status: Implemented in code, the retired inline browser payload is now removed from `internal/app/web.go`, and verification is complete
 Purpose: record the grouped corrective slice promoted out of Milestone 10 closeout review so the retired monolithic web template can no longer remain an active fallback path behind the rebuilt modular browser bundle.
 
 ## 1. Why this corrective slice exists
@@ -21,6 +21,7 @@ In scope:
 1. remove the active fallback from `renderWebPage`
 2. fail fast if a web handler tries to render page data that has no modular template mapping
 3. add focused test coverage that locks this closeout rule in place
+4. remove the dead monolithic inline template payload once the modular bundle is the only render path
 
 Out of scope:
 
@@ -35,6 +36,7 @@ This corrective slice is complete only when:
 1. the modular web template bundle is the only active render baseline
 2. unmapped page data fails explicitly instead of silently rendering through the retired monolithic template
 3. focused `internal/app` coverage proves the failure path is enforced
+4. the retired inline browser payload no longer remains in `internal/app/web.go` as dead fallback-era ballast
 
 ## 4. Verification
 
@@ -43,6 +45,7 @@ Before closing this corrective slice:
 1. run focused `internal/app` tests covering web rendering
 2. run `go build ./cmd/... ./internal/...`
 3. run `gopls` diagnostics on edited Go files
+4. run the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` verification
 
 ## 5. Documentation sync
 

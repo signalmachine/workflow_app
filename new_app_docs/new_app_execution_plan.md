@@ -316,7 +316,7 @@ Current implementation checkpoint:
 22. this milestone is therefore complete, and the next active implementation target was Milestone 8 client-neutral backend hardening for later lightweight mobile reuse
 23. detailed sequencing, slice scope, and control rules are captured in `thin_v1_archive/web_application_layer_plan.md`
 24. residual browser work should now be treated as regression fixes or later UX refinement rather than as an active milestone plan
-25. the active thin-v1 web-stack direction remains explicit: keep Go server-rendered HTML as the primary rendering model, prefer `htmx` where partial updates materially improve operator continuity, use `Alpine.js` only for small local state, and avoid introducing a Node toolchain unless the canonical planning set changes
+25. the active web-stack direction remains explicit: keep Go server-rendered HTML as the primary rendering model and keep plain browser behavior as the current baseline; defer any selective `htmx` or `Alpine.js` adoption to a later bounded slice with a concrete operator-usability reason, avoid Tailwind CSS by default, and avoid introducing a Node toolchain unless the canonical planning set changes
 
 ## 9. Milestone 8: Client-neutral backend hardening for later mobile reuse
 

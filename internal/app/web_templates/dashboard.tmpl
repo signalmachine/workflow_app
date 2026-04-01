@@ -11,7 +11,7 @@
   <div class="eyebrow">Recommended next steps</div>
   <div class="route-list">
     {{range .Dashboard.PrimaryActions}}
-    <a href="{{.Href}}">{{.Title}}{{if .Badge}} ({{.Badge}}){{end}}</a>
+    <a class="route-link-card" data-summary="{{.Summary}}" href="{{.Href}}">{{.Title}}{{if .Badge}} ({{.Badge}}){{end}}</a>
     {{end}}
   </div>
 </section>
@@ -21,7 +21,7 @@
   <div class="eyebrow">Route directory</div>
   <div class="route-list">
     {{range .Dashboard.SecondaryActions}}
-    <a href="{{.Href}}">{{.Title}}{{if .Badge}} ({{.Badge}}){{end}}</a>
+    <a class="route-link-card" data-summary="{{.Summary}}" href="{{.Href}}">{{.Title}}{{if .Badge}} ({{.Badge}}){{end}}</a>
     {{end}}
   </div>
 </section>
@@ -30,10 +30,10 @@
 <section class="plain-section">
   <div class="eyebrow">Workflow links</div>
   <div class="route-list">
-    <a href="/app/review/inbound-requests?status=queued">Queued requests</a>
-    <a href="/app/review/approvals?status=pending">Pending approvals</a>
-    <a href="/app/review/proposals">Recent proposals</a>
-    <a href="/app/routes">Route catalog</a>
+    <a class="route-link-card" data-summary="Open the exact intake queue when the next operator step is claim, review, or troubleshooting." href="/app/review/inbound-requests?status=queued">Queued requests</a>
+    <a class="route-link-card" data-summary="Keep explicit decision work close to home when approvals are the highest-leverage unblocker." href="/app/review/approvals?status=pending">Pending approvals</a>
+    <a class="route-link-card" data-summary="Continue from processed coordinator output into approval and downstream document continuity." href="/app/review/proposals">Recent proposals</a>
+    <a class="route-link-card" data-summary="Search by workflow term or operator intent when grouped navigation is not specific enough." href="/app/routes">Route catalog</a>
   </div>
   <form method="post" action="/app/agent/process-next-queued-inbound-request" class="page-actions">
     <div class="button-row">
@@ -47,7 +47,7 @@
   <div class="eyebrow">Status entry points</div>
   <div class="metric-list">
     {{range .Dashboard.InboundSummary}}
-    <a href="{{inboundRequestsHref .Status ""}}" class="metric-link"><span class="metric-label">{{dashboardStatusAction .Status}}</span><span class="metric-value">{{.RequestCount}}</span></a>
+    <a class="metric-link" data-value="{{.RequestCount}}" href="{{inboundRequestsHref .Status ""}}">{{dashboardStatusAction .Status}}</a>
     <p class="meta">{{dashboardStatusBlurb .Status}}</p>
     {{end}}
   </div>

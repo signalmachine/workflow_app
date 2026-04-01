@@ -25,7 +25,7 @@
   {{if .RouteCatalog.Results}}
   <div class="route-list">
     {{range .RouteCatalog.Results}}
-    <a href="{{.Href}}">{{.Title}}</a>
+    <a class="route-link-card" data-kicker="{{.Category}}" data-summary="{{.Summary}}" href="{{.Href}}">{{.Title}}</a>
     {{end}}
   </div>
   {{else}}
@@ -54,7 +54,7 @@
   <div class="eyebrow">Current recommended routes</div>
   <div class="route-list">
     {{range .Settings.PrimaryActions}}
-    <a href="{{.Href}}">{{.Title}}{{if .Badge}} ({{.Badge}}){{end}}</a>
+    <a class="route-link-card" data-summary="{{.Summary}}" href="{{.Href}}">{{.Title}}{{if .Badge}} ({{.Badge}}){{end}}</a>
     {{end}}
   </div>
 </section>
@@ -75,7 +75,7 @@
   <div class="eyebrow">Admin routes</div>
   <div class="route-list">
     {{range .Admin.AdminActions}}
-    <a href="{{.Href}}">{{.Title}}</a>
+    <a class="route-link-card" data-summary="{{.Summary}}" href="{{.Href}}">{{.Title}}</a>
     {{end}}
   </div>
 </section>

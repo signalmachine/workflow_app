@@ -106,20 +106,22 @@ Purpose: record the active defaults that implementation should preserve unless t
 4. the web layer should use backend contracts that a later mobile client can also reuse rather than diverging into a second backend model
 5. mobile-product depth, voice-capture UX, and richer multimodal client behavior remain v2 concerns unless a foundation dependency proves otherwise
 6. the preferred thin-v1 web stack is Go server-rendered HTML on the shared Go backend without a separate Node build pipeline
-7. `htmx` is the preferred progressive-enhancement layer where partial-page updates materially improve operator continuity while preserving server-rendered ownership
-8. `Alpine.js` is acceptable only for small local UI-state needs such as disclosure, tabs, or lightweight interaction polish
-9. do not introduce a separate SPA frontend, Node dependency tree, or frontend-specific build chain unless the canonical planning set is explicitly updated to justify that cost
-10. `internal/app` should remain transport and orchestration only: route selection, auth extraction, request validation, response mapping, HTML rendering, and browser or API adaptation belong there, while durable business rules, write-path invariants, and cross-module ownership decisions belong in domain services and reporting reads
-11. if a browser or API change requires new business branching, prefer pushing that branching into a shared service contract or reporting read model rather than adding transport-specific business logic inside handlers or template-driven code paths
-12. the global shell should move to a top-bar model rather than a heavy persistent side rail for the promoted browser surface
-13. in the near term, the web UI should expose all currently supported workflows either directly in the top bar or through landing pages reachable from it
-14. broader route growth should prefer landing pages and searchable route discovery rather than forcing every route into one flat long-term navigation strip
-15. top-level navigation items should use a pill or bubble-style treatment with clear active-state contrast
-16. the top-bar bubble set should be allowed to wrap across multiple rows rather than forcing a single-row overflow strip during the current broad-exposure phase
-17. `/app` should evolve toward a personalized workflow-centered operator home with role-aware or user-aware shortcuts rather than remaining a permanently generic dashboard
-18. user-specific page customization should stay primarily confined to the home surface; other pages should remain standardized and vary by access, role, and workflow state rather than by per-user layout divergence
-19. later user-level preferences for hiding selected top-bar bubble destinations are acceptable, but they should remain additive presentation preferences rather than the primary route-discovery mechanism
-20. `Settings` should be treated as a secondary user utility surface rather than a primary workflow destination
+7. keep standard HTML forms and normal server-rendered navigation as the active baseline until a later bounded slice explicitly adds selective progressive enhancement
+8. `htmx` remains the preferred later progressive-enhancement layer where partial-page updates materially improve operator continuity while preserving server-rendered ownership, but it is not part of the active baseline yet
+9. `Alpine.js` remains acceptable only as a later additive layer for small local UI-state needs such as disclosure, tabs, or lightweight interaction polish, and it is not part of the active baseline yet
+10. do not adopt Tailwind CSS by default; the current browser layer should continue to use repo-owned templates plus repo-owned CSS unless the canonical planning set later promotes a concrete reason to change that authoring model
+11. do not introduce a separate SPA frontend, Node dependency tree, or frontend-specific build chain unless the canonical planning set is explicitly updated to justify that cost
+12. `internal/app` should remain transport and orchestration only: route selection, auth extraction, request validation, response mapping, HTML rendering, and browser or API adaptation belong there, while durable business rules, write-path invariants, and cross-module ownership decisions belong in domain services and reporting reads
+13. if a browser or API change requires new business branching, prefer pushing that branching into a shared service contract or reporting read model rather than adding transport-specific business logic inside handlers or template-driven code paths
+14. the global shell should move to a top-bar model rather than a heavy persistent side rail for the promoted browser surface
+15. in the near term, the web UI should expose all currently supported workflows either directly in the top bar or through landing pages reachable from it
+16. broader route growth should prefer landing pages and searchable route discovery rather than forcing every route into one flat long-term navigation strip
+17. top-level navigation items should use a pill or bubble-style treatment with clear active-state contrast
+18. the top-bar bubble set should be allowed to wrap across multiple rows rather than forcing a single-row overflow strip during the current broad-exposure phase
+19. `/app` should evolve toward a personalized workflow-centered operator home with role-aware or user-aware shortcuts rather than remaining a permanently generic dashboard
+20. user-specific page customization should stay primarily confined to the home surface; other pages should remain standardized and vary by access, role, and workflow state rather than by per-user layout divergence
+21. later user-level preferences for hiding selected top-bar bubble destinations are acceptable, but they should remain additive presentation preferences rather than the primary route-discovery mechanism
+22. `Settings` should be treated as a secondary user utility surface rather than a primary workflow destination
 21. `Admin` should be treated as a privileged secondary surface exposed only to the relevant actors rather than as part of the default primary navigation
 22. the promoted browser shell should prefer restrained light blue-gray tones rather than the current green-heavy palette, stark white, or dark heavy full-page backgrounds
 23. text should default to black or near-black unless contrast requirements clearly justify another color

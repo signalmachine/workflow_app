@@ -15,12 +15,14 @@ The current and preferred Go-native web stack for the completed thin-v1 baseline
 1. Go `net/http` on the shared application backend
 2. Go `html/template` with embedded modular template bundles and partials for server-rendered HTML
 3. standard HTML forms and browser behavior as the baseline interaction model
-4. optional `htmx` for progressive enhancement where partial-page updates materially improve operator flow
-5. optional `Alpine.js` only for small local UI-state needs
+4. plain HTML forms and standard browser behavior as the active interaction baseline
+5. later optional `htmx` for selective progressive enhancement where partial-page updates materially improve operator flow
+6. later optional `Alpine.js` only for small local UI-state needs
 
 Default rule:
 
 1. do not introduce a separate SPA frontend or a Node-based frontend build pipeline unless the canonical planning documents are explicitly updated to require it
+2. do not adopt Tailwind CSS by default; the repository currently prefers repo-owned templates plus repo-owned CSS
 
 ## Thin-v1 foundation delivered
 

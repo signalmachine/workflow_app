@@ -76,7 +76,7 @@ When working primarily in a non-backend layer such as the web UI, browser applic
 
 Everything meaningful in the system should tie to one or more workflows. Not every component is itself a workflow, but every meaningful feature, state transition, support seam, review surface, and operational control should support, constrain, observe, or expose a workflow. If a proposed capability cannot be tied clearly to one or more workflows, treat it as suspect until that relationship is made explicit in code, docs, or planning material.
 
-For the promoted web layer, prefer a Go-native server-rendered stack by default. Use Go `html/template` plus standard browser behavior as the baseline, prefer `htmx` for progressive enhancement where partial-page updates materially improve operator flow, and use `Alpine.js` only for small local UI state when plain HTML becomes awkward. Avoid introducing a separate Node or SPA toolchain unless the canonical planning docs are explicitly updated to require it.
+For the promoted web layer, prefer a Go-native server-rendered stack by default. Use Go `html/template` plus standard browser behavior as the active baseline, defer any `htmx` or `Alpine.js` adoption to later bounded slices with a concrete operator-usability reason, and avoid introducing Tailwind CSS, a separate Node toolchain, or an SPA frontend unless the canonical planning docs are explicitly updated to require that change.
 
 The promoted web layer and the later mobile client should continue to share one backend foundation and auth model rather than splitting into web-specific versus mobile-specific backends.
 

@@ -10,20 +10,20 @@
 <section class="plain-section">
   <div class="eyebrow">Current workflow links</div>
   <div class="metric-list">
-    <a href="/app/review/inbound-requests?status=queued" class="metric-link"><span class="metric-label">Queued requests</span><span class="metric-value">{{.OperationsLanding.QueuedRequestCount}}</span></a>
-    <a href="/app/review/approvals?status=pending" class="metric-link"><span class="metric-label">Pending approvals</span><span class="metric-value">{{.OperationsLanding.PendingApprovalCount}}</span></a>
-    <a href="/app/review/proposals" class="metric-link"><span class="metric-label">Recent proposals</span><span class="metric-value">{{.OperationsLanding.ProposalReviewCount}}</span></a>
+    <a class="metric-link" data-value="{{.OperationsLanding.QueuedRequestCount}}" href="/app/review/inbound-requests?status=queued">Queued requests</a>
+    <a class="metric-link" data-value="{{.OperationsLanding.PendingApprovalCount}}" href="/app/review/approvals?status=pending">Pending approvals</a>
+    <a class="metric-link" data-value="{{.OperationsLanding.ProposalReviewCount}}" href="/app/review/proposals">Recent proposals</a>
   </div>
 </section>
 
 <section class="plain-section">
   <div class="eyebrow">Route directory</div>
   <div class="route-list">
-    <a href="/app/operations-feed">Durable feed</a>
-    <a href="/app/agent-chat">Coordinator chat</a>
-    <a href="/app/review/inbound-requests?status=queued">Queued requests</a>
-    <a href="/app/review/approvals?status=pending">Pending approvals</a>
-    <a href="/app/review/proposals">Recent proposals</a>
+    <a class="route-link-card" data-summary="Read recent queue movement, downstream proposal activity, and approval changes from one compact operations surface." href="/app/operations-feed">Durable feed</a>
+    <a class="route-link-card" data-summary="Create guidance-oriented intake on the same persisted request foundation instead of expecting inline assistant state." href="/app/agent-chat">Coordinator chat</a>
+    <a class="route-link-card" data-summary="Open the active queue before pickup so the operator can confirm the next exact request path." href="/app/review/inbound-requests?status=queued">Queued requests</a>
+    <a class="route-link-card" data-summary="Keep explicit decision seams ahead of broad browsing when approvals are blocking downstream work." href="/app/review/approvals?status=pending">Pending approvals</a>
+    <a class="route-link-card" data-summary="Continue from processed coordinator output into approval requests and downstream document continuity." href="/app/review/proposals">Recent proposals</a>
   </div>
   <form method="post" action="/app/agent/process-next-queued-inbound-request" class="page-actions">
     <div class="button-row">
@@ -47,29 +47,29 @@
 <section class="plain-section">
   <div class="eyebrow">Current workflow links</div>
   <div class="metric-list">
-    <a href="/app/review/inbound-requests" class="metric-link"><span class="metric-label">Inbound requests</span><span class="metric-value">{{.ReviewLanding.InboundRequestCount}}</span></a>
-    <a href="/app/review/proposals" class="metric-link"><span class="metric-label">Processed proposals</span><span class="metric-value">{{.ReviewLanding.ProposalCount}}</span></a>
-    <a href="/app/review/approvals?status=pending" class="metric-link"><span class="metric-label">Pending approvals</span><span class="metric-value">{{len .ReviewLanding.PendingApprovals}}</span></a>
+    <a class="metric-link" data-value="{{.ReviewLanding.InboundRequestCount}}" href="/app/review/inbound-requests">Inbound requests</a>
+    <a class="metric-link" data-value="{{.ReviewLanding.ProposalCount}}" href="/app/review/proposals">Processed proposals</a>
+    <a class="metric-link" data-value="{{len .ReviewLanding.PendingApprovals}}" href="/app/review/approvals?status=pending">Pending approvals</a>
   </div>
 </section>
 
 <section class="plain-section">
   <div class="eyebrow">Primary queues</div>
   <div class="route-list">
-    <a href="/app/review/inbound-requests">Inbound requests</a>
-    <a href="/app/review/proposals">Proposals</a>
-    <a href="/app/review/approvals">Approvals</a>
+    <a class="route-link-card" data-summary="Browse draft, queued, processing, failed, processed, and completed request continuity from one workbench." href="/app/review/inbound-requests">Inbound requests</a>
+    <a class="route-link-card" data-summary="Review processed coordinator recommendations with exact request, approval, and document cross-links." href="/app/review/proposals">Proposals</a>
+    <a class="route-link-card" data-summary="Open the decision queue when the operator needs exact approval detail and queue-specific status." href="/app/review/approvals">Approvals</a>
   </div>
 </section>
 
 <section class="plain-section">
   <div class="eyebrow">Downstream review</div>
   <div class="route-list">
-    <a href="/app/review/documents">Documents</a>
-    <a href="/app/review/accounting">Accounting</a>
-    <a href="/app/inventory">Inventory</a>
-    <a href="/app/review/work-orders">Work orders</a>
-    <a href="/app/review/audit">Audit</a>
+    <a class="route-link-card" data-summary="Inspect downstream business-document truth once requests and approvals have crossed the control boundary." href="/app/review/documents">Documents</a>
+    <a class="route-link-card" data-summary="Review journal entries, control accounts, and tax summaries on centralized posting truth." href="/app/review/accounting">Accounting</a>
+    <a class="route-link-card" data-summary="Move into stock, movement, and reconciliation review without flattening inventory into the main shell." href="/app/inventory">Inventory</a>
+    <a class="route-link-card" data-summary="Inspect execution history, labor, material usage, and posted-cost continuity for owned work." href="/app/review/work-orders">Work orders</a>
+    <a class="route-link-card" data-summary="Trace actor, timestamp, and causation when the real question is workflow provenance rather than current state." href="/app/review/audit">Audit</a>
   </div>
 </section>
 
@@ -88,19 +88,19 @@
 <section class="plain-section">
   <div class="eyebrow">Current workflow links</div>
   <div class="metric-list">
-    <a href="/app/review/inventory" class="metric-link"><span class="metric-label">Stock rows</span><span class="metric-value">{{len .InventoryLanding.Stock}}</span></a>
-    <a href="/app/review/inventory?only_pending_execution=true#reconciliation" class="metric-link"><span class="metric-label">Pending execution</span><span class="metric-value">{{.InventoryLanding.PendingExecutionCount}}</span></a>
-    <a href="/app/review/inventory?only_pending_accounting=true#reconciliation" class="metric-link"><span class="metric-label">Pending accounting</span><span class="metric-value">{{.InventoryLanding.PendingAccountingCount}}</span></a>
+    <a class="metric-link" data-value="{{len .InventoryLanding.Stock}}" href="/app/review/inventory">Stock rows</a>
+    <a class="metric-link" data-value="{{.InventoryLanding.PendingExecutionCount}}" href="/app/review/inventory?only_pending_execution=true#reconciliation">Pending execution</a>
+    <a class="metric-link" data-value="{{.InventoryLanding.PendingAccountingCount}}" href="/app/review/inventory?only_pending_accounting=true#reconciliation">Pending accounting</a>
   </div>
 </section>
 
 <section class="plain-section">
   <div class="eyebrow">Route directory</div>
   <div class="route-list">
-    <a href="/app/review/inventory">Inventory review</a>
-    <a href="/app/review/inventory?only_pending_execution=true#reconciliation">Execution exceptions</a>
-    <a href="/app/review/inventory?only_pending_accounting=true#reconciliation">Accounting exceptions</a>
-    <a href="/app/review/work-orders">Work orders</a>
+    <a class="route-link-card" data-summary="Open stock, movement history, and reconciliation on the shared inventory reporting seam." href="/app/review/inventory">Inventory review</a>
+    <a class="route-link-card" data-summary="Focus the workbench on pending execution handoffs that still need downstream linkage." href="/app/review/inventory?only_pending_execution=true#reconciliation">Execution exceptions</a>
+    <a class="route-link-card" data-summary="Open inventory rows that still need centralized accounting consumption and posting continuity." href="/app/review/inventory?only_pending_accounting=true#reconciliation">Accounting exceptions</a>
+    <a class="route-link-card" data-summary="Continue from movement and handoff review into the execution surface when inventory context points to owned work." href="/app/review/work-orders">Work orders</a>
   </div>
 </section>
 
@@ -109,8 +109,8 @@
   <div class="eyebrow">Exact inventory drill-down</div>
   <div class="route-list">
     {{range .InventoryLanding.Stock}}
-    <a href="{{inventoryItemHref .ItemID}}">{{.ItemSKU}}</a>
-    <a href="{{inventoryLocationHref .LocationID}}">{{.LocationCode}}</a>
+    <a class="route-link-card route-link-compact" data-summary="Open the exact inventory item review." href="{{inventoryItemHref .ItemID}}">{{.ItemSKU}}</a>
+    <a class="route-link-card route-link-compact" data-summary="Open the exact inventory location review." href="{{inventoryLocationHref .LocationID}}">{{.LocationCode}}</a>
     {{end}}
   </div>
 </section>
@@ -121,7 +121,7 @@
   <div class="eyebrow">Exact movement drill-down</div>
   <div class="route-list">
     {{range .InventoryLanding.Reconciliation}}
-    <a href="{{inventoryMovementHref .MovementID}}">{{.MovementNumber}}</a>
+    <a class="route-link-card route-link-compact" data-summary="Open the exact movement detail and linked handoff state." href="{{inventoryMovementHref .MovementID}}">{{.MovementNumber}}</a>
     {{end}}
   </div>
 </section>

@@ -159,8 +159,8 @@ Current implementation checkpoint:
 
 1. the embedded modular bundle under `internal/app/web_templates` is now the active rendering path for the promoted operator-entry, review-workbench, and detail-route families
 2. the promoted detail pages now use the rebuilt shell, shared detail primitives, contained tables, and structured payload treatment rather than the legacy active baseline
-3. the grouped corrective slice in `milestone_10_closeout_render_baseline_correction_plan.md` is now implemented in code, so `internal/app.renderWebPage` no longer revives the retired monolithic `webAppHTML` template as a silent fallback when page data fails to map to a bundle template
-4. focused `internal/app` render-path coverage, `go build ./cmd/... ./internal/...`, and the broader rebuilt-browser verification remain passing on the modular browser baseline
+3. the grouped corrective slice in `milestone_10_closeout_render_baseline_correction_plan.md` is now implemented in code, so `internal/app.renderWebPage` no longer revives the retired monolithic `webAppHTML` template as a silent fallback when page data fails to map to a bundle template, and the old inline payload has now been removed from `internal/app/web.go`
+4. focused `internal/app` render-path coverage, `go build ./cmd/... ./internal/...`, `gopls` diagnostics, and the canonical repo verification remain passing on the modular browser baseline
 5. the remaining Milestone 10 work is bounded browser-review and workflow-continuity evidence on the `docs/workflows/` track
 
 ## 8. Slice planning rule
