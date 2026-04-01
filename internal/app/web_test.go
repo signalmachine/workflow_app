@@ -2832,6 +2832,9 @@ type stubOperatorReviewReader struct {
 	listInboundRequestStatusSummary    func(context.Context, identityaccess.Actor) ([]reporting.InboundRequestStatusSummary, error)
 	listProcessedProposals             func(context.Context, reporting.ListProcessedProposalsInput) ([]reporting.ProcessedProposalReview, error)
 	listProcessedProposalStatusSummary func(context.Context, identityaccess.Actor) ([]reporting.ProcessedProposalStatusSummary, error)
+	getOperationsFeedSnapshot          func(context.Context, identityaccess.Actor, int) (reporting.OperationsFeedSnapshot, error)
+	getOperationsLandingSnapshot       func(context.Context, identityaccess.Actor, int, int) (reporting.OperationsLandingSnapshot, error)
+	getInventoryLandingSnapshot        func(context.Context, identityaccess.Actor, int) (reporting.InventoryLandingSnapshot, error)
 }
 
 func (s stubOperatorReviewReader) ListApprovalQueue(ctx context.Context, input reporting.ListApprovalQueueInput) ([]reporting.ApprovalQueueEntry, error) {
@@ -2969,6 +2972,90 @@ func (s stubOperatorReviewReader) GetWorkflowNavigationSnapshot(ctx context.Cont
 		ProposalSummary:   proposalSummary,
 		PendingApprovals:  pendingApprovals,
 		PendingQueueLimit: pendingApprovalLimit,
+	}, nil
+}
+
+func (s stubOperatorReviewReader) GetOperationsFeedSnapshot(ctx context.Context, actor identityaccess.Actor, recentLimit int) (reporting.OperationsFeedSnapshot, error) {
+	if s.getOperationsFeedSnapshot != nil {
+		return s.getOperationsFeedSnapshot(ctx, actor, recentLimit)
+	}
+	requests, err := s.ListInboundRequests(ctx, reporting.ListInboundRequestsInput{
+		Limit: recentLimit,
+		Actor: actor,
+	})
+	if err != nil {
+		return reporting.OperationsFeedSnapshot{}, err
+	}
+	proposals, err := s.ListProcessedProposals(ctx, reporting.ListProcessedProposalsInput{
+		Limit: recentLimit,
+		Actor: actor,
+	})
+	if err != nil {
+		return reporting.OperationsFeedSnapshot{}, err
+	}
+	approvals, err := s.ListApprovalQueue(ctx, reporting.ListApprovalQueueInput{
+		Limit: recentLimit,
+		Actor: actor,
+	})
+	if err != nil {
+		return reporting.OperationsFeedSnapshot{}, err
+	}
+	return reporting.OperationsFeedSnapshot{
+		Requests:    requests,
+		Proposals:   proposals,
+		Approvals:   approvals,
+		RecentLimit: recentLimit,
+	}, nil
+}
+
+func (s stubOperatorReviewReader) GetOperationsLandingSnapshot(ctx context.Context, actor identityaccess.Actor, pendingApprovalLimit, recentLimit int) (reporting.OperationsLandingSnapshot, error) {
+	if s.getOperationsLandingSnapshot != nil {
+		return s.getOperationsLandingSnapshot(ctx, actor, pendingApprovalLimit, recentLimit)
+	}
+	navigation, err := s.GetWorkflowNavigationSnapshot(ctx, actor, pendingApprovalLimit)
+	if err != nil {
+		return reporting.OperationsLandingSnapshot{}, err
+	}
+	feed, err := s.GetOperationsFeedSnapshot(ctx, actor, recentLimit)
+	if err != nil {
+		return reporting.OperationsLandingSnapshot{}, err
+	}
+	return reporting.OperationsLandingSnapshot{
+		Navigation: navigation,
+		Feed:       feed,
+	}, nil
+}
+
+func (s stubOperatorReviewReader) GetInventoryLandingSnapshot(ctx context.Context, actor identityaccess.Actor, recentLimit int) (reporting.InventoryLandingSnapshot, error) {
+	if s.getInventoryLandingSnapshot != nil {
+		return s.getInventoryLandingSnapshot(ctx, actor, recentLimit)
+	}
+	stock, err := s.ListInventoryStock(ctx, reporting.ListInventoryStockInput{
+		Limit: recentLimit,
+		Actor: actor,
+	})
+	if err != nil {
+		return reporting.InventoryLandingSnapshot{}, err
+	}
+	movements, err := s.ListInventoryMovements(ctx, reporting.ListInventoryMovementsInput{
+		Limit: recentLimit,
+		Actor: actor,
+	})
+	if err != nil {
+		return reporting.InventoryLandingSnapshot{}, err
+	}
+	reconciliation, err := s.ListInventoryReconciliation(ctx, reporting.ListInventoryReconciliationInput{
+		Limit: recentLimit,
+		Actor: actor,
+	})
+	if err != nil {
+		return reporting.InventoryLandingSnapshot{}, err
+	}
+	return reporting.InventoryLandingSnapshot{
+		Stock:          stock,
+		Movements:      movements,
+		Reconciliation: reconciliation,
+		RecentLimit:    recentLimit,
 	}, nil
 }
 

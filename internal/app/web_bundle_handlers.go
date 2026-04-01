@@ -5,8 +5,6 @@ import (
 	"net/url"
 	"sort"
 	"strings"
-
-	"workflow_app/internal/reporting"
 )
 
 func (h *AgentAPIHandler) handleWebOperationsLanding(w http.ResponseWriter, r *http.Request) {
@@ -35,35 +33,16 @@ func (h *AgentAPIHandler) handleWebOperationsLanding(w http.ResponseWriter, r *h
 		Error:   strings.TrimSpace(r.URL.Query().Get("error")),
 	}
 
-	if snapshot, snapshotErr := h.reviewService.GetWorkflowNavigationSnapshot(r.Context(), sessionContext.Actor, 10); snapshotErr != nil {
+	if snapshot, snapshotErr := h.reviewService.GetOperationsLandingSnapshot(r.Context(), sessionContext.Actor, 10, 10); snapshotErr != nil {
 		data.Error = "failed to load operations landing"
 	} else {
-		sortInboundRequestStatusSummaries(snapshot.InboundSummary)
-		data.QueuedRequestCount = countQueuedRequests(snapshot.InboundSummary)
-		data.PendingApprovalCount = len(snapshot.PendingApprovals)
-
-		requests, requestErr := h.reviewService.ListInboundRequests(r.Context(), reporting.ListInboundRequestsInput{
-			Limit: 10,
-			Actor: sessionContext.Actor,
-		})
-		if requestErr != nil {
-			data.Error = "failed to load operations landing"
-		} else {
-			data.RecentFeed = append(data.RecentFeed, buildOperationsFeedFromRequests(requests)...)
-		}
-
-		proposals, proposalErr := h.reviewService.ListProcessedProposals(r.Context(), reporting.ListProcessedProposalsInput{
-			Limit: 10,
-			Actor: sessionContext.Actor,
-		})
-		if proposalErr != nil {
-			data.Error = "failed to load operations landing"
-		} else {
-			data.RecentFeed = append(data.RecentFeed, buildOperationsFeedFromProposals(proposals)...)
-			data.ProposalReviewCount = len(proposals)
-		}
-
-		data.RecentFeed = append(data.RecentFeed, buildOperationsFeedFromApprovals(snapshot.PendingApprovals)...)
+		sortInboundRequestStatusSummaries(snapshot.Navigation.InboundSummary)
+		data.QueuedRequestCount = countQueuedRequests(snapshot.Navigation.InboundSummary)
+		data.PendingApprovalCount = len(snapshot.Navigation.PendingApprovals)
+		data.ProposalReviewCount = len(snapshot.Feed.Proposals)
+		data.RecentFeed = append(data.RecentFeed, buildOperationsFeedFromRequests(snapshot.Feed.Requests)...)
+		data.RecentFeed = append(data.RecentFeed, buildOperationsFeedFromProposals(snapshot.Feed.Proposals)...)
+		data.RecentFeed = append(data.RecentFeed, buildOperationsFeedFromApprovals(snapshot.Navigation.PendingApprovals)...)
 	}
 
 	sort.SliceStable(data.RecentFeed, func(i, j int) bool {
@@ -159,37 +138,14 @@ func (h *AgentAPIHandler) handleWebInventoryLanding(w http.ResponseWriter, r *ht
 		Error:   strings.TrimSpace(r.URL.Query().Get("error")),
 	}
 
-	if stock, stockErr := h.reviewService.ListInventoryStock(r.Context(), reporting.ListInventoryStockInput{
-		Limit: 8,
-		Actor: sessionContext.Actor,
-	}); stockErr != nil {
+	if snapshot, snapshotErr := h.reviewService.GetInventoryLandingSnapshot(r.Context(), sessionContext.Actor, 8); snapshotErr != nil {
 		data.Error = "failed to load inventory landing"
 	} else {
-		data.Stock = stock
-	}
-
-	if moves, moveErr := h.reviewService.ListInventoryMovements(r.Context(), reporting.ListInventoryMovementsInput{
-		Limit: 8,
-		Actor: sessionContext.Actor,
-	}); moveErr != nil {
-		if data.Error == "" {
-			data.Error = "failed to load inventory landing"
-		}
-	} else {
-		data.Movements = moves
-	}
-
-	if reconciliation, reconErr := h.reviewService.ListInventoryReconciliation(r.Context(), reporting.ListInventoryReconciliationInput{
-		Limit: 8,
-		Actor: sessionContext.Actor,
-	}); reconErr != nil {
-		if data.Error == "" {
-			data.Error = "failed to load inventory landing"
-		}
-	} else {
-		data.Reconciliation = reconciliation
-		data.PendingExecutionCount = countPendingReconciliation(reconciliation, "execution")
-		data.PendingAccountingCount = countPendingReconciliation(reconciliation, "accounting")
+		data.Stock = snapshot.Stock
+		data.Movements = snapshot.Movements
+		data.Reconciliation = snapshot.Reconciliation
+		data.PendingExecutionCount = countPendingReconciliation(snapshot.Reconciliation, "execution")
+		data.PendingAccountingCount = countPendingReconciliation(snapshot.Reconciliation, "accounting")
 	}
 
 	h.renderWebPage(w, webPageData{

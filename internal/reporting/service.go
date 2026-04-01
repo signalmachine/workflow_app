@@ -62,6 +62,18 @@ type WorkflowNavigationSnapshot struct {
 	PendingQueueLimit int
 }
 
+type OperationsFeedSnapshot struct {
+	Requests    []InboundRequestReview
+	Proposals   []ProcessedProposalReview
+	Approvals   []ApprovalQueueEntry
+	RecentLimit int
+}
+
+type OperationsLandingSnapshot struct {
+	Navigation WorkflowNavigationSnapshot
+	Feed       OperationsFeedSnapshot
+}
+
 type DocumentReview struct {
 	DocumentID           string
 	TypeCode             string
@@ -228,6 +240,13 @@ type ListInventoryReconciliationInput struct {
 	OnlyPendingExecution  bool
 	Limit                 int
 	Actor                 identityaccess.Actor
+}
+
+type InventoryLandingSnapshot struct {
+	Stock          []InventoryStockItem
+	Movements      []InventoryMovementReview
+	Reconciliation []InventoryReconciliationItem
+	RecentLimit    int
 }
 
 type WorkOrderReview struct {
@@ -737,6 +756,89 @@ func (s *Service) GetWorkflowNavigationSnapshot(ctx context.Context, actor ident
 		ProposalSummary:   proposalSummary,
 		PendingApprovals:  pendingApprovals,
 		PendingQueueLimit: pendingApprovalLimit,
+	}, nil
+}
+
+func (s *Service) GetOperationsFeedSnapshot(ctx context.Context, actor identityaccess.Actor, recentLimit int) (OperationsFeedSnapshot, error) {
+	requests, err := s.ListInboundRequests(ctx, ListInboundRequestsInput{
+		Limit: recentLimit,
+		Actor: actor,
+	})
+	if err != nil {
+		return OperationsFeedSnapshot{}, err
+	}
+
+	proposals, err := s.ListProcessedProposals(ctx, ListProcessedProposalsInput{
+		Limit: recentLimit,
+		Actor: actor,
+	})
+	if err != nil {
+		return OperationsFeedSnapshot{}, err
+	}
+
+	approvals, err := s.ListApprovalQueue(ctx, ListApprovalQueueInput{
+		Limit: recentLimit,
+		Actor: actor,
+	})
+	if err != nil {
+		return OperationsFeedSnapshot{}, err
+	}
+
+	return OperationsFeedSnapshot{
+		Requests:    requests,
+		Proposals:   proposals,
+		Approvals:   approvals,
+		RecentLimit: recentLimit,
+	}, nil
+}
+
+func (s *Service) GetOperationsLandingSnapshot(ctx context.Context, actor identityaccess.Actor, pendingApprovalLimit, recentLimit int) (OperationsLandingSnapshot, error) {
+	navigation, err := s.GetWorkflowNavigationSnapshot(ctx, actor, pendingApprovalLimit)
+	if err != nil {
+		return OperationsLandingSnapshot{}, err
+	}
+
+	feed, err := s.GetOperationsFeedSnapshot(ctx, actor, recentLimit)
+	if err != nil {
+		return OperationsLandingSnapshot{}, err
+	}
+
+	return OperationsLandingSnapshot{
+		Navigation: navigation,
+		Feed:       feed,
+	}, nil
+}
+
+func (s *Service) GetInventoryLandingSnapshot(ctx context.Context, actor identityaccess.Actor, recentLimit int) (InventoryLandingSnapshot, error) {
+	stock, err := s.ListInventoryStock(ctx, ListInventoryStockInput{
+		Limit: recentLimit,
+		Actor: actor,
+	})
+	if err != nil {
+		return InventoryLandingSnapshot{}, err
+	}
+
+	movements, err := s.ListInventoryMovements(ctx, ListInventoryMovementsInput{
+		Limit: recentLimit,
+		Actor: actor,
+	})
+	if err != nil {
+		return InventoryLandingSnapshot{}, err
+	}
+
+	reconciliation, err := s.ListInventoryReconciliation(ctx, ListInventoryReconciliationInput{
+		Limit: recentLimit,
+		Actor: actor,
+	})
+	if err != nil {
+		return InventoryLandingSnapshot{}, err
+	}
+
+	return InventoryLandingSnapshot{
+		Stock:          stock,
+		Movements:      movements,
+		Reconciliation: reconciliation,
+		RecentLimit:    recentLimit,
 	}, nil
 }
 

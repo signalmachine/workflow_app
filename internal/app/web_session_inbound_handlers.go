@@ -40,36 +40,13 @@ func (h *AgentAPIHandler) handleWebOperationsFeed(w http.ResponseWriter, r *http
 		Error:   strings.TrimSpace(r.URL.Query().Get("error")),
 	}
 
-	requests, err := h.reviewService.ListInboundRequests(r.Context(), reporting.ListInboundRequestsInput{
-		Limit: 20,
-		Actor: sessionContext.Actor,
-	})
+	snapshot, err := h.reviewService.GetOperationsFeedSnapshot(r.Context(), sessionContext.Actor, 20)
 	if err != nil {
 		data.Error = "failed to load operations feed"
 	} else {
-		data.Feed = append(data.Feed, buildOperationsFeedFromRequests(requests)...)
-	}
-
-	if proposals, proposalErr := h.reviewService.ListProcessedProposals(r.Context(), reporting.ListProcessedProposalsInput{
-		Limit: 20,
-		Actor: sessionContext.Actor,
-	}); proposalErr != nil {
-		if data.Error == "" {
-			data.Error = "failed to load operations feed"
-		}
-	} else {
-		data.Feed = append(data.Feed, buildOperationsFeedFromProposals(proposals)...)
-	}
-
-	if approvals, approvalErr := h.reviewService.ListApprovalQueue(r.Context(), reporting.ListApprovalQueueInput{
-		Limit: 20,
-		Actor: sessionContext.Actor,
-	}); approvalErr != nil {
-		if data.Error == "" {
-			data.Error = "failed to load operations feed"
-		}
-	} else {
-		data.Feed = append(data.Feed, buildOperationsFeedFromApprovals(approvals)...)
+		data.Feed = append(data.Feed, buildOperationsFeedFromRequests(snapshot.Requests)...)
+		data.Feed = append(data.Feed, buildOperationsFeedFromProposals(snapshot.Proposals)...)
+		data.Feed = append(data.Feed, buildOperationsFeedFromApprovals(snapshot.Approvals)...)
 	}
 
 	sort.SliceStable(data.Feed, func(i, j int) bool {
