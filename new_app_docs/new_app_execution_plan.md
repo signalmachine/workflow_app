@@ -466,7 +466,7 @@ Scope:
 3. searchable route catalog or command palette for navigation discovery
 4. role-aware and user-aware home-surface composition on `/app`
 5. explicit `Settings` and `Admin` surface posture aligned to access level and utility-navigation rules
-6. soft-light visual-theme direction for the promoted shell and landing pages
+6. restrained blue-gray visual-theme direction for the promoted shell and landing pages
 7. minimum preference persistence or shortcut modeling needed to support personalization without creating a second truth model
 
 Exit criteria:
@@ -475,23 +475,26 @@ Exit criteria:
 2. all currently supported workflows are exposed through the web UI either directly from the top bar or through landing pages reached from it
 3. top-level navigation uses clear active-state differentiation
 4. the top-bar bubble set can wrap across multiple rows without hidden overflow during the broad-exposure phase
-5. the promoted shell uses a soft-light palette with dark readable text rather than stark white or dark heavy full-page backgrounds
+5. the promoted shell uses a restrained blue-gray palette with dark readable text rather than the current green-heavy styling, stark white, or dark heavy full-page backgrounds
 6. broader route growth can later be streamlined through bundle pages, search, and optional presentation preferences without another shell rewrite
 7. `/app` becomes a personalized workflow-centered home surface
 8. the resulting operator shell remains aligned with the same shared backend truth and workflow doctrine
 9. `Settings` and `Admin` are explicitly placed as role-aware secondary surfaces rather than leaking into the primary workflow shell
+10. dedicated activity, workflow, review, and detail pages default to a clean single-column stacked layout rather than two-column compositions
+11. major landing pages act primarily as grouped route directories into more specific workflows rather than card-heavy destination pages
 
 Current planning checkpoint:
 
 1. this milestone is now active, with the bounded Slice 1 shell change promoted into implementation while Milestone 10 browser-review closeout remains on the separate workflow-validation track
 2. it exists to refine information architecture and operator starting surfaces, not to replace the Milestone 10 modular rebuild
 3. the canonical plan for this milestone is `milestone_11_operator_shell_and_navigation_plan.md`
-4. Slice 1 is now implemented in code on the modular embedded bundle through a lighter top-bar shell, wrapped bubble navigation, a soft-light palette, and utility-menu placement for future `Settings` plus access-scoped `Admin`
+4. Slice 1 is now implemented in code on the modular embedded bundle through a lighter top-bar shell, wrapped bubble navigation, the first utility-menu placement for future `Settings` plus access-scoped `Admin`, and a shell direction that now needs one further bounded density-correction pass before the browser posture should be treated as settled
 5. Slice 2 is now also implemented in code through bundle landing pages at `/app/operations`, `/app/review`, and `/app/inventory`, plus a calmer grouped top shell that keeps only the primary route families and direct upstream queue views in global chrome
 6. after migrating a fresh local `TEST_DATABASE_URL` database and tightening the DB-backed harness so the disposable advisory lock is held only during migration or reset setup, the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` verification also passed cleanly
 7. Slice 3 is now implemented in code through a searchable route catalog at `/app/routes`, explicit utility surfaces at `/app/settings` plus access-scoped `/app/admin`, and a role-aware `/app` home that recommends first workflow routes from current workload instead of behaving as a permanently generic dashboard
 8. focused `go test ./internal/app -run '^TestHandleWeb' -count=1`, `go build ./cmd/... ./internal/...`, `gopls` diagnostics, and the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` verification all passed after the Slice 3 implementation
-9. active v2 implementation should continue taking bounded refactoring opportunities where they materially improve modularity, streamline ownership boundaries, or reduce maintenance risk without drifting into unrelated rewrite work
+9. one further bounded corrective slice is now planned in `web_ui_erp_style_density_correction_plan.md` so the promoted browser layer can move from the current card-heavy green presentation toward a thinner blue-gray ERP-style shell with route-directory landings and single-column workflow pages
+10. active v2 implementation should continue taking bounded refactoring opportunities where they materially improve modularity, streamline ownership boundaries, or reduce maintenance risk without drifting into unrelated rewrite work
 
 ## 16. Execution warning
 

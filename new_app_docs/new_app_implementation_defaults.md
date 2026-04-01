@@ -121,11 +121,19 @@ Purpose: record the active defaults that implementation should preserve unless t
 19. later user-level preferences for hiding selected top-bar bubble destinations are acceptable, but they should remain additive presentation preferences rather than the primary route-discovery mechanism
 20. `Settings` should be treated as a secondary user utility surface rather than a primary workflow destination
 21. `Admin` should be treated as a privileged secondary surface exposed only to the relevant actors rather than as part of the default primary navigation
-22. the promoted browser shell should prefer soft light background tones such as light grey, muted light yellow, pale green, and similar low-glare colors rather than stark white or dark heavy full-page backgrounds
+22. the promoted browser shell should prefer restrained light blue-gray tones rather than the current green-heavy palette, stark white, or dark heavy full-page backgrounds
 23. text should default to black or near-black unless contrast requirements clearly justify another color
 24. stronger colors should be used mainly for active states, emphasis, and status meaning rather than as dominant full-page backgrounds
-25. the browser surface should use one coherent soft-light visual system across the app rather than changing to unrelated background-color families page by page
-26. during the active v2 implementation phase, contributors should actively take bounded refactoring opportunities that improve modularity, reduce file concentration, simplify ownership boundaries, or lower regression risk, provided those refactors stay tied to the active implementation slice and remain verified
+25. the browser surface should use one coherent restrained enterprise visual system across the app rather than changing to unrelated background-color families page by page
+26. the default shell should be thin and application-like: app name on the left, compact route navigation, and a small user or login control on the right rather than a stacked branded banner
+27. major landing pages should behave primarily as grouped route directories with compact supporting summaries, not as large card mosaics
+28. review pages should surface filters, tables, and exact continuity links before decorative or explanatory blocks
+29. hero panels, gradients, and card treatments should be used sparingly; they should not be the dominant layout language of ordinary operator pages
+30. do not reintroduce a left-side navigation rail or left-side shell panel for the promoted browser surface unless the canonical planning set is explicitly updated again
+31. major landing or gateway pages such as `Inventory` or `Accounting` should primarily present grouped links into more specific activities or workflows rather than trying to host those downstream workflows inline
+32. dedicated activity, workflow, review, and detail pages should default to a single-column stacked layout rather than two-column page composition unless a narrow exception is explicitly justified
+33. dedicated workflow or activity pages should feel calm and specific, with one clear start point for that workflow and only the minimum supporting context needed to begin correctly
+34. during the active v2 implementation phase, contributors should actively take bounded refactoring opportunities that improve modularity, reduce file concentration, simplify ownership boundaries, or lower regression risk, provided those refactors stay tied to the active implementation slice and remain verified
 
 ### 2.10 Inbound request and attachment handling
 

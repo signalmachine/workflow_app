@@ -1,8 +1,8 @@
 # workflow_app Milestone 11 Operator Shell and Navigation Plan
 
 Date: 2026-04-01
-Status: Active v2 milestone with Slice 1 through Slice 3 implemented in code while Milestone 10 browser-review closeout remains pending on the separate workflow-validation track
-Purpose: define the next browser-application planning layer after the Milestone 10 rebuild so the promoted web UI can move from a structurally sound modular shell to a calmer SAP-style operator shell with stronger navigation scaling, landing-page bundling, and user-specific starting surfaces.
+Status: Active v2 milestone with Slice 1 through Slice 3 implemented in code while Milestone 10 browser-review closeout remains pending on the separate workflow-validation track and one bounded ERP-style density-correction follow-up is now planned
+Purpose: define the next browser-application planning layer after the Milestone 10 rebuild so the promoted web UI can move from a structurally sound modular shell to a calmer SAP-style operator shell with stronger navigation scaling, landing-page bundling, user-specific starting surfaces, and a later corrective move away from the current card-heavy presentation.
 
 ## 1. Why this milestone exists
 
@@ -93,10 +93,10 @@ The promoted shell should avoid both stark white and dark heavy backgrounds as t
 
 Preferred visual posture:
 
-1. use soft light backgrounds such as light grey, muted light yellow, pale green, and similarly low-glare light tones
+1. use restrained light backgrounds in a blue-gray family rather than the current green-heavy palette
 2. keep typography dark, preferably black or near-black, except where contrast rules require another color
 3. use stronger colors primarily for active states, emphasis, status meaning, and bounded visual hierarchy rather than as full-page background blocks
-4. keep the overall effect calm, readable, and enterprise-credible without reverting to dark chrome
+4. keep the overall effect calm, readable, and enterprise-credible without reverting to dark chrome or portal-style promotional framing
 
 Rule:
 
@@ -104,6 +104,7 @@ Rule:
 2. avoid dark-mode-style full-page backgrounds and heavy dark panels as the main visual identity
 3. keep text contrast high and do not use grey-on-grey combinations that weaken readability
 4. when background colors vary by section or destination, preserve one coherent palette rather than turning each surface into an unrelated theme
+5. avoid letting gradients, hero panels, or card mosaics become the dominant visual language on ordinary operator pages
 
 ### 4.2 Bundle landing pages
 
@@ -119,6 +120,7 @@ Rule:
 
 1. landing pages should summarize the route family, expose the key next actions, and provide the most common continuity links
 2. landing pages should not duplicate every downstream page inline at equal visual weight
+3. where possible, landing pages should behave as compact grouped route directories rather than card galleries
 
 ### 4.3 Searchable route catalog
 
@@ -182,7 +184,7 @@ In scope for this milestone:
 6. defining the first `Settings` and `Admin` surface posture and their relationship to the global shell
 7. defining pill or bubble-style navigation treatment with active-state contrast for the top bar
 8. allowing the top-bar bubble set to wrap across multiple rows where needed
-9. defining the preferred soft-light visual palette for shell backgrounds, panels, and landing-page treatment
+9. defining the preferred restrained blue-gray visual palette for shell backgrounds, lines, and landing-page treatment
 10. adding the minimum supporting preference model needed for pinned links, role-aware defaults, user-specific shortcuts, or later bubble-visibility preferences if the current shared foundation lacks it
 
 Out of scope:
@@ -202,13 +204,14 @@ This milestone is complete only when:
 2. all currently supported workflows are exposed through the web UI either directly from the top bar or through reachable landing pages
 3. top-level navigation items use a pill or bubble-style treatment with clear active-state differentiation
 4. the top-bar bubble set remains readable through multi-row wrapping instead of hidden overflow as route breadth grows
-5. the shell and landing pages use a soft-light palette instead of stark white or dark heavy backgrounds as the dominant visual treatment
+5. the shell and landing pages use a restrained blue-gray palette instead of the current green-heavy treatment, stark white, or dark heavy backgrounds as the dominant visual treatment
 6. broader route families are discoverable through bundle landing pages and the route catalog rather than through dense undifferentiated chrome alone
 7. `/app` behaves as a personalized operator home rather than only a generic shared dashboard
 8. the new shell and home remain aligned with the workflow-first doctrine and shared backend truth
 9. the resulting navigation model can later be streamlined without another shell rewrite, including future user-level hide or pin preferences if justified
 10. `Settings` and `Admin` have an explicit standardized posture consistent with role-based access rather than ad hoc page growth
 11. the visual system stays coherent across pages even when light background tones vary by surface
+12. the promoted browser layer no longer feels like an editorial or portal surface built from stacked banners and mixed-emphasis cards
 
 ## 7. Suggested implementation slices
 
@@ -225,7 +228,7 @@ Scope:
 1. top bar with pill or bubble-style navigation items
 2. shell spacing and page chrome reduction
 3. multi-row wrapping behavior for the bubble set
-4. soft-light visual palette and active-state contrast rules for shell chrome
+4. restrained blue-gray palette and active-state contrast rules for shell chrome
 5. current workflow-entry naming and ordering
 6. user-menu or utility-menu placement for `Settings` and access-scoped `Admin`
 7. compatibility handling for review and detail pages that still need local secondary navigation
@@ -292,6 +295,7 @@ Current implementation checkpoint:
 7. focused `go test ./internal/app -run '^TestHandleWeb' -count=1`, `go build ./cmd/... ./internal/...`, the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...`, and `gopls` diagnostics all passed after the Slice 3 implementation plus the later route-catalog corrective slice
 8. the later bounded `internal/app` transport-boundary cleanup review is now also complete for the remaining role-aware home and agent-chat continuity paths: dashboard recent-request or proposal composition now comes from shared `reporting.DashboardSnapshot`, and agent-chat continuity now comes from shared `reporting.AgentChatSnapshot` instead of route-local multi-read orchestration
 9. the separate Milestone 10 browser-review closeout still remains required before the broader browser-validation track can be treated as complete
+10. implementation review after Slice 3 found one more bounded browser follow-up need: the current promoted shell still feels too card-heavy and editorial, so `web_ui_erp_style_density_correction_plan.md` now defines a focused ERP-style density-correction slice rather than opening a new milestone
 
 ## 9. Open design rules
 
