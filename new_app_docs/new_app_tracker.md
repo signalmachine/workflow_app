@@ -78,7 +78,7 @@ Planned next step:
 11. the bounded performance pass on the `internal/app` test suite is now complete through one shared-harness speedup: DB-backed tests now reuse one migrated schema per test process while preserving per-test resets and advisory-lock discipline
 12. workflow validation remains on the separate `docs/workflows/` track and is now the next active validation track unless that validation feeds a new bounded fix slice back into `new_app_docs/`
 13. the next active implementation milestone is Milestone 10, and it should be treated as the first v2 implementation milestone rather than another thin-v1 cleanup slice
-14. if the team chooses the next promoted implementation slice rather than resuming workflow validation first, the correct planning shape is now Milestone 10 from `milestone_10_web_rebuild_plan.md` plus its three dedicated slice-plan docs
+14. if the team chooses the next promoted implementation work rather than resuming ad hoc workflow validation first, the correct planning shape is now one larger Milestone 10 closeout sweep followed, only if needed, by one grouped corrective slice rather than a return to many tiny browser follow-up steps
 
 Planned next-session implementation order:
 
@@ -95,9 +95,9 @@ Planned next-session implementation order:
 11. treat Milestone 10 Slice 2 as implemented in code through the rebuilt review workbench family on the modular bundle
 12. treat Milestone 11 Slice 2 as implemented in code through bundle landing pages and grouped route taxonomy on the modular browser shell
 13. the next browser implementation priority should come only after the separate Milestone 10 closeout review either passes or promotes one new bounded corrective fix plan; Milestone 11 Slice 3 route discovery plus personalized-home work is now implemented in code
-14. keep bounded browser review for the rebuilt operator-entry, landing-page, and review routes on the separate `docs/workflows/` track unless that review first promotes one new corrective slice back into `new_app_docs/`
+14. keep Milestone 10 closeout on the separate `docs/workflows/` track, but run it as one larger browser-review plus workflow-continuity sweep across the full promoted route family rather than as many tiny disconnected validation passes
 15. treat the third `internal/app` transport-boundary cleanup slice as complete in code, focused tests, and canonical docs through the new shared reporting snapshot contracts now used by dashboard, agent chat, operations landing or feed, and inventory landing
-16. if later validation exposes product defects or missing support seams, add bounded fix plans back into `new_app_docs/` before implementation begins
+16. if that larger Milestone 10 closeout sweep exposes product defects or missing support seams, group tightly related findings into one bounded corrective slice in `new_app_docs/` before implementation begins rather than reopening scattered tiny follow-up slices
 17. after Milestone 10 closeout and the next round of workflow validation, continue the bounded architecture review of `internal/app` only if later browser validation exposes one more concrete route-local drift seam, and plan narrow refactors only where business rules or durable review composition are still leaking out of shared services or `reporting`
 
 Follow-on rule:

@@ -97,6 +97,12 @@ Before closing this slice:
 6. run a focused workflow continuity pass across the rebuilt `/app` route family
 7. record browser-review and workflow-continuity evidence on the `docs/workflows/` track, or explicitly record the blocker there if closeout evidence cannot yet be completed
 
+Closeout execution rule:
+
+1. prefer one larger Milestone 10 closeout sweep that covers the full promoted route family and the required continuity paths in one session
+2. if that sweep finds defects, group tightly related browser or continuity findings into one bounded corrective slice rather than reopening a long tail of tiny follow-up tasks
+3. keep the quality bar unchanged: larger slices are acceptable only when verification evidence remains explicit and blocker handling stays disciplined
+
 ## 8. Stop rule
 
 Stop this slice only when:
@@ -123,4 +129,4 @@ Current implementation checkpoint:
 1. the promoted detail routes now render from the embedded bundle in `internal/app/web_templates/detail_pages.tmpl`
 2. focused `internal/app` detail-route HTTP tests passed after the migration
 3. `go build ./cmd/... ./internal/...` passed, the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` command completed cleanly again, and `gopls` reported no diagnostics on the edited Go rendering entrypoint
-4. bounded browser review on desktop and narrow-width layouts plus focused workflow-continuity evidence remain the open closeout work
+4. one larger browser-review plus workflow-continuity closeout sweep remains the open closeout work, with one grouped corrective follow-up slice acceptable if that sweep finds tightly related defects
