@@ -1111,41 +1111,42 @@ const webAppHTML = `<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{.Title}}</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     :root {
-      --bg: #f3f6fa;
-      --bg-muted: #e9eef5;
-      --panel: rgba(255, 255, 255, 0.98);
+      --bg: #f8fafc;
+      --bg-muted: #f1f5f9;
+      --panel: rgba(255, 255, 255, 0.85);
       --panel-strong: rgba(255, 255, 255, 1);
-      --ink: #122033;
-      --ink-soft: #22354d;
-      --muted: #5c6d81;
-      --line: #d7e0ea;
-      --line-strong: #c1cdd9;
-      --accent: #175cd3;
-      --accent-strong: #1349a5;
-      --accent-soft: #dbeafe;
-      --accent-faint: #eef5ff;
-      --warn: #9a3412;
+      --ink: #0f172a;
+      --ink-soft: #334155;
+      --muted: #64748b;
+      --line: rgba(226, 232, 240, 0.8);
+      --line-strong: #94a3b8;
+      --accent: #3b82f6;
+      --accent-strong: #2563eb;
+      --accent-soft: #eff6ff;
+      --accent-faint: rgba(239, 246, 255, 0.5);
+      --warn: #c2410c;
       --warn-soft: #ffedd5;
-      --bad: #b42318;
-      --bad-soft: #fee4e2;
-      --good: #027a48;
-      --good-soft: #d1fadf;
-      --neutral-soft: #e7edf4;
-      --shadow: 0 14px 32px rgba(17, 38, 63, 0.06);
-      --shadow-soft: 0 8px 18px rgba(17, 38, 63, 0.04);
-      --radius-lg: 18px;
+      --bad: #b91c1c;
+      --bad-soft: #fee2e2;
+      --good: #15803d;
+      --good-soft: #dcfce7;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+      --radius-lg: 20px;
       --radius-md: 14px;
       --radius-sm: 10px;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       color: var(--ink);
-      background: linear-gradient(180deg, #f8fafc 0%, var(--bg) 58%, var(--bg-muted) 100%);
+      background: linear-gradient(135deg, #f0f4f8 0%, #e1e8f0 100%);
       min-height: 100vh;
-      line-height: 1.5;
+      line-height: 1.6;
     }
     a {
       color: var(--accent);
@@ -1158,9 +1159,12 @@ const webAppHTML = `<!DOCTYPE html>
     }
     .masthead, .panel {
       background: var(--panel);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       border: 1px solid var(--line);
-      box-shadow: var(--shadow-soft);
+      box-shadow: var(--shadow);
       border-radius: var(--radius-lg);
+      transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1);
     }
     .masthead {
       padding: 24px;
@@ -1255,15 +1259,16 @@ const webAppHTML = `<!DOCTYPE html>
       color: var(--ink-soft);
       background: rgba(255, 255, 255, 0.86);
       border: 1px solid var(--line);
-      transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease;
+      transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
       white-space: nowrap;
     }
     .nav-links a:hover,
     .nav-links a.active {
       color: var(--accent-strong);
       background: var(--accent-faint);
-      border-color: rgba(23, 92, 211, 0.18);
-      transform: translateY(-1px);
+      border-color: rgba(59, 130, 246, 0.25);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-sm);
     }
     .grid {
       display: grid;
@@ -1317,6 +1322,12 @@ const webAppHTML = `<!DOCTYPE html>
       border: 1px solid var(--line);
       background: rgba(255, 255, 255, 0.9);
       color: var(--ink-soft);
+      transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .pill-link:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-sm);
+      border-color: rgba(59, 130, 246, 0.25);
     }
     .hero-grid {
       display: grid;
@@ -1416,18 +1427,23 @@ const webAppHTML = `<!DOCTYPE html>
       border: 1px solid rgba(19, 73, 165, 0.22);
       cursor: pointer;
       font-weight: 700;
-      box-shadow: 0 10px 22px rgba(23, 92, 211, 0.18);
+      box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+      transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
     }
     button.secondary {
       background: linear-gradient(180deg, #475467 0%, #344054 100%);
       border-color: rgba(52, 64, 84, 0.24);
-      box-shadow: 0 10px 22px rgba(52, 64, 84, 0.16);
+      box-shadow: 0 4px 14px rgba(52, 64, 84, 0.3);
     }
     button.ghost {
       background: rgba(255,255,255,0.82);
       color: var(--ink-soft);
       border: 1px solid var(--line);
-      box-shadow: none;
+      box-shadow: var(--shadow-sm);
     }
     table {
       width: 100%;
@@ -1449,7 +1465,15 @@ const webAppHTML = `<!DOCTYPE html>
       letter-spacing: 0.1em;
       background: rgba(237, 243, 248, 0.75);
     }
-    tbody tr:hover td { background: rgba(238, 245, 255, 0.45); }
+    tbody tr { transition: background 150ms ease, transform 150ms ease; }
+    tbody tr:hover td { background: rgba(239, 246, 255, 0.7); }
+    .hero-card, .metric-tile, .summary-card, .detail-card, .detail-block {
+      transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .hero-card:hover, .metric-tile:hover, .summary-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow);
+    }
     .table-wrap {
       overflow-x: auto;
       margin: 0 -4px;
