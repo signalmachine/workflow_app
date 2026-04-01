@@ -2,7 +2,7 @@
 
 Date: 2026-03-27
 Status: Draft canonical execution plan
-Purpose: define the narrow implementation path for the `workflow_app` replacement codebase.
+Purpose: define the execution path from the completed thin-v1 foundation through the active v2 implementation phase for the `workflow_app` codebase.
 
 ## 1. Milestone 0: New repo bootstrap
 
@@ -65,8 +65,8 @@ Current implementation checkpoint:
 
 Remediation planning note:
 
-1. detailed remediation for adopted document ownership is captured in `adopted_document_ownership_remediation_plan.md`
-2. detailed remediation for persist-first inbound request and attachment support is captured in `inbound_request_and_attachment_foundation_plan.md`
+1. detailed remediation for adopted document ownership is captured in `thin_v1_archive/adopted_document_ownership_remediation_plan.md`
+2. detailed remediation for persist-first inbound request and attachment support is captured in `thin_v1_archive/inbound_request_and_attachment_foundation_plan.md`
 3. the recommended implementation order is adopted document ownership first, then inbound request and attachment foundations
 
 ## 3. Milestone 2: Accounting and tax foundation
@@ -261,7 +261,7 @@ Planned implementation checkpoint:
 6. the coordinator can now optionally route one allowlisted specialist delegation through a durable child run and delegation record, with the final provider-backed artifact and recommendation persisting on that specialist run while the coordinator run remains the bounded parent
 6. provider configuration remains optional so the default local build and database-backed test flow does not require external credentials
 6. `.env.example` now documents the OpenAI variables needed for later live-provider slices
-7. detailed sequencing and constraints are captured in `ai_provider_execution_plan.md`
+7. detailed sequencing and constraints are captured in `thin_v1_archive/ai_provider_execution_plan.md`
 8. `internal/app` now provides shared backend seams over the provider-backed coordinator path, request submission, and attachment download, and `cmd/verify-agent` now exercises the live-processing seam for opt-in provider verification
 9. remaining Milestone 6 work is now the operator-review and browser-usable auth contracts that will exercise the live AI path on top of that shared seam
 10. this milestone should continue as a sequence of narrow vertical slices rather than one monolithic delivery
@@ -314,7 +314,7 @@ Current implementation checkpoint:
 20. the final Milestone 7 closeout sweep is now complete, and it found one real late-stage browser continuity blocker: exact inbound-request detail and filtered inbound-request review were not carrying persisted cancellation and failure reasons forward even though the dashboard already surfaced them
 21. that blocker is now fixed, and browser integration coverage now exercises parked-request lifecycle management plus browser visibility for draft, queued, processing, failed, cancelled, processed, and completed request states
 22. this milestone is therefore complete, and the next active implementation target was Milestone 8 client-neutral backend hardening for later lightweight mobile reuse
-23. detailed sequencing, slice scope, and control rules are captured in `web_application_layer_plan.md`
+23. detailed sequencing, slice scope, and control rules are captured in `thin_v1_archive/web_application_layer_plan.md`
 24. residual browser work should now be treated as regression fixes or later UX refinement rather than as an active milestone plan
 25. the active thin-v1 web-stack direction remains explicit: keep Go server-rendered HTML as the primary rendering model, prefer `htmx` where partial updates materially improve operator continuity, use `Alpine.js` only for small local state, and avoid introducing a Node toolchain unless the canonical planning set changes
 
@@ -348,7 +348,7 @@ Planned implementation stance:
 Current implementation checkpoint:
 
 1. the first four Milestone 8 slices are implemented on the shared `/api/...` seam through lifecycle, review-read, attachment, and approval-action contract hardening
-2. the fifth planned slice is now completed in `non_browser_auth_evolution_plan.md`
+2. the fifth planned slice is now completed in `thin_v1_archive/non_browser_auth_evolution_plan.md`
 3. that auth plan keeps browser-session cookies as the active v1 auth path, treats the UUID actor-header path as temporary automation compatibility rather than the long-term client contract, and defines the next additive bearer-session path for lightweight non-browser clients on the same session foundation
 4. Milestone 8 is therefore complete as a bounded client-neutral hardening milestone, and the next backend auth work should begin with the first additive token-session implementation slice from that plan rather than reopening Milestone 8 as an open-ended bucket
 
@@ -361,11 +361,31 @@ Closeout result:
 3. `set -a; source .env; set +a; go test -p 1 ./...` completed cleanly on 2026-03-27
 4. review against `new_app_foundation_coverage.md`, `new_app_tracker.md`, and the completed milestone docs found no material missing foundation slice at the current thin-v1 depth
 5. the codebase should therefore be treated as thin-v1 checkpoint complete rather than as an implicitly unfinished v1 milestone chain
-6. any later work should begin only after one explicit promotion decision: either one bounded post-checkpoint slice or one v2 work item
+6. Milestone 10 and later work should therefore be treated as v2-phase implementation on top of the completed thin-v1 foundation
 
-## 11. Planned next step after checkpoint closeout
+## 11. Post-thin-v1 transition
 
-The next active step is now the bounded post-checkpoint validation and live user-testing readiness slice documented in `post_checkpoint_validation_and_user_testing_plan.md`.
+Thin-v1 is complete.
+
+Milestone 10 is the first active v2 milestone.
+
+V2 in this repository should optimize for:
+
+1. materially stronger operator usability
+2. broader capability where it builds on the completed shared foundation
+3. production readiness across application, operational, validation, and control layers
+4. continued adherence to the same shared backend truth, workflow doctrine, approval boundaries, and database-first discipline
+
+V2 must not be used to justify:
+
+1. reopening foundational modeling that thin-v1 already completed without a concrete defect
+2. reviving CRM-first or portal-first gravity
+3. splitting the backend into browser-specific versus other-client truth models
+4. weakening audit, approval, posting, or persistence boundaries in the name of speed
+
+## 12. Historical post-checkpoint validation note
+
+The next active step is now the bounded post-checkpoint validation and live user-testing readiness slice documented historically in `thin_v1_archive/post_checkpoint_validation_and_user_testing_plan.md`.
 
 That slice should:
 
@@ -375,7 +395,7 @@ That slice should:
 4. continue focused review plus fix plus test loops until those workflows have no known blocking defects
 5. end with one explicit readiness result for supervised AI-backed user testing or with an explicit blocker list
 
-## 12. Milestone 9: User-testing readiness hardening
+## 13. Milestone 9: User-testing readiness hardening
 
 Goal:
 
@@ -392,18 +412,18 @@ Exit criteria:
 1. the active auth path is materially stronger for guided user testing
 2. the bounded AI capability surface is stronger without weakening approval and posting boundaries
 3. the highest-risk shared web or API file concentration is reduced enough to support safer iteration
-4. the repository is ready to resume the paused live workflow validation captured in `post_checkpoint_validation_and_user_testing_plan.md`
+4. the repository is ready to resume the paused live workflow validation captured in `thin_v1_archive/post_checkpoint_validation_and_user_testing_plan.md`
 
 Planning note:
 
 1. this milestone exists because the post-checkpoint validation slice produced useful live signal but also identified bounded readiness gaps that are better addressed before further deep workflow testing
 2. this milestone should stay bounded to readiness hardening rather than broad product expansion
 
-## 13. Milestone 10: Web rebuild
+## 14. Milestone 10: First active v2 milestone
 
 Goal:
 
-1. rebuild the current browser layer on the same shared backend seam so the web surface becomes modular, scalable, and materially easier to evolve
+1. start the active v2 phase by rebuilding the current browser layer on the same shared backend seam so the web surface becomes modular, scalable, materially easier to evolve, and strong enough to support broader production-readiness work
 
 Scope:
 
@@ -421,14 +441,19 @@ Exit criteria:
 3. rebuilt dashboard, review, detail, and communication surfaces follow one coherent page model
 4. the rebuilt web layer remains aligned with the shared backend truth, approval boundaries, and workflow continuity doctrine
 5. the repository can resume browser-led workflow validation on the rebuilt surface instead of continuing piecemeal UI cleanup on the old structure
+6. the milestone establishes the first explicit v2 implementation baseline rather than another thin-v1 cleanup pass
 
 Current planning checkpoint:
 
-1. this milestone is now the preferred next browser-direction plan
-2. the narrower density-cleanup posture from `web_ui_streamlining_plan.md` is now superseded by the explicit full rebuild plan in `milestone_10_web_rebuild_plan.md`
+1. thin-v1 is complete, and this milestone is now the first active v2 implementation milestone
+2. the narrower density-cleanup posture from `thin_v1_archive/web_ui_streamlining_plan.md` is now superseded by the explicit full rebuild plan in `milestone_10_web_rebuild_plan.md`
 3. implementation should begin only after this milestone is accepted as the next promoted slice
+4. implementation should proceed through the three large pre-written slice plans captured in:
+5. `milestone_10_slice_1_architecture_and_operator_entry_plan.md`
+6. `milestone_10_slice_2_review_workbench_plan.md`
+7. `milestone_10_slice_3_detail_and_closeout_plan.md`
 
-## 14. Execution warning
+## 15. Execution warning
 
 Do not add CRM breadth, advanced projects, portal work, payroll, broad UI work, or advanced agent-autonomy features during milestones 0 through 5.
 
@@ -439,7 +464,9 @@ During Milestone 7, backend corrections and narrow shared-backend enhancements a
 
 Do not treat Milestone 8 as permission to build the mobile product itself, fork the backend into web-specific versus mobile-specific truth models, or let backend hardening erase the still-required Milestone 7 browser completion criteria.
 
-## 15. Quality and sophistication rule
+Do not treat v2 as permission to abandon the completed foundation discipline, duplicate truth ownership, or reintroduce CRM-first product gravity under a broader roadmap label.
+
+## 16. Quality and sophistication rule
 
 `workflow_app` is allowed to be thin in breadth, but it is not allowed to be weak in foundation design.
 

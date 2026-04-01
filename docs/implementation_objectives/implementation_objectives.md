@@ -10,11 +10,11 @@ This document is a high-level multi-version summary, not a replacement for the a
 
 Rules:
 
-1. `new_app_docs/` is the active canonical planning source for current v1 work.
+1. `new_app_docs/` is the active canonical planning source for the completed thin-v1 foundation and the active v2 implementation phase.
 2. legacy planning material is reference-only unless an active `new_app_docs/` document promotes a rule forward.
 3. When active and legacy planning differ, implementation should follow `new_app_docs/`.
 4. this document may describe long-term implementation objectives that extend beyond thin v1
-5. thin v1 remains the active implementation priority and should be treated as the minimum serious foundation version, not the full product endpoint
+5. thin v1 is now complete and should be treated as the minimum serious foundation version rather than the active implementation phase or the full product endpoint
 6. this document is a companion summary and is not mandatory reading for every implementation session
 7. `docs/implementation_objectives/implementation_principles.md` is a reference-only companion note that provides implementation-principles guidance, but it is not the sole source of implementation principles and it is not part of the canonical planning set
 8. the normal session-start source of truth remains `AGENTS.md`, `README.md`, `new_app_docs/`, and optional reference material when needed
@@ -83,17 +83,18 @@ Implementation consequences:
 13. queued or cancelled pre-processing requests may return to `draft` for amendment and later resubmission while preserving the same intake identity
 14. every meaningful feature, control seam, state transition, and support surface should tie to one or more workflows, even when the thing itself is not a workflow record
 
-## 4. Versioning stance and thin-v1 objective
+## 4. Versioning stance and thin-v1 completion
 
 The implementation objectives in this document span multiple versions.
 
 Rules:
 
 1. not every objective in this document is intended to land in v1
-2. thin v1 is the current foundation release target
-3. v2 and later versions may deepen localization, workflow breadth, vertical extensions, and operator surfaces on top of the v1 foundation
-4. implementation should preserve extension room for later versions without expanding thin-v1 scope prematurely
-5. as of the 2026-03-27 checkpoint closeout, the current codebase satisfies the planned thin-v1 foundation depth, so later work should start from an explicit promotion decision rather than assuming unfinished baseline v1 scope still exists
+2. thin v1 was the foundation release target and is now complete
+3. v2 is now the active implementation phase beginning at Milestone 10
+4. v2 and later versions may deepen localization, workflow breadth, vertical extensions, operator surfaces, and production-readiness work on top of the completed v1 foundation
+5. implementation should preserve extension room for later versions without reopening completed thin-v1 foundation scope casually
+6. as of the 2026-03-27 checkpoint closeout and subsequent Milestone 9 completion, the current codebase satisfies the planned thin-v1 foundation depth, so active work should now be framed as v2 work rather than as unfinished baseline v1 scope
 
 The active thin v1 aims to deliver the minimum serious system that can:
 
@@ -105,7 +106,7 @@ The active thin v1 aims to deliver the minimum serious system that can:
 6. expose approval, review, inspection, and reporting surfaces for humans
 7. persist inbound requests and process them through a review-oriented queue model rather than relying on immediate AI response as the default operating path
 
-Near-term success is defined more by safe and observable AI-assisted operation on strong foundations than by broad product breadth.
+Near-term v2 success is defined by broader operator usefulness and production readiness on top of those strong foundations, not by redoing foundation work under a new label.
 
 Current checkpoint result:
 
@@ -114,12 +115,12 @@ Current checkpoint result:
 3. the current codebase should therefore be treated as thin-v1 checkpoint complete at its planned foundation depth
 4. the bounded web visual-refresh, corrective follow-up, and browser-surface restructuring slices are now complete as historical thin-v1 browser work rather than the current next-step plan
 5. live provider readiness and canonical end-to-end workflow testing remain active, but they now continue on the separate `docs/workflows/` validation track rather than inside the implementation-plan stream
-6. if the team promotes another major browser implementation slice before more workflow validation, the correct shape is now an explicit full web-layer rebuild milestone rather than incremental cleanup on the current monolithic browser structure
+6. Milestone 10 is now the first active v2 milestone and should be treated as a v2 usability plus production-readiness promotion rather than as more thin-v1 cleanup
 7. this workflow-critical testing stance should remain a durable repository policy beyond thin v1 whenever the real question is operator workflow reliability on the shared application seam rather than isolated package correctness
 
-## 5. Highest-priority v1 capabilities
+## 5. Highest-priority thin-v1 capabilities
 
-The highest thin-v1 priorities are:
+The following were the highest thin-v1 priorities and now define the completed foundation baseline that v2 builds on:
 
 1. identity, org, roles, sessions, and tenant safety
 2. audit events, approvals, and idempotent write boundaries
@@ -132,8 +133,8 @@ The highest thin-v1 priorities are:
 9. work-order and task execution foundations
 10. report and review surfaces
 11. a usable browser application layer on the same shared backend seam, with Milestone 8 reserved for client-neutral hardening rather than reopening browser-first milestone scope
-11. browser operator surfaces on the shared backend seam, including parked-request lifecycle management for draft, queued, cancelled, and recovery flows
-11. provider-backed AI execution using the OpenAI Go SDK plus a shared backend processing contract, explicit live-verification command, and the minimum backend API and attachment-transport contract required to exercise that path in real testing
+12. browser operator surfaces on the shared backend seam, including parked-request lifecycle management for draft, queued, cancelled, and recovery flows
+13. provider-backed AI execution using the OpenAI Go SDK plus a shared backend processing contract, explicit live-verification command, and the minimum backend API and attachment-transport contract required to exercise that path in real testing
 
 CRM and project depth may remain in the repository where already implemented, but they are support concerns in thin v1 rather than the product center.
 
@@ -165,7 +166,9 @@ The short-term AI objective is to observe, evaluate, and improve agent behavior 
 
 ## 7. Human-interface stance
 
-Human surfaces in thin v1 should now include a usable web application layer while still preserving the AI-agent-first operating model.
+The completed thin-v1 baseline established a usable web application layer while preserving the AI-agent-first operating model.
+
+The active v2 phase should now improve that operator surface materially without changing the shared-backend truth model or turning the product into a broad manual-entry ERP.
 
 Allowed primary human surfaces:
 

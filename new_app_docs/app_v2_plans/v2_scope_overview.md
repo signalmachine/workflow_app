@@ -2,11 +2,11 @@
 
 Date: 2026-03-19
 Status: Draft v2 scope overview
-Purpose: define what kinds of work belong in v2 so the replacement thin-v1 codebase can stay narrow without losing long-term product ambition.
+Purpose: define what kinds of work belong in the active v2 phase now that the replacement thin-v1 foundation is complete.
 
 ## 1. v2 objective
 
-V2 should deepen business capability breadth on top of a finished thin-v1 foundation.
+V2 should deepen business capability breadth and production readiness on top of a finished thin-v1 foundation.
 
 V2 is not where foundational correctness gets invented late.
 V2 is where the correct foundation gets leveraged.
@@ -23,6 +23,7 @@ V2 may deepen:
 6. deeper tax localization and statutory edge-case tooling beyond the v1 GST/TDS foundation
 7. broader trading-company operational breadth on top of the shared thin-v1 inventory and accounting core
 8. broader service-company coordination breadth on top of the thin-v1 work-order and labor core
+9. production readiness across usability, validation, operations, hardening, and deployment-facing seams
 
 ## 3. What must already be true before broad v2 work starts
 

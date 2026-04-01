@@ -1,19 +1,19 @@
 # workflow_app Planning README
 
 Date: 2026-03-19
-Status: Draft canonical planning set for the `workflow_app` thin-v1 codebase
-Purpose: define the planning baseline for the new repository that replaces the current CRM-heavy codebase direction.
+Status: Canonical planning set for the completed thin-v1 foundation and the active v2 implementation phase
+Purpose: define the planning baseline that started the repository reset, records thin-v1 completion, and now governs the active v2 implementation phase.
 
 ## Why this folder exists
 
 The current repository proved the product idea, but it also proved that the shipped CRM-heavy implementation shape creates ongoing scope tension against the intended thin-foundation v1.
 
-This folder exists to prepare a clean restart with:
+This folder exists to prepare and now continue the repository after the clean restart with:
 
 1. stricter module boundaries
 2. stricter thin-v1 scope control
 3. documents, ledgers, execution context, approvals, and reports as the real center of gravity
-4. AI-agent-first operation without broad human operational UI
+4. AI-agent-first operation with strong human review and operator surfaces built on one shared backend truth
 
 This planning set is the repository's canonical implementation-planning source.
 
@@ -32,7 +32,17 @@ Track rule:
 2. if workflow validation discovers a real product issue, add the resulting fix plan here and track implementation here
 3. workflow validation may be paused or deferred when urgent product fixes need implementation first without treating that pause as drift
 
-`workflow_app` still plans for multi-agent architecture in v1, but only at foundation depth:
+Thin-v1 is now complete at foundation depth.
+
+The active planning phase is now v2 beginning at Milestone 10.
+
+V2 in this repository means:
+
+1. enhance the application across backend, AI, browser, validation, and operational readiness layers on top of the completed foundation
+2. broaden capability deliberately where it strengthens real operator usefulness and production readiness
+3. keep the completed thin-v1 foundation, shared truth model, and workflow doctrine intact rather than reopening foundational modeling under a different label
+
+`workflow_app` still keeps the same multi-agent doctrine moving into v2:
 
 1. one coordinator routing bounded work to specialist agents
 2. durable run history, tool policy, artifacts, and delegation traces
@@ -53,7 +63,7 @@ The former accounting-agent proof-of-concept may still be used as external histo
 
 ## Recommended reading order
 
-Read these in order:
+For the active v2 planning surface, read these in order:
 
 1. `new_app_v1_principles.md`
 2. `new_app_v1_scope.md`
@@ -61,21 +71,15 @@ Read these in order:
 4. `new_app_implementation_defaults.md`
 5. `new_app_foundation_coverage.md`
 6. `new_app_execution_plan.md`
-7. `new_app_v1_gap_review_from_current_codebase.md`
-8. `adopted_document_ownership_remediation_plan.md`
-9. `inbound_request_and_attachment_foundation_plan.md`
-10. `ai_provider_execution_plan.md`
-11. `web_application_layer_plan.md`
-12. `web_visual_refresh_plan.md`
-13. `web_visual_refresh_follow_up_plan.md`
-14. `web_ui_streamlining_plan.md`
-15. `milestone_10_web_rebuild_plan.md`
-16. `operator_communication_and_intake_surfaces_plan.md`
-17. `non_browser_auth_evolution_plan.md`
-18. `milestone_9_user_testing_readiness_hardening_plan.md`
-19. `new_app_tracker.md`
-20. `app_v2_plans/README.md`
-21. `../docs/workflows/README.md` for the durable workflow-reference and validation-track layer after the active planning read
+7. `milestone_10_web_rebuild_plan.md`
+8. `milestone_10_slice_1_architecture_and_operator_entry_plan.md`
+9. `milestone_10_slice_2_review_workbench_plan.md`
+10. `milestone_10_slice_3_detail_and_closeout_plan.md`
+11. `new_app_tracker.md`
+12. `app_v2_plans/README.md`
+13. `../docs/workflows/README.md` for the durable workflow-reference and validation-track layer after the active planning read
+
+For thin-v1 historical context, use `thin_v1_archive/` as needed.
 
 ## Reset decision
 
@@ -91,9 +95,17 @@ Reason:
 2. deleting parts of the existing codebase would still leave the new effort spending time on untangling legacy assumptions
 3. a clean repository will make it easier to enforce thin-v1 rules from the first migration onward
 
-## Core reset rule
+## Phase rule
 
-If a capability can wait until v2 without weakening the foundation, it must wait until v2.
+Thin-v1 is complete.
+
+Starting at Milestone 10, active implementation work is v2 work.
+
+That means:
+
+1. the repository is no longer restricted to thin-v1 breadth
+2. new work should focus on stronger operator usability, broader capability where justified, and production readiness
+3. v2 must still preserve the core doctrine, shared backend truth, approval boundaries, and module-discipline rules established by thin-v1
 
 ## Quality rule
 

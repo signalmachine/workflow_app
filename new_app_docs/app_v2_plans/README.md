@@ -2,21 +2,23 @@
 
 Date: 2026-03-19
 Status: Draft v2 planning set
-Purpose: hold explicitly deferred v2 breadth so it stays visible without leaking back into thin-v1 implementation.
+Purpose: hold reference material for future v2 milestone creation, including proposed v2 features and ideas that may later be promoted into the active canonical planning docs.
 
 ## Why this folder exists
 
-`workflow_app` should be foundation-heavy in v1 and breadth-heavy later.
+`workflow_app` completed its foundation-heavy thin-v1 phase first.
 
 This folder exists so that:
 
-1. important later capabilities are not forgotten
-2. they are documented without pressuring v1 scope
-3. the team can make deliberate v2 choices after the thin foundation ships
+1. important broader capabilities are not forgotten
+2. proposed v2 features and ideas stay available as references without automatically becoming active implementation work
+3. the team can create deliberate future v2 milestones on top of the completed thin-v1 foundation
 
 ## Rule
 
-Nothing in `app_v2_plans/` is active v1 scope unless a canonical v1 document explicitly promotes it.
+Nothing in `app_v2_plans/` is itself an active implementation milestone.
+
+Use these docs as reference material when shaping future v2 milestones in the canonical planning docs under `new_app_docs/`.
 
 ## Reading order
 
