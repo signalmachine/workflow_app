@@ -4,7 +4,7 @@
 {{template "web_page_header" (dict
   "eyebrow" "Dashboard"
   "title" "Control surface"
-  "body" "Start from one operator story: create or continue requests, watch the queue, and branch into approvals or proposals only when the current state requires it."
+  "body" "Start from one operator story: create or continue requests, watch the queue, and then branch into the right landing page instead of a flat route list."
 )}}
 
 <section class="hero-card">
@@ -12,13 +12,13 @@
   <div class="card-stack">
     <div class="eyebrow">Current posture</div>
     <h2>Keep request intake and live operational state ahead of broad review browsing.</h2>
-    <p>The lighter shell keeps the primary workflow path visible while broader review routes stay reachable without crowding the operator home.</p>
+    <p>The lighter shell now groups operations, review, and inventory under landing pages so the operator home can stay focused on the next useful step.</p>
     <div class="nav-links">
     <div class="button-row">
       <a href="/app/submit-inbound-request" class="pill-link">Open submission page</a>
-      <a href="/app/operations-feed" class="pill-link">Open operations feed</a>
-      <a href="/app/agent-chat" class="pill-link">Open agent chat</a>
-      <a href="/app/review/inbound-requests" class="pill-link">Open inbound review</a>
+      <a href="/app/operations" class="pill-link">Open operations landing</a>
+      <a href="/app/review" class="pill-link">Open review landing</a>
+      <a href="/app/inventory" class="pill-link secondary">Open inventory landing</a>
     </div>
     </div>
     <form method="post" action="/app/agent/process-next-queued-inbound-request">
@@ -28,8 +28,8 @@
 
   <div class="detail-grid">
     {{template "web_detail_block" (dict "label" "Primary route" "value" "Dedicated intake" "body" "New requests now have their own entry page instead of competing with the dashboard." )}}
-    {{template "web_detail_block" (dict "label" "Operational scan" "value" "Operations feed" "body" "Use the feed for fast state changes, proposal continuity, and approval movement." )}}
-    {{template "web_detail_block" (dict "label" "Guidance path" "value" "Agent chat" "body" "Guidance-oriented requests still persist through the same inbound-request model." )}}
+    {{template "web_detail_block" (dict "label" "Operational scan" "value" "Operations landing" "body" "Use the landing page to branch into feed monitoring, agent chat, and queue-moving actions." )}}
+    {{template "web_detail_block" (dict "label" "Review taxonomy" "value" "Review landing" "body" "Keep upstream approvals and downstream review families grouped before opening exact workbenches." )}}
   </div>
   </div>
 </section>

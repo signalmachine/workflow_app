@@ -1,0 +1,284 @@
+{{define "web_operations_landing"}}
+{{template "web_shell_start" .}}
+
+{{template "web_page_header" (dict
+  "eyebrow" "Operations landing"
+  "title" "Queue-driven operations"
+  "body" "Use one bounded landing page for feed monitoring, agent-chat continuity, and queued request control before dropping into narrower operational views."
+)}}
+
+<section class="hero-card">
+  <div class="hero-grid">
+    <div class="card-stack">
+      <div class="eyebrow">Operations bundle</div>
+      <h2>Start from the next queue-moving action, then branch into feed or chat only when that route fits the operator task.</h2>
+      <p>The shell now keeps operations as one family: durable feed for recent movement, agent chat for guidance-style intake, and explicit queued-request control on the same backend truth.</p>
+      <div class="button-row">
+        <a href="/app/operations-feed" class="pill-link">Open durable feed</a>
+        <a href="/app/agent-chat" class="pill-link secondary">Open agent chat</a>
+      </div>
+      <form method="post" action="/app/agent/process-next-queued-inbound-request">
+        <button type="submit">Process next queued request</button>
+      </form>
+    </div>
+
+    <div class="detail-grid">
+      {{template "web_summary_card" (dict "label" "Queued requests" "value" .OperationsLanding.QueuedRequestCount "body" "Requests ready for coordinator pickup." "action_href" "/app/review/inbound-requests?status=queued" "action_label" "Open queued requests" )}}
+      {{template "web_summary_card" (dict "label" "Pending approvals" "value" .OperationsLanding.PendingApprovalCount "body" "Operational work waiting on explicit decision seams." "action_href" "/app/review/approvals?status=pending" "action_label" "Open approvals" )}}
+      {{template "web_summary_card" (dict "label" "Recent proposals" "value" .OperationsLanding.ProposalReviewCount "body" "Coordinator outputs ready for review continuity." "action_href" "/app/review/proposals" "action_label" "Open proposals" )}}
+    </div>
+  </div>
+</section>
+
+<section class="table-card">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">Recent movement</div>
+      <h2>Keep cross-family continuity visible</h2>
+      <p class="compact-copy">Operations stays route-oriented rather than becoming another broad dashboard.</p>
+    </div>
+  </div>
+  {{if .OperationsLanding.RecentFeed}}
+  <div class="feed-list">
+    {{range .OperationsLanding.RecentFeed}}
+    <article class="feed-item">
+      <div class="feed-head">
+        <div>
+          <div class="eyebrow">{{.Kind}}</div>
+          <h2>{{.Title}}</h2>
+        </div>
+        <div class="meta">{{formatTime .OccurredAt}}</div>
+      </div>
+      <p>{{.Summary}}</p>
+      <div class="button-row">
+        {{if .PrimaryHref}}<a href="{{.PrimaryHref}}" class="pill-link">{{.PrimaryLabel}}</a>{{end}}
+        {{if .SecondaryHref}}<a href="{{.SecondaryHref}}" class="pill-link secondary">{{.SecondaryLabel}}</a>{{end}}
+      </div>
+    </article>
+    {{end}}
+  </div>
+  {{else}}
+  {{template "web_empty_state" (dict "title" "No operations movement yet" "body" "The landing page will summarize recent queue, proposal, and approval movement once the shared backend has operator activity." )}}
+  {{end}}
+</section>
+
+{{template "web_shell_end" .}}
+{{end}}
+
+{{define "web_review_landing"}}
+{{template "web_shell_start" .}}
+
+{{template "web_page_header" (dict
+  "eyebrow" "Review landing"
+  "title" "Review route families"
+  "body" "Start from the right review bundle instead of scanning every browser route from the global shell."
+)}}
+
+<section class="hero-card">
+  <div class="hero-grid">
+    <div class="card-stack">
+      <div class="eyebrow">Review taxonomy</div>
+      <h2>Inbound requests, proposals, and approvals stay closest to operator decisions. Downstream document, accounting, work-order, and audit review stays grouped one step deeper.</h2>
+      <p>The global shell now points into this landing page so broader browser review can grow without turning the top bar into a flat site map.</p>
+      <div class="button-row">
+        <a href="/app/review/inbound-requests" class="pill-link">Open inbound requests</a>
+        <a href="/app/review/proposals" class="pill-link secondary">Open proposals</a>
+        <a href="/app/review/approvals" class="pill-link secondary">Open approvals</a>
+      </div>
+    </div>
+
+    <div class="detail-grid">
+      {{template "web_summary_card" (dict "label" "Inbound requests" "value" .ReviewLanding.InboundRequestCount "body" "Persisted request continuity across draft, queue, failure, and completion." "action_href" "/app/review/inbound-requests" "action_label" "Open request review" )}}
+      {{template "web_summary_card" (dict "label" "Processed proposals" "value" .ReviewLanding.ProposalCount "body" "Coordinator recommendations visible before approval and document handoff." "action_href" "/app/review/proposals" "action_label" "Open proposal review" )}}
+      {{template "web_summary_card" (dict "label" "Pending approvals" "value" (len .ReviewLanding.PendingApprovals) "body" "Decision queue entries needing explicit operator closure." "action_href" "/app/review/approvals?status=pending" "action_label" "Open approval queue" )}}
+    </div>
+  </div>
+</section>
+
+<section class="three-up">
+  <article class="result-card">
+    <div class="eyebrow">Primary queues</div>
+    <h2>Request and approval continuity</h2>
+    <p>Use these entry points for the upstream operator path.</p>
+    <div class="review-link-list">
+      <a href="/app/review/inbound-requests">Inbound requests</a>
+      <a href="/app/review/proposals">Proposals</a>
+      <a href="/app/review/approvals">Approvals</a>
+    </div>
+  </article>
+
+  <article class="result-card">
+    <div class="eyebrow">Downstream review</div>
+    <h2>Documents and accounting</h2>
+    <p>Use these when operator review has already crossed a posting or document boundary.</p>
+    <div class="review-link-list">
+      <a href="/app/review/documents">Documents</a>
+      <a href="/app/review/accounting">Accounting</a>
+      <div class="meta">Control-account and tax-summary drill-downs remain reachable from exact accounting review rows.</div>
+    </div>
+  </article>
+
+  <article class="result-card">
+    <div class="eyebrow">Execution and trace</div>
+    <h2>Inventory, work orders, and audit</h2>
+    <p>Execution-heavy review now stays grouped under domain landings or exact downstream routes.</p>
+    <div class="review-link-list">
+      <a href="/app/inventory">Inventory landing</a>
+      <a href="/app/review/work-orders">Work orders</a>
+      <a href="/app/review/audit">Audit</a>
+    </div>
+  </article>
+</section>
+
+{{if .ReviewLanding.PendingApprovals}}
+<section class="table-card">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">Pending queue snapshot</div>
+      <h2>Exact approvals remain one click away</h2>
+    </div>
+    <a href="/app/review/approvals?status=pending" class="pill-link secondary">Open full approval queue</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Approval</th>
+          <th>Queue</th>
+          <th>Document</th>
+          <th>Continuity</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .ReviewLanding.PendingApprovals}}
+        <tr>
+          <td><a href="{{approvalReviewHref .ApprovalID}}">{{.ApprovalID}}</a></td>
+          <td>{{.QueueCode}}</td>
+          <td><a href="{{documentReviewHref .DocumentID}}">{{.DocumentTitle}}</a></td>
+          <td class="inline-links">
+            <a href="{{approvalReviewHref .ApprovalID}}">Open exact approval</a>
+            {{if .RequestReference.Valid}}<a href="{{inboundRequestHref .RequestReference.String}}">{{.RequestReference.String}}</a>{{end}}
+            {{if .RecommendationID.Valid}}<a href="{{proposalDetailHref .RecommendationID.String}}">Proposal</a>{{end}}
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</section>
+{{end}}
+
+{{template "web_shell_end" .}}
+{{end}}
+
+{{define "web_inventory_landing"}}
+{{template "web_shell_start" .}}
+
+{{template "web_page_header" (dict
+  "eyebrow" "Inventory landing"
+  "title" "Inventory review bundle"
+  "body" "Group stock, movement, and reconciliation review under one domain landing before operators drop into exact inventory routes."
+)}}
+
+<section class="hero-card">
+  <div class="hero-grid">
+    <div class="card-stack">
+      <div class="eyebrow">Inventory bundle</div>
+      <h2>Use one domain landing for stock position, movement history, and handoff exceptions instead of treating inventory as just another flat review row.</h2>
+      <p>Inventory remains on the same reporting path, but the shell now gives it a dedicated route family because it carries both review and execution continuity.</p>
+      <div class="button-row">
+        <a href="/app/review/inventory" class="pill-link">Open inventory review</a>
+        <a href="/app/review/work-orders" class="pill-link secondary">Open work orders</a>
+      </div>
+    </div>
+
+    <div class="detail-grid">
+      {{template "web_summary_card" (dict "label" "Stock rows" "value" (len .InventoryLanding.Stock) "body" "Current item and location balance snapshots." "action_href" "/app/review/inventory" "action_label" "Open stock review" )}}
+      {{template "web_summary_card" (dict "label" "Pending execution" "value" .InventoryLanding.PendingExecutionCount "body" "Reconciliation items still waiting on execution continuity." "action_href" "/app/review/inventory?only_pending_execution=true#reconciliation" "action_label" "Open execution exceptions" )}}
+      {{template "web_summary_card" (dict "label" "Pending accounting" "value" .InventoryLanding.PendingAccountingCount "body" "Reconciliation items still waiting on accounting handoff." "action_href" "/app/review/inventory?only_pending_accounting=true#reconciliation" "action_label" "Open accounting exceptions" )}}
+    </div>
+  </div>
+</section>
+
+<div class="two-up">
+  <section class="table-card">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">Stock snapshot</div>
+        <h2>Items and locations</h2>
+      </div>
+      <a href="/app/review/inventory" class="pill-link secondary">Open full inventory review</a>
+    </div>
+    {{if .InventoryLanding.Stock}}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Location</th>
+            <th>On hand</th>
+            <th>Continuity</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .InventoryLanding.Stock}}
+          <tr>
+            <td><a href="{{inventoryItemHref .ItemID}}">{{.ItemSKU}}</a><div class="meta">{{.ItemName}}</div></td>
+            <td><a href="{{inventoryLocationHref .LocationID}}">{{.LocationCode}}</a><div class="meta">{{.LocationName}}</div></td>
+            <td>{{.OnHandMilli}}</td>
+            <td class="inline-links">
+              <a href="{{inventoryItemHref .ItemID}}">Item detail</a>
+              <a href="{{inventoryLocationHref .LocationID}}">Location detail</a>
+              <a href="{{inventoryReviewHref "" .ItemID .LocationID "" "" false false "movement-history"}}">Movement history</a>
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    {{template "web_empty_state" (dict "title" "No stock rows yet" "body" "Stock review will appear here once inventory truth exists for this operator." )}}
+    {{end}}
+  </section>
+
+  <section class="table-card">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">Reconciliation exceptions</div>
+        <h2>Pending handoffs</h2>
+      </div>
+    </div>
+    {{if .InventoryLanding.Reconciliation}}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Movement</th>
+            <th>Document</th>
+            <th>Pending</th>
+            <th>Continuity</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .InventoryLanding.Reconciliation}}
+          <tr>
+            <td><a href="{{inventoryMovementHref .MovementID}}">{{.MovementNumber}}</a></td>
+            <td>{{if .DocumentID.Valid}}<a href="{{documentReviewHref .DocumentID.String}}">{{if .DocumentNumber.Valid}}{{.DocumentNumber.String}}{{else}}{{.DocumentID.String}}{{end}}</a>{{else}}-{{end}}</td>
+            <td>{{if .ExecutionLinkStatus.Valid}}{{.ExecutionLinkStatus.String}}{{else}}-{{end}} / {{if .AccountingHandoffStatus.Valid}}{{.AccountingHandoffStatus.String}}{{else}}-{{end}}</td>
+            <td class="inline-links">
+              <a href="{{inventoryMovementHref .MovementID}}">Exact movement</a>
+              <a href="{{inventoryReviewHref .MovementID "" "" "" "" true true "reconciliation"}}">Filtered reconciliation</a>
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    {{template "web_empty_state" (dict "title" "No pending inventory reconciliation" "body" "Execution and accounting exceptions will appear here when inventory movement requires follow-through." )}}
+    {{end}}
+  </section>
+</div>
+
+{{template "web_shell_end" .}}
+{{end}}

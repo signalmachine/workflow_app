@@ -31,8 +31,10 @@ const (
 	webAppPath                 = "/app"
 	webLoginPath               = "/app/login"
 	webLogoutPath              = "/app/logout"
+	webOperationsPath          = "/app/operations"
 	webOperationsFeedPath      = "/app/operations-feed"
 	webAgentChatPath           = "/app/agent-chat"
+	webReviewPath              = "/app/review"
 	webSubmitInboundPagePath   = "/app/submit-inbound-request"
 	webSubmitInboundPath       = "/app/inbound-requests"
 	webInboundActionsPrefix    = "/app/inbound-requests/"
@@ -50,6 +52,7 @@ const (
 	webApprovalDetailPrefix    = "/app/review/approvals/"
 	webProposalsPath           = "/app/review/proposals"
 	webProposalDetailPrefix    = "/app/review/proposals/"
+	webInventoryHubPath        = "/app/inventory"
 	webInventoryPath           = "/app/review/inventory"
 	webInventoryItemsPath      = "/app/review/inventory/items"
 	webInventoryLocationsPath  = "/app/review/inventory/locations"
@@ -289,8 +292,10 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(webAppPath, handler.handleWebAppDashboard)
 	mux.HandleFunc(webLoginPath, handler.handleWebLogin)
 	mux.HandleFunc(webLogoutPath, handler.handleWebLogout)
+	mux.HandleFunc(webOperationsPath, handler.handleWebOperationsLanding)
 	mux.HandleFunc(webOperationsFeedPath, handler.handleWebOperationsFeed)
 	mux.HandleFunc(webAgentChatPath, handler.handleWebAgentChat)
+	mux.HandleFunc(webReviewPath, handler.handleWebReviewLanding)
 	mux.HandleFunc(webSubmitInboundPagePath, handler.handleWebSubmitInboundRequestPage)
 	mux.HandleFunc(webSubmitInboundPath, handler.handleWebSubmitInboundRequest)
 	mux.HandleFunc(webProcessNextQueuedPath, handler.handleWebProcessNextQueuedInboundRequest)
@@ -307,6 +312,7 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(webApprovalDetailPrefix, handler.handleWebApprovalDetail)
 	mux.HandleFunc(webProposalsPath, handler.handleWebProposals)
 	mux.HandleFunc(webProposalDetailPrefix, handler.handleWebProposalDetail)
+	mux.HandleFunc(webInventoryHubPath, handler.handleWebInventoryLanding)
 	mux.HandleFunc(webInventoryPath, handler.handleWebInventory)
 	mux.HandleFunc(webInventoryItemsPath+"/", handler.handleWebInventoryItemDetail)
 	mux.HandleFunc(webInventoryLocationsPath+"/", handler.handleWebInventoryLocationDetail)

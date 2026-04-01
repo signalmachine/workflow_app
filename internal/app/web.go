@@ -79,6 +79,16 @@ type webOperationsFeedData struct {
 	Feed    []webOperationsFeedItem
 }
 
+type webOperationsLandingData struct {
+	Session              identityaccess.SessionContext
+	Notice               string
+	Error                string
+	QueuedRequestCount   int
+	PendingApprovalCount int
+	ProposalReviewCount  int
+	RecentFeed           []webOperationsFeedItem
+}
+
 type webAgentChatData struct {
 	Session          identityaccess.SessionContext
 	Notice           string
@@ -188,6 +198,17 @@ type webApprovalDetailData struct {
 	Entry   reporting.ApprovalQueueEntry
 }
 
+type webReviewLandingData struct {
+	Session             identityaccess.SessionContext
+	Notice              string
+	Error               string
+	InboundSummary      []reporting.InboundRequestStatusSummary
+	ProposalSummary     []reporting.ProcessedProposalStatusSummary
+	PendingApprovals    []reporting.ApprovalQueueEntry
+	InboundRequestCount int
+	ProposalCount       int
+}
+
 type webInventoryData struct {
 	Session               identityaccess.SessionContext
 	Notice                string
@@ -235,6 +256,17 @@ type webInventoryLocationDetailData struct {
 	LocationRole string
 	Stock        []reporting.InventoryStockItem
 	Movements    []reporting.InventoryMovementReview
+}
+
+type webInventoryLandingData struct {
+	Session                identityaccess.SessionContext
+	Notice                 string
+	Error                  string
+	Stock                  []reporting.InventoryStockItem
+	Movements              []reporting.InventoryMovementReview
+	Reconciliation         []reporting.InventoryReconciliationItem
+	PendingExecutionCount  int
+	PendingAccountingCount int
 }
 
 type webWorkOrdersData struct {
@@ -298,6 +330,7 @@ type webPageData struct {
 	LoginPath               string
 	Session                 *identityaccess.SessionContext
 	Dashboard               *webAppDashboardData
+	OperationsLanding       *webOperationsLandingData
 	OperationsFeed          *webOperationsFeedData
 	AgentChat               *webAgentChatData
 	InboundSubmit           *webInboundSubmitData
@@ -311,8 +344,10 @@ type webPageData struct {
 	TaxSummaryDetail        *webTaxSummaryDetailData
 	Approvals               *webApprovalsData
 	ApprovalDetail          *webApprovalDetailData
+	ReviewLanding           *webReviewLandingData
 	Proposals               *webProposalsData
 	ProposalDetail          *webProposalDetailData
+	InventoryLanding        *webInventoryLandingData
 	Inventory               *webInventoryData
 	InventoryDetail         *webInventoryDetailData
 	InventoryItemDetail     *webInventoryItemDetailData
@@ -480,6 +515,48 @@ func buildOperationsFeedFromApprovals(items []reporting.ApprovalQueueEntry) []we
 		})
 	}
 	return feed
+}
+
+func sumInboundRequestCount(rows []reporting.InboundRequestStatusSummary) int {
+	total := 0
+	for _, row := range rows {
+		total += row.RequestCount
+	}
+	return total
+}
+
+func sumProposalCount(rows []reporting.ProcessedProposalStatusSummary) int {
+	total := 0
+	for _, row := range rows {
+		total += row.ProposalCount
+	}
+	return total
+}
+
+func countQueuedRequests(rows []reporting.InboundRequestStatusSummary) int {
+	for _, row := range rows {
+		if strings.EqualFold(strings.TrimSpace(row.Status), "queued") {
+			return row.RequestCount
+		}
+	}
+	return 0
+}
+
+func countPendingReconciliation(rows []reporting.InventoryReconciliationItem, field string) int {
+	count := 0
+	for _, row := range rows {
+		switch field {
+		case "execution":
+			if row.ExecutionLinkStatus.Valid && strings.EqualFold(strings.TrimSpace(row.ExecutionLinkStatus.String), "pending") {
+				count++
+			}
+		case "accounting":
+			if row.AccountingHandoffStatus.Valid && strings.EqualFold(strings.TrimSpace(row.AccountingHandoffStatus.String), "pending") {
+				count++
+			}
+		}
+	}
+	return count
 }
 
 func parseMultipartAttachments(form *multipart.Form) ([]SubmitInboundRequestAttachmentInput, error) {

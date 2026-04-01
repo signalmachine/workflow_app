@@ -1,6 +1,6 @@
 # Testing And Verification
 
-Date: 2026-03-31
+Date: 2026-04-01
 Status: Active technical guide
 Purpose: explain the verification strategy for `workflow_app`, especially for workflow-critical slices that cannot be validated by unit tests alone.
 
@@ -134,6 +134,12 @@ If a failure is caused by using a non-standard command path, rerun verification 
 If a DB-backed verification command fails because the sandbox cannot reach the configured test database, rerun the documented `.env`-loaded repository command with the required approval path before treating the failure as a product defect.
 
 If DB-backed verification appears hung, check for stale or overlapping sessions holding the disposable advisory lock before treating the symptom as a product defect. If that materially affects validation, document the blocker and cleanup in the canonical planning docs.
+
+Prefer a local disposable PostgreSQL instance for `TEST_DATABASE_URL`. The DB-backed suite is serialized, reset-heavy, and materially faster and more reliable against a local test database than against a remote shared database.
+
+The shared disposable advisory lock should be treated as setup coordination only. Hold it around destructive setup work such as migration and reset, not for the full lifetime of each DB-backed test, or interrupted runs can leave stale holder sessions that poison later suite attempts.
+
+If the suite times out and the diagnostics show an idle session still running `SELECT pg_try_advisory_lock($1)`, terminate the stale backend on the disposable test database, rerun migrations if needed, and then rerun the canonical suite on the local test DB before treating the failure as an application defect.
 
 If migrations or persistence behavior change, verify against the configured development and test databases unless an explicit blocker is documented.
 

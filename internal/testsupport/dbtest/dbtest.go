@@ -12,8 +12,8 @@ import (
 )
 
 var (
-	migrateOnce sync.Once
-	migrateErr  error
+	migrateOnce   sync.Once
+	migrateErr    error
 	runMigrations = migrations.Up
 )
 
@@ -25,12 +25,15 @@ func Open(t *testing.T) *sql.DB {
 	ctx, cancel := context.WithTimeout(context.Background(), testdb.DefaultSetupTimeout)
 	defer cancel()
 
-	testdb.MustAcquireAdvisoryLock(t, ctx, db, testdb.DefaultLockKey)
-
-	// The schema is stable for the lifetime of a test process, and each test
-	// already performs a full data reset. Running migrations once keeps the
-	// DB-backed suite isolated without paying repeated no-op migration cost.
-	if err := ensureMigrated(ctx, db); err != nil {
+	// Hold the shared advisory lock only during destructive setup work.
+	// Keeping the lock for the full test lifetime makes interrupted runs leave
+	// behind stale holders that block the whole suite on the next attempt.
+	if err := withSetupLock(ctx, db, func() error {
+		// The schema is stable for the lifetime of a test process, and each test
+		// already performs a full data reset. Running migrations once keeps the
+		// DB-backed suite isolated without paying repeated no-op migration cost.
+		return ensureMigrated(ctx, db)
+	}); err != nil {
 		t.Fatalf("migrate test database: %v", err)
 	}
 
@@ -104,7 +107,25 @@ TRUNCATE TABLE
 	identityaccess.orgs
 RESTART IDENTITY CASCADE;`
 
-	if _, err := db.ExecContext(ctx, statement); err != nil {
+	if err := withSetupLock(ctx, db, func() error {
+		_, err := db.ExecContext(ctx, statement)
+		return err
+	}); err != nil {
 		t.Fatalf("reset test database: %v", err)
 	}
+}
+
+func withSetupLock(ctx context.Context, db *sql.DB, fn func() error) error {
+	lockConn, err := testdb.AcquireAdvisoryLock(ctx, db, testdb.DefaultLockKey)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		releaseCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, _ = lockConn.ExecContext(releaseCtx, `SELECT pg_advisory_unlock($1)`, testdb.DefaultLockKey)
+		_ = lockConn.Close()
+	}()
+
+	return fn()
 }

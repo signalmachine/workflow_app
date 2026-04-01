@@ -50,6 +50,7 @@ func webTemplateFuncs() template.FuncMap {
 		"inboundActionHref":      templateInboundActionHref,
 		"dict":                   templateDict,
 		"navClass":               templateNavClass,
+		"navSectionClass":        templateNavSectionClass,
 		"reviewNavClass":         templateReviewNavClass,
 		"startsWith":             strings.HasPrefix,
 		"trimSpace":              strings.TrimSpace,
@@ -86,6 +87,36 @@ func templateReviewNavClass(activePath string) string {
 	return "nav-link"
 }
 
+func templateNavSectionClass(activePath, section string) string {
+	activePath = strings.TrimSpace(activePath)
+
+	match := false
+	switch strings.TrimSpace(section) {
+	case "home":
+		match = activePath == webAppPath
+	case "intake":
+		match = activePath == webSubmitInboundPagePath
+	case "operations":
+		match = activePath == webOperationsPath || activePath == webOperationsFeedPath || activePath == webAgentChatPath
+	case "review":
+		match = activePath == webReviewPath ||
+			activePath == webInboundRequestsPath ||
+			activePath == webApprovalsPath ||
+			activePath == webProposalsPath ||
+			activePath == webDocumentsPath ||
+			activePath == webAccountingPath ||
+			activePath == webWorkOrdersPath ||
+			activePath == webAuditPath
+	case "inventory":
+		match = activePath == webInventoryHubPath || activePath == webInventoryPath
+	}
+
+	if match {
+		return "nav-link is-active"
+	}
+	return "nav-link"
+}
+
 func templateRequestSummary(item any) string {
 	switch v := item.(type) {
 	case webOperationsFeedItem:
@@ -101,6 +132,8 @@ func webTemplateName(data webPageData) string {
 		return "web_login"
 	case data.Dashboard != nil:
 		return "web_dashboard"
+	case data.OperationsLanding != nil:
+		return "web_operations_landing"
 	case data.InboundSubmit != nil:
 		return "web_submit"
 	case data.OperationsFeed != nil:
@@ -115,6 +148,8 @@ func webTemplateName(data webPageData) string {
 		return "web_approvals"
 	case data.ApprovalDetail != nil:
 		return "web_approval_detail"
+	case data.ReviewLanding != nil:
+		return "web_review_landing"
 	case data.Proposals != nil:
 		return "web_proposals"
 	case data.ProposalDetail != nil:
@@ -131,6 +166,8 @@ func webTemplateName(data webPageData) string {
 		return "web_control_account_detail"
 	case data.TaxSummaryDetail != nil:
 		return "web_tax_summary_detail"
+	case data.InventoryLanding != nil:
+		return "web_inventory_landing"
 	case data.Inventory != nil:
 		return "web_inventory"
 	case data.InventoryDetail != nil:

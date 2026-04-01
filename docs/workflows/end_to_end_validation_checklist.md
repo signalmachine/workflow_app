@@ -1,7 +1,7 @@
 # workflow_app End-to-End Validation Checklist
 
 Date: 2026-04-01
-Status: Durable checklist with pre-validation browser-review precheck for the rebuilt Milestone 10 route family before broader live workflow validation resumes
+Status: Durable checklist with pre-validation browser-review precheck for the rebuilt Milestone 10 route family plus the Milestone 11 Slice 2 landing pages before broader live workflow validation resumes
 Purpose: provide a reusable bounded checklist for live review and testing of application end-to-end workflows on the real `/app` plus `/api/...` seam.
 
 ## 1. Use of this checklist
@@ -29,13 +29,13 @@ Policy:
 3. review `docs/workflows/application_workflow_catalog.md`
 4. rerun `set -a; source .env; set +a; go run ./cmd/verify-agent`
 5. run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
-6. if the rebuilt Milestone 10 browser family is newly landed and not yet closed, review `/app/login`, `/app`, `/app/submit-inbound-request`, `/app/operations-feed`, `/app/agent-chat`, `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit` on desktop and a narrow-width viewport and record pass or blocker evidence before resuming live workflow validation
+6. if the rebuilt Milestone 10 browser family or the Milestone 11 landing-page shell changes are newly landed and not yet closed, review `/app/login`, `/app`, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, `/app/agent-chat`, `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit` on desktop and a narrow-width viewport and record pass or blocker evidence before resuming live workflow validation
 
 ## 2.1 Milestone 10 closeout precheck
 
 Before broader end-to-end workflow validation resumes, use this bounded Milestone 10 closeout precheck:
 
-1. confirm `/app/login`, `/app`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat` render cleanly and preserve their primary navigation actions
+1. confirm `/app/login`, `/app`, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat` render cleanly and preserve their primary navigation actions
 2. confirm `/app/inbound-requests/{request_reference_or_id}` renders request controls, evidence, execution trace, and downstream continuity links
 3. confirm `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit` render cleanly with filters, contained tables, and exact drill-down links
 4. confirm one exact drill-down chain across request -> proposal -> approval -> document

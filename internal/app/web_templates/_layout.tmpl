@@ -25,7 +25,7 @@
         <div class="session-card">
           <div class="eyebrow">Operator session</div>
           <div class="session-title"><strong>{{.Session.UserEmail}}</strong> in <strong>{{.Session.OrgSlug}}</strong></div>
-          <div class="session-meta">Primary workflow destinations stay global while settings and admin remain secondary utility surfaces.</div>
+          <div class="session-meta">Primary workflow families now bundle under calmer landing pages while settings and admin remain secondary utility surfaces.</div>
         </div>
         {{end}}
       </div>
@@ -35,24 +35,20 @@
         <div class="nav-band">
           <div class="nav-band-label">Workflow destinations</div>
           <div class="nav-bubbles">
-            <a href="/app" class="{{navClass .ActivePath "/app"}}">Home</a>
-            <a href="/app/submit-inbound-request" class="{{navClass .ActivePath "/app/submit-inbound-request"}}">Intake</a>
-            <a href="/app/operations-feed" class="{{navClass .ActivePath "/app/operations-feed"}}">Operations</a>
-            <a href="/app/agent-chat" class="{{navClass .ActivePath "/app/agent-chat"}}">Agent chat</a>
-            <a href="/app/review/inbound-requests" class="{{navClass .ActivePath "/app/review/inbound-requests"}}">Inbound requests</a>
-            <a href="/app/review/proposals" class="{{navClass .ActivePath "/app/review/proposals"}}">Proposals</a>
-            <a href="/app/review/approvals" class="{{navClass .ActivePath "/app/review/approvals"}}">Approvals</a>
+            <a href="/app" class="{{navSectionClass .ActivePath "home"}}">Home</a>
+            <a href="/app/submit-inbound-request" class="{{navSectionClass .ActivePath "intake"}}">Intake</a>
+            <a href="/app/operations" class="{{navSectionClass .ActivePath "operations"}}">Operations</a>
+            <a href="/app/review" class="{{navSectionClass .ActivePath "review"}}">Review</a>
+            <a href="/app/inventory" class="{{navSectionClass .ActivePath "inventory"}}">Inventory</a>
           </div>
         </div>
 
         <div class="nav-band nav-band-secondary">
-          <div class="nav-band-label">Review routes</div>
+          <div class="nav-band-label">Direct queue views</div>
           <div class="nav-bubbles">
-            <a href="/app/review/documents" class="{{navClass .ActivePath "/app/review/documents"}}">Documents</a>
-            <a href="/app/review/accounting" class="{{navClass .ActivePath "/app/review/accounting"}}">Accounting</a>
-            <a href="/app/review/inventory" class="{{navClass .ActivePath "/app/review/inventory"}}">Inventory</a>
-            <a href="/app/review/work-orders" class="{{navClass .ActivePath "/app/review/work-orders"}}">Work orders</a>
-            <a href="/app/review/audit" class="{{navClass .ActivePath "/app/review/audit"}}">Audit</a>
+            <a href="/app/review/inbound-requests" class="{{navClass .ActivePath "/app/review/inbound-requests"}}">Inbound requests</a>
+            <a href="/app/review/proposals" class="{{navClass .ActivePath "/app/review/proposals"}}">Proposals</a>
+            <a href="/app/review/approvals" class="{{navClass .ActivePath "/app/review/approvals"}}">Approvals</a>
           </div>
         </div>
 

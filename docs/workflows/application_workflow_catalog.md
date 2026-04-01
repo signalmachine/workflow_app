@@ -1,7 +1,7 @@
 # workflow_app Application Workflow Catalog
 
-Date: 2026-03-30
-Status: Active durable workflow catalog updated for the dashboard-only home, dedicated intake page, operations feed, and agent-chat surfaces
+Date: 2026-04-01
+Status: Active durable workflow catalog updated for the grouped landing pages at `/app/operations`, `/app/review`, and `/app/inventory` on top of the dashboard-only home, dedicated intake page, operations feed, and agent-chat surfaces
 Purpose: capture the application workflows and related feature continuity in one durable reference document for implementation review, testing, onboarding, and later user-guide preparation.
 
 ## 1. How to read this document
@@ -61,9 +61,12 @@ Current status:
 Primary continuity surfaces:
 
 1. dashboard home
-2. dedicated request-submission page
-3. session introspection
-4. subsequent browser-authenticated `/api/...` writes and review reads
+2. operations landing
+3. review landing
+4. inventory landing
+5. dedicated request-submission page
+6. session introspection
+7. subsequent browser-authenticated `/api/...` writes and review reads
 
 ### 2.2 Inbound request submit and queue processing
 

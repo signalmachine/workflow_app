@@ -1631,32 +1631,243 @@ func TestHandleWebAppDashboardRendersRefreshedEnterpriseShell(t *testing.T) {
 	if !strings.Contains(body, `Workflow destinations`) {
 		t.Fatalf("expected workflow destination navigation band, body=%s", body)
 	}
-	if !strings.Contains(body, `Review routes`) {
-		t.Fatalf("expected review route navigation band, body=%s", body)
+	if !strings.Contains(body, `Direct queue views`) {
+		t.Fatalf("expected direct queue view navigation band, body=%s", body)
 	}
 	if !strings.Contains(body, `Session menu`) {
 		t.Fatalf("expected session utility menu, body=%s", body)
 	}
-	if !strings.Contains(body, `Primary workflow destinations stay global while settings and admin remain secondary utility surfaces.`) {
+	if !strings.Contains(body, `Primary workflow families now bundle under calmer landing pages while settings and admin remain secondary utility surfaces.`) {
 		t.Fatalf("expected session posture copy, body=%s", body)
 	}
 	if !strings.Contains(body, `class="hero-card"`) {
 		t.Fatalf("expected refreshed dashboard hero card, body=%s", body)
 	}
-	if !strings.Contains(body, `/app/operations-feed" class="pill-link">Open operations feed</a>`) {
-		t.Fatalf("expected dashboard link to operations feed, body=%s", body)
+	if !strings.Contains(body, `/app/operations" class="nav-link">Operations</a>`) {
+		t.Fatalf("expected operations landing in shell navigation, body=%s", body)
 	}
-	if !strings.Contains(body, `/app/agent-chat" class="pill-link">Open agent chat</a>`) {
-		t.Fatalf("expected dashboard link to agent chat, body=%s", body)
+	if !strings.Contains(body, `/app/review" class="nav-link">Review</a>`) {
+		t.Fatalf("expected review landing in shell navigation, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/inventory" class="nav-link">Inventory</a>`) {
+		t.Fatalf("expected inventory landing in shell navigation, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/operations" class="pill-link">Open operations landing</a>`) {
+		t.Fatalf("expected dashboard link to operations landing, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review" class="pill-link">Open review landing</a>`) {
+		t.Fatalf("expected dashboard link to review landing, body=%s", body)
 	}
 	if !strings.Contains(body, `/app/submit-inbound-request" class="pill-link">Open submission page</a>`) {
 		t.Fatalf("expected dashboard link to dedicated submission page, body=%s", body)
 	}
-	if !strings.Contains(body, `/app/review/accounting" class="nav-link">Accounting</a>`) {
-		t.Fatalf("expected accounting review route in wrapped shell navigation, body=%s", body)
-	}
 	if strings.Contains(body, `action="/app/inbound-requests" enctype="multipart/form-data"`) {
 		t.Fatalf("expected dashboard to stop embedding the inbound request form, body=%s", body)
+	}
+}
+
+func TestHandleWebReviewLandingGroupsRouteFamilies(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listInboundRequestStatusSummary: func(context.Context, identityaccess.Actor) ([]reporting.InboundRequestStatusSummary, error) {
+				return []reporting.InboundRequestStatusSummary{
+					{Status: "queued", RequestCount: 2},
+					{Status: "processed", RequestCount: 3},
+				}, nil
+			},
+			listProcessedProposalStatusSummary: func(context.Context, identityaccess.Actor) ([]reporting.ProcessedProposalStatusSummary, error) {
+				return []reporting.ProcessedProposalStatusSummary{
+					{RecommendationStatus: "approval_requested", ProposalCount: 2},
+				}, nil
+			},
+			listApprovalQueue: func(context.Context, reporting.ListApprovalQueueInput) ([]reporting.ApprovalQueueEntry, error) {
+				return []reporting.ApprovalQueueEntry{
+					{
+						ApprovalID:       "approval-123",
+						QueueCode:        "finance_review",
+						DocumentID:       "doc-123",
+						DocumentTitle:    "Pump invoice",
+						RequestReference: sql.NullString{String: "REQ-000123", Valid: true},
+						RecommendationID: sql.NullString{String: "rec-123", Valid: true},
+					},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, "Review route families") {
+		t.Fatalf("expected review landing heading, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review" class="nav-link is-active">Review</a>`) {
+		t.Fatalf("expected review landing to activate the grouped review nav item, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/inbound-requests`) || !strings.Contains(body, `/app/review/documents`) {
+		t.Fatalf("expected landing links into grouped review routes, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/inventory">Inventory landing</a>`) {
+		t.Fatalf("expected review landing to point to the inventory domain landing, body=%s", body)
+	}
+}
+
+func TestHandleWebOperationsLandingShowsFeedAndChatBundles(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listInboundRequestStatusSummary: func(context.Context, identityaccess.Actor) ([]reporting.InboundRequestStatusSummary, error) {
+				return []reporting.InboundRequestStatusSummary{{Status: "queued", RequestCount: 4}}, nil
+			},
+			listInboundRequests: func(context.Context, reporting.ListInboundRequestsInput) ([]reporting.InboundRequestReview, error) {
+				return []reporting.InboundRequestReview{{
+					RequestReference: "REQ-000123",
+					Status:           "queued",
+					Channel:          "browser",
+					MessageCount:     2,
+					AttachmentCount:  1,
+					UpdatedAt:        time.Date(2026, 4, 1, 9, 0, 0, 0, time.UTC),
+				}}, nil
+			},
+			listProcessedProposals: func(context.Context, reporting.ListProcessedProposalsInput) ([]reporting.ProcessedProposalReview, error) {
+				return []reporting.ProcessedProposalReview{{
+					RecommendationID:     "rec-123",
+					RequestReference:     "REQ-000123",
+					RecommendationStatus: "approval_requested",
+					Summary:              "Urgent warehouse pump review",
+					CreatedAt:            time.Date(2026, 4, 1, 8, 0, 0, 0, time.UTC),
+				}}, nil
+			},
+			listApprovalQueue: func(context.Context, reporting.ListApprovalQueueInput) ([]reporting.ApprovalQueueEntry, error) {
+				return []reporting.ApprovalQueueEntry{{
+					ApprovalID:     "approval-123",
+					QueueCode:      "finance_review",
+					DocumentID:     "doc-123",
+					DocumentTitle:  "Pump invoice",
+					ApprovalStatus: "pending",
+					RequestedAt:    time.Date(2026, 4, 1, 7, 0, 0, 0, time.UTC),
+				}}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/operations", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, "Queue-driven operations") {
+		t.Fatalf("expected operations landing heading, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/operations" class="nav-link is-active">Operations</a>`) {
+		t.Fatalf("expected operations landing nav activation, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/operations-feed" class="pill-link">Open durable feed</a>`) {
+		t.Fatalf("expected landing link to durable feed, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/agent-chat" class="pill-link secondary">Open agent chat</a>`) {
+		t.Fatalf("expected landing link to agent chat, body=%s", body)
+	}
+	if !strings.Contains(body, `REQ-000123 moved through queued`) {
+		t.Fatalf("expected recent movement item on operations landing, body=%s", body)
+	}
+}
+
+func TestHandleWebInventoryLandingShowsDomainBundles(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listInventoryStock: func(context.Context, reporting.ListInventoryStockInput) ([]reporting.InventoryStockItem, error) {
+				return []reporting.InventoryStockItem{{
+					ItemID:       "item-123",
+					ItemSKU:      "RPT-MAT-1",
+					ItemName:     "Reporting material",
+					LocationID:   "loc-123",
+					LocationCode: "MAIN",
+					LocationName: "Main store",
+					OnHandMilli:  1200,
+				}}, nil
+			},
+			listInventoryMovements: func(context.Context, reporting.ListInventoryMovementsInput) ([]reporting.InventoryMovementReview, error) {
+				return []reporting.InventoryMovementReview{{MovementID: "move-123", MovementNumber: 123}}, nil
+			},
+			listInventoryReconciliation: func(context.Context, reporting.ListInventoryReconciliationInput) ([]reporting.InventoryReconciliationItem, error) {
+				return []reporting.InventoryReconciliationItem{{
+					MovementID:              "move-123",
+					MovementNumber:          123,
+					DocumentID:              "doc-123",
+					DocumentNumber:          sql.NullString{String: "INV-123", Valid: true},
+					ExecutionLinkStatus:     sql.NullString{String: "pending", Valid: true},
+					AccountingHandoffStatus: sql.NullString{String: "pending", Valid: true},
+				}}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/inventory", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, "Inventory review bundle") {
+		t.Fatalf("expected inventory landing heading, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/inventory" class="nav-link is-active">Inventory</a>`) {
+		t.Fatalf("expected inventory landing nav activation, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/inventory" class="pill-link">Open inventory review</a>`) {
+		t.Fatalf("expected landing link to inventory review, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/inventory/items/item-123`) || !strings.Contains(body, `/app/review/inventory/locations/loc-123`) {
+		t.Fatalf("expected domain landing continuity links for exact item and location review, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/inventory/move-123`) {
+		t.Fatalf("expected exact movement continuity link, body=%s", body)
 	}
 }
 

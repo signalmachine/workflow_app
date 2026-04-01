@@ -52,6 +52,8 @@ For planning-only or Markdown-only sessions, do not force MCP usage when local d
 
 `docs/technical_guides/07_testing_and_verification.md` is the canonical source for exact verification command shapes and verification workflow requirements.
 
+Prefer a local disposable PostgreSQL instance for `TEST_DATABASE_URL` during DB-backed verification. If the serialized suite appears hung, inspect and clean up stale advisory-lock holder sessions on the disposable test DB before treating the symptom as a product defect.
+
 ## Writing Style & Naming Conventions
 
 Write concise Markdown with clear headings and short paragraphs or numbered rules. Follow the existing lowercase snake-case filename pattern, for example `new_app_execution_plan.md` or `v2_scope_overview.md`. Use date-stamped filenames only when the date is materially part of the record. Keep terminology aligned with the planning set: documents, ledgers, execution context, approvals, reports, thin v1, and v2.
