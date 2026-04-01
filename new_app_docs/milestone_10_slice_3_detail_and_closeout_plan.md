@@ -1,7 +1,7 @@
 # workflow_app Milestone 10 Slice 3 Plan
 
 Date: 2026-04-01
-Status: Accepted next implementation slice after the rebuilt operator-entry and review-workbench families
+Status: Implemented in code with browser-review and workflow-continuity closeout still pending
 Purpose: define the third large Milestone 10 implementation slice so the detail surfaces, parity closeout, and retirement of the legacy web structure are finished together instead of being left as an indefinite cleanup tail.
 
 ## 1. Slice role
@@ -117,3 +117,10 @@ When this slice lands:
 2. update `milestone_10_web_rebuild_plan.md` to record completion status
 3. update `README.md` if architecture shape or browser usage guidance materially changes
 4. update relevant `docs/workflows/` files if browser routes, workflow navigation, or validation checklists drift
+
+Current implementation checkpoint:
+
+1. the promoted detail routes now render from the embedded bundle in `internal/app/web_templates/detail_pages.tmpl`
+2. focused `internal/app` detail-route HTTP tests passed after the migration
+3. `go build ./cmd/... ./internal/...` passed, the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` command completed cleanly again, and `gopls` reported no diagnostics on the edited Go rendering entrypoint
+4. bounded browser review on desktop and narrow-width layouts plus focused workflow-continuity evidence remain the open closeout work

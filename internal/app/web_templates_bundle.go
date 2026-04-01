@@ -109,26 +109,99 @@ func webTemplateName(data webPageData) string {
 		return "web_agent_chat"
 	case data.InboundRequests != nil:
 		return "web_inbound_requests"
+	case data.Detail != nil:
+		return "web_inbound_detail"
 	case data.Approvals != nil:
 		return "web_approvals"
+	case data.ApprovalDetail != nil:
+		return "web_approval_detail"
 	case data.Proposals != nil:
 		return "web_proposals"
+	case data.ProposalDetail != nil:
+		return "web_proposal_detail"
 	case data.Documents != nil:
 		return "web_documents"
+	case data.DocumentDetail != nil:
+		return "web_document_detail"
 	case data.Accounting != nil:
 		return "web_accounting"
+	case data.AccountingDetail != nil:
+		return "web_accounting_detail"
+	case data.ControlAccountDetail != nil:
+		return "web_control_account_detail"
+	case data.TaxSummaryDetail != nil:
+		return "web_tax_summary_detail"
 	case data.Inventory != nil:
 		return "web_inventory"
+	case data.InventoryDetail != nil:
+		return "web_inventory_detail"
+	case data.InventoryItemDetail != nil:
+		return "web_inventory_item_detail"
+	case data.InventoryLocationDetail != nil:
+		return "web_inventory_location_detail"
 	case data.WorkOrders != nil:
 		return "web_work_orders"
+	case data.WorkOrderDetail != nil:
+		return "web_work_order_detail"
 	case data.Audit != nil:
 		return "web_audit"
+	case data.AuditDetail != nil:
+		return "web_audit_detail"
 	default:
 		return ""
 	}
 }
 
+func normalizeWebPageFlash(data webPageData) webPageData {
+	if strings.TrimSpace(data.Notice) != "" || strings.TrimSpace(data.Error) != "" {
+		return data
+	}
+
+	switch {
+	case data.Detail != nil:
+		data.Notice = strings.TrimSpace(data.Detail.Notice)
+		data.Error = strings.TrimSpace(data.Detail.Error)
+	case data.DocumentDetail != nil:
+		data.Notice = strings.TrimSpace(data.DocumentDetail.Notice)
+		data.Error = strings.TrimSpace(data.DocumentDetail.Error)
+	case data.AccountingDetail != nil:
+		data.Notice = strings.TrimSpace(data.AccountingDetail.Notice)
+		data.Error = strings.TrimSpace(data.AccountingDetail.Error)
+	case data.ControlAccountDetail != nil:
+		data.Notice = strings.TrimSpace(data.ControlAccountDetail.Notice)
+		data.Error = strings.TrimSpace(data.ControlAccountDetail.Error)
+	case data.TaxSummaryDetail != nil:
+		data.Notice = strings.TrimSpace(data.TaxSummaryDetail.Notice)
+		data.Error = strings.TrimSpace(data.TaxSummaryDetail.Error)
+	case data.ApprovalDetail != nil:
+		data.Notice = strings.TrimSpace(data.ApprovalDetail.Notice)
+		data.Error = strings.TrimSpace(data.ApprovalDetail.Error)
+	case data.ProposalDetail != nil:
+		data.Notice = strings.TrimSpace(data.ProposalDetail.Notice)
+		data.Error = strings.TrimSpace(data.ProposalDetail.Error)
+	case data.InventoryDetail != nil:
+		data.Notice = strings.TrimSpace(data.InventoryDetail.Notice)
+		data.Error = strings.TrimSpace(data.InventoryDetail.Error)
+	case data.InventoryItemDetail != nil:
+		data.Notice = strings.TrimSpace(data.InventoryItemDetail.Notice)
+		data.Error = strings.TrimSpace(data.InventoryItemDetail.Error)
+	case data.InventoryLocationDetail != nil:
+		data.Notice = strings.TrimSpace(data.InventoryLocationDetail.Notice)
+		data.Error = strings.TrimSpace(data.InventoryLocationDetail.Error)
+	case data.WorkOrderDetail != nil:
+		data.Notice = strings.TrimSpace(data.WorkOrderDetail.Notice)
+		data.Error = strings.TrimSpace(data.WorkOrderDetail.Error)
+	case data.AuditDetail != nil:
+		data.Notice = strings.TrimSpace(data.AuditDetail.Notice)
+		data.Error = strings.TrimSpace(data.AuditDetail.Error)
+	}
+
+	return data
+}
+
 func (h *AgentAPIHandler) renderWebPage(w http.ResponseWriter, data webPageData) {
+	data = normalizeWebPageFlash(data)
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 

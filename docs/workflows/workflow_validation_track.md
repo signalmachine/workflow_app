@@ -1,7 +1,7 @@
 # workflow_app Workflow Validation Track
 
-Date: 2026-03-30
-Status: Active validation track, separate from implementation planning; Milestone 10 Slice 1 is now in code on the rebuilt operator-entry shell and now awaits bounded manual browser-review evidence before the deferred live workflows resume
+Date: 2026-04-01
+Status: Active validation track, separate from implementation planning; Milestone 10 Slice 1 through Slice 3 are now in code on the rebuilt modular browser bundle, and bounded browser-review plus workflow-continuity evidence now need to close out the rebuilt route family before broader live workflow review resumes
 Purpose: keep workflow testing, live review, and readiness evidence on a workflow-validation track in `docs/workflows/` rather than inside the normal product-implementation planning stream in `new_app_docs/`.
 
 ## 1. Why this document exists
@@ -35,13 +35,33 @@ Do not use this folder for:
 
 ## 3. Current deferred validation order
 
-The implementation track is currently prioritized ahead of resumed live workflow review while the first Milestone 10 browser slice settles.
+The implementation track is currently prioritized ahead of resumed live workflow review while the rebuilt Milestone 10 route family settles.
 
 Current order:
 
-1. record bounded manual browser-review evidence for the rebuilt Milestone 10 Slice 1 operator-entry routes: `/app/login`, `/app`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat` on desktop and a narrow-width viewport
-2. if that browser review is clean, resume the deferred live workflow validation on the real seam with the rebuilt shell plus the still-legacy review/detail family
-3. if that browser review finds a real defect, add the bounded corrective fix plan back into `new_app_docs/` before Slice 2 begins
+1. record bounded manual browser-review evidence for the rebuilt Milestone 10 route family on desktop and a narrow-width viewport: `/app/login`, `/app`, `/app/submit-inbound-request`, `/app/operations-feed`, `/app/agent-chat`, `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit`
+2. if that browser review is clean, run one focused workflow-continuity pass across request detail -> proposal -> approval -> document or accounting or inventory or work-order drill-down on the rebuilt route family
+3. if those checks are clean, resume the deferred live workflow validation on the real seam with the rebuilt browser baseline
+4. if browser review or workflow continuity finds a real defect, add the bounded corrective fix plan back into `new_app_docs/` before treating Milestone 10 as closed
+
+## 3.1 Milestone 10 closeout checklist
+
+Milestone 10 should be treated as closed only when the checklist below has explicit pass or blocker evidence recorded on this workflow track.
+
+Closeout checklist:
+
+1. browser-review pass on desktop for `/app/login`, `/app`, `/app/submit-inbound-request`, `/app/operations-feed`, `/app/agent-chat`, `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit`
+2. browser-review pass on a narrow-width viewport for that same promoted route family
+3. focused continuity pass from exact request detail into proposal detail, approval detail, and document detail
+4. focused continuity pass from exact request detail or proposal detail into one downstream accounting or inventory or work-order drill-down surface
+5. explicit confirmation that no promoted Milestone 10 route still depends on the retired legacy active template baseline
+6. explicit confirmation that any defect found during this review is either fixed and revalidated or recorded as a blocker before milestone closeout
+
+Evidence rule:
+
+1. a short pass or fail note per checklist item is sufficient
+2. if an item fails, record the failing route or workflow edge and the promoted fix-plan reference in `new_app_docs/`
+3. do not mark Milestone 10 complete in `new_app_docs/` until all six items above have pass evidence
 
 ## 4. Current workflow-validation backlog
 
@@ -50,6 +70,12 @@ Deferred live workflow validation should resume with:
 1. draft request -> continue editing -> queue -> process -> downstream request and proposal continuity
 2. processed proposal -> request approval -> approval decision -> downstream approval and document continuity
 3. failed provider or failed processing path -> failure visibility -> operator troubleshooting continuity
+
+Immediate Milestone 10-first order before the broader backlog resumes:
+
+1. complete the Milestone 10 closeout checklist in section 3.1
+2. if the checklist passes, mark Milestone 10 complete in the canonical planning docs
+3. then resume the broader deferred workflow-validation backlog listed above
 
 ## 5. Issue-handling rule
 

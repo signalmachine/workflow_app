@@ -140,3 +140,18 @@ Be careful with:
 
 If these drift, the browser surface can become inconsistent even if the services remain correct.
 
+## 9. Ongoing architecture guardrail
+
+The main long-term maintenance risk in this layer is allowing `internal/app` to become a second business-logic home.
+
+Guardrail:
+
+1. `internal/app` should stay responsible for transport concerns, orchestration wiring, and presentation mapping
+2. domain decisions should stay in shared services
+3. operator review composition should stay in `internal/reporting`
+4. browser-template growth should not become a reason to move durable business branching into handler code
+
+Planned follow-up activity:
+
+1. perform a bounded review of `internal/app` for presentation or transport logic that is drifting toward business-rule ownership
+2. where drift is found, plan narrow follow-up refactors that push those decisions back into shared service contracts or reporting read seams without creating a browser-specific backend

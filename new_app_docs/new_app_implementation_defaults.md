@@ -109,6 +109,8 @@ Purpose: record the active defaults that implementation should preserve unless t
 7. `htmx` is the preferred progressive-enhancement layer where partial-page updates materially improve operator continuity while preserving server-rendered ownership
 8. `Alpine.js` is acceptable only for small local UI-state needs such as disclosure, tabs, or lightweight interaction polish
 9. do not introduce a separate SPA frontend, Node dependency tree, or frontend-specific build chain unless the canonical planning set is explicitly updated to justify that cost
+10. `internal/app` should remain transport and orchestration only: route selection, auth extraction, request validation, response mapping, HTML rendering, and browser or API adaptation belong there, while durable business rules, write-path invariants, and cross-module ownership decisions belong in domain services and reporting reads
+11. if a browser or API change requires new business branching, prefer pushing that branching into a shared service contract or reporting read model rather than adding transport-specific business logic inside handlers or template-driven code paths
 
 ### 2.10 Inbound request and attachment handling
 

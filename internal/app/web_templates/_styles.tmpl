@@ -312,6 +312,13 @@ input[type="submit"].secondary {
   margin-top: 8px;
 }
 
+.detail-card {
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid var(--line);
+}
+
 .result-card {
   border-color: #bfd4ff;
   background: linear-gradient(135deg, #ffffff 0%, #eef4ff 100%);
@@ -427,6 +434,12 @@ textarea { min-height: 180px; resize: vertical; }
   gap: 16px;
 }
 
+.page-actions,
+.compact-form {
+  display: grid;
+  gap: 12px;
+}
+
 .detail-grid {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
@@ -471,6 +484,28 @@ textarea { min-height: 180px; resize: vertical; }
 .section-head h2,
 .section-head p {
   margin: 0;
+}
+
+pre {
+  margin: 0;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: #f6f9fd;
+  border: 1px solid var(--line);
+  overflow-x: auto;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+details {
+  display: grid;
+  gap: 12px;
+}
+
+summary {
+  cursor: pointer;
+  font-weight: 600;
 }
 
 .inline-links {

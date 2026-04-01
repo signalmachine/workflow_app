@@ -1,7 +1,7 @@
 # workflow_app Milestone 10 Web Rebuild Plan
 
 Date: 2026-04-01
-Status: Proposed canonical milestone
+Status: Implemented in code through Slice 1 through Slice 3, with browser-review and workflow-continuity closeout still pending
 Purpose: define the first active v2 milestone: a full web-layer rebuild that replaces the current monolithic browser implementation with a modular, scalable server-rendered application layer while preserving the shared backend truth model and forcing implementation through a small number of large related slices.
 
 ## 1. Why this milestone exists
@@ -154,6 +154,13 @@ Milestone 10 is complete only when:
 6. detail pages clearly separate primary facts, next actions, secondary context, and deep trace or payload material
 7. desktop and narrow-width browser review pass on the rebuilt surfaces
 8. the rebuilt web layer remains on the same shared backend truth and workflow semantics
+
+Current implementation checkpoint:
+
+1. the embedded modular bundle under `internal/app/web_templates` is now the active rendering path for the promoted operator-entry, review-workbench, and detail-route families
+2. the promoted detail pages now use the rebuilt shell, shared detail primitives, contained tables, and structured payload treatment rather than the legacy active baseline
+3. `go build ./cmd/... ./internal/...` and the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` verification are passing again on the rebuilt browser baseline
+4. the remaining Milestone 10 work is bounded browser-review and workflow-continuity evidence on the `docs/workflows/` track
 
 ## 8. Slice planning rule
 
