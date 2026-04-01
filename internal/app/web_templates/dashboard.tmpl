@@ -7,181 +7,92 @@
   "body" .Dashboard.RoleBody
 )}}
 
-<section class="hero-card">
-  <div class="hero-grid">
-  <div class="card-stack">
-    <div class="eyebrow">Recommended next steps</div>
-    <h2>Keep the home surface focused on the next workflow action instead of turning it into a flat site map.</h2>
-    <p>The lighter shell now groups operations, review, and inventory under landing pages, while home uses live workload signals plus role posture to recommend the first route.</p>
-    <div class="nav-links">
-    <div class="button-row">
-      {{range .Dashboard.PrimaryActions}}
-      <a href="{{.Href}}" class="pill-link">{{.Title}}{{if .Badge}} ({{.Badge}}){{end}}</a>
-      {{end}}
-    </div>
-    </div>
-    <form method="post" action="/app/agent/process-next-queued-inbound-request">
-      <button type="submit">Process next queued request</button>
-    </form>
-  </div>
-
-  <div class="detail-grid">
-    {{template "web_detail_block" (dict "label" "Primary route" "value" "Role-aware shortcuts" "body" "Home now recommends first routes from current workload and role instead of acting as a generic shared dashboard." )}}
-    {{template "web_detail_block" (dict "label" "Search posture" "value" "Route catalog" "body" "When the grouped shell still leaves ambiguity, search by workflow term, domain term, or operator intent." )}}
-    {{template "web_detail_block" (dict "label" "Utility surfaces" "value" "Settings and admin" "body" "User-scoped settings and privileged admin links now stay in the utility path rather than the primary workflow bar." )}}
-  </div>
+<section class="plain-section">
+  <div class="eyebrow">Recommended next steps</div>
+  <div class="route-list">
+    {{range .Dashboard.PrimaryActions}}
+    <a href="{{.Href}}">{{.Title}}{{if .Badge}} ({{.Badge}}){{end}}</a>
+    {{end}}
   </div>
 </section>
 
 {{if .Dashboard.SecondaryActions}}
-<section class="three-up">
-  {{range .Dashboard.SecondaryActions}}
-  <article class="result-card">
-    <div class="eyebrow">Quick path</div>
-    <h2>{{.Title}}{{if .Badge}} ({{.Badge}}){{end}}</h2>
-    <p>{{.Summary}}</p>
-    <div class="button-row">
-      <a href="{{.Href}}" class="pill-link secondary">Open route</a>
-    </div>
-  </article>
-  {{end}}
+<section class="plain-section">
+  <div class="eyebrow">Route directory</div>
+  <div class="route-list">
+    {{range .Dashboard.SecondaryActions}}
+    <a href="{{.Href}}">{{.Title}}{{if .Badge}} ({{.Badge}}){{end}}</a>
+    {{end}}
+  </div>
 </section>
 {{end}}
 
-<section class="status-grid">
-  {{if .Dashboard.InboundSummary}}
+<section class="plain-section">
+  <div class="eyebrow">Workflow links</div>
+  <div class="route-list">
+    <a href="/app/review/inbound-requests?status=queued">Queued requests</a>
+    <a href="/app/review/approvals?status=pending">Pending approvals</a>
+    <a href="/app/review/proposals">Recent proposals</a>
+    <a href="/app/routes">Route catalog</a>
+  </div>
+  <form method="post" action="/app/agent/process-next-queued-inbound-request" class="page-actions">
+    <div class="button-row">
+      <button type="submit">Process next queued request</button>
+    </div>
+  </form>
+</section>
+
+{{if .Dashboard.InboundSummary}}
+<section class="plain-section">
+  <div class="eyebrow">Status entry points</div>
+  <div class="metric-list">
     {{range .Dashboard.InboundSummary}}
-      {{template "web_summary_card" (dict
-        "label" .Status
-        "value" .RequestCount
-        "body" (dashboardStatusBlurb .Status)
-        "action_href" (inboundRequestsHref .Status "")
-        "action_label" (dashboardStatusAction .Status)
-      )}}
+    <a href="{{inboundRequestsHref .Status ""}}" class="metric-link"><span class="metric-label">{{dashboardStatusAction .Status}}</span><span class="metric-value">{{.RequestCount}}</span></a>
+    <p class="meta">{{dashboardStatusBlurb .Status}}</p>
     {{end}}
-  {{else}}
-    {{template "web_empty_state" (dict "title" "No request summary yet" "body" "The dashboard will surface request-state counts once inbound activity is present for this operator." )}}
-  {{end}}
-</section>
-
-<div class="two-up">
-  <section class="table-card">
-    <div>
-      <div class="eyebrow">Recent inbound requests</div>
-      <h2>Continue from the latest request state</h2>
-      <p class="section-copy">Lifecycle actions stay close to the request detail route, while the dashboard keeps quick continuity into the right next view.</p>
-    </div>
-    {{if .Dashboard.InboundRequests}}
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Request</th>
-            <th>Status</th>
-            <th>Context</th>
-            <th>Next step</th>
-          </tr>
-        </thead>
-        <tbody>
-          {{range .Dashboard.InboundRequests}}
-          <tr>
-            <td><a href="{{inboundRequestHref .RequestReference}}">{{.RequestReference}}</a></td>
-            <td><span class="status-pill {{statusClass .Status}}">{{.Status}}</span></td>
-            <td>
-              {{if .FailureReason}}{{.FailureReason}}
-              {{else if .CancellationReason}}{{.CancellationReason}}
-              {{else}}{{.Channel}} with {{.MessageCount}} messages and {{.AttachmentCount}} attachments
-              {{end}}
-            </td>
-            <td>
-              <a href="{{inboundRequestHref .RequestReference}}">{{dashboardRequestAction .Status}}</a>
-              {{if .LastRunID.Valid}} | <a href="{{inboundSectionHref (print "run:" .LastRunID.String) (runSectionID .LastRunID.String)}}">Open latest run</a>{{end}}
-            </td>
-          </tr>
-          {{end}}
-        </tbody>
-      </table>
-    </div>
-    {{else}}
-    {{template "web_empty_state" (dict "title" "No recent requests" "body" "Create a request from the dedicated intake page or use agent chat to start the persisted intake loop." )}}
-    {{end}}
-  </section>
-
-  <section class="table-card">
-    <div>
-      <div class="eyebrow">Pending approvals</div>
-      <h2>Watch the current approval queue</h2>
-      <p class="section-copy">The shell keeps approvals visible without making the dashboard another full review page.</p>
-      <div class="meta"><a href="/app/review/approvals?status=pending">Open full approval review</a></div>
-    </div>
-    {{if .Dashboard.Approvals}}
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Approval</th>
-            <th>Queue</th>
-            <th>Document</th>
-            <th>Links</th>
-          </tr>
-        </thead>
-        <tbody>
-          {{range .Dashboard.Approvals}}
-          <tr>
-            <td><a href="{{approvalReviewHref .ApprovalID}}">{{.ApprovalID}}</a></td>
-            <td><a href="{{approvalReviewHref .ApprovalID}}">{{.QueueCode}}</a> | <a href="{{approvalQueueHref .QueueCode "pending"}}">{{.QueueCode}}</a></td>
-            <td>{{.DocumentTitle}}</td>
-            <td><a href="{{approvalReviewHref .ApprovalID}}">Open exact approval</a> | <a href="/app/review/audit?entity_type=documents.document&amp;entity_id={{.DocumentID}}">Audit trail</a></td>
-          </tr>
-          {{end}}
-        </tbody>
-      </table>
-    </div>
-    {{else}}
-    {{template "web_empty_state" (dict "title" "No pending approvals" "body" "When processed proposals request approval, the queue will surface here with direct continuity links." )}}
-    {{end}}
-  </section>
-</div>
-
-<section class="table-card">
-  <div>
-    <div class="eyebrow">Recent proposals</div>
-    <h2>Keep proposal continuity visible from the entry shell</h2>
-    <p class="section-copy">The dashboard shows enough downstream state to decide when to continue into proposal review without flattening every workflow into one page.</p>
   </div>
-  {{if .Dashboard.Proposals}}
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Request</th>
-          <th>Proposal</th>
-          <th>Status</th>
-          <th>Summary</th>
-          <th>Continuity</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{range .Dashboard.Proposals}}
-        <tr>
-          <td><a href="{{inboundRequestHref .RequestReference}}">{{.RequestReference}}</a></td>
-          <td><a href="{{proposalDetailHref .RecommendationID}}">{{.RecommendationID}}</a></td>
-          <td><span class="status-pill {{statusClass .RecommendationStatus}}">{{.RecommendationStatus}}</span></td>
-          <td>{{.Summary}}</td>
-          <td>
-            <a href="{{proposalDetailHref .RecommendationID}}">Open exact proposal</a>
-            {{if .ApprovalID.Valid}} | <a href="{{approvalReviewHref .ApprovalID.String}}">Open exact approval</a>{{end}}
-            {{if .DocumentID.Valid}} | <a href="/app/review/audit?entity_type=documents.document&amp;entity_id={{.DocumentID.String}}">Audit trail</a>{{end}}
-          </td>
-        </tr>
-        {{end}}
-      </tbody>
-    </table>
-  </div>
-  {{else}}
-  {{template "web_empty_state" (dict "title" "No processed proposals yet" "body" "Run queued work or continue through the operations feed when AI-backed request processing creates the next proposal." )}}
-  {{end}}
 </section>
+{{end}}
+
+{{if .Dashboard.InboundRequests}}
+<section class="plain-section">
+  <div class="eyebrow">Recent requests</div>
+  <div class="route-list">
+    {{range .Dashboard.InboundRequests}}
+    <a href="{{inboundRequestHref .RequestReference}}">{{.RequestReference}} - {{dashboardRequestAction .Status}}</a>
+    {{if .FailureReason}}<p class="meta">{{.FailureReason}}</p>{{else if .CancellationReason}}<p class="meta">{{.CancellationReason}}</p>{{end}}
+    {{if .LastRunID.Valid}}<a href="{{inboundSectionHref (print "run:" .LastRunID.String) (runSectionID .LastRunID.String)}}">Open latest run</a>{{end}}
+    {{end}}
+  </div>
+</section>
+{{end}}
+
+{{if .Dashboard.Approvals}}
+<section class="plain-section">
+  <div class="eyebrow">Pending approvals</div>
+  <div class="route-list">
+    {{range .Dashboard.Approvals}}
+    <a href="{{approvalReviewHref .ApprovalID}}">{{.QueueCode}}</a>
+    <a href="{{approvalQueueHref .QueueCode "pending"}}">{{.QueueCode}}</a>
+    <a href="{{approvalReviewHref .ApprovalID}}">Open exact approval</a>
+    <a href="/app/review/audit?entity_type=documents.document&amp;entity_id={{.DocumentID}}">Audit trail</a>
+    {{end}}
+  </div>
+</section>
+{{end}}
+
+{{if .Dashboard.Proposals}}
+<section class="plain-section">
+  <div class="eyebrow">Recent proposals</div>
+  <div class="route-list">
+    {{range .Dashboard.Proposals}}
+    <a href="{{proposalDetailHref .RecommendationID}}">Open exact proposal</a>
+    {{if .ApprovalID.Valid}}<a href="{{approvalReviewHref .ApprovalID.String}}">Open exact approval</a>{{end}}
+    {{if .DocumentID.Valid}}<a href="/app/review/audit?entity_type=documents.document&amp;entity_id={{.DocumentID.String}}">Audit trail</a>{{end}}
+    {{end}}
+  </div>
+</section>
+{{end}}
 
 {{template "web_shell_end" .}}
 {{end}}

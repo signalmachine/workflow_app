@@ -1,7 +1,7 @@
 # workflow_app Web UI ERP-Style Density Correction Plan
 
 Date: 2026-04-01
-Status: Planned bounded corrective slice
+Status: Implemented bounded corrective slice
 Purpose: define one focused corrective slice that moves the promoted browser layer away from the current card-heavy, editorial-feeling presentation and toward a denser ERP-style operator application shell without reopening backend truth or route continuity.
 
 ## 1. Why this slice exists
@@ -77,6 +77,7 @@ In scope:
 9. preserve existing route continuity, backend contracts, and page ownership boundaries
 10. standardize dedicated activity and workflow pages around a single-column stacked layout instead of two-column compositions
 11. keep dedicated workflow pages focused on the primary start action and the minimum supporting context for that workflow
+12. where a landing or utility surface only needs navigation, prefer plain hyperlink-first route directories over summary cards, result cards, or button mosaics
 
 Out of scope:
 
@@ -127,6 +128,7 @@ Primary surfaces for this slice:
 8. treat major landing or gateway pages as route directories that link to dedicated activity or workflow pages
 9. make single-column stacked composition the default for dedicated activity, workflow, review, and detail pages across the application
 10. on a dedicated workflow or activity page, prefer one primary start action with only the minimum adjacent context needed to begin that workflow correctly
+11. when counts or queue state matter on a landing page, present them as lightweight hyperlink rows before adding any richer framing
 
 ## 9. Verification
 

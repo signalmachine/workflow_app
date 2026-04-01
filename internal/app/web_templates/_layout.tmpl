@@ -14,18 +14,50 @@
 <body>
   <div class="shell-frame">
     <header class="shell-header">
-      <div class="shell-header-row">
-        <div class="brand-block">
-          <div class="brand-mark">Workflow shell</div>
-          <h1>workflow_app</h1>
-          <p>AI-agent-first workflow review on one shared backend truth.</p>
-        </div>
+      <div class="shell-topbar">
+        <a href="/app" class="brand-link">
+          <span class="brand-mark">WA</span>
+          <span class="brand-copy">
+            <strong>Workflow App</strong>
+            <span>Persist-first operator shell</span>
+          </span>
+        </a>
 
         {{if .Session}}
-        <div class="session-card">
-          <div class="eyebrow">Operator session</div>
-          <div class="session-title"><strong>{{.Session.UserEmail}}</strong> in <strong>{{.Session.OrgSlug}}</strong></div>
-          <div class="session-meta">Primary workflow families now bundle under calmer landing pages while settings and admin remain secondary utility surfaces.</div>
+        <div class="session-tools">
+          <div class="session-pill">
+            <strong>{{.Session.UserEmail}}</strong>
+            <span>{{.Session.OrgSlug}} / {{.Session.RoleCode}}</span>
+          </div>
+
+          <details class="utility-menu">
+            <summary>User</summary>
+            <div class="utility-menu-panel">
+              <form method="get" action="/app/routes" class="compact-form">
+                <label>
+                  Search routes
+                  <input type="text" name="q" placeholder="pending approvals, failed requests, inventory...">
+                </label>
+                <div class="button-row">
+                  <button type="submit" class="secondary">Open catalog</button>
+                  <a href="/app/settings" class="{{navClass .ActivePath "/app/settings"}}">Settings</a>
+                  <a href="/app/routes" class="{{navClass .ActivePath "/app/routes"}}">Catalog</a>
+                </div>
+              </form>
+              {{if eq .Session.RoleCode "admin"}}
+              <div class="button-row">
+                <a href="/app/admin" class="{{navClass .ActivePath "/app/admin"}}">Admin</a>
+              </div>
+              {{end}}
+              <form method="post" action="/app/logout">
+                <button type="submit" class="secondary">Sign out</button>
+              </form>
+            </div>
+          </details>
+        </div>
+        {{else}}
+        <div class="session-tools">
+          <a href="/app/login" class="pill-link secondary">Sign in</a>
         </div>
         {{end}}
       </div>
@@ -40,46 +72,11 @@
             <a href="/app/operations" class="{{navSectionClass .ActivePath "operations"}}">Operations</a>
             <a href="/app/review" class="{{navSectionClass .ActivePath "review"}}">Review</a>
             <a href="/app/inventory" class="{{navSectionClass .ActivePath "inventory"}}">Inventory</a>
-          </div>
-        </div>
-
-        <div class="nav-band nav-band-secondary">
-          <div class="nav-band-label">Direct queue views</div>
-          <div class="nav-bubbles">
             <a href="/app/review/inbound-requests" class="{{navClass .ActivePath "/app/review/inbound-requests"}}">Inbound requests</a>
             <a href="/app/review/proposals" class="{{navClass .ActivePath "/app/review/proposals"}}">Proposals</a>
             <a href="/app/review/approvals" class="{{navClass .ActivePath "/app/review/approvals"}}">Approvals</a>
           </div>
         </div>
-
-        <details class="utility-menu">
-          <summary>Session menu</summary>
-          <div class="utility-menu-panel">
-            <div class="meta">Settings will stay user-scoped here as the browser layer grows.</div>
-            <form method="get" action="/app/routes" class="compact-form">
-              <label>
-                Search routes
-                <input type="text" name="q" placeholder="Search review, approvals, inventory, audit...">
-              </label>
-              <div class="button-row">
-                <button type="submit" class="secondary">Open route catalog</button>
-                <a href="/app/settings" class="{{navClass .ActivePath "/app/settings"}}">Settings</a>
-                <a href="/app/routes" class="{{navClass .ActivePath "/app/routes"}}">Catalog</a>
-              </div>
-            </form>
-            {{if eq .Session.RoleCode "admin"}}
-            <div class="meta">Admin surfaces should enter through this utility path rather than the primary workflow bar.</div>
-            <div class="button-row">
-              <a href="/app/admin" class="{{navClass .ActivePath "/app/admin"}}">Admin</a>
-            </div>
-            {{else}}
-            <div class="meta">Admin surfaces stay out of the primary workflow bar unless the current actor has the required role.</div>
-            {{end}}
-            <form method="post" action="/app/logout">
-              <button type="submit" class="secondary">Sign out</button>
-            </form>
-          </div>
-        </details>
       </div>
       {{end}}
     </header>
@@ -101,6 +98,15 @@
 {{template "web_head" .}}
 <body class="login-shell">
   <div class="public-shell">
+    <div class="public-topbar">
+      <a href="/app/login" class="brand-link">
+        <span class="brand-mark">WA</span>
+        <span class="brand-copy">
+          <strong>Workflow App</strong>
+          <span>Browser session entry</span>
+        </span>
+      </a>
+    </div>
     {{template "web_flash" .}}
 {{end}}
 

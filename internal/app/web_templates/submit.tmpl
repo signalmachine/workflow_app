@@ -7,6 +7,7 @@
   "body" "Use the dedicated intake page for browser-originated requests, keep continuity with exact REQ references, and preserve a clean path back into the dashboard or review."
 )}}
 
+<div class="workflow-page">
 {{if .InboundSubmit.RequestReference}}
 <section class="result-card">
   <div class="eyebrow">Latest submission</div>
@@ -47,6 +48,7 @@
     </div>
   </form>
 </section>
+</div>
 
 {{template "web_shell_end" .}}
 {{end}}

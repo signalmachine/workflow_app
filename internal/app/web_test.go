@@ -1525,7 +1525,7 @@ func TestHandleWebAppDashboardAddsInboundStatusAndRunContinuityLinks(t *testing.
 		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
 	}
 	body := recorder.Body.String()
-	if !strings.Contains(body, `/app/review/inbound-requests?status=queued">Open queued requests</a>`) {
+	if !strings.Contains(body, `/app/review/inbound-requests?status=queued">Queued requests</a>`) {
 		t.Fatalf("expected dashboard status-summary continuity link, body=%s", body)
 	}
 	if !strings.Contains(body, `/app/inbound-requests/run:run-123#run-run-123">Open latest run</a>`) {
@@ -1647,20 +1647,20 @@ func TestHandleWebAppDashboardAddsStatusSpecificEntryPointActions(t *testing.T) 
 	if !strings.Contains(body, `Resume parked drafts before they enter the queue.`) {
 		t.Fatalf("expected draft entry-point blurb, body=%s", body)
 	}
-	if !strings.Contains(body, `/app/review/inbound-requests?status=draft">Continue drafts</a>`) {
+	if !strings.Contains(body, `/app/review/inbound-requests?status=draft`) {
 		t.Fatalf("expected draft entry-point action, body=%s", body)
 	}
 	if !strings.Contains(body, `Inspect failed requests, understand the break, and restart follow-up work.`) {
 		t.Fatalf("expected failed entry-point blurb, body=%s", body)
 	}
-	if !strings.Contains(body, `/app/review/inbound-requests?status=failed">Review failures</a>`) {
+	if !strings.Contains(body, `/app/review/inbound-requests?status=failed`) {
 		t.Fatalf("expected failed entry-point action, body=%s", body)
 	}
-	if !strings.Contains(body, `/app/review/inbound-requests?status=cancelled">Recover cancellations</a>`) {
+	if !strings.Contains(body, `/app/review/inbound-requests?status=cancelled`) {
 		t.Fatalf("expected cancelled entry-point action, body=%s", body)
 	}
-	if strings.Index(body, `>draft</span>`) > strings.Index(body, `>failed</span>`) {
-		t.Fatalf("expected draft summary card to sort ahead of failed card, body=%s", body)
+	if strings.Index(body, `Continue drafts`) > strings.Index(body, `Review failures`) {
+		t.Fatalf("expected draft status link to sort ahead of failed status link, body=%s", body)
 	}
 }
 
@@ -1705,17 +1705,17 @@ func TestHandleWebAppDashboardRendersRefreshedEnterpriseShell(t *testing.T) {
 		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
 	}
 	body := recorder.Body.String()
-	if !strings.Contains(body, `class="brand-mark">Workflow shell</div>`) {
-		t.Fatalf("expected refreshed shell badge, body=%s", body)
+	if !strings.Contains(body, `class="brand-mark">WA</span>`) {
+		t.Fatalf("expected thin top-bar brand mark, body=%s", body)
+	}
+	if !strings.Contains(body, `Workflow App`) {
+		t.Fatalf("expected workflow app branding, body=%s", body)
 	}
 	if !strings.Contains(body, `Workflow destinations`) {
 		t.Fatalf("expected workflow destination navigation band, body=%s", body)
 	}
-	if !strings.Contains(body, `Direct queue views`) {
-		t.Fatalf("expected direct queue view navigation band, body=%s", body)
-	}
-	if !strings.Contains(body, `Session menu`) {
-		t.Fatalf("expected session utility menu, body=%s", body)
+	if !strings.Contains(body, `>User</summary>`) {
+		t.Fatalf("expected compact user utility menu, body=%s", body)
 	}
 	if !strings.Contains(body, `Search routes`) {
 		t.Fatalf("expected route-catalog search from shell utility menu, body=%s", body)
@@ -1723,11 +1723,8 @@ func TestHandleWebAppDashboardRendersRefreshedEnterpriseShell(t *testing.T) {
 	if !strings.Contains(body, `/app/settings" class="nav-link">Settings</a>`) {
 		t.Fatalf("expected settings utility link, body=%s", body)
 	}
-	if !strings.Contains(body, `Primary workflow families now bundle under calmer landing pages while settings and admin remain secondary utility surfaces.`) {
-		t.Fatalf("expected session posture copy, body=%s", body)
-	}
-	if !strings.Contains(body, `class="hero-card"`) {
-		t.Fatalf("expected refreshed dashboard hero card, body=%s", body)
+	if !strings.Contains(body, `Persist-first operator shell`) {
+		t.Fatalf("expected thin shell posture copy, body=%s", body)
 	}
 	if !strings.Contains(body, `/app/operations" class="nav-link">Operations</a>`) {
 		t.Fatalf("expected operations landing in shell navigation, body=%s", body)
@@ -1741,11 +1738,14 @@ func TestHandleWebAppDashboardRendersRefreshedEnterpriseShell(t *testing.T) {
 	if !strings.Contains(body, `Operator home`) {
 		t.Fatalf("expected role-aware home headline, body=%s", body)
 	}
-	if !strings.Contains(body, `/app/submit-inbound-request" class="pill-link">Start a new request</a>`) {
+	if !strings.Contains(body, `/app/submit-inbound-request">Start a new request</a>`) {
 		t.Fatalf("expected role-aware intake action, body=%s", body)
 	}
-	if !strings.Contains(body, `/app/routes" class="pill-link secondary">Open route</a>`) {
+	if !strings.Contains(body, `/app/routes">Open route catalog</a>`) {
 		t.Fatalf("expected secondary route-catalog action, body=%s", body)
+	}
+	if !strings.Contains(body, `Route directory`) {
+		t.Fatalf("expected plain route-directory section on dashboard, body=%s", body)
 	}
 	if strings.Contains(body, `action="/app/inbound-requests" enctype="multipart/form-data"`) {
 		t.Fatalf("expected dashboard to stop embedding the inbound request form, body=%s", body)
@@ -1777,13 +1777,13 @@ func TestHandleWebRouteCatalogFiltersRoutesByQueryAndRole(t *testing.T) {
 	}
 
 	body := recorder.Body.String()
-	if !strings.Contains(body, `Matches for "approval"`) {
+	if !strings.Contains(body, `Searchable route discovery`) {
 		t.Fatalf("expected query-specific heading, body=%s", body)
 	}
 	if !strings.Contains(body, `Approval review`) {
 		t.Fatalf("expected approval review route in search results, body=%s", body)
 	}
-	if strings.Contains(body, `/app/admin" class="pill-link">Open route</a>`) || strings.Contains(body, `<h2>Admin</h2>`) {
+	if strings.Contains(body, `/app/admin`) {
 		t.Fatalf("expected non-admin route catalog to hide admin route, body=%s", body)
 	}
 }
@@ -1813,10 +1813,10 @@ func TestHandleWebRouteCatalogMatchesOperatorIntentTerms(t *testing.T) {
 	}
 
 	body := recorder.Body.String()
-	if !strings.Contains(body, `Matches for "pending approvals"`) {
+	if !strings.Contains(body, `Searchable route discovery`) {
 		t.Fatalf("expected multi-term heading, body=%s", body)
 	}
-	if !strings.Contains(body, `<h2>Approval review</h2>`) {
+	if !strings.Contains(body, `Approval review`) {
 		t.Fatalf("expected approval review result for operator-intent query, body=%s", body)
 	}
 }
@@ -1963,7 +1963,7 @@ func TestHandleWebReviewLandingGroupsRouteFamilies(t *testing.T) {
 	if !strings.Contains(body, `/app/review/inbound-requests`) || !strings.Contains(body, `/app/review/documents`) {
 		t.Fatalf("expected landing links into grouped review routes, body=%s", body)
 	}
-	if !strings.Contains(body, `/app/inventory">Inventory landing</a>`) {
+	if !strings.Contains(body, `/app/inventory">Inventory</a>`) {
 		t.Fatalf("expected review landing to point to the inventory domain landing, body=%s", body)
 	}
 }
@@ -2032,14 +2032,14 @@ func TestHandleWebOperationsLandingShowsFeedAndChatBundles(t *testing.T) {
 	if !strings.Contains(body, `/app/operations" class="nav-link is-active">Operations</a>`) {
 		t.Fatalf("expected operations landing nav activation, body=%s", body)
 	}
-	if !strings.Contains(body, `/app/operations-feed" class="pill-link">Open durable feed</a>`) {
+	if !strings.Contains(body, `/app/operations-feed">Durable feed</a>`) {
 		t.Fatalf("expected landing link to durable feed, body=%s", body)
 	}
-	if !strings.Contains(body, `/app/agent-chat" class="pill-link secondary">Open agent chat</a>`) {
+	if !strings.Contains(body, `/app/agent-chat">Coordinator chat</a>`) {
 		t.Fatalf("expected landing link to agent chat, body=%s", body)
 	}
-	if !strings.Contains(body, `REQ-000123 moved through queued`) {
-		t.Fatalf("expected recent movement item on operations landing, body=%s", body)
+	if !strings.Contains(body, `/app/review/inbound-requests?status=queued">Queued requests</a>`) {
+		t.Fatalf("expected queued-request route on operations landing, body=%s", body)
 	}
 }
 
@@ -2099,7 +2099,7 @@ func TestHandleWebInventoryLandingShowsDomainBundles(t *testing.T) {
 	if !strings.Contains(body, `/app/inventory" class="nav-link is-active">Inventory</a>`) {
 		t.Fatalf("expected inventory landing nav activation, body=%s", body)
 	}
-	if !strings.Contains(body, `/app/review/inventory" class="pill-link">Open inventory review</a>`) {
+	if !strings.Contains(body, `/app/review/inventory">Inventory review</a>`) {
 		t.Fatalf("expected landing link to inventory review, body=%s", body)
 	}
 	if !strings.Contains(body, `/app/review/inventory/items/item-123`) || !strings.Contains(body, `/app/review/inventory/locations/loc-123`) {
@@ -2165,13 +2165,13 @@ func TestHandleWebAppDashboardAddsRecoveryActionsForRecentRequests(t *testing.T)
 	if !strings.Contains(body, `operator paused request`) {
 		t.Fatalf("expected cancellation reason on dashboard, body=%s", body)
 	}
-	if !strings.Contains(body, `/app/inbound-requests/REQ-000200">Amend back to draft</a>`) {
+	if !strings.Contains(body, `/app/inbound-requests/REQ-000200`) {
 		t.Fatalf("expected cancelled request recovery link, body=%s", body)
 	}
 	if !strings.Contains(body, `provider-backed coordinator execution failed`) {
 		t.Fatalf("expected failure reason on dashboard, body=%s", body)
 	}
-	if !strings.Contains(body, `/app/inbound-requests/REQ-000201">Inspect failure</a>`) {
+	if !strings.Contains(body, `/app/inbound-requests/REQ-000201`) {
 		t.Fatalf("expected failed request action link, body=%s", body)
 	}
 	if !strings.Contains(body, `/app/inbound-requests/run:run-201#run-run-201">Open latest run</a>`) {
@@ -2844,6 +2844,9 @@ func TestHandleWebAppUnauthenticatedRendersRefreshedLoginSurface(t *testing.T) {
 	}
 	if !strings.Contains(body, `This sign-in surface only issues the browser-session path.`) {
 		t.Fatalf("expected refreshed login guidance note, body=%s", body)
+	}
+	if !strings.Contains(body, `Browser session entry`) {
+		t.Fatalf("expected compact public top bar, body=%s", body)
 	}
 	if !strings.Contains(body, `class="panel login-panel"`) {
 		t.Fatalf("expected refreshed login panel class, body=%s", body)

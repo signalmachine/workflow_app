@@ -1,7 +1,7 @@
 # workflow_app End-to-End Validation Checklist
 
 Date: 2026-04-01
-Status: Durable checklist with pre-validation browser-review precheck for the rebuilt Milestone 10 route family plus the full Milestone 11 shell, landing-page, route-catalog, and utility-surface set before broader live workflow validation resumes
+Status: Durable checklist with pre-validation browser-review precheck for the rebuilt Milestone 10 route family plus the full Milestone 11 shell, landing-page, route-catalog, utility-surface, and ERP-style density-correction slice before broader live workflow validation resumes
 Purpose: provide a reusable bounded checklist for live review and testing of application end-to-end workflows on the real `/app` plus `/api/...` seam.
 
 ## 1. Use of this checklist
@@ -29,7 +29,7 @@ Policy:
 3. review `docs/workflows/application_workflow_catalog.md`
 4. rerun `set -a; source .env; set +a; go run ./cmd/verify-agent`
 5. run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
-6. if the rebuilt Milestone 10 browser family or the Milestone 11 shell changes are newly landed and not yet closed, review `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, `/app/agent-chat`, `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit` on desktop and a narrow-width viewport and record pass or blocker evidence before resuming live workflow validation
+6. if the rebuilt Milestone 10 browser family, the Milestone 11 shell changes, or the ERP-style density correction are newly landed and not yet closed, review `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, `/app/agent-chat`, `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit` on desktop and a narrow-width viewport and record pass or blocker evidence before resuming live workflow validation
 
 ## 2.1 Milestone 10 closeout precheck
 
@@ -41,6 +41,83 @@ Before broader end-to-end workflow validation resumes, use this bounded Mileston
 4. confirm one exact drill-down chain across request -> proposal -> approval -> document
 5. confirm one exact drill-down chain from request or proposal into accounting or inventory or work-order detail
 6. record pass or blocker evidence in `workflow_validation_track.md` before treating Milestone 10 as complete
+7. confirm the promoted shell now reads as a thin blue-gray operator application: route-directory landing pages instead of hero-card mosaics, simpler login, and single-column workflow pages where those surfaces are the active default
+
+## 2.2 Browser-review runbook
+
+When section 2.1 applies, run the browser review in this order.
+
+### 2.2.1 Setup
+
+1. start the real app with the shared browser seam
+2. sign in as an admin actor so `/app/admin` and the broader route family are reachable
+3. prepare one desktop viewport around 1280 to 1440 pixels wide
+4. prepare one narrow-width viewport around 390 to 430 pixels wide
+
+### 2.2.2 Desktop pass
+
+Review these routes first on desktop:
+
+1. `/app/login`
+2. `/app`
+3. `/app/routes`
+4. `/app/settings`
+5. `/app/admin`
+6. `/app/operations`
+7. `/app/review`
+8. `/app/inventory`
+9. `/app/submit-inbound-request`
+10. `/app/operations-feed`
+11. `/app/agent-chat`
+12. `/app/inbound-requests/{request_reference_or_id}`
+13. `/app/review/inbound-requests`
+14. `/app/review/approvals`
+15. `/app/review/proposals`
+16. `/app/review/documents`
+17. `/app/review/accounting`
+18. `/app/review/inventory`
+19. `/app/review/work-orders`
+20. `/app/review/audit`
+
+For each route, check:
+
+1. the shell renders cleanly and the active destination is obvious
+2. the primary page action or main work surface is visible without excessive decorative framing
+3. explanatory copy does not dominate the page above the real work surface
+4. tables, filters, grouped route links, and continuity actions remain visually primary
+
+### 2.2.3 Narrow-width pass
+
+Rerun the same route family on a narrow-width viewport.
+
+For each route, check:
+
+1. navigation remains readable and reachable
+2. no panel, form, metadata row, or action band overlaps or collapses into unreadable content
+3. table overflow stays contained inside intended scroll wrappers
+4. continuity links and key actions remain tappable and understandable
+
+### 2.2.4 Continuity pass
+
+After the route review, run these exact continuity chains:
+
+1. request detail -> proposal detail -> approval detail -> document detail
+2. request detail or proposal detail -> one downstream accounting or inventory or work-order detail route
+
+For each chain, check:
+
+1. the next exact link is easy to find
+2. the destination page preserves the expected identifiers and workflow context
+3. returning or continuing deeper does not lose the operator's place in the workflow
+
+### 2.2.5 Evidence recording
+
+Record one short note per route family or continuity chain:
+
+1. `pass: <surface> - <reason>`
+2. `blocker: <surface> - <defect> - <promoted fix plan if needed>`
+
+Keep the notes short. The goal is explicit evidence, not a narrative test diary.
 
 ## 3. Workflow checklist
 

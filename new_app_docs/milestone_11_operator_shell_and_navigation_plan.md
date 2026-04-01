@@ -1,7 +1,7 @@
 # workflow_app Milestone 11 Operator Shell and Navigation Plan
 
 Date: 2026-04-01
-Status: Active v2 milestone with Slice 1 through Slice 3 implemented in code while Milestone 10 browser-review closeout remains pending on the separate workflow-validation track and one bounded ERP-style density-correction follow-up is now planned
+Status: Active v2 milestone with Slice 1 through Slice 3 implemented in code while Milestone 10 browser-review closeout remains pending on the separate workflow-validation track and the bounded ERP-style density-correction follow-up is now implemented in code
 Purpose: define the next browser-application planning layer after the Milestone 10 rebuild so the promoted web UI can move from a structurally sound modular shell to a calmer SAP-style operator shell with stronger navigation scaling, landing-page bundling, user-specific starting surfaces, and a later corrective move away from the current card-heavy presentation.
 
 ## 1. Why this milestone exists
@@ -295,7 +295,8 @@ Current implementation checkpoint:
 7. focused `go test ./internal/app -run '^TestHandleWeb' -count=1`, `go build ./cmd/... ./internal/...`, the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...`, and `gopls` diagnostics all passed after the Slice 3 implementation plus the later route-catalog corrective slice
 8. the later bounded `internal/app` transport-boundary cleanup review is now also complete for the remaining role-aware home and agent-chat continuity paths: dashboard recent-request or proposal composition now comes from shared `reporting.DashboardSnapshot`, and agent-chat continuity now comes from shared `reporting.AgentChatSnapshot` instead of route-local multi-read orchestration
 9. the separate Milestone 10 browser-review closeout still remains required before the broader browser-validation track can be treated as complete
-10. implementation review after Slice 3 found one more bounded browser follow-up need: the current promoted shell still feels too card-heavy and editorial, so `web_ui_erp_style_density_correction_plan.md` now defines a focused ERP-style density-correction slice rather than opening a new milestone
+10. implementation review after Slice 3 found one more bounded browser follow-up need: the promoted shell felt too card-heavy and editorial, and that follow-up is now implemented through `web_ui_erp_style_density_correction_plan.md` rather than opening a new milestone
+11. the later density-correction follow-up now also removes the remaining card-like landing and utility-page drift: `/app`, `/app/operations`, `/app/review`, `/app/inventory`, `/app/routes`, `/app/settings`, and `/app/admin` now default to plain hyperlink-first route directories with lightweight workflow counts instead of summary-card or result-card mosaics
 
 ## 9. Open design rules
 

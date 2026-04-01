@@ -7,6 +7,7 @@
   "body" "Guidance-oriented conversations use the same persisted inbound-request foundation, but stay distinct from ordinary browser submissions so operators can review them cleanly."
 )}}
 
+<div class="workflow-page">
 {{if .AgentChat.RequestReference}}
 <section class="result-card">
   <div class="eyebrow">Latest coordinator request</div>
@@ -48,7 +49,7 @@
   </form>
 </section>
 
-<div class="two-up">
+<div class="surface-stack">
   <section class="table-card">
     <div>
       <div class="eyebrow">Recent agent-chat requests</div>
@@ -114,6 +115,7 @@
     {{template "web_empty_state" (dict "title" "No recent proposals from agent-chat requests yet." "body" "Coordinator-generated proposal continuity will appear here once a queued chat request reaches a processed recommendation." )}}
     {{end}}
   </section>
+</div>
 </div>
 
 {{template "web_shell_end" .}}

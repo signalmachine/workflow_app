@@ -1,14 +1,14 @@
 {{define "web_login"}}
 {{template "web_public_start" .}}
 <div class="login-grid">
-  <section class="hero-card">
+  <section class="compact-intro">
     <div class="eyebrow">Browser session</div>
     <h2>Sign in to the rebuilt operator shell.</h2>
     <p>This sign-in surface only issues the browser-session path.</p>
     <div class="detail-grid">
       {{template "web_detail_block" (dict "label" "Workflow stance" "value" "Persist first, review first" "body" "Requests land durably before AI processing or downstream approvals.")}}
       {{template "web_detail_block" (dict "label" "Shared seam" "value" "/app plus /api" "body" "The browser shell stays on the same backend truth used by the API and later clients.")}}
-      {{template "web_detail_block" (dict "label" "Shell posture" "value" "Calm operator entry" "body" "The browser shell keeps workflow entry light without changing backend truth ownership.")}}
+      {{template "web_detail_block" (dict "label" "Shell posture" "value" "Thin operator entry" "body" "The browser shell keeps workflow entry light without changing backend truth ownership.")}}
     </div>
   </section>
 

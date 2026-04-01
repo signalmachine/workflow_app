@@ -1,6 +1,6 @@
 # workflow_app Implementation Defaults
 
-Date: 2026-03-19
+Date: 2026-04-01
 Status: Draft canonical implementation defaults
 Purpose: record the active defaults that implementation should preserve unless the canonical `workflow_app` planning set is explicitly updated.
 
@@ -125,7 +125,7 @@ Purpose: record the active defaults that implementation should preserve unless t
 23. text should default to black or near-black unless contrast requirements clearly justify another color
 24. stronger colors should be used mainly for active states, emphasis, and status meaning rather than as dominant full-page backgrounds
 25. the browser surface should use one coherent restrained enterprise visual system across the app rather than changing to unrelated background-color families page by page
-26. the default shell should be thin and application-like: app name on the left, compact route navigation, and a small user or login control on the right rather than a stacked branded banner
+26. the default shell should be thin and application-like: `Workflow App` on the left, compact route navigation, and a small user or login control on the right rather than a stacked branded banner
 27. major landing pages should behave primarily as grouped route directories with compact supporting summaries, not as large card mosaics
 28. review pages should surface filters, tables, and exact continuity links before decorative or explanatory blocks
 29. hero panels, gradients, and card treatments should be used sparingly; they should not be the dominant layout language of ordinary operator pages

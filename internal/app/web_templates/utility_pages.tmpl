@@ -4,55 +4,28 @@
 {{template "web_page_header" (dict
   "eyebrow" "Route catalog"
   "title" "Searchable route discovery"
-  "body" "Search by workflow term, route family, or operator intent. This surface returns destinations only, not write actions."
+  "body" "Search for a workflow destination, then open the exact route."
 )}}
 
-<section class="hero-card">
-  <div class="hero-grid">
-    <div class="card-stack">
-      <div class="eyebrow">Search routes</div>
-      <h2>Keep navigation search-oriented instead of widening the top bar every time the browser surface grows.</h2>
-      <p>Use the catalog when the grouped shell leaves ambiguity between review, operations, inventory, audit, or utility routes.</p>
-      <form method="get" action="/app/routes" class="compact-form">
-        <label>
-          Search query
-          <input type="text" name="q" value="{{.RouteCatalog.Query}}" placeholder="Search requests, approvals, inventory, audit, accounting...">
-        </label>
-        <div class="button-row">
-          <button type="submit">Search routes</button>
-          <a href="/app/routes" class="pill-link secondary">Clear search</a>
-        </div>
-      </form>
+<section class="plain-section">
+  <form method="get" action="/app/routes" class="compact-form">
+    <label>
+      Search query
+      <input type="text" name="q" value="{{.RouteCatalog.Query}}" placeholder="requests, approvals, inventory, audit">
+    </label>
+    <div class="button-row">
+      <button type="submit">Search routes</button>
+      <a href="/app/routes" class="pill-link secondary">Clear search</a>
     </div>
-
-    <div class="detail-grid">
-      {{template "web_detail_block" (dict "label" "Shell scale rule" "value" "Search before chrome growth" "body" "The route catalog is the navigation-scaling tool for broader browser coverage." )}}
-      {{template "web_detail_block" (dict "label" "Result boundary" "value" "Destinations only" "body" "This first version stays navigation-oriented and does not become a consumer-style action launcher." )}}
-      {{template "web_detail_block" (dict "label" "Role awareness" "value" .RouteCatalog.Session.RoleCode "body" "Privileged utility routes stay hidden unless the current actor has the required role." )}}
-    </div>
-  </div>
+  </form>
 </section>
 
-<section class="table-card">
-  <div class="section-head">
-    <div>
-      <div class="eyebrow">Results</div>
-      <h2>{{if .RouteCatalog.Query}}Matches for "{{.RouteCatalog.Query}}"{{else}}All available route families{{end}}</h2>
-      <p class="section-copy">Every result is a browser destination on the shared backend seam.</p>
-    </div>
-  </div>
+<section class="plain-section">
+  <div class="eyebrow">Results</div>
   {{if .RouteCatalog.Results}}
-  <div class="catalog-grid">
+  <div class="route-list">
     {{range .RouteCatalog.Results}}
-    <article class="result-card">
-      <div class="eyebrow">{{.Category}}</div>
-      <h2>{{.Title}}</h2>
-      <p>{{.Summary}}</p>
-      <div class="meta">{{.Keywords}}</div>
-      <div class="button-row">
-        <a href="{{.Href}}" class="pill-link">Open route</a>
-      </div>
-    </article>
+    <a href="{{.Href}}">{{.Title}}</a>
     {{end}}
   </div>
   {{else}}
@@ -69,37 +42,22 @@
 {{template "web_page_header" (dict
   "eyebrow" "Settings"
   "title" "User utility surface"
-  "body" "This page establishes the user-scoped utility posture for home and session behavior without reopening the core workflow pages for broad per-user customization."
+  "body" "Keep utility routes separate from workflow review and activity pages."
 )}}
 
-<div class="two-up">
-  <section class="panel">
-    <div class="eyebrow">Current session</div>
-    <h2>{{.Settings.Session.UserDisplayName}}</h2>
-    <p>{{.Settings.Session.UserEmail}} in {{.Settings.Session.OrgName}} as {{.Settings.Session.RoleCode}}.</p>
-    <div class="detail-grid">
-      {{template "web_detail_block" (dict "label" "Home posture" "value" "Role-aware and workflow-centered" "body" "The home route now recommends first actions from role and current workload, not from broad page customization." )}}
-      {{template "web_detail_block" (dict "label" "Preference state" "value" "No persistence yet" "body" "Pinned links and stored home preferences remain a later additive step once route taxonomy and validation settle." )}}
-    </div>
-  </section>
+<section class="plain-section">
+  <div class="eyebrow">Current session</div>
+  <p>{{.Settings.Session.UserDisplayName}}. {{.Settings.Session.UserEmail}} in {{.Settings.Session.OrgName}} as {{.Settings.Session.RoleCode}}.</p>
+</section>
 
-  <section class="panel">
-    <div class="eyebrow">Home shortcuts</div>
-    <h2>Current recommended routes</h2>
-    <p>These are the same role-aware first routes the home surface uses today.</p>
-    <div class="card-stack">
-      {{range .Settings.PrimaryActions}}
-      <article class="result-card">
-        <h2>{{.Title}}{{if .Badge}} ({{.Badge}}){{end}}</h2>
-        <p>{{.Summary}}</p>
-        <div class="button-row">
-          <a href="{{.Href}}" class="pill-link secondary">Open route</a>
-        </div>
-      </article>
-      {{end}}
-    </div>
-  </section>
-</div>
+<section class="plain-section">
+  <div class="eyebrow">Current recommended routes</div>
+  <div class="route-list">
+    {{range .Settings.PrimaryActions}}
+    <a href="{{.Href}}">{{.Title}}{{if .Badge}} ({{.Badge}}){{end}}</a>
+    {{end}}
+  </div>
+</section>
 
 {{template "web_shell_end" .}}
 {{end}}
@@ -110,35 +68,16 @@
 {{template "web_page_header" (dict
   "eyebrow" "Admin"
   "title" "Privileged utility surface"
-  "body" "Keep governance and high-sensitivity review entry points in a secondary utility surface instead of turning them into primary workflow chrome."
+  "body" "Use this page as a simple directory for governance-oriented review routes."
 )}}
 
-<section class="hero-card">
-  <div class="hero-grid">
-    <div class="card-stack">
-      <div class="eyebrow">Admin posture</div>
-      <h2>Use this surface for governance-oriented review entry points, not for a second primary navigation system.</h2>
-      <p>The admin route stays deliberately narrow: it points into approval, accounting, audit, and route-discovery surfaces without reopening a CRM-style control center.</p>
-    </div>
-
-    <div class="detail-grid">
-      {{template "web_detail_block" (dict "label" "Role gate" "value" .Admin.Session.RoleCode "body" "Only admin actors should reach this utility page." )}}
-      {{template "web_detail_block" (dict "label" "Navigation rule" "value" "Secondary utility path" "body" "Admin stays behind the session menu so workflow destinations remain the center of gravity." )}}
-    </div>
+<section class="plain-section">
+  <div class="eyebrow">Admin routes</div>
+  <div class="route-list">
+    {{range .Admin.AdminActions}}
+    <a href="{{.Href}}">{{.Title}}</a>
+    {{end}}
   </div>
-</section>
-
-<section class="catalog-grid">
-  {{range .Admin.AdminActions}}
-  <article class="result-card">
-    <div class="eyebrow">Admin route</div>
-    <h2>{{.Title}}</h2>
-    <p>{{.Summary}}</p>
-    <div class="button-row">
-      <a href="{{.Href}}" class="pill-link">Open route</a>
-    </div>
-  </article>
-  {{end}}
 </section>
 
 {{template "web_shell_end" .}}
