@@ -1625,17 +1625,23 @@ func TestHandleWebAppDashboardRendersRefreshedEnterpriseShell(t *testing.T) {
 		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
 	}
 	body := recorder.Body.String()
-	if !strings.Contains(body, `class="brand-mark">Control surface</div>`) {
-		t.Fatalf("expected refreshed masthead badge, body=%s", body)
+	if !strings.Contains(body, `class="brand-mark">Workflow shell</div>`) {
+		t.Fatalf("expected refreshed shell badge, body=%s", body)
 	}
-	if !strings.Contains(body, `Current posture`) {
-		t.Fatalf("expected refreshed masthead status card, body=%s", body)
+	if !strings.Contains(body, `Workflow destinations`) {
+		t.Fatalf("expected workflow destination navigation band, body=%s", body)
+	}
+	if !strings.Contains(body, `Review routes`) {
+		t.Fatalf("expected review route navigation band, body=%s", body)
+	}
+	if !strings.Contains(body, `Session menu`) {
+		t.Fatalf("expected session utility menu, body=%s", body)
+	}
+	if !strings.Contains(body, `Primary workflow destinations stay global while settings and admin remain secondary utility surfaces.`) {
+		t.Fatalf("expected session posture copy, body=%s", body)
 	}
 	if !strings.Contains(body, `class="hero-card"`) {
 		t.Fatalf("expected refreshed dashboard hero card, body=%s", body)
-	}
-	if !strings.Contains(body, `class="nav-links"`) {
-		t.Fatalf("expected refreshed navigation links container, body=%s", body)
 	}
 	if !strings.Contains(body, `/app/operations-feed" class="pill-link">Open operations feed</a>`) {
 		t.Fatalf("expected dashboard link to operations feed, body=%s", body)
@@ -1645,6 +1651,9 @@ func TestHandleWebAppDashboardRendersRefreshedEnterpriseShell(t *testing.T) {
 	}
 	if !strings.Contains(body, `/app/submit-inbound-request" class="pill-link">Open submission page</a>`) {
 		t.Fatalf("expected dashboard link to dedicated submission page, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/accounting" class="nav-link">Accounting</a>`) {
+		t.Fatalf("expected accounting review route in wrapped shell navigation, body=%s", body)
 	}
 	if strings.Contains(body, `action="/app/inbound-requests" enctype="multipart/form-data"`) {
 		t.Fatalf("expected dashboard to stop embedding the inbound request form, body=%s", body)

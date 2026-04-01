@@ -1,7 +1,7 @@
 # workflow_app Workflow Validation Track
 
 Date: 2026-04-01
-Status: Active validation track, separate from implementation planning; Milestone 10 Slice 1 through Slice 3 are now in code on the rebuilt modular browser bundle, and bounded browser-review plus workflow-continuity evidence now need to close out the rebuilt route family before broader live workflow review resumes
+Status: Active validation track, separate from implementation planning; Milestone 10 Slice 1 through Slice 3 remain in code on the rebuilt modular browser bundle, Milestone 11 Slice 1 has now shifted the promoted shell to the lighter top-bar bubble model, and bounded browser-review plus workflow-continuity evidence still need to close out the rebuilt route family before broader live workflow review resumes
 Purpose: keep workflow testing, live review, and readiness evidence on a workflow-validation track in `docs/workflows/` rather than inside the normal product-implementation planning stream in `new_app_docs/`.
 
 ## 1. Why this document exists
@@ -39,7 +39,7 @@ The implementation track is currently prioritized ahead of resumed live workflow
 
 Current order:
 
-1. record bounded manual browser-review evidence for the rebuilt Milestone 10 route family on desktop and a narrow-width viewport: `/app/login`, `/app`, `/app/submit-inbound-request`, `/app/operations-feed`, `/app/agent-chat`, `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit`
+1. record bounded manual browser-review evidence for the rebuilt route family on desktop and a narrow-width viewport using the current lighter top-bar shell: `/app/login`, `/app`, `/app/submit-inbound-request`, `/app/operations-feed`, `/app/agent-chat`, `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit`
 2. if that browser review is clean, run one focused workflow-continuity pass across request detail -> proposal -> approval -> document or accounting or inventory or work-order drill-down on the rebuilt route family
 3. if those checks are clean, resume the deferred live workflow validation on the real seam with the rebuilt browser baseline
 4. if browser review or workflow continuity finds a real defect, add the bounded corrective fix plan back into `new_app_docs/` before treating Milestone 10 as closed

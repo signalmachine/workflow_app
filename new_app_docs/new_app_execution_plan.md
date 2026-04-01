@@ -483,10 +483,12 @@ Exit criteria:
 
 Current planning checkpoint:
 
-1. this milestone is now the preferred follow-on browser-product direction after Milestone 10 closeout
+1. this milestone is now active, with the bounded Slice 1 shell change promoted into implementation while Milestone 10 browser-review closeout remains on the separate workflow-validation track
 2. it exists to refine information architecture and operator starting surfaces, not to replace the Milestone 10 modular rebuild
 3. the canonical plan for this milestone is `milestone_11_operator_shell_and_navigation_plan.md`
-4. active v2 implementation should continue taking bounded refactoring opportunities where they materially improve modularity, streamline ownership boundaries, or reduce maintenance risk without drifting into unrelated rewrite work
+4. Slice 1 is now implemented in code on the modular embedded bundle through a lighter top-bar shell, wrapped bubble navigation, a soft-light palette, and utility-menu placement for future `Settings` plus access-scoped `Admin`
+5. Slice 2 landing pages and Slice 3 route-catalog plus personalized-home work remain pending
+6. active v2 implementation should continue taking bounded refactoring opportunities where they materially improve modularity, streamline ownership boundaries, or reduce maintenance risk without drifting into unrelated rewrite work
 
 ## 16. Execution warning
 

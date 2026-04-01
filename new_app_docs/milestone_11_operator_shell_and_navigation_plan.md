@@ -1,7 +1,7 @@
 # workflow_app Milestone 11 Operator Shell and Navigation Plan
 
 Date: 2026-04-01
-Status: Proposed follow-on v2 planning slice after Milestone 10 browser-review closeout
+Status: Active v2 milestone with Slice 1 implemented in code and Slice 2 through Slice 3 still pending
 Purpose: define the next browser-application planning layer after the Milestone 10 rebuild so the promoted web UI can move from a structurally sound modular shell to a calmer SAP-style operator shell with stronger navigation scaling, landing-page bundling, and user-specific starting surfaces.
 
 ## 1. Why this milestone exists
@@ -260,25 +260,32 @@ Scope:
 
 ## 8. Sequence rule
 
-This milestone should not begin before Milestone 10 closeout evidence is complete.
+This milestone normally follows Milestone 10 closeout, but the bounded Slice 1 shell shift may be promoted earlier when implementation priority is made explicit and the separate Milestone 10 validation track remains intact.
 
 Sequence:
 
-1. finish Milestone 10 browser-review and workflow-continuity closeout
-2. validate whether the current left rail is actually distracting in bounded browser review rather than assuming only from implementation taste
-3. then start this milestone with the shell change first and expose current workflow breadth cleanly
-4. land searchable route discovery before route count grows further
+1. keep Milestone 10 browser-review and workflow-continuity closeout active on the separate `docs/workflows/` track until that evidence is complete
+2. when implementation priority is explicit, it is acceptable to promote the bounded Slice 1 shell change ahead of that closeout instead of blocking all browser work behind manual review evidence
+3. land the shell change first and expose current workflow breadth cleanly
+4. then land searchable route discovery before route count grows further
 5. streamline and reduce top-level items only after real usage shows which destinations deserve to remain global
 6. land personalization only after the information architecture and route taxonomy are stable enough to personalize safely
 
 Reason:
 
-1. the rebuild foundation should settle before the next shell shift lands
+1. the rebuild foundation should still remain stable, but the shell shift is now bounded enough to proceed without reopening the Milestone 10 modular architecture
 2. broad route exposure is acceptable in the short term if landing pages and active-state cues keep it understandable
 3. multi-row top-bar wrapping is preferable to horizontal overflow or hidden navigation during the broad-exposure phase
 4. search and personalization are stronger once the route taxonomy is explicit
 5. landing personalization before route taxonomy stabilizes would create noisy shortcuts and early preference drift
 6. the visual palette should be decided early enough that later landing pages inherit one coherent low-glare treatment
+
+Current implementation checkpoint:
+
+1. Slice 1 is now implemented in code on the modular embedded bundle under `internal/app/web_templates`
+2. the heavy persistent left rail has been replaced with a lighter top shell using wrapped bubble navigation, a soft-light palette, and a utility session menu that reserves `Settings` plus privileged `Admin` for secondary placement
+3. all currently supported browser route families remain directly reachable from the new top shell while Slice 2 landing pages and Slice 3 route-catalog plus personalized-home work remain pending
+4. focused `go test ./internal/app -run '^TestHandleWeb' -count=1` passed after the shell migration, and full repo verification plus the separate Milestone 10 browser-review closeout still remain required before the broader browser-validation track can be treated as complete
 
 ## 9. Open design rules
 
