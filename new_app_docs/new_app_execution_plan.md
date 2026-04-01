@@ -453,7 +453,42 @@ Current planning checkpoint:
 6. `milestone_10_slice_2_review_workbench_plan.md`
 7. `milestone_10_slice_3_detail_and_closeout_plan.md`
 
-## 15. Execution warning
+## 15. Milestone 11: Operator shell, route taxonomy, and personalized home
+
+Goal:
+
+1. turn the rebuilt browser surface into a calmer and more scalable operator application by replacing heavy global chrome with a lighter primary navigation model, bundle landing pages, searchable route discovery, and a personalized `/app` home
+
+Scope:
+
+1. top-bar primary navigation for the true primary destinations
+2. bundle landing pages for grouped route families such as review, operations, and selected domain areas like inventory where justified
+3. searchable route catalog or command palette for navigation discovery
+4. role-aware and user-aware home-surface composition on `/app`
+5. explicit `Settings` and `Admin` surface posture aligned to access level and utility-navigation rules
+6. soft-light visual-theme direction for the promoted shell and landing pages
+7. minimum preference persistence or shortcut modeling needed to support personalization without creating a second truth model
+
+Exit criteria:
+
+1. the global shell moves to a top-bar model and exposes current workflow breadth cleanly
+2. all currently supported workflows are exposed through the web UI either directly from the top bar or through landing pages reached from it
+3. top-level navigation uses clear active-state differentiation
+4. the top-bar bubble set can wrap across multiple rows without hidden overflow during the broad-exposure phase
+5. the promoted shell uses a soft-light palette with dark readable text rather than stark white or dark heavy full-page backgrounds
+6. broader route growth can later be streamlined through bundle pages, search, and optional presentation preferences without another shell rewrite
+7. `/app` becomes a personalized workflow-centered home surface
+8. the resulting operator shell remains aligned with the same shared backend truth and workflow doctrine
+9. `Settings` and `Admin` are explicitly placed as role-aware secondary surfaces rather than leaking into the primary workflow shell
+
+Current planning checkpoint:
+
+1. this milestone is now the preferred follow-on browser-product direction after Milestone 10 closeout
+2. it exists to refine information architecture and operator starting surfaces, not to replace the Milestone 10 modular rebuild
+3. the canonical plan for this milestone is `milestone_11_operator_shell_and_navigation_plan.md`
+4. active v2 implementation should continue taking bounded refactoring opportunities where they materially improve modularity, streamline ownership boundaries, or reduce maintenance risk without drifting into unrelated rewrite work
+
+## 16. Execution warning
 
 Do not add CRM breadth, advanced projects, portal work, payroll, broad UI work, or advanced agent-autonomy features during milestones 0 through 5.
 
@@ -466,7 +501,7 @@ Do not treat Milestone 8 as permission to build the mobile product itself, fork 
 
 Do not treat v2 as permission to abandon the completed foundation discipline, duplicate truth ownership, or reintroduce CRM-first product gravity under a broader roadmap label.
 
-## 16. Quality and sophistication rule
+## 17. Quality and sophistication rule
 
 `workflow_app` is allowed to be thin in breadth, but it is not allowed to be weak in foundation design.
 

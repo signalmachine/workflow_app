@@ -111,6 +111,21 @@ Purpose: record the active defaults that implementation should preserve unless t
 9. do not introduce a separate SPA frontend, Node dependency tree, or frontend-specific build chain unless the canonical planning set is explicitly updated to justify that cost
 10. `internal/app` should remain transport and orchestration only: route selection, auth extraction, request validation, response mapping, HTML rendering, and browser or API adaptation belong there, while durable business rules, write-path invariants, and cross-module ownership decisions belong in domain services and reporting reads
 11. if a browser or API change requires new business branching, prefer pushing that branching into a shared service contract or reporting read model rather than adding transport-specific business logic inside handlers or template-driven code paths
+12. the global shell should move to a top-bar model rather than a heavy persistent side rail for the promoted browser surface
+13. in the near term, the web UI should expose all currently supported workflows either directly in the top bar or through landing pages reachable from it
+14. broader route growth should prefer landing pages and searchable route discovery rather than forcing every route into one flat long-term navigation strip
+15. top-level navigation items should use a pill or bubble-style treatment with clear active-state contrast
+16. the top-bar bubble set should be allowed to wrap across multiple rows rather than forcing a single-row overflow strip during the current broad-exposure phase
+17. `/app` should evolve toward a personalized workflow-centered operator home with role-aware or user-aware shortcuts rather than remaining a permanently generic dashboard
+18. user-specific page customization should stay primarily confined to the home surface; other pages should remain standardized and vary by access, role, and workflow state rather than by per-user layout divergence
+19. later user-level preferences for hiding selected top-bar bubble destinations are acceptable, but they should remain additive presentation preferences rather than the primary route-discovery mechanism
+20. `Settings` should be treated as a secondary user utility surface rather than a primary workflow destination
+21. `Admin` should be treated as a privileged secondary surface exposed only to the relevant actors rather than as part of the default primary navigation
+22. the promoted browser shell should prefer soft light background tones such as light grey, muted light yellow, pale green, and similar low-glare colors rather than stark white or dark heavy full-page backgrounds
+23. text should default to black or near-black unless contrast requirements clearly justify another color
+24. stronger colors should be used mainly for active states, emphasis, and status meaning rather than as dominant full-page backgrounds
+25. the browser surface should use one coherent soft-light visual system across the app rather than changing to unrelated background-color families page by page
+26. during the active v2 implementation phase, contributors should actively take bounded refactoring opportunities that improve modularity, reduce file concentration, simplify ownership boundaries, or lower regression risk, provided those refactors stay tied to the active implementation slice and remain verified
 
 ### 2.10 Inbound request and attachment handling
 
