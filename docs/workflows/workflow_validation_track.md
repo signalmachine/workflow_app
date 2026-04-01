@@ -1,7 +1,7 @@
 # workflow_app Workflow Validation Track
 
 Date: 2026-04-01
-Status: Active validation track, separate from implementation planning; Milestone 10 Slice 1 through Slice 3 remain in code on the rebuilt modular browser bundle, Milestone 11 Slice 1 through Slice 3 have now shifted the promoted shell to the lighter grouped top-bar plus landing-page model with route catalog and utility surfaces, and the remaining Milestone 10 closeout work should now run as one larger browser-review plus workflow-continuity sweep with one grouped corrective follow-up only if that sweep finds tightly related defects
+Status: Active validation track, separate from implementation planning; Milestone 10 Slice 1 through Slice 3 remain in code on the rebuilt modular browser bundle, the grouped render-baseline corrective slice now also enforces the modular bundle as the only active render path, Milestone 11 Slice 1 through Slice 3 have now shifted the promoted shell to the lighter grouped top-bar plus landing-page model with route catalog and utility surfaces, and the remaining Milestone 10 closeout work should now run as one larger browser-review plus workflow-continuity sweep with one grouped corrective follow-up only if that sweep finds tightly related defects
 Purpose: keep workflow testing, live review, and readiness evidence on a workflow-validation track in `docs/workflows/` rather than inside the normal product-implementation planning stream in `new_app_docs/`.
 
 ## 1. Why this document exists
@@ -53,7 +53,7 @@ Closeout sweep:
 2. browser-review pass on a narrow-width viewport for that same promoted route family
 3. focused continuity pass from exact request detail into proposal detail, approval detail, and document detail
 4. focused continuity pass from exact request detail or proposal detail into one downstream accounting or inventory or work-order drill-down surface
-5. explicit confirmation that no promoted Milestone 10 route still depends on the retired legacy active template baseline
+5. explicit confirmation that no promoted Milestone 10 route still depends on the retired legacy active template baseline; the code path now enforces this by rejecting unmapped web page data instead of falling back to the old monolithic template, so the remaining work is route-family review evidence rather than render-path ambiguity
 6. explicit confirmation that any defect found during this review is either fixed and revalidated or recorded as a blocker before milestone closeout
 
 Evidence rule:

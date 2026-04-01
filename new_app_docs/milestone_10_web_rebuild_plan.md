@@ -1,7 +1,7 @@
 # workflow_app Milestone 10 Web Rebuild Plan
 
 Date: 2026-04-01
-Status: Implemented in code through Slice 1 through Slice 3, with browser-review and workflow-continuity closeout still pending
+Status: Implemented in code through Slice 1 through Slice 3 plus one grouped closeout corrective slice, with browser-review and workflow-continuity evidence still pending
 Purpose: define the first active v2 milestone: a full web-layer rebuild that replaces the current monolithic browser implementation with a modular, scalable server-rendered application layer while preserving the shared backend truth model and forcing implementation through a small number of large related slices.
 
 ## 1. Why this milestone exists
@@ -159,8 +159,9 @@ Current implementation checkpoint:
 
 1. the embedded modular bundle under `internal/app/web_templates` is now the active rendering path for the promoted operator-entry, review-workbench, and detail-route families
 2. the promoted detail pages now use the rebuilt shell, shared detail primitives, contained tables, and structured payload treatment rather than the legacy active baseline
-3. `go build ./cmd/... ./internal/...` and the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` verification are passing again on the rebuilt browser baseline
-4. the remaining Milestone 10 work is bounded browser-review and workflow-continuity evidence on the `docs/workflows/` track
+3. the grouped corrective slice in `milestone_10_closeout_render_baseline_correction_plan.md` is now implemented in code, so `internal/app.renderWebPage` no longer revives the retired monolithic `webAppHTML` template as a silent fallback when page data fails to map to a bundle template
+4. focused `internal/app` render-path coverage, `go build ./cmd/... ./internal/...`, and the broader rebuilt-browser verification remain passing on the modular browser baseline
+5. the remaining Milestone 10 work is bounded browser-review and workflow-continuity evidence on the `docs/workflows/` track
 
 ## 8. Slice planning rule
 

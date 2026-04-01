@@ -18,6 +18,20 @@ import (
 	"workflow_app/internal/reporting"
 )
 
+func TestRenderWebPageRejectsUnmappedTemplateData(t *testing.T) {
+	handler := &AgentAPIHandler{}
+	recorder := httptest.NewRecorder()
+
+	handler.renderWebPage(recorder, webPageData{Title: "workflow_app"})
+
+	if recorder.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d body=%s", http.StatusInternalServerError, recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), "web page template not configured") {
+		t.Fatalf("expected unmapped-template error body, got %s", recorder.Body.String())
+	}
+}
+
 func TestHandleWebDocumentDetailFallsBackToDocumentScopedAccountingLink(t *testing.T) {
 	handler := NewAgentAPIHandlerWithDependencies(
 		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },

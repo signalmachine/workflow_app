@@ -245,14 +245,15 @@ func normalizeWebPageFlash(data webPageData) webPageData {
 func (h *AgentAPIHandler) renderWebPage(w http.ResponseWriter, data webPageData) {
 	data = normalizeWebPageFlash(data)
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-
-	if templateName := webTemplateName(data); templateName != "" {
-		_ = webTemplateBundle.ExecuteTemplate(w, templateName, data)
+	templateName := webTemplateName(data)
+	if templateName == "" {
+		http.Error(w, "web page template not configured", http.StatusInternalServerError)
 		return
 	}
-	_ = webAppTemplate.Execute(w, data)
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_ = webTemplateBundle.ExecuteTemplate(w, templateName, data)
 }
 
 func loginFormAction(data webPageData) string {
