@@ -1519,6 +1519,67 @@ func TestHandleWebAppDashboardAddsInboundStatusAndRunContinuityLinks(t *testing.
 	}
 }
 
+func TestHandleWebAppDashboardUsesSharedDashboardSnapshot(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			getDashboardSnapshot: func(context.Context, identityaccess.Actor, int, int, int) (reporting.DashboardSnapshot, error) {
+				return reporting.DashboardSnapshot{
+					Navigation: reporting.WorkflowNavigationSnapshot{
+						InboundSummary: []reporting.InboundRequestStatusSummary{
+							{
+								Status:          "queued",
+								RequestCount:    2,
+								LatestUpdatedAt: time.Date(2026, 4, 1, 9, 0, 0, 0, time.UTC),
+							},
+						},
+					},
+					InboundRequests: []reporting.InboundRequestReview{
+						{
+							RequestReference: "REQ-009900",
+							Status:           "queued",
+							UpdatedAt:        time.Date(2026, 4, 1, 9, 5, 0, 0, time.UTC),
+						},
+					},
+				}, nil
+			},
+			listInboundRequests: func(context.Context, reporting.ListInboundRequestsInput) ([]reporting.InboundRequestReview, error) {
+				t.Fatal("dashboard handler should not compose recent requests directly")
+				return nil, nil
+			},
+			listProcessedProposals: func(context.Context, reporting.ListProcessedProposalsInput) ([]reporting.ProcessedProposalReview, error) {
+				t.Fatal("dashboard handler should not compose proposals directly")
+				return nil, nil
+			},
+			listInboundRequestStatusSummary: func(context.Context, identityaccess.Actor) ([]reporting.InboundRequestStatusSummary, error) {
+				t.Fatal("dashboard handler should not compose navigation summary directly")
+				return nil, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `REQ-009900`) {
+		t.Fatalf("expected dashboard snapshot content, body=%s", recorder.Body.String())
+	}
+}
+
 func TestHandleWebAppDashboardAddsStatusSpecificEntryPointActions(t *testing.T) {
 	handler := NewAgentAPIHandlerWithDependencies(
 		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
@@ -2596,6 +2657,55 @@ func TestHandleWebAgentChatFiltersChatRequestsAndProposalContinuity(t *testing.T
 	}
 }
 
+func TestHandleWebAgentChatUsesSharedAgentChatSnapshot(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			getAgentChatSnapshot: func(context.Context, identityaccess.Actor, int, int) (reporting.AgentChatSnapshot, error) {
+				return reporting.AgentChatSnapshot{
+					RecentRequests: []reporting.InboundRequestReview{
+						{
+							RequestReference: "REQ-009901",
+							Status:           "queued",
+							Channel:          inboundRequestChannelAgentChat,
+							UpdatedAt:        time.Date(2026, 4, 1, 10, 0, 0, 0, time.UTC),
+						},
+					},
+				}, nil
+			},
+			listInboundRequests: func(context.Context, reporting.ListInboundRequestsInput) ([]reporting.InboundRequestReview, error) {
+				t.Fatal("agent-chat handler should not list requests directly")
+				return nil, nil
+			},
+			listProcessedProposals: func(context.Context, reporting.ListProcessedProposalsInput) ([]reporting.ProcessedProposalReview, error) {
+				t.Fatal("agent-chat handler should not list proposals directly")
+				return nil, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/agent-chat", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `REQ-009901`) {
+		t.Fatalf("expected agent-chat snapshot content, body=%s", recorder.Body.String())
+	}
+}
+
 func TestHandleWebSubmitInboundRequestFromAgentChatUsesDedicatedChannel(t *testing.T) {
 	handler := NewAgentAPIHandlerWithDependencies(
 		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
@@ -2834,6 +2944,8 @@ type stubOperatorReviewReader struct {
 	listProcessedProposalStatusSummary func(context.Context, identityaccess.Actor) ([]reporting.ProcessedProposalStatusSummary, error)
 	getOperationsFeedSnapshot          func(context.Context, identityaccess.Actor, int) (reporting.OperationsFeedSnapshot, error)
 	getOperationsLandingSnapshot       func(context.Context, identityaccess.Actor, int, int) (reporting.OperationsLandingSnapshot, error)
+	getDashboardSnapshot               func(context.Context, identityaccess.Actor, int, int, int) (reporting.DashboardSnapshot, error)
+	getAgentChatSnapshot               func(context.Context, identityaccess.Actor, int, int) (reporting.AgentChatSnapshot, error)
 	getInventoryLandingSnapshot        func(context.Context, identityaccess.Actor, int) (reporting.InventoryLandingSnapshot, error)
 }
 
@@ -3023,6 +3135,85 @@ func (s stubOperatorReviewReader) GetOperationsLandingSnapshot(ctx context.Conte
 	return reporting.OperationsLandingSnapshot{
 		Navigation: navigation,
 		Feed:       feed,
+	}, nil
+}
+
+func (s stubOperatorReviewReader) GetDashboardSnapshot(ctx context.Context, actor identityaccess.Actor, pendingApprovalLimit, requestLimit, proposalLimit int) (reporting.DashboardSnapshot, error) {
+	if s.getDashboardSnapshot != nil {
+		return s.getDashboardSnapshot(ctx, actor, pendingApprovalLimit, requestLimit, proposalLimit)
+	}
+	navigation, err := s.GetWorkflowNavigationSnapshot(ctx, actor, pendingApprovalLimit)
+	if err != nil {
+		return reporting.DashboardSnapshot{}, err
+	}
+	requests, err := s.ListInboundRequests(ctx, reporting.ListInboundRequestsInput{
+		Limit: requestLimit,
+		Actor: actor,
+	})
+	if err != nil {
+		return reporting.DashboardSnapshot{}, err
+	}
+	proposals, err := s.ListProcessedProposals(ctx, reporting.ListProcessedProposalsInput{
+		Limit: proposalLimit,
+		Actor: actor,
+	})
+	if err != nil {
+		return reporting.DashboardSnapshot{}, err
+	}
+	return reporting.DashboardSnapshot{
+		Navigation:      navigation,
+		InboundRequests: requests,
+		Proposals:       proposals,
+		RequestLimit:    requestLimit,
+		ProposalLimit:   proposalLimit,
+	}, nil
+}
+
+func (s stubOperatorReviewReader) GetAgentChatSnapshot(ctx context.Context, actor identityaccess.Actor, requestLimit, proposalLimit int) (reporting.AgentChatSnapshot, error) {
+	if s.getAgentChatSnapshot != nil {
+		return s.getAgentChatSnapshot(ctx, actor, requestLimit, proposalLimit)
+	}
+	requests, err := s.ListInboundRequests(ctx, reporting.ListInboundRequestsInput{
+		Limit: requestLimit,
+		Actor: actor,
+	})
+	if err != nil {
+		return reporting.AgentChatSnapshot{}, err
+	}
+
+	chatRequests := make([]reporting.InboundRequestReview, 0, len(requests))
+	requestRefs := make(map[string]struct{}, len(requests))
+	for _, item := range requests {
+		if !strings.EqualFold(strings.TrimSpace(item.Channel), inboundRequestChannelAgentChat) {
+			continue
+		}
+		chatRequests = append(chatRequests, item)
+		ref := strings.TrimSpace(item.RequestReference)
+		if ref != "" {
+			requestRefs[ref] = struct{}{}
+		}
+	}
+
+	proposals, err := s.ListProcessedProposals(ctx, reporting.ListProcessedProposalsInput{
+		Limit: proposalLimit,
+		Actor: actor,
+	})
+	if err != nil {
+		return reporting.AgentChatSnapshot{}, err
+	}
+
+	chatProposals := make([]reporting.ProcessedProposalReview, 0, len(proposals))
+	for _, item := range proposals {
+		if _, ok := requestRefs[strings.TrimSpace(item.RequestReference)]; ok {
+			chatProposals = append(chatProposals, item)
+		}
+	}
+
+	return reporting.AgentChatSnapshot{
+		RecentRequests:  chatRequests,
+		RecentProposals: chatProposals,
+		RequestLimit:    requestLimit,
+		ProposalLimit:   proposalLimit,
 	}, nil
 }
 

@@ -74,6 +74,21 @@ type OperationsLandingSnapshot struct {
 	Feed       OperationsFeedSnapshot
 }
 
+type DashboardSnapshot struct {
+	Navigation      WorkflowNavigationSnapshot
+	InboundRequests []InboundRequestReview
+	Proposals       []ProcessedProposalReview
+	RequestLimit    int
+	ProposalLimit   int
+}
+
+type AgentChatSnapshot struct {
+	RecentRequests  []InboundRequestReview
+	RecentProposals []ProcessedProposalReview
+	RequestLimit    int
+	ProposalLimit   int
+}
+
 type DocumentReview struct {
 	DocumentID           string
 	TypeCode             string
@@ -809,6 +824,63 @@ func (s *Service) GetOperationsLandingSnapshot(ctx context.Context, actor identi
 	}, nil
 }
 
+func (s *Service) GetDashboardSnapshot(ctx context.Context, actor identityaccess.Actor, pendingApprovalLimit, requestLimit, proposalLimit int) (DashboardSnapshot, error) {
+	navigation, err := s.GetWorkflowNavigationSnapshot(ctx, actor, pendingApprovalLimit)
+	if err != nil {
+		return DashboardSnapshot{}, err
+	}
+
+	requests, err := s.ListInboundRequests(ctx, ListInboundRequestsInput{
+		Limit: requestLimit,
+		Actor: actor,
+	})
+	if err != nil {
+		return DashboardSnapshot{}, err
+	}
+
+	proposals, err := s.ListProcessedProposals(ctx, ListProcessedProposalsInput{
+		Limit: proposalLimit,
+		Actor: actor,
+	})
+	if err != nil {
+		return DashboardSnapshot{}, err
+	}
+
+	return DashboardSnapshot{
+		Navigation:      navigation,
+		InboundRequests: requests,
+		Proposals:       proposals,
+		RequestLimit:    requestLimit,
+		ProposalLimit:   proposalLimit,
+	}, nil
+}
+
+func (s *Service) GetAgentChatSnapshot(ctx context.Context, actor identityaccess.Actor, requestLimit, proposalLimit int) (AgentChatSnapshot, error) {
+	requests, err := s.ListInboundRequests(ctx, ListInboundRequestsInput{
+		Limit: requestLimit,
+		Actor: actor,
+	})
+	if err != nil {
+		return AgentChatSnapshot{}, err
+	}
+
+	chatRequests := filterInboundRequestsByChannel(requests, "agent_chat")
+	proposals, err := s.ListProcessedProposals(ctx, ListProcessedProposalsInput{
+		Limit: proposalLimit,
+		Actor: actor,
+	})
+	if err != nil {
+		return AgentChatSnapshot{}, err
+	}
+
+	return AgentChatSnapshot{
+		RecentRequests:  chatRequests,
+		RecentProposals: filterProcessedProposalsByRequestReference(proposals, inboundRequestReferences(chatRequests)),
+		RequestLimit:    requestLimit,
+		ProposalLimit:   proposalLimit,
+	}, nil
+}
+
 func (s *Service) GetInventoryLandingSnapshot(ctx context.Context, actor identityaccess.Actor, recentLimit int) (InventoryLandingSnapshot, error) {
 	stock, err := s.ListInventoryStock(ctx, ListInventoryStockInput{
 		Limit: recentLimit,
@@ -840,6 +912,46 @@ func (s *Service) GetInventoryLandingSnapshot(ctx context.Context, actor identit
 		Reconciliation: reconciliation,
 		RecentLimit:    recentLimit,
 	}, nil
+}
+
+func filterInboundRequestsByChannel(items []InboundRequestReview, channel string) []InboundRequestReview {
+	channel = strings.TrimSpace(channel)
+	if channel == "" {
+		return nil
+	}
+
+	filtered := make([]InboundRequestReview, 0, len(items))
+	for _, item := range items {
+		if strings.EqualFold(strings.TrimSpace(item.Channel), channel) {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
+}
+
+func inboundRequestReferences(items []InboundRequestReview) map[string]struct{} {
+	refs := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		ref := strings.TrimSpace(item.RequestReference)
+		if ref != "" {
+			refs[ref] = struct{}{}
+		}
+	}
+	return refs
+}
+
+func filterProcessedProposalsByRequestReference(items []ProcessedProposalReview, requestRefs map[string]struct{}) []ProcessedProposalReview {
+	if len(requestRefs) == 0 {
+		return nil
+	}
+
+	filtered := make([]ProcessedProposalReview, 0, len(items))
+	for _, item := range items {
+		if _, ok := requestRefs[strings.TrimSpace(item.RequestReference)]; ok {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
 }
 
 func (s *Service) ListDocuments(ctx context.Context, input ListDocumentsInput) ([]DocumentReview, error) {

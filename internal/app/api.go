@@ -133,6 +133,8 @@ type operatorReviewReader interface {
 	GetWorkflowNavigationSnapshot(ctx context.Context, actor identityaccess.Actor, pendingApprovalLimit int) (reporting.WorkflowNavigationSnapshot, error)
 	GetOperationsFeedSnapshot(ctx context.Context, actor identityaccess.Actor, recentLimit int) (reporting.OperationsFeedSnapshot, error)
 	GetOperationsLandingSnapshot(ctx context.Context, actor identityaccess.Actor, pendingApprovalLimit, recentLimit int) (reporting.OperationsLandingSnapshot, error)
+	GetDashboardSnapshot(ctx context.Context, actor identityaccess.Actor, pendingApprovalLimit, requestLimit, proposalLimit int) (reporting.DashboardSnapshot, error)
+	GetAgentChatSnapshot(ctx context.Context, actor identityaccess.Actor, requestLimit, proposalLimit int) (reporting.AgentChatSnapshot, error)
 	GetInventoryLandingSnapshot(ctx context.Context, actor identityaccess.Actor, recentLimit int) (reporting.InventoryLandingSnapshot, error)
 }
 

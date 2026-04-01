@@ -290,7 +290,8 @@ Current implementation checkpoint:
 5. after switching `TEST_DATABASE_URL` to a fresh local PostgreSQL database, applying migrations to that fresh test DB, and tightening the harness so the disposable advisory lock is held only during setup work, the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` verification also passed cleanly
 6. Slice 3 is now implemented in code: the shell utility path exposes `/app/routes`, `/app/settings`, and access-scoped `/app/admin`, the route catalog provides searchable destination-only discovery on the shared browser seam, and `/app` now uses role-aware workload shortcuts instead of a permanently generic dashboard while keeping preference persistence deferred
 7. focused `go test ./internal/app -run '^TestHandleWeb' -count=1`, `go build ./cmd/... ./internal/...`, the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...`, and `gopls` diagnostics all passed after the Slice 3 implementation
-8. the separate Milestone 10 browser-review closeout still remains required before the broader browser-validation track can be treated as complete
+8. the later bounded `internal/app` transport-boundary cleanup review is now also complete for the remaining role-aware home and agent-chat continuity paths: dashboard recent-request or proposal composition now comes from shared `reporting.DashboardSnapshot`, and agent-chat continuity now comes from shared `reporting.AgentChatSnapshot` instead of route-local multi-read orchestration
+9. the separate Milestone 10 browser-review closeout still remains required before the broader browser-validation track can be treated as complete
 
 ## 9. Open design rules
 

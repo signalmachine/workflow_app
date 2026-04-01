@@ -437,44 +437,6 @@ func normalizeWebInboundChannel(raw string) string {
 	}
 }
 
-func filterInboundRequestsByChannel(items []reporting.InboundRequestReview, channel string) []reporting.InboundRequestReview {
-	channel = strings.TrimSpace(channel)
-	if channel == "" {
-		return nil
-	}
-	filtered := make([]reporting.InboundRequestReview, 0, len(items))
-	for _, item := range items {
-		if strings.EqualFold(strings.TrimSpace(item.Channel), channel) {
-			filtered = append(filtered, item)
-		}
-	}
-	return filtered
-}
-
-func inboundRequestReferences(items []reporting.InboundRequestReview) map[string]struct{} {
-	refs := make(map[string]struct{}, len(items))
-	for _, item := range items {
-		ref := strings.TrimSpace(item.RequestReference)
-		if ref != "" {
-			refs[ref] = struct{}{}
-		}
-	}
-	return refs
-}
-
-func filterProcessedProposalsByRequestReference(items []reporting.ProcessedProposalReview, requestRefs map[string]struct{}) []reporting.ProcessedProposalReview {
-	if len(requestRefs) == 0 {
-		return nil
-	}
-	filtered := make([]reporting.ProcessedProposalReview, 0, len(items))
-	for _, item := range items {
-		if _, ok := requestRefs[strings.TrimSpace(item.RequestReference)]; ok {
-			filtered = append(filtered, item)
-		}
-	}
-	return filtered
-}
-
 func buildOperationsFeedFromRequests(items []reporting.InboundRequestReview) []webOperationsFeedItem {
 	feed := make([]webOperationsFeedItem, 0, len(items))
 	for _, item := range items {

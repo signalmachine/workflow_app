@@ -97,25 +97,12 @@ func (h *AgentAPIHandler) handleWebAgentChat(w http.ResponseWriter, r *http.Requ
 		RequestStatus:    strings.TrimSpace(r.URL.Query().Get("request_status")),
 	}
 
-	requests, err := h.reviewService.ListInboundRequests(r.Context(), reporting.ListInboundRequestsInput{
-		Limit: 40,
-		Actor: sessionContext.Actor,
-	})
+	snapshot, err := h.reviewService.GetAgentChatSnapshot(r.Context(), sessionContext.Actor, 40, 40)
 	if err != nil {
 		data.Error = "failed to load recent coordinator conversations"
 	} else {
-		data.RecentRequests = filterInboundRequestsByChannel(requests, inboundRequestChannelAgentChat)
-	}
-
-	if proposals, proposalErr := h.reviewService.ListProcessedProposals(r.Context(), reporting.ListProcessedProposalsInput{
-		Limit: 40,
-		Actor: sessionContext.Actor,
-	}); proposalErr != nil {
-		if data.Error == "" {
-			data.Error = "failed to load recent coordinator conversations"
-		}
-	} else {
-		data.RecentProposals = filterProcessedProposalsByRequestReference(proposals, inboundRequestReferences(data.RecentRequests))
+		data.RecentRequests = snapshot.RecentRequests
+		data.RecentProposals = snapshot.RecentProposals
 	}
 
 	h.renderWebPage(w, webPageData{
@@ -163,26 +150,16 @@ func (h *AgentAPIHandler) handleWebAppDashboard(w http.ResponseWriter, r *http.R
 	}
 	data.RoleHeadline, data.RoleBody = roleAwareHomeIntro(sessionContext)
 	if h.reviewService != nil {
-		snapshot, snapshotErr := h.reviewService.GetWorkflowNavigationSnapshot(r.Context(), actor, 10)
+		snapshot, snapshotErr := h.reviewService.GetDashboardSnapshot(r.Context(), actor, 10, 20, 10)
 		if snapshotErr != nil {
-			data.Error = "failed to load workflow navigation summary"
+			data.Error = "failed to load dashboard"
 		} else {
-			data.InboundSummary = snapshot.InboundSummary
+			data.InboundSummary = snapshot.Navigation.InboundSummary
 			sortInboundRequestStatusSummaries(data.InboundSummary)
-			data.ProposalSummary = snapshot.ProposalSummary
-			data.Approvals = snapshot.PendingApprovals
-		}
-		if data.InboundRequests, err = h.reviewService.ListInboundRequests(r.Context(), reporting.ListInboundRequestsInput{
-			Limit: 20,
-			Actor: actor,
-		}); err != nil {
-			data.Error = "failed to load inbound requests"
-		}
-		if data.Proposals, err = h.reviewService.ListProcessedProposals(r.Context(), reporting.ListProcessedProposalsInput{
-			Limit: 10,
-			Actor: actor,
-		}); err != nil {
-			data.Error = "failed to load processed proposals"
+			data.ProposalSummary = snapshot.Navigation.ProposalSummary
+			data.Approvals = snapshot.Navigation.PendingApprovals
+			data.InboundRequests = snapshot.InboundRequests
+			data.Proposals = snapshot.Proposals
 		}
 		data.PrimaryActions, data.SecondaryActions = buildHomeActions(sessionContext, data.InboundSummary, data.ProposalSummary, data.Approvals)
 	}
