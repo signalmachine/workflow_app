@@ -77,8 +77,9 @@ For the active v2 planning surface, read these in order:
 10. `milestone_10_slice_3_detail_and_closeout_plan.md`
 11. `milestone_11_operator_shell_and_navigation_plan.md`
 12. `web_ui_erp_style_density_correction_plan.md`
-13. `new_app_tracker.md`
-14. `../docs/workflows/README.md` for the durable workflow-reference and validation-track layer after the active planning read
+13. `milestone_12_admin_maintenance_and_master_data_plan.md`
+14. `new_app_tracker.md`
+15. `../docs/workflows/README.md` for the durable workflow-reference and validation-track layer after the active planning read
 
 Reference-only rule:
 

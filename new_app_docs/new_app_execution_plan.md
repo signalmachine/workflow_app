@@ -1,7 +1,7 @@
 # workflow_app Execution Plan
 
-Date: 2026-03-27
-Status: Draft canonical execution plan
+Date: 2026-04-01
+Status: Canonical execution plan updated through the current Milestone 11 implementation state
 Purpose: define the execution path from the completed thin-v1 foundation through the active v2 implementation phase for the `workflow_app` codebase.
 
 ## 1. Milestone 0: New repo bootstrap
@@ -445,13 +445,14 @@ Exit criteria:
 
 Current planning checkpoint:
 
-1. thin-v1 is complete, and this milestone is now the first active v2 implementation milestone
+1. thin-v1 is complete, and this milestone is now implemented in code through the modular embedded web bundle
 2. the narrower density-cleanup posture from `thin_v1_archive/web_ui_streamlining_plan.md` is now superseded by the explicit full rebuild plan in `milestone_10_web_rebuild_plan.md`
-3. implementation should begin only after this milestone is accepted as the next promoted slice
-4. implementation should proceed through the three large pre-written slice plans captured in:
-5. `milestone_10_slice_1_architecture_and_operator_entry_plan.md`
-6. `milestone_10_slice_2_review_workbench_plan.md`
-7. `milestone_10_slice_3_detail_and_closeout_plan.md`
+3. implementation proceeded through the three large pre-written slice plans captured in:
+4. `milestone_10_slice_1_architecture_and_operator_entry_plan.md`
+5. `milestone_10_slice_2_review_workbench_plan.md`
+6. `milestone_10_slice_3_detail_and_closeout_plan.md`
+7. the grouped closeout corrective slice in `milestone_10_closeout_render_baseline_correction_plan.md` is also implemented, so the retired monolithic template no longer remains an active fallback path
+8. the remaining Milestone 10 work is no longer rebuild implementation; it is the separate browser-review and workflow-continuity closeout sweep tracked under `docs/workflows/`
 
 ## 15. Milestone 11: Operator shell, route taxonomy, and personalized home
 
@@ -488,15 +489,44 @@ Current planning checkpoint:
 1. this milestone is now active, with the bounded Slice 1 shell change promoted into implementation while Milestone 10 browser-review closeout remains on the separate workflow-validation track
 2. it exists to refine information architecture and operator starting surfaces, not to replace the Milestone 10 modular rebuild
 3. the canonical plan for this milestone is `milestone_11_operator_shell_and_navigation_plan.md`
-4. Slice 1 is now implemented in code on the modular embedded bundle through a lighter top-bar shell, wrapped bubble navigation, the first utility-menu placement for future `Settings` plus access-scoped `Admin`, and a shell direction that now needs one further bounded density-correction pass before the browser posture should be treated as settled
+4. Slice 1 is now implemented in code on the modular embedded bundle through a lighter top-bar shell, wrapped bubble navigation, and secondary utility-menu placement for `Settings` plus access-scoped `Admin`
 5. Slice 2 is now also implemented in code through bundle landing pages at `/app/operations`, `/app/review`, and `/app/inventory`, plus a calmer grouped top shell that keeps only the primary route families and direct upstream queue views in global chrome
 6. after migrating a fresh local `TEST_DATABASE_URL` database and tightening the DB-backed harness so the disposable advisory lock is held only during migration or reset setup, the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` verification also passed cleanly
 7. Slice 3 is now implemented in code through a searchable route catalog at `/app/routes`, explicit utility surfaces at `/app/settings` plus access-scoped `/app/admin`, and a role-aware `/app` home that recommends first workflow routes from current workload instead of behaving as a permanently generic dashboard
 8. focused `go test ./internal/app -run '^TestHandleWeb' -count=1`, `go build ./cmd/... ./internal/...`, `gopls` diagnostics, and the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` verification all passed after the Slice 3 implementation
-9. one further bounded corrective slice is now planned in `web_ui_erp_style_density_correction_plan.md` so the promoted browser layer can move from the current card-heavy green presentation toward a thinner blue-gray ERP-style shell with route-directory landings and single-column workflow pages
-10. active v2 implementation should continue taking bounded refactoring opportunities where they materially improve modularity, streamline ownership boundaries, or reduce maintenance risk without drifting into unrelated rewrite work
+9. the bounded follow-up in `web_ui_erp_style_density_correction_plan.md` is now also implemented in code, so the promoted browser layer now uses thinner blue-gray shell chrome, simpler login, route-directory landing pages, and single-column workflow-page defaults instead of the earlier card-heavy posture
+10. active v2 implementation should now treat browser work as validation-led: complete the separate Milestone 10 closeout sweep first, and only promote one new bounded fix plan if that evidence exposes a real defect or support seam
+11. active v2 implementation should continue taking bounded refactoring opportunities where they materially improve modularity, streamline ownership boundaries, or reduce maintenance risk without drifting into unrelated rewrite work
 
-## 16. Execution warning
+## 16. Milestone 12: Admin maintenance and foundational master-data surfaces
+
+Goal:
+
+1. turn the placeholder utility posture around `Admin` into a real privileged maintenance surface for foundational setup and controlled exception handling on the shared backend
+
+Scope:
+
+1. explicit admin-maintenance landing page posture
+2. bounded browser and API maintenance seams for ledger accounts, tax codes, accounting periods, and customer or party setup
+3. clear separation between user-scoped `Settings` and privileged `Admin`
+4. admin-only authorization and audit-visible privileged writes on the shared backend
+
+Exit criteria:
+
+1. `/app/admin` is a real privileged maintenance hub rather than a review-link placeholder
+2. `/app/settings` remains user-scoped and does not silently absorb org-scoped maintenance ownership
+3. admins can manually create and browse at least ledger accounts and customer-party records through the promoted browser seam
+4. the same foundational maintenance capabilities are exposed through shared API contracts where appropriate
+5. the new maintenance breadth remains bounded and does not reopen CRM-first drift or broad manual-entry ERP scope
+
+Current planning checkpoint:
+
+1. the current codebase already has admin-gated domain services for ledger-account creation, tax-code creation, accounting-period control, and party creation or listing, but those seams are not yet exposed through real admin-maintenance pages in `internal/app`
+2. the current `Settings` and `Admin` pages are still mostly posture rather than real maintenance capability
+3. the canonical plan for this milestone is `milestone_12_admin_maintenance_and_master_data_plan.md`
+4. this milestone should begin only after the separate Milestone 10 browser-review closeout sweep is completed cleanly or after that sweep promotes no higher-priority corrective slice
+
+## 17. Execution warning
 
 Do not add CRM breadth, advanced projects, portal work, payroll, broad UI work, or advanced agent-autonomy features during milestones 0 through 5.
 
@@ -509,7 +539,7 @@ Do not treat Milestone 8 as permission to build the mobile product itself, fork 
 
 Do not treat v2 as permission to abandon the completed foundation discipline, duplicate truth ownership, or reintroduce CRM-first product gravity under a broader roadmap label.
 
-## 17. Quality and sophistication rule
+## 18. Quality and sophistication rule
 
 `workflow_app` is allowed to be thin in breadth, but it is not allowed to be weak in foundation design.
 

@@ -164,6 +164,7 @@ Preferred shape:
 1. `Settings` is a user-scoped surface for profile, session, notification, and home-page preferences that are safe for the current actor to control
 2. `Admin` is a privileged surface for org-scoped or system-scoped configuration, access management, policy configuration, and operational controls
 3. both surfaces should vary by access level, but the pages themselves should remain standardized rather than per-user redesigned
+4. foundational org-scoped maintenance such as ledger-account, tax-code, accounting-period, customer, and party setup should be planned under `Admin` rather than repurposing `Settings`
 
 Rule:
 

@@ -121,8 +121,8 @@ Purpose: record the active defaults that implementation should preserve unless t
 19. `/app` should evolve toward a personalized workflow-centered operator home with role-aware or user-aware shortcuts rather than remaining a permanently generic dashboard
 20. user-specific page customization should stay primarily confined to the home surface; other pages should remain standardized and vary by access, role, and workflow state rather than by per-user layout divergence
 21. later user-level preferences for hiding selected top-bar bubble destinations are acceptable, but they should remain additive presentation preferences rather than the primary route-discovery mechanism
-22. `Settings` should be treated as a secondary user utility surface rather than a primary workflow destination
-21. `Admin` should be treated as a privileged secondary surface exposed only to the relevant actors rather than as part of the default primary navigation
+22. `Settings` should be treated as a secondary user utility surface rather than a primary workflow destination, and it should remain user-scoped rather than becoming the default home for org-scoped maintenance
+21. `Admin` should be treated as a privileged secondary surface exposed only to the relevant actors rather than as part of the default primary navigation, and foundational org-scoped maintenance such as ledger-account, tax-code, accounting-period, customer, or party setup should prefer `Admin` over `Settings`
 22. the promoted browser shell should prefer restrained light blue-gray tones rather than the current green-heavy palette, stark white, or dark heavy full-page backgrounds
 23. text should default to black or near-black unless contrast requirements clearly justify another color
 24. stronger colors should be used mainly for active states, emphasis, and status meaning rather than as dominant full-page backgrounds
