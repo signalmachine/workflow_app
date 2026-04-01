@@ -40,7 +40,7 @@ Anything under [`examples/`](./examples) is reference-only, read-only material f
 
 The durable workflow-reference layer for supported operator paths, reusable end-to-end validation checklists, live workflow-review evidence, and later user-guide preparation lives in [`docs/workflows/`](./docs/workflows).
 
-Testing guidance for collaborating with Codex on Go tests lives in [`docs/testing/README.md`](./docs/testing/README.md).
+Testing and verification guidance lives in [`docs/technical_guides/07_testing_and_verification.md`](./docs/technical_guides/07_testing_and_verification.md).
 
 ## Current commands
 

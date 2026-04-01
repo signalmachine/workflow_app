@@ -26,6 +26,8 @@ Use these defaults:
 3. cross-module workflow changes: integration tests plus focused flow verification
 4. browser or operator-flow changes: HTTP integration tests and, when needed, live browser review
 
+This repository is not primarily a pure-library codebase. It is a persistence-heavy business system. That means testing should not over-focus on isolated units while under-testing the service and database paths that actually own correctness.
+
 ## 3. Canonical verification commands
 
 For code and persistence changes, the standard commands are:
@@ -48,6 +50,20 @@ These are not interchangeable. The build verifies compilation, the test command 
 1. `TEST_DATABASE_URL` or `DATABASE_URL`
 2. `OPENAI_API_KEY`
 3. `OPENAI_MODEL`
+
+For focused reruns, use repository-shaped commands rather than ad hoc shortcuts:
+
+```bash
+set -a; source .env; set +a; GOCACHE=/tmp/go-build go test ./path/to/package -count=1
+go test -race ./path/to/package
+go test -shuffle=on ./path/to/package
+go test -count=1 ./path/to/package
+git diff --check
+```
+
+Use the `.env`-loaded form for DB-backed packages. Do not treat a bare `go test ./path/to/package` as the normal path for DB-backed verification in this repository.
+
+Performance, benchmark, fuzz, or full-repo `-race` runs are opt-in only. Use them when the active change or a concrete defect justifies the extra cost; they are not current repository-wide default checks.
 
 ## 4. Why `-p 1` matters
 
@@ -93,6 +109,16 @@ Examples:
 
 For those cases, use the workflow-reference docs in `docs/workflows/` and validate the real seam instead of assuming the service layer is enough.
 
+For each workflow, assert boundary by boundary:
+
+1. request persistence and lifecycle transitions
+2. AI run, step, artifact, recommendation, and delegation persistence where expected
+3. approval creation and decision behavior where expected
+4. downstream review visibility through `/api/review/...` and `/app/...`
+5. exact continuity across linked review pages and upstream provenance
+
+Do not treat broad exploratory manual testing without a checklist as the default approach.
+
 ## 8. Failure discipline
 
 If a verification command fails:
@@ -102,6 +128,16 @@ If a verification command fails:
 3. rerun the relevant verification
 
 Do not treat a failed verification run as merely informational.
+
+If a failure is caused by using a non-standard command path, rerun verification with the documented repository command before treating it as a product defect.
+
+If a DB-backed verification command fails because the sandbox cannot reach the configured test database, rerun the documented `.env`-loaded repository command with the required approval path before treating the failure as a product defect.
+
+If DB-backed verification appears hung, check for stale or overlapping sessions holding the disposable advisory lock before treating the symptom as a product defect. If that materially affects validation, document the blocker and cleanup in the canonical planning docs.
+
+If migrations or persistence behavior change, verify against the configured development and test databases unless an explicit blocker is documented.
+
+While the application remains pre-production, it is acceptable to drop and recreate the configured test database to recover from schema drift, failed migration experiments, or other disposable development-state issues. This reset rule applies only to the configured test database, not to the application or development database.
 
 ## 9. What to keep in mind during review
 
@@ -114,3 +150,31 @@ The hardest-to-see failures in this repository are usually:
 5. workflow regressions hidden behind a still-compiling build
 
 That is why integration tests and live seam checks matter here.
+
+## 10. Collaborating on testing work
+
+Codex is strongest when the testing target is a real business invariant rather than just line coverage.
+
+The most useful user inputs are:
+
+1. the business rule that must hold
+2. the failure or regression you are worried about
+3. important edge cases you already know
+4. whether enforcement belongs in the database, service layer, workflow layer, or UI or API contract
+5. whether the case is normal-path, error-path, authorization-path, concurrency-path, or migration-path
+
+Useful requests include:
+
+1. add regression coverage for this bug
+2. write integration tests for this new service behavior
+3. review these tests for gaps and flakiness
+4. add authorization coverage for this endpoint or service
+5. verify whether the DB constraints and tests match the business rule
+
+The strongest collaboration pattern is:
+
+1. the user explains the business rule or risk
+2. Codex identifies the correct test boundary
+3. Codex writes or updates the tests
+4. Codex runs the appropriate verification
+5. the user reviews whether the business meaning is captured correctly
