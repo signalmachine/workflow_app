@@ -470,9 +470,14 @@ textarea { min-height: 180px; resize: vertical; }
 .feed-list,
 .card-stack,
 .detail-grid,
-.review-link-list {
+.review-link-list,
+.catalog-grid {
   display: grid;
   gap: 16px;
+}
+
+.catalog-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
 .page-actions,

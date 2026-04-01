@@ -1605,6 +1605,11 @@ func TestHandleWebAppDashboardRendersRefreshedEnterpriseShell(t *testing.T) {
 					},
 				}, nil
 			},
+			listProcessedProposalStatusSummary: func(context.Context, identityaccess.Actor) ([]reporting.ProcessedProposalStatusSummary, error) {
+				return []reporting.ProcessedProposalStatusSummary{
+					{RecommendationStatus: "approval_requested", ProposalCount: 1},
+				}, nil
+			},
 		},
 		nil,
 		stubBrowserSessionService{
@@ -1637,6 +1642,12 @@ func TestHandleWebAppDashboardRendersRefreshedEnterpriseShell(t *testing.T) {
 	if !strings.Contains(body, `Session menu`) {
 		t.Fatalf("expected session utility menu, body=%s", body)
 	}
+	if !strings.Contains(body, `Search routes`) {
+		t.Fatalf("expected route-catalog search from shell utility menu, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/settings" class="nav-link">Settings</a>`) {
+		t.Fatalf("expected settings utility link, body=%s", body)
+	}
 	if !strings.Contains(body, `Primary workflow families now bundle under calmer landing pages while settings and admin remain secondary utility surfaces.`) {
 		t.Fatalf("expected session posture copy, body=%s", body)
 	}
@@ -1652,17 +1663,137 @@ func TestHandleWebAppDashboardRendersRefreshedEnterpriseShell(t *testing.T) {
 	if !strings.Contains(body, `/app/inventory" class="nav-link">Inventory</a>`) {
 		t.Fatalf("expected inventory landing in shell navigation, body=%s", body)
 	}
-	if !strings.Contains(body, `/app/operations" class="pill-link">Open operations landing</a>`) {
-		t.Fatalf("expected dashboard link to operations landing, body=%s", body)
+	if !strings.Contains(body, `Operator home`) {
+		t.Fatalf("expected role-aware home headline, body=%s", body)
 	}
-	if !strings.Contains(body, `/app/review" class="pill-link">Open review landing</a>`) {
-		t.Fatalf("expected dashboard link to review landing, body=%s", body)
+	if !strings.Contains(body, `/app/submit-inbound-request" class="pill-link">Start a new request</a>`) {
+		t.Fatalf("expected role-aware intake action, body=%s", body)
 	}
-	if !strings.Contains(body, `/app/submit-inbound-request" class="pill-link">Open submission page</a>`) {
-		t.Fatalf("expected dashboard link to dedicated submission page, body=%s", body)
+	if !strings.Contains(body, `/app/routes" class="pill-link secondary">Open route</a>`) {
+		t.Fatalf("expected secondary route-catalog action, body=%s", body)
 	}
 	if strings.Contains(body, `action="/app/inbound-requests" enctype="multipart/form-data"`) {
 		t.Fatalf("expected dashboard to stop embedding the inbound request form, body=%s", body)
+	}
+}
+
+func TestHandleWebRouteCatalogFiltersRoutesByQueryAndRole(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		nil,
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/routes?q=approval", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, `Matches for "approval"`) {
+		t.Fatalf("expected query-specific heading, body=%s", body)
+	}
+	if !strings.Contains(body, `Approval review`) {
+		t.Fatalf("expected approval review route in search results, body=%s", body)
+	}
+	if strings.Contains(body, `/app/admin" class="pill-link">Open route</a>`) || strings.Contains(body, `<h2>Admin</h2>`) {
+		t.Fatalf("expected non-admin route catalog to hide admin route, body=%s", body)
+	}
+}
+
+func TestHandleWebSettingsShowsRoleAwareHomeActions(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listInboundRequestStatusSummary: func(context.Context, identityaccess.Actor) ([]reporting.InboundRequestStatusSummary, error) {
+				return []reporting.InboundRequestStatusSummary{
+					{Status: "pending", RequestCount: 0},
+					{Status: "queued", RequestCount: 3},
+				}, nil
+			},
+			listProcessedProposalStatusSummary: func(context.Context, identityaccess.Actor) ([]reporting.ProcessedProposalStatusSummary, error) {
+				return []reporting.ProcessedProposalStatusSummary{
+					{RecommendationStatus: "approval_requested", ProposalCount: 2},
+				}, nil
+			},
+			listApprovalQueue: func(context.Context, reporting.ListApprovalQueueInput) ([]reporting.ApprovalQueueEntry, error) {
+				return []reporting.ApprovalQueueEntry{
+					{ApprovalID: "approval-1"},
+					{ApprovalID: "approval-2"},
+				}, nil
+			},
+		},
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				ctx := testSessionContext()
+				ctx.RoleCode = identityaccess.RoleApprover
+				return ctx, nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/settings", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, `User utility surface`) {
+		t.Fatalf("expected settings heading, body=%s", body)
+	}
+	if !strings.Contains(body, `Review pending approvals (2)`) {
+		t.Fatalf("expected role-aware approval shortcut, body=%s", body)
+	}
+	if !strings.Contains(body, `/app/review/proposals?status=approval_requested`) {
+		t.Fatalf("expected approval-ready proposal shortcut, body=%s", body)
+	}
+}
+
+func TestHandleWebAdminRequiresAdminRole(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		nil,
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/admin", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("expected redirect, got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if location := recorder.Header().Get("Location"); !strings.Contains(location, "admin+surface+requires+admin+role") {
+		t.Fatalf("expected admin-role redirect, got %s", location)
 	}
 }
 

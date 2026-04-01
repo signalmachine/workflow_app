@@ -1,7 +1,7 @@
 # workflow_app Milestone 11 Operator Shell and Navigation Plan
 
 Date: 2026-04-01
-Status: Active v2 milestone with Slice 1 through Slice 2 implemented in code and Slice 3 still pending
+Status: Active v2 milestone with Slice 1 through Slice 3 implemented in code while Milestone 10 browser-review closeout remains pending on the separate workflow-validation track
 Purpose: define the next browser-application planning layer after the Milestone 10 rebuild so the promoted web UI can move from a structurally sound modular shell to a calmer SAP-style operator shell with stronger navigation scaling, landing-page bundling, and user-specific starting surfaces.
 
 ## 1. Why this milestone exists
@@ -288,7 +288,9 @@ Current implementation checkpoint:
 3. Slice 2 is now also implemented in code: `/app/operations`, `/app/review`, and `/app/inventory` act as bundle landing pages, the top shell now groups route families under those landings, and the narrower direct queue band now keeps only the most frequent upstream review queues globally exposed
 4. focused `go test ./internal/app -run '^TestHandleWeb' -count=1`, `go build ./cmd/... ./internal/...`, and `gopls` diagnostics passed after the landing-page slice
 5. after switching `TEST_DATABASE_URL` to a fresh local PostgreSQL database, applying migrations to that fresh test DB, and tightening the harness so the disposable advisory lock is held only during setup work, the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` verification also passed cleanly
-6. Slice 3 route-catalog plus personalized-home work remains pending, and the separate Milestone 10 browser-review closeout still remains required before the broader browser-validation track can be treated as complete
+6. Slice 3 is now implemented in code: the shell utility path exposes `/app/routes`, `/app/settings`, and access-scoped `/app/admin`, the route catalog provides searchable destination-only discovery on the shared browser seam, and `/app` now uses role-aware workload shortcuts instead of a permanently generic dashboard while keeping preference persistence deferred
+7. focused `go test ./internal/app -run '^TestHandleWeb' -count=1`, `go build ./cmd/... ./internal/...`, the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...`, and `gopls` diagnostics all passed after the Slice 3 implementation
+8. the separate Milestone 10 browser-review closeout still remains required before the broader browser-validation track can be treated as complete
 
 ## 9. Open design rules
 

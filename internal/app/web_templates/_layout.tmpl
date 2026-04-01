@@ -56,8 +56,22 @@
           <summary>Session menu</summary>
           <div class="utility-menu-panel">
             <div class="meta">Settings will stay user-scoped here as the browser layer grows.</div>
+            <form method="get" action="/app/routes" class="compact-form">
+              <label>
+                Search routes
+                <input type="text" name="q" placeholder="Search review, approvals, inventory, audit...">
+              </label>
+              <div class="button-row">
+                <button type="submit" class="secondary">Open route catalog</button>
+                <a href="/app/settings" class="{{navClass .ActivePath "/app/settings"}}">Settings</a>
+                <a href="/app/routes" class="{{navClass .ActivePath "/app/routes"}}">Catalog</a>
+              </div>
+            </form>
             {{if eq .Session.RoleCode "admin"}}
             <div class="meta">Admin surfaces should enter through this utility path rather than the primary workflow bar.</div>
+            <div class="button-row">
+              <a href="/app/admin" class="{{navClass .ActivePath "/app/admin"}}">Admin</a>
+            </div>
             {{else}}
             <div class="meta">Admin surfaces stay out of the primary workflow bar unless the current actor has the required role.</div>
             {{end}}

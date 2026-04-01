@@ -2,23 +2,22 @@
 {{template "web_shell_start" .}}
 
 {{template "web_page_header" (dict
-  "eyebrow" "Dashboard"
-  "title" "Control surface"
-  "body" "Start from one operator story: create or continue requests, watch the queue, and then branch into the right landing page instead of a flat route list."
+  "eyebrow" "Home"
+  "title" .Dashboard.RoleHeadline
+  "body" .Dashboard.RoleBody
 )}}
 
 <section class="hero-card">
   <div class="hero-grid">
   <div class="card-stack">
-    <div class="eyebrow">Current posture</div>
-    <h2>Keep request intake and live operational state ahead of broad review browsing.</h2>
-    <p>The lighter shell now groups operations, review, and inventory under landing pages so the operator home can stay focused on the next useful step.</p>
+    <div class="eyebrow">Recommended next steps</div>
+    <h2>Keep the home surface focused on the next workflow action instead of turning it into a flat site map.</h2>
+    <p>The lighter shell now groups operations, review, and inventory under landing pages, while home uses live workload signals plus role posture to recommend the first route.</p>
     <div class="nav-links">
     <div class="button-row">
-      <a href="/app/submit-inbound-request" class="pill-link">Open submission page</a>
-      <a href="/app/operations" class="pill-link">Open operations landing</a>
-      <a href="/app/review" class="pill-link">Open review landing</a>
-      <a href="/app/inventory" class="pill-link secondary">Open inventory landing</a>
+      {{range .Dashboard.PrimaryActions}}
+      <a href="{{.Href}}" class="pill-link">{{.Title}}{{if .Badge}} ({{.Badge}}){{end}}</a>
+      {{end}}
     </div>
     </div>
     <form method="post" action="/app/agent/process-next-queued-inbound-request">
@@ -27,12 +26,27 @@
   </div>
 
   <div class="detail-grid">
-    {{template "web_detail_block" (dict "label" "Primary route" "value" "Dedicated intake" "body" "New requests now have their own entry page instead of competing with the dashboard." )}}
-    {{template "web_detail_block" (dict "label" "Operational scan" "value" "Operations landing" "body" "Use the landing page to branch into feed monitoring, agent chat, and queue-moving actions." )}}
-    {{template "web_detail_block" (dict "label" "Review taxonomy" "value" "Review landing" "body" "Keep upstream approvals and downstream review families grouped before opening exact workbenches." )}}
+    {{template "web_detail_block" (dict "label" "Primary route" "value" "Role-aware shortcuts" "body" "Home now recommends first routes from current workload and role instead of acting as a generic shared dashboard." )}}
+    {{template "web_detail_block" (dict "label" "Search posture" "value" "Route catalog" "body" "When the grouped shell still leaves ambiguity, search by workflow term, domain term, or operator intent." )}}
+    {{template "web_detail_block" (dict "label" "Utility surfaces" "value" "Settings and admin" "body" "User-scoped settings and privileged admin links now stay in the utility path rather than the primary workflow bar." )}}
   </div>
   </div>
 </section>
+
+{{if .Dashboard.SecondaryActions}}
+<section class="three-up">
+  {{range .Dashboard.SecondaryActions}}
+  <article class="result-card">
+    <div class="eyebrow">Quick path</div>
+    <h2>{{.Title}}{{if .Badge}} ({{.Badge}}){{end}}</h2>
+    <p>{{.Summary}}</p>
+    <div class="button-row">
+      <a href="{{.Href}}" class="pill-link secondary">Open route</a>
+    </div>
+  </article>
+  {{end}}
+</section>
+{{end}}
 
 <section class="status-grid">
   {{if .Dashboard.InboundSummary}}

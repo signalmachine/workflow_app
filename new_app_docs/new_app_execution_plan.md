@@ -489,8 +489,9 @@ Current planning checkpoint:
 4. Slice 1 is now implemented in code on the modular embedded bundle through a lighter top-bar shell, wrapped bubble navigation, a soft-light palette, and utility-menu placement for future `Settings` plus access-scoped `Admin`
 5. Slice 2 is now also implemented in code through bundle landing pages at `/app/operations`, `/app/review`, and `/app/inventory`, plus a calmer grouped top shell that keeps only the primary route families and direct upstream queue views in global chrome
 6. after migrating a fresh local `TEST_DATABASE_URL` database and tightening the DB-backed harness so the disposable advisory lock is held only during migration or reset setup, the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` verification also passed cleanly
-7. Slice 3 route-catalog plus personalized-home work remains pending
-8. active v2 implementation should continue taking bounded refactoring opportunities where they materially improve modularity, streamline ownership boundaries, or reduce maintenance risk without drifting into unrelated rewrite work
+7. Slice 3 is now implemented in code through a searchable route catalog at `/app/routes`, explicit utility surfaces at `/app/settings` plus access-scoped `/app/admin`, and a role-aware `/app` home that recommends first workflow routes from current workload instead of behaving as a permanently generic dashboard
+8. focused `go test ./internal/app -run '^TestHandleWeb' -count=1`, `go build ./cmd/... ./internal/...`, `gopls` diagnostics, and the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` verification all passed after the Slice 3 implementation
+9. active v2 implementation should continue taking bounded refactoring opportunities where they materially improve modularity, streamline ownership boundaries, or reduce maintenance risk without drifting into unrelated rewrite work
 
 ## 16. Execution warning
 

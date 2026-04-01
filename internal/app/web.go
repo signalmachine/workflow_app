@@ -23,13 +23,18 @@ import (
 var webAppTemplate = template.Must(template.New("app").Funcs(webTemplateFuncs()).Parse(webAppHTML))
 
 type webAppDashboardData struct {
-	Session         identityaccess.SessionContext
-	Notice          string
-	Error           string
-	InboundSummary  []reporting.InboundRequestStatusSummary
-	InboundRequests []reporting.InboundRequestReview
-	Proposals       []reporting.ProcessedProposalReview
-	Approvals       []reporting.ApprovalQueueEntry
+	Session          identityaccess.SessionContext
+	Notice           string
+	Error            string
+	RoleHeadline     string
+	RoleBody         string
+	PrimaryActions   []webHomeAction
+	SecondaryActions []webHomeAction
+	InboundSummary   []reporting.InboundRequestStatusSummary
+	ProposalSummary  []reporting.ProcessedProposalStatusSummary
+	InboundRequests  []reporting.InboundRequestReview
+	Proposals        []reporting.ProcessedProposalReview
+	Approvals        []reporting.ApprovalQueueEntry
 }
 
 type webInboundDetailData struct {
@@ -303,6 +308,44 @@ type webAuditDetailData struct {
 	Event   reporting.AuditEvent
 }
 
+type webHomeAction struct {
+	Title   string
+	Summary string
+	Href    string
+	Badge   string
+}
+
+type webRouteCatalogEntry struct {
+	Title        string
+	Href         string
+	Category     string
+	Summary      string
+	Keywords     string
+	RequiresRole string
+}
+
+type webRouteCatalogData struct {
+	Session identityaccess.SessionContext
+	Notice  string
+	Error   string
+	Query   string
+	Results []webRouteCatalogEntry
+}
+
+type webSettingsData struct {
+	Session        identityaccess.SessionContext
+	Notice         string
+	Error          string
+	PrimaryActions []webHomeAction
+}
+
+type webAdminData struct {
+	Session      identityaccess.SessionContext
+	Notice       string
+	Error        string
+	AdminActions []webHomeAction
+}
+
 func (h *AgentAPIHandler) handleRoot(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
@@ -330,6 +373,9 @@ type webPageData struct {
 	LoginPath               string
 	Session                 *identityaccess.SessionContext
 	Dashboard               *webAppDashboardData
+	RouteCatalog            *webRouteCatalogData
+	Settings                *webSettingsData
+	Admin                   *webAdminData
 	OperationsLanding       *webOperationsLandingData
 	OperationsFeed          *webOperationsFeedData
 	AgentChat               *webAgentChatData

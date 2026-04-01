@@ -184,11 +184,15 @@ func (h *AgentAPIHandler) handleWebAppDashboard(w http.ResponseWriter, r *http.R
 		Notice:  strings.TrimSpace(r.URL.Query().Get("notice")),
 		Error:   strings.TrimSpace(r.URL.Query().Get("error")),
 	}
+	data.RoleHeadline, data.RoleBody = roleAwareHomeIntro(sessionContext)
 	if h.reviewService != nil {
 		if data.InboundSummary, err = h.reviewService.ListInboundRequestStatusSummary(r.Context(), actor); err != nil {
 			data.Error = "failed to load inbound request summary"
 		} else {
 			sortInboundRequestStatusSummaries(data.InboundSummary)
+		}
+		if data.ProposalSummary, err = h.reviewService.ListProcessedProposalStatusSummary(r.Context(), actor); err != nil {
+			data.Error = "failed to load proposal summary"
 		}
 		if data.InboundRequests, err = h.reviewService.ListInboundRequests(r.Context(), reporting.ListInboundRequestsInput{
 			Limit: 20,
@@ -209,6 +213,7 @@ func (h *AgentAPIHandler) handleWebAppDashboard(w http.ResponseWriter, r *http.R
 		}); err != nil {
 			data.Error = "failed to load approval queue"
 		}
+		data.PrimaryActions, data.SecondaryActions = buildHomeActions(sessionContext, data.InboundSummary, data.ProposalSummary, data.Approvals)
 	}
 
 	h.renderWebPage(w, webPageData{
