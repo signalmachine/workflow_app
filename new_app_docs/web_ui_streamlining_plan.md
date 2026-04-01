@@ -1,8 +1,8 @@
 # workflow_app Web UI Streamlining Plan
 
-Date: 2026-03-31
-Status: Draft canonical planning slice
-Purpose: capture the specific web-UI issues observed in the current promoted browser layer so they can be fixed later as one bounded usability pass without changing workflow behavior or backend ownership.
+Date: 2026-04-01
+Status: Superseded by `milestone_10_web_rebuild_plan.md`; retained as problem-statement context
+Purpose: capture the specific web-UI issues observed in the pre-rebuild promoted browser layer so they remain available as context for the later full rebuild milestone.
 
 ## 1. Why this plan exists
 
@@ -25,6 +25,12 @@ Current decision:
 2. plan one bounded streamlining pass that reduces noise, clarifies hierarchy, and improves scanability
 3. keep the work inside the existing Go server-rendered stack
 4. do not widen the UI work into a workflow redesign, backend contract rewrite, or separate frontend architecture
+
+Update on 2026-04-01:
+
+1. this narrower streamlining pass is no longer the preferred implementation path
+2. the canonical planning set now promotes a full web-layer rebuild through `milestone_10_web_rebuild_plan.md`
+3. this document remains useful as a summary of the specific density and hierarchy problems that the rebuild should solve
 
 The goal is not visual novelty.
 
@@ -216,7 +222,7 @@ That means:
 
 ## 10. Notes for future implementation
 
-When this slice is eventually implemented, prefer:
+If any part of this document is still used while implementing the later rebuild, prefer:
 
 1. one shared cleanup pass over many tiny page-specific edits
 2. removing visual weight before adding new component structure

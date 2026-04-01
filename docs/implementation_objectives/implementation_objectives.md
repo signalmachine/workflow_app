@@ -112,9 +112,10 @@ Current checkpoint result:
 1. the repository has completed Milestone 0 through Milestone 8 from the active canonical plan
 2. `go build ./...` and `set -a; source .env; set +a; go test -p 1 ./...` both completed cleanly during the 2026-03-27 closeout review
 3. the current codebase should therefore be treated as thin-v1 checkpoint complete at its planned foundation depth
-4. the next active implementation steps after checkpoint closeout are the bounded web visual-refresh slice and the bounded browser-surface restructuring slice rather than implicit broad feature expansion
+4. the bounded web visual-refresh, corrective follow-up, and browser-surface restructuring slices are now complete as historical thin-v1 browser work rather than the current next-step plan
 5. live provider readiness and canonical end-to-end workflow testing remain active, but they now continue on the separate `docs/workflows/` validation track rather than inside the implementation-plan stream
-6. this workflow-critical testing stance should remain a durable repository policy beyond thin v1 whenever the real question is operator workflow reliability on the shared application seam rather than isolated package correctness
+6. if the team promotes another major browser implementation slice before more workflow validation, the correct shape is now an explicit full web-layer rebuild milestone rather than incremental cleanup on the current monolithic browser structure
+7. this workflow-critical testing stance should remain a durable repository policy beyond thin v1 whenever the real question is operator workflow reliability on the shared application seam rather than isolated package correctness
 
 ## 5. Highest-priority v1 capabilities
 

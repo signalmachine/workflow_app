@@ -258,7 +258,6 @@ Planned implementation checkpoint:
 3. `internal/ai` now uses the official OpenAI Go SDK and the Responses API for the first real provider-backed path
 4. the first coordinator flow can now claim one queued inbound request, assemble request, attachment, and derived-text context, call the provider, persist the resulting coordinator run and step, write a provider brief artifact plus operator-review recommendation, and transition the request to `processed` or `failed`
 5. the provider-backed coordinator path now includes a hard-capped Responses tool loop, per-capability tool-policy enforcement, and the first reporting read tool for inbound-request status summaries, with tool-execution metadata persisted in the coordinator step, artifact, and recommendation payloads
-
 6. the coordinator can now optionally route one allowlisted specialist delegation through a durable child run and delegation record, with the final provider-backed artifact and recommendation persisting on that specialist run while the coordinator run remains the bounded parent
 6. provider configuration remains optional so the default local build and database-backed test flow does not require external credentials
 6. `.env.example` now documents the OpenAI variables needed for later live-provider slices
@@ -400,7 +399,36 @@ Planning note:
 1. this milestone exists because the post-checkpoint validation slice produced useful live signal but also identified bounded readiness gaps that are better addressed before further deep workflow testing
 2. this milestone should stay bounded to readiness hardening rather than broad product expansion
 
-## 13. Execution warning
+## 13. Milestone 10: Web rebuild
+
+Goal:
+
+1. rebuild the current browser layer on the same shared backend seam so the web surface becomes modular, scalable, and materially easier to evolve
+
+Scope:
+
+1. modular server-rendered template architecture
+2. shared shell and navigation rebuild
+3. dashboard and entry-surface rebuild
+4. review-page family rebuild
+5. detail-page family rebuild
+6. parity closeout and removal of the legacy monolithic template structure
+
+Exit criteria:
+
+1. the active browser surface no longer depends on one monolithic shared template
+2. the rebuilt shell distinguishes primary workflow actions from secondary review destinations
+3. rebuilt dashboard, review, detail, and communication surfaces follow one coherent page model
+4. the rebuilt web layer remains aligned with the shared backend truth, approval boundaries, and workflow continuity doctrine
+5. the repository can resume browser-led workflow validation on the rebuilt surface instead of continuing piecemeal UI cleanup on the old structure
+
+Current planning checkpoint:
+
+1. this milestone is now the preferred next browser-direction plan
+2. the narrower density-cleanup posture from `web_ui_streamlining_plan.md` is now superseded by the explicit full rebuild plan in `milestone_10_web_rebuild_plan.md`
+3. implementation should begin only after this milestone is accepted as the next promoted slice
+
+## 14. Execution warning
 
 Do not add CRM breadth, advanced projects, portal work, payroll, broad UI work, or advanced agent-autonomy features during milestones 0 through 5.
 
@@ -411,7 +439,7 @@ During Milestone 7, backend corrections and narrow shared-backend enhancements a
 
 Do not treat Milestone 8 as permission to build the mobile product itself, fork the backend into web-specific versus mobile-specific truth models, or let backend hardening erase the still-required Milestone 7 browser completion criteria.
 
-## 14. Quality and sophistication rule
+## 15. Quality and sophistication rule
 
 `workflow_app` is allowed to be thin in breadth, but it is not allowed to be weak in foundation design.
 
