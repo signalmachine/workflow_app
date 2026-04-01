@@ -264,6 +264,8 @@ func (h *AgentAPIHandler) handleWebInboundRequests(w http.ResponseWriter, r *htt
 	h.renderWebPage(w, webPageData{
 		Title:           "workflow_app",
 		ActivePath:      webInboundRequestsPath,
+		Notice:          data.Notice,
+		Error:           data.Error,
 		Session:         &sessionContext,
 		InboundRequests: &data,
 	})

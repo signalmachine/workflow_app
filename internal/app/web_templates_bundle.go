@@ -10,9 +10,9 @@ import (
 )
 
 //go:embed web_templates/*.tmpl
-var webSlice1TemplateFS embed.FS
+var webTemplateFS embed.FS
 
-var webSlice1Template = template.Must(template.New("slice1").Funcs(webTemplateFuncs()).ParseFS(webSlice1TemplateFS, "web_templates/*.tmpl"))
+var webTemplateBundle = template.Must(template.New("web").Funcs(webTemplateFuncs()).ParseFS(webTemplateFS, "web_templates/*.tmpl"))
 
 func webTemplateFuncs() template.FuncMap {
 	return template.FuncMap{
@@ -95,18 +95,34 @@ func templateRequestSummary(item any) string {
 	}
 }
 
-func slice1TemplateName(data webPageData) string {
+func webTemplateName(data webPageData) string {
 	switch {
 	case data.ShowLogin:
-		return "slice1_login"
+		return "web_login"
 	case data.Dashboard != nil:
-		return "slice1_dashboard"
+		return "web_dashboard"
 	case data.InboundSubmit != nil:
-		return "slice1_submit"
+		return "web_submit"
 	case data.OperationsFeed != nil:
-		return "slice1_operations_feed"
+		return "web_operations_feed"
 	case data.AgentChat != nil:
-		return "slice1_agent_chat"
+		return "web_agent_chat"
+	case data.InboundRequests != nil:
+		return "web_inbound_requests"
+	case data.Approvals != nil:
+		return "web_approvals"
+	case data.Proposals != nil:
+		return "web_proposals"
+	case data.Documents != nil:
+		return "web_documents"
+	case data.Accounting != nil:
+		return "web_accounting"
+	case data.Inventory != nil:
+		return "web_inventory"
+	case data.WorkOrders != nil:
+		return "web_work_orders"
+	case data.Audit != nil:
+		return "web_audit"
 	default:
 		return ""
 	}
@@ -116,8 +132,8 @@ func (h *AgentAPIHandler) renderWebPage(w http.ResponseWriter, data webPageData)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 
-	if templateName := slice1TemplateName(data); templateName != "" {
-		_ = webSlice1Template.ExecuteTemplate(w, templateName, data)
+	if templateName := webTemplateName(data); templateName != "" {
+		_ = webTemplateBundle.ExecuteTemplate(w, templateName, data)
 		return
 	}
 	_ = webAppTemplate.Execute(w, data)

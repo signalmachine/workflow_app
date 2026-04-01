@@ -1,7 +1,7 @@
-{{define "slice1_submit"}}
-{{template "slice1_shell_start" .}}
+{{define "web_submit"}}
+{{template "web_shell_start" .}}
 
-{{template "slice1_page_header" (dict
+{{template "web_page_header" (dict
   "eyebrow" "Dedicated intake"
   "title" "Submit one inbound request without diluting the dashboard."
   "body" "Use the dedicated intake page for browser-originated requests, keep continuity with exact REQ references, and preserve a clean path back into the dashboard or review."
@@ -48,5 +48,5 @@
   </form>
 </section>
 
-{{template "slice1_shell_end" .}}
+{{template "web_shell_end" .}}
 {{end}}

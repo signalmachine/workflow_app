@@ -1,7 +1,7 @@
-{{define "slice1_agent_chat"}}
-{{template "slice1_shell_start" .}}
+{{define "web_agent_chat"}}
+{{template "web_shell_start" .}}
 
-{{template "slice1_page_header" (dict
+{{template "web_page_header" (dict
   "eyebrow" "Agent chat"
   "title" "Coordinator chat"
   "body" "Guidance-oriented conversations use the same persisted inbound-request foundation, but stay distinct from ordinary browser submissions so operators can review them cleanly."
@@ -78,7 +78,7 @@
       </table>
     </div>
     {{else}}
-    {{template "slice1_empty_state" (dict "title" "No recent agent-chat requests yet." "body" "Once coordinator conversations land through the dedicated channel, they will stay isolated here from browser-originated intake." )}}
+    {{template "web_empty_state" (dict "title" "No recent agent-chat requests yet." "body" "Once coordinator conversations land through the dedicated channel, they will stay isolated here from browser-originated intake." )}}
     {{end}}
   </section>
 
@@ -111,10 +111,10 @@
       </table>
     </div>
     {{else}}
-    {{template "slice1_empty_state" (dict "title" "No recent proposals from agent-chat requests yet." "body" "Coordinator-generated proposal continuity will appear here once a queued chat request reaches a processed recommendation." )}}
+    {{template "web_empty_state" (dict "title" "No recent proposals from agent-chat requests yet." "body" "Coordinator-generated proposal continuity will appear here once a queued chat request reaches a processed recommendation." )}}
     {{end}}
   </section>
 </div>
 
-{{template "slice1_shell_end" .}}
+{{template "web_shell_end" .}}
 {{end}}

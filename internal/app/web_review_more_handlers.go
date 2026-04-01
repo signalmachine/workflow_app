@@ -50,6 +50,8 @@ func (h *AgentAPIHandler) handleWebApprovals(w http.ResponseWriter, r *http.Requ
 	h.renderWebPage(w, webPageData{
 		Title:      "workflow_app",
 		ActivePath: webApprovalsPath,
+		Notice:     data.Notice,
+		Error:      data.Error,
 		Session:    &sessionContext,
 		Approvals:  &data,
 	})
@@ -167,6 +169,8 @@ func (h *AgentAPIHandler) handleWebInventory(w http.ResponseWriter, r *http.Requ
 	h.renderWebPage(w, webPageData{
 		Title:      "workflow_app",
 		ActivePath: webInventoryPath,
+		Notice:     data.Notice,
+		Error:      data.Error,
 		Session:    &sessionContext,
 		Inventory:  &data,
 	})
@@ -398,6 +402,8 @@ func (h *AgentAPIHandler) handleWebWorkOrders(w http.ResponseWriter, r *http.Req
 	h.renderWebPage(w, webPageData{
 		Title:      "workflow_app",
 		ActivePath: webWorkOrdersPath,
+		Notice:     data.Notice,
+		Error:      data.Error,
 		Session:    &sessionContext,
 		WorkOrders: &data,
 	})
@@ -488,6 +494,8 @@ func (h *AgentAPIHandler) handleWebAudit(w http.ResponseWriter, r *http.Request)
 	h.renderWebPage(w, webPageData{
 		Title:      "workflow_app",
 		ActivePath: webAuditPath,
+		Notice:     data.Notice,
+		Error:      data.Error,
 		Session:    &sessionContext,
 		Audit:      &data,
 	})

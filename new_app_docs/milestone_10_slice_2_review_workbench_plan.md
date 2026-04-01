@@ -1,7 +1,7 @@
 # workflow_app Milestone 10 Slice 2 Plan
 
 Date: 2026-04-01
-Status: Proposed pre-implementation slice plan
+Status: Implemented in code with browser-review closeout still pending on the workflow-validation track
 Purpose: define the second large Milestone 10 implementation slice so the review list and summary pages are rebuilt together as one operator workbench family rather than as scattered per-page redesign tasks.
 
 ## 1. Slice role
@@ -69,6 +69,12 @@ Implement in this order:
 2. migrate inbound-request, approvals, and proposals review together
 3. migrate documents, accounting, inventory, work orders, and audit as the downstream review family
 4. remove or reduce legacy review-template duplication made obsolete by the migration
+
+Implementation naming rule:
+
+1. keep Slice 2 labels in planning docs, tracker rows, and review notes only
+2. do not create production code filenames or symbols that embed phase labels such as `slice2`, `milestone10`, or similar sequencing markers
+3. name code by the review workbench responsibility it owns, such as review templates, review filters, review summaries, review tables, or route families
 
 ## 7. Verification
 

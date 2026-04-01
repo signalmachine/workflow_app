@@ -1,14 +1,14 @@
-{{define "slice1_login"}}
-{{template "slice1_public_start" .}}
+{{define "web_login"}}
+{{template "web_public_start" .}}
 <div class="login-grid">
   <section class="hero-card">
     <div class="eyebrow">Browser session</div>
     <h2>Sign in to the rebuilt operator shell.</h2>
     <p>This sign-in surface only issues the browser-session path.</p>
     <div class="detail-grid">
-      {{template "slice1_detail_block" (dict "label" "Workflow stance" "value" "Persist first, review first" "body" "Requests land durably before AI processing or downstream approvals.")}}
-      {{template "slice1_detail_block" (dict "label" "Shared seam" "value" "/app plus /api" "body" "The browser shell stays on the same backend truth used by the API and later clients.")}}
-      {{template "slice1_detail_block" (dict "label" "Current slice" "value" "Milestone 10 Slice 1" "body" "Architecture, shell, and operator-entry surfaces are the active v2 implementation boundary.")}}
+      {{template "web_detail_block" (dict "label" "Workflow stance" "value" "Persist first, review first" "body" "Requests land durably before AI processing or downstream approvals.")}}
+      {{template "web_detail_block" (dict "label" "Shared seam" "value" "/app plus /api" "body" "The browser shell stays on the same backend truth used by the API and later clients.")}}
+      {{template "web_detail_block" (dict "label" "Current slice" "value" "Milestone 10 architecture reset" "body" "The shell and operator-entry surfaces now establish the new browser baseline without changing backend truth ownership.")}}
     </div>
   </section>
 
@@ -39,5 +39,5 @@
     </form>
   </section>
 </div>
-{{template "slice1_public_end" .}}
+{{template "web_public_end" .}}
 {{end}}

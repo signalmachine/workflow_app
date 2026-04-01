@@ -167,6 +167,12 @@ Implementation rule:
 4. if a proposed change does not fit the currently accepted slice plan, either defer it to the next slice or update the canonical slice plan first
 5. Milestone 10 remains one milestone, but execution should stay tightly governed by these pre-written slice plans
 
+Source-naming rule:
+
+1. milestone and slice labels are planning language only and must not be encoded into long-lived production source filenames, package names, template names, or exported identifiers
+2. name implementation files and symbols by the domain surface or responsibility they own, for example `web_review_templates` or `review_workbench`, rather than `slice1`, `slice2`, or `milestone10`
+3. temporary migration helpers may reference old versus new rendering paths, but they should still use responsibility-based names instead of phase labels so the names remain valid after the milestone closes
+
 ## 9. Planned large slices
 
 Milestone 10 should be implemented through three large slices of related activity.

@@ -1,16 +1,16 @@
-{{define "slice1_head"}}
+{{define "web_head"}}
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{if .Title}}{{.Title}}{{else}}workflow_app{{end}}</title>
-  <style>{{template "slice1_styles" .}}</style>
+  <style>{{template "web_styles" .}}</style>
 </head>
 {{end}}
 
-{{define "slice1_shell_start"}}
-{{template "slice1_head" .}}
+{{define "web_shell_start"}}
+{{template "web_head" .}}
 <body>
   <div class="shell-grid">
     <aside class="shell-sidebar">
@@ -32,7 +32,7 @@
         <div class="nav-group">
           <div class="nav-group-label">Review surfaces</div>
           <a href="/app/review/inbound-requests" class="{{reviewNavClass .ActivePath}}">Open review workbench</a>
-          <div class="nav-group-copy">Review routes remain live on the shared backend seam while the workbench family moves in Slice 2.</div>
+          <div class="nav-group-copy">Review routes stay on the shared backend seam while the workbench family moves onto the rebuilt template structure.</div>
         </div>
       </div>
     </aside>
@@ -44,7 +44,7 @@
           {{if .Session}}
           <div><strong>{{.Session.UserEmail}}</strong> in <strong>{{.Session.OrgSlug}}</strong></div>
           {{end}}
-          <div class="session-meta">Primary workflow destinations stay separate from secondary review routes in Milestone 10 Slice 1.</div>
+          <div class="session-meta">Primary workflow destinations stay separate from broader review routes on the rebuilt browser baseline.</div>
         </div>
         {{if .Session}}
         <form method="post" action="/app/logout">
@@ -54,10 +54,10 @@
       </div>
 
       <main class="page-stack">
-        {{template "slice1_flash" .}}
+        {{template "web_flash" .}}
 {{end}}
 
-{{define "slice1_shell_end"}}
+{{define "web_shell_end"}}
       </main>
     </div>
   </div>
@@ -65,20 +65,20 @@
 </html>
 {{end}}
 
-{{define "slice1_public_start"}}
-{{template "slice1_head" .}}
+{{define "web_public_start"}}
+{{template "web_head" .}}
 <body class="login-shell">
   <div class="public-shell">
-    {{template "slice1_flash" .}}
+    {{template "web_flash" .}}
 {{end}}
 
-{{define "slice1_public_end"}}
+{{define "web_public_end"}}
   </div>
 </body>
 </html>
 {{end}}
 
-{{define "slice1_flash"}}
+{{define "web_flash"}}
 {{if .Notice}}
 <div class="flash-stack">
   <div class="flash notice">{{.Notice}}</div>
@@ -91,7 +91,7 @@
 {{end}}
 {{end}}
 
-{{define "slice1_page_header"}}
+{{define "web_page_header"}}
 <section class="page-header">
   {{if index . "eyebrow"}}<div class="eyebrow">{{index . "eyebrow"}}</div>{{end}}
   <h1>{{index . "title"}}</h1>
@@ -99,7 +99,7 @@
 </section>
 {{end}}
 
-{{define "slice1_summary_card"}}
+{{define "web_summary_card"}}
 <section class="summary-card">
   {{if index . "label"}}<div class="eyebrow">{{index . "label"}}</div>{{end}}
   {{if index . "value"}}<div class="count">{{index . "value"}}</div>{{end}}
@@ -110,14 +110,14 @@
 </section>
 {{end}}
 
-{{define "slice1_empty_state"}}
+{{define "web_empty_state"}}
 <div class="empty-state">
   <h3>{{index . "title"}}</h3>
   <p>{{index . "body"}}</p>
 </div>
 {{end}}
 
-{{define "slice1_detail_block"}}
+{{define "web_detail_block"}}
 <div class="detail-block">
   <div class="eyebrow">{{index . "label"}}</div>
   <div>{{index . "value"}}</div>

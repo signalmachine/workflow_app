@@ -1,7 +1,7 @@
-{{define "slice1_dashboard"}}
-{{template "slice1_shell_start" .}}
+{{define "web_dashboard"}}
+{{template "web_shell_start" .}}
 
-{{template "slice1_page_header" (dict
+{{template "web_page_header" (dict
   "eyebrow" "Dashboard"
   "title" "Control surface"
   "body" "Start from one operator story: create or continue requests, watch the queue, and branch into approvals or proposals only when the current state requires it."
@@ -27,9 +27,9 @@
   </div>
 
   <div class="detail-grid">
-    {{template "slice1_detail_block" (dict "label" "Primary route" "value" "Dedicated intake" "body" "New requests now have their own entry page instead of competing with the dashboard." )}}
-    {{template "slice1_detail_block" (dict "label" "Operational scan" "value" "Operations feed" "body" "Use the feed for fast state changes, proposal continuity, and approval movement." )}}
-    {{template "slice1_detail_block" (dict "label" "Guidance path" "value" "Agent chat" "body" "Guidance-oriented requests still persist through the same inbound-request model." )}}
+    {{template "web_detail_block" (dict "label" "Primary route" "value" "Dedicated intake" "body" "New requests now have their own entry page instead of competing with the dashboard." )}}
+    {{template "web_detail_block" (dict "label" "Operational scan" "value" "Operations feed" "body" "Use the feed for fast state changes, proposal continuity, and approval movement." )}}
+    {{template "web_detail_block" (dict "label" "Guidance path" "value" "Agent chat" "body" "Guidance-oriented requests still persist through the same inbound-request model." )}}
   </div>
   </div>
 </section>
@@ -37,7 +37,7 @@
 <section class="status-grid">
   {{if .Dashboard.InboundSummary}}
     {{range .Dashboard.InboundSummary}}
-      {{template "slice1_summary_card" (dict
+      {{template "web_summary_card" (dict
         "label" .Status
         "value" .RequestCount
         "body" (dashboardStatusBlurb .Status)
@@ -46,7 +46,7 @@
       )}}
     {{end}}
   {{else}}
-    {{template "slice1_empty_state" (dict "title" "No request summary yet" "body" "The dashboard will surface request-state counts once inbound activity is present for this operator." )}}
+    {{template "web_empty_state" (dict "title" "No request summary yet" "body" "The dashboard will surface request-state counts once inbound activity is present for this operator." )}}
   {{end}}
 </section>
 
@@ -89,7 +89,7 @@
       </table>
     </div>
     {{else}}
-    {{template "slice1_empty_state" (dict "title" "No recent requests" "body" "Create a request from the dedicated intake page or use agent chat to start the persisted intake loop." )}}
+    {{template "web_empty_state" (dict "title" "No recent requests" "body" "Create a request from the dedicated intake page or use agent chat to start the persisted intake loop." )}}
     {{end}}
   </section>
 
@@ -124,7 +124,7 @@
       </table>
     </div>
     {{else}}
-    {{template "slice1_empty_state" (dict "title" "No pending approvals" "body" "When processed proposals request approval, the queue will surface here with direct continuity links." )}}
+    {{template "web_empty_state" (dict "title" "No pending approvals" "body" "When processed proposals request approval, the queue will surface here with direct continuity links." )}}
     {{end}}
   </section>
 </div>
@@ -165,9 +165,9 @@
     </table>
   </div>
   {{else}}
-  {{template "slice1_empty_state" (dict "title" "No processed proposals yet" "body" "Run queued work or continue through the operations feed when AI-backed request processing creates the next proposal." )}}
+  {{template "web_empty_state" (dict "title" "No processed proposals yet" "body" "Run queued work or continue through the operations feed when AI-backed request processing creates the next proposal." )}}
   {{end}}
 </section>
 
-{{template "slice1_shell_end" .}}
+{{template "web_shell_end" .}}
 {{end}}

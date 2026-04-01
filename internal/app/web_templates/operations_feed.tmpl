@@ -1,7 +1,7 @@
-{{define "slice1_operations_feed"}}
-{{template "slice1_shell_start" .}}
+{{define "web_operations_feed"}}
+{{template "web_shell_start" .}}
 
-{{template "slice1_page_header" (dict
+{{template "web_page_header" (dict
   "eyebrow" "Operations feed"
   "title" "Durable operations feed"
   "body" "Use one chronological surface for recent request movement, proposal continuity, and approval-state changes without dropping back into the full review family."
@@ -30,8 +30,8 @@
   {{end}}
 </section>
 {{else}}
-{{template "slice1_empty_state" (dict "title" "No durable events yet" "body" "The feed will populate from request, proposal, and approval truth as operator activity lands in the shared backend." )}}
+{{template "web_empty_state" (dict "title" "No durable events yet" "body" "The feed will populate from request, proposal, and approval truth as operator activity lands in the shared backend." )}}
 {{end}}
 
-{{template "slice1_shell_end" .}}
+{{template "web_shell_end" .}}
 {{end}}

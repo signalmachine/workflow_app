@@ -1,7 +1,7 @@
 # workflow_app Milestone 10 Slice 1 Plan
 
 Date: 2026-04-01
-Status: Proposed pre-implementation slice plan
+Status: Implemented in code with browser-review closeout still pending on the workflow-validation track
 Purpose: define the first large Milestone 10 implementation slice so the web rebuild starts with structural foundation work plus the shell and operator-entry surfaces, not with scattered page-by-page redesign.
 
 ## 1. Slice role
@@ -75,6 +75,12 @@ Implement in this order:
 3. migrate sign-in and dashboard
 4. migrate intake, operations feed, and agent chat
 5. clean up slice-local legacy template or style duplication that the migration makes obsolete
+
+Implementation naming rule:
+
+1. keep Slice 1 labels in planning docs, tracker rows, and review notes only
+2. do not create production code filenames or symbols that embed phase labels such as `slice1`, `milestone10`, or similar sequencing markers
+3. name code by owned responsibility, such as shell, login, dashboard, intake, operations feed, agent chat, shared templates, or shared styles
 
 ## 7. Verification
 

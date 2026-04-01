@@ -1,7 +1,7 @@
 # workflow_app Milestone 10 Slice 3 Plan
 
 Date: 2026-04-01
-Status: Proposed pre-implementation slice plan
+Status: Accepted next implementation slice after the rebuilt operator-entry and review-workbench families
 Purpose: define the third large Milestone 10 implementation slice so the detail surfaces, parity closeout, and retirement of the legacy web structure are finished together instead of being left as an indefinite cleanup tail.
 
 ## 1. Slice role
@@ -78,6 +78,12 @@ Implement in this order:
 3. migrate document, accounting, inventory, work-order, and audit detail as the downstream continuity cluster
 4. remove legacy template code and duplicate styling
 5. complete final parity and browser-validation closeout
+
+Implementation naming rule:
+
+1. keep Slice 3 labels in planning docs, tracker rows, and review notes only
+2. do not create production code filenames or symbols that embed phase labels such as `slice3`, `milestone10`, or similar sequencing markers
+3. name code by the detail or closeout responsibility it owns, such as request detail, approval detail, review detail templates, legacy template cleanup, or shared detail primitives
 
 ## 7. Verification
 

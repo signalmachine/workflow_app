@@ -1,4 +1,4 @@
-{{define "slice1_styles"}}
+{{define "web_styles"}}
 :root {
   --bg: #f3f6fb;
   --surface: #ffffff;
@@ -330,8 +330,11 @@ input[type="submit"].secondary {
 
 table {
   width: 100%;
-  min-width: 640px;
   border-collapse: collapse;
+}
+
+.table-wrap > table {
+  min-width: 640px;
 }
 
 th,
@@ -374,6 +377,20 @@ tr:last-child td { border-bottom: 0; }
   gap: 14px;
 }
 
+.filter-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  align-items: end;
+}
+
+.filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
 .field-grid.two {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -387,7 +404,9 @@ label {
 input[type="text"],
 input[type="email"],
 input[type="password"],
+input[type="date"],
 textarea,
+select,
 input[type="file"] {
   width: 100%;
   padding: 12px 14px;
@@ -402,7 +421,8 @@ textarea { min-height: 180px; resize: vertical; }
 
 .feed-list,
 .card-stack,
-.detail-grid {
+.detail-grid,
+.review-link-list {
   display: grid;
   gap: 16px;
 }
@@ -433,6 +453,34 @@ textarea { min-height: 180px; resize: vertical; }
 
 .empty-state h3 {
   margin: 0 0 8px;
+}
+
+.section-stack {
+  display: grid;
+  gap: 18px;
+}
+
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.section-head h2,
+.section-head p {
+  margin: 0;
+}
+
+.inline-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+}
+
+.compact-copy {
+  font-size: 0.95rem;
 }
 
 .login-grid {

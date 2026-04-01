@@ -56,6 +56,8 @@ For planning-only or Markdown-only sessions, do not force MCP usage when local d
 
 Write concise Markdown with clear headings and short paragraphs or numbered rules. Follow the existing lowercase snake-case filename pattern, for example `new_app_execution_plan.md` or `v2_scope_overview.md`. Use date-stamped filenames only when the date is materially part of the record. Keep terminology aligned with the planning set: documents, ledgers, execution context, approvals, reports, thin v1, and v2.
 
+Keep milestone, slice, and checkpoint labels in planning docs, tracker rows, commits, and review notes rather than in long-lived production source filenames or exported identifiers. Name code by owned domain responsibility, route family, or technical role instead of implementation phase labels.
+
 ## Engineering Standards
 
 Follow industry-standard best practices by default unless there is a concrete repository-specific, product-specific, or technical reason to deviate. When deviating, make the reason explicit in code, docs, or review notes as appropriate.

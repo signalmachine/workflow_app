@@ -50,6 +50,8 @@ func (h *AgentAPIHandler) handleWebDocuments(w http.ResponseWriter, r *http.Requ
 	h.renderWebPage(w, webPageData{
 		Title:      "workflow_app",
 		ActivePath: webDocumentsPath,
+		Notice:     data.Notice,
+		Error:      data.Error,
 		Session:    &sessionContext,
 		Documents:  &data,
 	})
@@ -169,6 +171,8 @@ func (h *AgentAPIHandler) handleWebAccounting(w http.ResponseWriter, r *http.Req
 	h.renderWebPage(w, webPageData{
 		Title:      "workflow_app",
 		ActivePath: webAccountingPath,
+		Notice:     data.Notice,
+		Error:      data.Error,
 		Session:    &sessionContext,
 		Accounting: &data,
 	})
@@ -387,6 +391,8 @@ func (h *AgentAPIHandler) handleWebProposals(w http.ResponseWriter, r *http.Requ
 	h.renderWebPage(w, webPageData{
 		Title:      "workflow_app",
 		ActivePath: webProposalsPath,
+		Notice:     data.Notice,
+		Error:      data.Error,
 		Session:    &sessionContext,
 		Proposals:  &data,
 	})
