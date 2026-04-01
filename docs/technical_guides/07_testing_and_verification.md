@@ -145,7 +145,48 @@ If migrations or persistence behavior change, verify against the configured deve
 
 While the application remains pre-production, it is acceptable to drop and recreate the configured test database to recover from schema drift, failed migration experiments, or other disposable development-state issues. This reset rule applies only to the configured test database, not to the application or development database.
 
-## 9. What to keep in mind during review
+## 9. Local test DB versus cloud production DB
+
+Using a local disposable PostgreSQL instance for `TEST_DATABASE_URL` and a cloud-hosted PostgreSQL instance for production is the preferred repository posture.
+
+Those environments serve different purposes:
+
+1. the local test DB optimizes for speed, repeatability, destructive reset safety, and isolated verification
+2. the production DB optimizes for durability, backups, high availability, monitoring, managed operations, and controlled access
+
+The goal is not to make test and production share the same hosting model. The goal is to keep them aligned on the database engine and on the behaviors that matter for correctness.
+
+For this repository, that means:
+
+1. keep PostgreSQL as the engine in both test and production paths
+2. do not substitute SQLite, in-memory fakes, or other engines for the canonical DB-backed suite
+3. keep migrations, constraints, transaction behavior, and document or workflow invariants exercised against PostgreSQL in test
+
+The local disposable test DB is still the right default even when production runs in the cloud, because the canonical suite is serialized, reset-heavy, and meant to be run frequently by contributors.
+
+The main risks are configuration drift and environment drift, not the fact that one database is local and the other is cloud-hosted.
+
+Watch for drift in:
+
+1. PostgreSQL major version
+2. enabled extensions
+3. timezone, collation, and text-search assumptions
+4. connection settings, SSL requirements, and pooling behavior
+5. migration behavior and DDL permissions
+6. latency and concurrency characteristics that only appear in a remotely hosted deployment
+
+The recommended operating model is:
+
+1. run the canonical full DB-backed suite against a local disposable PostgreSQL test database
+2. keep the local test DB disposable so migrations, resets, and failure recovery stay cheap
+3. verify migrations and a smaller production-parity smoke slice against the configured development or staging environment when persistence behavior, deployment shape, or production-sensitive DB settings change materially
+4. do not point the canonical local suite at the main production `DATABASE_URL`
+
+If production readiness depends on a cloud-specific behavior such as SSL enforcement, pooled-connection limits, failover posture, or materially higher network latency, add a focused verification step for that behavior instead of pushing the full day-to-day suite onto a remote shared database.
+
+For the broader release and deployment checklist, including repo-specific production-parity follow-up work, see [`15_production_readiness_and_release_checklist.md`](./15_production_readiness_and_release_checklist.md).
+
+## 10. What to keep in mind during review
 
 The hardest-to-see failures in this repository are usually:
 
@@ -157,7 +198,7 @@ The hardest-to-see failures in this repository are usually:
 
 That is why integration tests and live seam checks matter here.
 
-## 10. Collaborating on testing work
+## 11. Collaborating on testing work
 
 Codex is strongest when the testing target is a real business invariant rather than just line coverage.
 

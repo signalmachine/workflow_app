@@ -1,6 +1,6 @@
 # Technical Guides
 
-Date: 2026-03-31
+Date: 2026-04-01
 Status: Initialized
 Purpose: provide durable technical reference material for humans and AI coding agents working on `workflow_app`, especially architecture, system patterns, and implementation conventions.
 
@@ -53,6 +53,7 @@ Start with the most important concepts first:
 12. [Reporting read model](./12_reporting_read_model.md)
 13. [Attachments and derived text](./13_attachments_and_derived_text.md)
 14. [Data modeling and database schema](./14_data_modeling_and_database_schema.md)
+15. [Production readiness and release checklist](./15_production_readiness_and_release_checklist.md)
 
 ## 4. Organization rule
 
