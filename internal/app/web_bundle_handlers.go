@@ -35,48 +35,35 @@ func (h *AgentAPIHandler) handleWebOperationsLanding(w http.ResponseWriter, r *h
 		Error:   strings.TrimSpace(r.URL.Query().Get("error")),
 	}
 
-	if inboundSummary, summaryErr := h.reviewService.ListInboundRequestStatusSummary(r.Context(), sessionContext.Actor); summaryErr != nil {
+	if snapshot, snapshotErr := h.reviewService.GetWorkflowNavigationSnapshot(r.Context(), sessionContext.Actor, 10); snapshotErr != nil {
 		data.Error = "failed to load operations landing"
 	} else {
-		sortInboundRequestStatusSummaries(inboundSummary)
-		data.QueuedRequestCount = countQueuedRequests(inboundSummary)
-	}
+		sortInboundRequestStatusSummaries(snapshot.InboundSummary)
+		data.QueuedRequestCount = countQueuedRequests(snapshot.InboundSummary)
+		data.PendingApprovalCount = len(snapshot.PendingApprovals)
 
-	requests, requestErr := h.reviewService.ListInboundRequests(r.Context(), reporting.ListInboundRequestsInput{
-		Limit: 10,
-		Actor: sessionContext.Actor,
-	})
-	if requestErr != nil {
-		if data.Error == "" {
+		requests, requestErr := h.reviewService.ListInboundRequests(r.Context(), reporting.ListInboundRequestsInput{
+			Limit: 10,
+			Actor: sessionContext.Actor,
+		})
+		if requestErr != nil {
 			data.Error = "failed to load operations landing"
+		} else {
+			data.RecentFeed = append(data.RecentFeed, buildOperationsFeedFromRequests(requests)...)
 		}
-	} else {
-		data.RecentFeed = append(data.RecentFeed, buildOperationsFeedFromRequests(requests)...)
-	}
 
-	if proposals, proposalErr := h.reviewService.ListProcessedProposals(r.Context(), reporting.ListProcessedProposalsInput{
-		Limit: 10,
-		Actor: sessionContext.Actor,
-	}); proposalErr != nil {
-		if data.Error == "" {
+		proposals, proposalErr := h.reviewService.ListProcessedProposals(r.Context(), reporting.ListProcessedProposalsInput{
+			Limit: 10,
+			Actor: sessionContext.Actor,
+		})
+		if proposalErr != nil {
 			data.Error = "failed to load operations landing"
+		} else {
+			data.RecentFeed = append(data.RecentFeed, buildOperationsFeedFromProposals(proposals)...)
+			data.ProposalReviewCount = len(proposals)
 		}
-	} else {
-		data.RecentFeed = append(data.RecentFeed, buildOperationsFeedFromProposals(proposals)...)
-		data.ProposalReviewCount = len(proposals)
-	}
 
-	if approvals, approvalErr := h.reviewService.ListApprovalQueue(r.Context(), reporting.ListApprovalQueueInput{
-		Status: "pending",
-		Limit:  10,
-		Actor:  sessionContext.Actor,
-	}); approvalErr != nil {
-		if data.Error == "" {
-			data.Error = "failed to load operations landing"
-		}
-	} else {
-		data.RecentFeed = append(data.RecentFeed, buildOperationsFeedFromApprovals(approvals)...)
-		data.PendingApprovalCount = len(approvals)
+		data.RecentFeed = append(data.RecentFeed, buildOperationsFeedFromApprovals(snapshot.PendingApprovals)...)
 	}
 
 	sort.SliceStable(data.RecentFeed, func(i, j int) bool {
@@ -125,33 +112,15 @@ func (h *AgentAPIHandler) handleWebReviewLanding(w http.ResponseWriter, r *http.
 		Error:   strings.TrimSpace(r.URL.Query().Get("error")),
 	}
 
-	if inboundSummary, summaryErr := h.reviewService.ListInboundRequestStatusSummary(r.Context(), sessionContext.Actor); summaryErr != nil {
+	if snapshot, snapshotErr := h.reviewService.GetWorkflowNavigationSnapshot(r.Context(), sessionContext.Actor, 8); snapshotErr != nil {
 		data.Error = "failed to load review landing"
 	} else {
-		sortInboundRequestStatusSummaries(inboundSummary)
-		data.InboundSummary = inboundSummary
-		data.InboundRequestCount = sumInboundRequestCount(inboundSummary)
-	}
-
-	if proposalSummary, proposalErr := h.reviewService.ListProcessedProposalStatusSummary(r.Context(), sessionContext.Actor); proposalErr != nil {
-		if data.Error == "" {
-			data.Error = "failed to load review landing"
-		}
-	} else {
-		data.ProposalSummary = proposalSummary
-		data.ProposalCount = sumProposalCount(proposalSummary)
-	}
-
-	if approvals, approvalErr := h.reviewService.ListApprovalQueue(r.Context(), reporting.ListApprovalQueueInput{
-		Status: "pending",
-		Limit:  8,
-		Actor:  sessionContext.Actor,
-	}); approvalErr != nil {
-		if data.Error == "" {
-			data.Error = "failed to load review landing"
-		}
-	} else {
-		data.PendingApprovals = approvals
+		sortInboundRequestStatusSummaries(snapshot.InboundSummary)
+		data.InboundSummary = snapshot.InboundSummary
+		data.InboundRequestCount = sumInboundRequestCount(snapshot.InboundSummary)
+		data.ProposalSummary = snapshot.ProposalSummary
+		data.ProposalCount = sumProposalCount(snapshot.ProposalSummary)
+		data.PendingApprovals = snapshot.PendingApprovals
 	}
 
 	h.renderWebPage(w, webPageData{

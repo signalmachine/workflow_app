@@ -186,13 +186,14 @@ func (h *AgentAPIHandler) handleWebAppDashboard(w http.ResponseWriter, r *http.R
 	}
 	data.RoleHeadline, data.RoleBody = roleAwareHomeIntro(sessionContext)
 	if h.reviewService != nil {
-		if data.InboundSummary, err = h.reviewService.ListInboundRequestStatusSummary(r.Context(), actor); err != nil {
-			data.Error = "failed to load inbound request summary"
+		snapshot, snapshotErr := h.reviewService.GetWorkflowNavigationSnapshot(r.Context(), actor, 10)
+		if snapshotErr != nil {
+			data.Error = "failed to load workflow navigation summary"
 		} else {
+			data.InboundSummary = snapshot.InboundSummary
 			sortInboundRequestStatusSummaries(data.InboundSummary)
-		}
-		if data.ProposalSummary, err = h.reviewService.ListProcessedProposalStatusSummary(r.Context(), actor); err != nil {
-			data.Error = "failed to load proposal summary"
+			data.ProposalSummary = snapshot.ProposalSummary
+			data.Approvals = snapshot.PendingApprovals
 		}
 		if data.InboundRequests, err = h.reviewService.ListInboundRequests(r.Context(), reporting.ListInboundRequestsInput{
 			Limit: 20,
@@ -205,13 +206,6 @@ func (h *AgentAPIHandler) handleWebAppDashboard(w http.ResponseWriter, r *http.R
 			Actor: actor,
 		}); err != nil {
 			data.Error = "failed to load processed proposals"
-		}
-		if data.Approvals, err = h.reviewService.ListApprovalQueue(r.Context(), reporting.ListApprovalQueueInput{
-			Status: "pending",
-			Limit:  10,
-			Actor:  actor,
-		}); err != nil {
-			data.Error = "failed to load approval queue"
 		}
 		data.PrimaryActions, data.SecondaryActions = buildHomeActions(sessionContext, data.InboundSummary, data.ProposalSummary, data.Approvals)
 	}

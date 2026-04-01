@@ -225,24 +225,12 @@ func (h *AgentAPIHandler) handleWebSettings(w http.ResponseWriter, r *http.Reque
 	}
 
 	if h.reviewService != nil {
-		inboundSummary, summaryErr := h.reviewService.ListInboundRequestStatusSummary(r.Context(), sessionContext.Actor)
-		if summaryErr != nil {
+		snapshot, snapshotErr := h.reviewService.GetWorkflowNavigationSnapshot(r.Context(), sessionContext.Actor, 10)
+		if snapshotErr != nil {
 			data.Error = "failed to load settings"
 		} else {
-			sortInboundRequestStatusSummaries(inboundSummary)
-			proposalSummary, proposalErr := h.reviewService.ListProcessedProposalStatusSummary(r.Context(), sessionContext.Actor)
-			if proposalErr != nil && data.Error == "" {
-				data.Error = "failed to load settings"
-			}
-			approvals, approvalErr := h.reviewService.ListApprovalQueue(r.Context(), reporting.ListApprovalQueueInput{
-				Status: "pending",
-				Limit:  10,
-				Actor:  sessionContext.Actor,
-			})
-			if approvalErr != nil && data.Error == "" {
-				data.Error = "failed to load settings"
-			}
-			data.PrimaryActions, _ = buildHomeActions(sessionContext, inboundSummary, proposalSummary, approvals)
+			sortInboundRequestStatusSummaries(snapshot.InboundSummary)
+			data.PrimaryActions, _ = buildHomeActions(sessionContext, snapshot.InboundSummary, snapshot.ProposalSummary, snapshot.PendingApprovals)
 		}
 	}
 

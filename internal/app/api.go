@@ -130,6 +130,7 @@ type operatorReviewReader interface {
 	ListInboundRequestStatusSummary(ctx context.Context, actor identityaccess.Actor) ([]reporting.InboundRequestStatusSummary, error)
 	ListProcessedProposals(ctx context.Context, input reporting.ListProcessedProposalsInput) ([]reporting.ProcessedProposalReview, error)
 	ListProcessedProposalStatusSummary(ctx context.Context, actor identityaccess.Actor) ([]reporting.ProcessedProposalStatusSummary, error)
+	GetWorkflowNavigationSnapshot(ctx context.Context, actor identityaccess.Actor, pendingApprovalLimit int) (reporting.WorkflowNavigationSnapshot, error)
 }
 
 type approvalDecisionService interface {

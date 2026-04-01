@@ -55,6 +55,13 @@ type ListApprovalQueueInput struct {
 	Actor      identityaccess.Actor
 }
 
+type WorkflowNavigationSnapshot struct {
+	InboundSummary    []InboundRequestStatusSummary
+	ProposalSummary   []ProcessedProposalStatusSummary
+	PendingApprovals  []ApprovalQueueEntry
+	PendingQueueLimit int
+}
+
 type DocumentReview struct {
 	DocumentID           string
 	TypeCode             string
@@ -703,6 +710,34 @@ LIMIT $5;`,
 	}
 
 	return entries, nil
+}
+
+func (s *Service) GetWorkflowNavigationSnapshot(ctx context.Context, actor identityaccess.Actor, pendingApprovalLimit int) (WorkflowNavigationSnapshot, error) {
+	inboundSummary, err := s.ListInboundRequestStatusSummary(ctx, actor)
+	if err != nil {
+		return WorkflowNavigationSnapshot{}, err
+	}
+
+	proposalSummary, err := s.ListProcessedProposalStatusSummary(ctx, actor)
+	if err != nil {
+		return WorkflowNavigationSnapshot{}, err
+	}
+
+	pendingApprovals, err := s.ListApprovalQueue(ctx, ListApprovalQueueInput{
+		Status: "pending",
+		Limit:  pendingApprovalLimit,
+		Actor:  actor,
+	})
+	if err != nil {
+		return WorkflowNavigationSnapshot{}, err
+	}
+
+	return WorkflowNavigationSnapshot{
+		InboundSummary:    inboundSummary,
+		ProposalSummary:   proposalSummary,
+		PendingApprovals:  pendingApprovals,
+		PendingQueueLimit: pendingApprovalLimit,
+	}, nil
 }
 
 func (s *Service) ListDocuments(ctx context.Context, input ListDocumentsInput) ([]DocumentReview, error) {

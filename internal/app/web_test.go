@@ -2947,6 +2947,31 @@ func (s stubOperatorReviewReader) ListProcessedProposalStatusSummary(ctx context
 	return nil, nil
 }
 
+func (s stubOperatorReviewReader) GetWorkflowNavigationSnapshot(ctx context.Context, actor identityaccess.Actor, pendingApprovalLimit int) (reporting.WorkflowNavigationSnapshot, error) {
+	inboundSummary, err := s.ListInboundRequestStatusSummary(ctx, actor)
+	if err != nil {
+		return reporting.WorkflowNavigationSnapshot{}, err
+	}
+	proposalSummary, err := s.ListProcessedProposalStatusSummary(ctx, actor)
+	if err != nil {
+		return reporting.WorkflowNavigationSnapshot{}, err
+	}
+	pendingApprovals, err := s.ListApprovalQueue(ctx, reporting.ListApprovalQueueInput{
+		Status: "pending",
+		Limit:  pendingApprovalLimit,
+		Actor:  actor,
+	})
+	if err != nil {
+		return reporting.WorkflowNavigationSnapshot{}, err
+	}
+	return reporting.WorkflowNavigationSnapshot{
+		InboundSummary:    inboundSummary,
+		ProposalSummary:   proposalSummary,
+		PendingApprovals:  pendingApprovals,
+		PendingQueueLimit: pendingApprovalLimit,
+	}, nil
+}
+
 type stubBrowserSessionService struct {
 	authenticateSession     func(context.Context, string, string) (identityaccess.SessionContext, error)
 	authenticateAccessToken func(context.Context, string) (identityaccess.SessionContext, error)
