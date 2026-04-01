@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"workflow_app/internal/identityaccess"
 	"workflow_app/internal/reporting"
@@ -135,35 +136,88 @@ func routeCatalogEntries() []webRouteCatalogEntry {
 	}
 }
 
+func routeCatalogSearchTerms(query string) []string {
+	query = strings.ToLower(strings.TrimSpace(query))
+	if query == "" {
+		return nil
+	}
+	return strings.FieldsFunc(query, func(r rune) bool {
+		return unicode.IsSpace(r) || r == ',' || r == ';' || r == '/' || r == '-'
+	})
+}
+
+func routeCatalogSearchScore(entry webRouteCatalogEntry, query string) int {
+	searchable := strings.ToLower(strings.Join([]string{
+		entry.Title,
+		entry.Category,
+		entry.Summary,
+		entry.Href,
+		entry.Keywords,
+	}, " "))
+	query = strings.ToLower(strings.TrimSpace(query))
+	if query == "" {
+		return 1
+	}
+
+	score := 0
+	if strings.Contains(searchable, query) {
+		score += 100
+	}
+
+	terms := routeCatalogSearchTerms(query)
+	if len(terms) == 0 {
+		return score
+	}
+	for _, term := range terms {
+		if !strings.Contains(searchable, term) {
+			return 0
+		}
+		score += 10
+		if strings.Contains(strings.ToLower(entry.Title), term) {
+			score += 5
+		}
+		if strings.Contains(strings.ToLower(entry.Keywords), term) {
+			score += 3
+		}
+	}
+	return score
+}
+
 func filterRouteCatalogEntries(session identityaccess.SessionContext, query string) []webRouteCatalogEntry {
 	query = strings.ToLower(strings.TrimSpace(query))
-	results := make([]webRouteCatalogEntry, 0, len(routeCatalogEntries()))
+	type scoredRouteCatalogEntry struct {
+		entry webRouteCatalogEntry
+		score int
+	}
+
+	scored := make([]scoredRouteCatalogEntry, 0, len(routeCatalogEntries()))
 	for _, entry := range routeCatalogEntries() {
 		if entry.RequiresRole != "" && !strings.EqualFold(entry.RequiresRole, strings.TrimSpace(session.RoleCode)) {
 			continue
 		}
-		if query == "" {
-			results = append(results, entry)
-			continue
-		}
-		searchable := strings.ToLower(strings.Join([]string{
-			entry.Title,
-			entry.Category,
-			entry.Summary,
-			entry.Href,
-			entry.Keywords,
-		}, " "))
-		if strings.Contains(searchable, query) {
-			results = append(results, entry)
+		score := routeCatalogSearchScore(entry, query)
+		if score > 0 {
+			scored = append(scored, scoredRouteCatalogEntry{
+				entry: entry,
+				score: score,
+			})
 		}
 	}
 
-	sort.SliceStable(results, func(i, j int) bool {
-		if results[i].Category != results[j].Category {
-			return results[i].Category < results[j].Category
+	sort.SliceStable(scored, func(i, j int) bool {
+		if scored[i].score != scored[j].score {
+			return scored[i].score > scored[j].score
 		}
-		return results[i].Title < results[j].Title
+		if scored[i].entry.Category != scored[j].entry.Category {
+			return scored[i].entry.Category < scored[j].entry.Category
+		}
+		return scored[i].entry.Title < scored[j].entry.Title
 	})
+
+	results := make([]webRouteCatalogEntry, 0, len(scored))
+	for _, item := range scored {
+		results = append(results, item.entry)
+	}
 	return results
 }
 

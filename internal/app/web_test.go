@@ -1788,6 +1788,39 @@ func TestHandleWebRouteCatalogFiltersRoutesByQueryAndRole(t *testing.T) {
 	}
 }
 
+func TestHandleWebRouteCatalogMatchesOperatorIntentTerms(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		nil,
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				return testSessionContext(), nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/routes?q=pending+approvals", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, `Matches for "pending approvals"`) {
+		t.Fatalf("expected multi-term heading, body=%s", body)
+	}
+	if !strings.Contains(body, `<h2>Approval review</h2>`) {
+		t.Fatalf("expected approval review result for operator-intent query, body=%s", body)
+	}
+}
+
 func TestHandleWebSettingsShowsRoleAwareHomeActions(t *testing.T) {
 	handler := NewAgentAPIHandlerWithDependencies(
 		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
