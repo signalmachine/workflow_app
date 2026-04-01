@@ -76,10 +76,13 @@ For the active v2 planning surface, read these in order:
 9. `milestone_10_slice_2_review_workbench_plan.md`
 10. `milestone_10_slice_3_detail_and_closeout_plan.md`
 11. `new_app_tracker.md`
-12. `app_v2_plans/README.md`
-13. `../docs/workflows/README.md` for the durable workflow-reference and validation-track layer after the active planning read
+12. `../docs/workflows/README.md` for the durable workflow-reference and validation-track layer after the active planning read
 
-For thin-v1 historical context, use `thin_v1_archive/` as needed.
+Reference-only rule:
+
+1. `thin_v1_archive/` is historical context only and should not be part of the default active working set
+2. `app_v2_plans/` is idea and proposal reference material only and should not be part of the default active working set
+3. use either folder only when the current task specifically needs historical thin-v1 context or future-v2 milestone source material
 
 ## Reset decision
 

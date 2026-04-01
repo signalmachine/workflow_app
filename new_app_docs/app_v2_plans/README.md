@@ -20,6 +20,8 @@ Nothing in `app_v2_plans/` is itself an active implementation milestone.
 
 Use these docs as reference material when shaping future v2 milestones in the canonical planning docs under `new_app_docs/`.
 
+Do not load this folder into the default active working set for normal implementation sessions unless the current task is explicitly about shaping a future v2 milestone.
+
 ## Reading order
 
 1. `v2_scope_overview.md`

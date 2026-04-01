@@ -16,6 +16,8 @@ Use them for:
 
 Do not use them as the active implementation source of truth when a newer top-level `new_app_docs/` document says otherwise.
 
+Do not load this folder into the default active working set for normal v2 implementation sessions unless the current task specifically needs historical thin-v1 context.
+
 ## Contents
 
 This archive currently includes:
