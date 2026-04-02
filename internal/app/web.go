@@ -375,6 +375,14 @@ type webAdminPartiesData struct {
 	Detail           *webAdminPartyDetailData
 }
 
+type webAdminAccessData struct {
+	Session     identityaccess.SessionContext
+	Notice      string
+	Error       string
+	Users       []identityaccess.OrgUserMembership
+	RoleOptions []string
+}
+
 type webAdminData struct {
 	Session             identityaccess.SessionContext
 	Notice              string
@@ -416,6 +424,7 @@ type webPageData struct {
 	Admin                   *webAdminData
 	AdminAccounting         *webAdminAccountingData
 	AdminParties            *webAdminPartiesData
+	AdminAccess             *webAdminAccessData
 	OperationsLanding       *webOperationsLandingData
 	OperationsFeed          *webOperationsFeedData
 	AgentChat               *webAgentChatData

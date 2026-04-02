@@ -1,7 +1,7 @@
 # workflow_app Milestone 12 Admin Maintenance and Master Data Plan
 
 Date: 2026-04-02
-Status: Active milestone with Slice 1 through Slice 3 implemented in code and Slice 4 access and follow-on controls now queued next
+Status: Active milestone with Slice 1 through Slice 4 implemented in code and only later follow-on controls still queued
 Purpose: define the first real privileged maintenance surface for browser operators so `Admin` stops being a placeholder route directory and becomes the controlled entry point for manual master-data and configuration work on the shared backend.
 
 ## 1. Why this milestone exists
@@ -159,7 +159,8 @@ Recommended queue from the current repository state:
 2. Slice 1 is now implemented in code: `/app/settings` remains explicitly user-scoped, `/app/admin` is now a grouped privileged maintenance hub, and the promoted browser copy now makes the admin-versus-settings ownership split explicit
 3. Slice 2 is now implemented in code through `/app/admin/accounting` plus bounded admin-only `/api/admin/accounting/...` seams for ledger-account, tax-code, and accounting-period list or create flows and accounting-period close controls
 4. Slice 3 customer and party maintenance is now implemented in code through `/app/admin/parties` plus bounded admin-only `/api/admin/parties` seams for list, create, filtered list, and exact detail reads with contact visibility
-5. Slice 4 access and follow-on controls are now the next queued browser or shared-backend implementation slice once the first three slices settle or operator evidence reprioritizes access management sooner
+5. Slice 4 access controls are now implemented in code through `/app/admin/access` plus bounded admin-only `/api/admin/access/users` list and provision seams and `/api/admin/access/users/{membership_id}/role` role updates on the shared `identityaccess` service seam
+6. later follow-on policy or operational controls remain queued only if workflow evidence or operator continuity justifies them after the first four slices settle
 
 ## 8. Verification
 
@@ -183,7 +184,7 @@ When this milestone begins or changes:
 
 ## 10. Current checkpoint
 
-Slice 1 through Slice 3 are now implemented in code.
+Slice 1 through Slice 4 are now implemented in code.
 
 Implemented outcome:
 
@@ -196,7 +197,11 @@ Implemented outcome:
 7. `/app/admin/parties` now exposes the first real admin-only browser maintenance surface for customer and vendor support records while keeping CRM-style breadth out of scope
 8. the shared API seam now exposes bounded admin-only `/api/admin/parties` list, filtered list, create, and exact detail reads with visible contacts for later non-browser reuse
 9. focused `internal/app` HTTP coverage plus DB-backed `internal/app` and `internal/parties` integration coverage now lock the admin party maintenance slice in place
+10. `/app/admin/access` now exposes the first real admin-only browser access-maintenance surface for org users and membership roles while keeping the work bounded to shared identity truth rather than broad identity-product depth
+11. the shared API seam now exposes bounded admin-only `/api/admin/access/users` list and provision flows plus `/api/admin/access/users/{membership_id}/role` role updates for later non-browser reuse on the same backend foundation
+12. focused `internal/app` HTTP coverage plus DB-backed `internal/app` and `internal/identityaccess` integration coverage now lock the admin access-maintenance slice in place
+13. the first access slice also blocks the currently signed-in admin from removing their own admin role accidentally during a role update
 
 Next queued slice:
 
-1. add bounded access and follow-on controls through `Admin` only after the first three maintenance slices settle or operator evidence reprioritizes that work
+1. later policy or operational controls should be promoted only if workflow evidence or operator continuity justifies them after the current four maintenance slices settle

@@ -1,7 +1,7 @@
 # workflow_app Workflow Validation Track
 
 Date: 2026-04-02
-Status: Active validation track, separate from implementation planning; Milestone 10 Slice 1 through Slice 3 remain in code on the rebuilt modular browser bundle, the grouped render-baseline corrective slice now also enforces the modular bundle as the only active render path, Milestone 11 Slice 1 through Slice 3 have now shifted the promoted shell to the lighter grouped top-bar plus landing-page model with route catalog and utility surfaces, Milestone 12 Slice 2 added the admin-only accounting setup surface at `/app/admin/accounting` plus shared `/api/admin/accounting/...` maintenance seams, Milestone 12 Slice 3 now also adds the admin-only party setup surface at `/app/admin/parties` plus shared `/api/admin/parties` maintenance seams, and the remaining Milestone 10 closeout work should now run as one larger browser-review plus workflow-continuity sweep with one grouped corrective follow-up only if that sweep finds tightly related defects
+Status: Active validation track, separate from implementation planning; Milestone 10 Slice 1 through Slice 3 remain in code on the rebuilt modular browser bundle, the grouped render-baseline corrective slice now also enforces the modular bundle as the only active render path, Milestone 11 Slice 1 through Slice 3 have now shifted the promoted shell to the lighter grouped top-bar plus landing-page model with route catalog and utility surfaces, Milestone 12 Slice 2 added the admin-only accounting setup surface at `/app/admin/accounting` plus shared `/api/admin/accounting/...` maintenance seams, Milestone 12 Slice 3 added the admin-only party setup surface at `/app/admin/parties` plus shared `/api/admin/parties` maintenance seams, Milestone 12 Slice 4 now also adds the admin-only access-control surface at `/app/admin/access` plus shared `/api/admin/access/users` maintenance seams, and the remaining Milestone 10 closeout work should now run as one larger browser-review plus workflow-continuity sweep with one grouped corrective follow-up only if that sweep finds tightly related defects
 Purpose: keep workflow testing, live review, and readiness evidence on a workflow-validation track in `docs/workflows/` rather than inside the normal product-implementation planning stream in `new_app_docs/`.
 
 ## 1. Why this document exists
@@ -49,7 +49,7 @@ Milestone 10 should be treated as closed only when the larger closeout sweep bel
 
 Closeout sweep:
 
-1. browser-review pass on desktop for `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, `/app/agent-chat`, `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit`
+1. browser-review pass on desktop for `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/admin/access` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, `/app/agent-chat`, `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit`
 2. browser-review pass on a narrow-width viewport for that same promoted route family
 3. focused continuity pass from exact request detail into proposal detail, approval detail, and document detail
 4. focused continuity pass from exact request detail or proposal detail into one downstream accounting or inventory or work-order drill-down surface
@@ -105,17 +105,19 @@ Routes:
 5. `/app/admin` for an admin actor
 6. `/app/admin/accounting` for an admin actor
 7. `/app/admin/parties` for an admin actor
-8. `/app/submit-inbound-request`
-9. `/app/operations-feed`
-10. `/app/agent-chat`
+8. `/app/admin/access` for an admin actor
+9. `/app/submit-inbound-request`
+10. `/app/operations-feed`
+11. `/app/agent-chat`
 
 Assertions:
 
 1. login is visibly simple and thin, with no promotional split-layout posture
 2. home behaves like an operator start surface with clear next actions, not a generic dashboard mosaic
 3. route catalog search returns useful route matches for operator-intent queries such as `pending approvals` and `failed requests`
-4. settings, admin, admin accounting setup, and admin party setup feel secondary to workflow destinations and do not compete with the main shell
-5. intake, operations-feed, and agent-chat each present one clear primary action without burying it under supporting copy
+4. settings, admin, admin accounting setup, admin party setup, and admin access controls feel secondary to workflow destinations and do not compete with the main shell
+5. the access-maintenance page keeps provisioning and role updates bounded to shared identity control rather than reading like a broad identity console
+6. intake, operations-feed, and agent-chat each present one clear primary action without burying it under supporting copy
 
 ### 3.3.2 Landing pages and navigation scaling
 

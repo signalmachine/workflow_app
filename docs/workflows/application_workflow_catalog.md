@@ -1,7 +1,7 @@
 # workflow_app Application Workflow Catalog
 
 Date: 2026-04-02
-Status: Active durable workflow catalog updated for the grouped landing pages at `/app/operations`, `/app/review`, and `/app/inventory`, the searchable route catalog at `/app/routes`, the utility surfaces at `/app/settings` plus access-scoped `/app/admin`, the admin accounting and party setup surfaces at `/app/admin/accounting` and `/app/admin/parties`, and the role-aware operator home on `/app`
+Status: Active durable workflow catalog updated for the grouped landing pages at `/app/operations`, `/app/review`, and `/app/inventory`, the searchable route catalog at `/app/routes`, the utility surfaces at `/app/settings` plus access-scoped `/app/admin`, the admin accounting, party, and access-control setup surfaces at `/app/admin/accounting`, `/app/admin/parties`, and `/app/admin/access`, and the role-aware operator home on `/app`
 Purpose: capture the application workflows and related feature continuity in one durable reference document for implementation review, testing, onboarding, and later user-guide preparation.
 
 ## 1. How to read this document
@@ -70,8 +70,9 @@ Primary continuity surfaces:
 8. access-scoped admin utility surface
 9. admin accounting setup surface
 10. admin party setup surface
-11. session introspection
-12. subsequent browser-authenticated `/api/...` writes and review reads
+11. admin access-control surface
+12. session introspection
+13. subsequent browser-authenticated `/api/...` writes and review reads
 
 ### 2.1.1 Admin accounting setup maintenance
 
@@ -121,6 +122,31 @@ Expected outputs:
 2. visible browser continuity between the admin maintenance hub and the party setup page
 3. exact party-detail continuity with current contact visibility before downstream document or accounting work depends on the record
 4. shared API reuse for later non-browser admin maintenance without introducing browser-local truth
+
+Current status:
+
+1. implemented
+2. repo_verified
+3. pending_live_validation
+
+### 2.1.3 Admin access maintenance
+
+Purpose:
+allow an admin actor to provision org-scoped user memberships, attach an existing user to the current org, and update membership roles through one bounded maintenance seam that stays on the shared `identityaccess` truth model.
+
+Entry points:
+
+1. `GET /api/admin/access/users`
+2. `POST /api/admin/access/users`
+3. `POST /api/admin/access/users/{membership_id}/role`
+4. `/app/admin/access`
+
+Expected outputs:
+
+1. bounded admin-only org-user listing on the shared identity and session service seam
+2. controlled creation or attachment of org memberships without widening into a broad identity-product console
+3. bounded membership-role updates with durable audit visibility
+4. protection against the currently signed-in admin accidentally removing their own admin access during this first role-update slice
 
 Current status:
 

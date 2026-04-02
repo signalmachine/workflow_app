@@ -38,10 +38,12 @@ const (
 	webAdminPath               = "/app/admin"
 	webAdminAccountingPath     = "/app/admin/accounting"
 	webAdminPartiesPath        = "/app/admin/parties"
+	webAdminAccessPath         = "/app/admin/access"
 	webAdminLedgerAccountsPath = "/app/admin/accounting/ledger-accounts"
 	webAdminTaxCodesPath       = "/app/admin/accounting/tax-codes"
 	webAdminPeriodsPath        = "/app/admin/accounting/periods"
 	webAdminPartyDetailPrefix  = "/app/admin/parties/"
+	webAdminAccessUsersPath    = "/app/admin/access/users"
 	webOperationsPath          = "/app/operations"
 	webOperationsFeedPath      = "/app/operations-feed"
 	webAgentChatPath           = "/app/agent-chat"
@@ -94,6 +96,7 @@ const (
 	adminTaxCodesPath          = "/api/admin/accounting/tax-codes"
 	adminPeriodsPath           = "/api/admin/accounting/periods"
 	adminPartiesPath           = "/api/admin/parties"
+	adminAccessUsersPath       = "/api/admin/access/users"
 	approvalDecisionPrefix     = "/api/approvals/"
 	headerOrgID                = "X-Workflow-Org-ID"
 	headerUserID               = "X-Workflow-User-ID"
@@ -169,6 +172,12 @@ type partiesAdminService interface {
 	GetParty(ctx context.Context, input parties.GetPartyInput) (parties.Party, error)
 	CreateParty(ctx context.Context, input parties.CreatePartyInput) (parties.Party, error)
 	ListContacts(ctx context.Context, input parties.ListContactsInput) ([]parties.Contact, error)
+}
+
+type accessAdminService interface {
+	ListOrgUsers(ctx context.Context, input identityaccess.ListOrgUsersInput) ([]identityaccess.OrgUserMembership, error)
+	ProvisionOrgUser(ctx context.Context, input identityaccess.ProvisionOrgUserInput) (identityaccess.OrgUserMembership, error)
+	UpdateMembershipRole(ctx context.Context, input identityaccess.UpdateMembershipRoleInput) (identityaccess.OrgUserMembership, error)
 }
 
 type proposalApprovalService interface {
@@ -318,6 +327,17 @@ type createPartyRequest struct {
 	PartyKind   string `json:"party_kind"`
 }
 
+type provisionOrgUserRequest struct {
+	Email       string `json:"email"`
+	DisplayName string `json:"display_name"`
+	RoleCode    string `json:"role_code"`
+	Password    string `json:"password,omitempty"`
+}
+
+type updateMembershipRoleRequest struct {
+	RoleCode string `json:"role_code"`
+}
+
 type ledgerAccountResponse struct {
 	ID                  string    `json:"id"`
 	Code                string    `json:"code"`
@@ -385,6 +405,18 @@ type contactResponse struct {
 	UpdatedAt       time.Time `json:"updated_at"`
 }
 
+type orgUserMembershipResponse struct {
+	MembershipID     string    `json:"membership_id"`
+	OrgID            string    `json:"org_id"`
+	UserID           string    `json:"user_id"`
+	UserEmail        string    `json:"user_email"`
+	UserDisplayName  string    `json:"user_display_name"`
+	UserStatus       string    `json:"user_status"`
+	RoleCode         string    `json:"role_code"`
+	MembershipStatus string    `json:"membership_status"`
+	CreatedAt        time.Time `json:"created_at"`
+}
+
 type AgentAPIHandler struct {
 	loadProcessor     queuedInboundRequestProcessorLoader
 	submissionService inboundRequestSubmitter
@@ -393,6 +425,7 @@ type AgentAPIHandler struct {
 	proposalApproval  proposalApprovalService
 	accountingAdmin   accountingAdminService
 	partiesAdmin      partiesAdminService
+	accessAdmin       accessAdminService
 	authService       browserSessionService
 }
 
@@ -423,6 +456,12 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	if len(partiesAdmin) > 0 {
 		partyAdminService = partiesAdmin[0]
 	}
+	var identityAdminService accessAdminService
+	if authService != nil {
+		if svc, ok := authService.(accessAdminService); ok {
+			identityAdminService = svc
+		}
+	}
 	handler := &AgentAPIHandler{
 		loadProcessor:     loader,
 		submissionService: submissionService,
@@ -431,6 +470,7 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 		proposalApproval:  proposalApproval,
 		accountingAdmin:   accountingAdmin,
 		partiesAdmin:      partyAdminService,
+		accessAdmin:       identityAdminService,
 		authService:       authService,
 	}
 	mux := http.NewServeMux()
@@ -443,11 +483,14 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(webAdminPath, handler.handleWebAdmin)
 	mux.HandleFunc(webAdminAccountingPath, handler.handleWebAdminAccounting)
 	mux.HandleFunc(webAdminPartiesPath, handler.handleWebAdminParties)
+	mux.HandleFunc(webAdminAccessPath, handler.handleWebAdminAccess)
 	mux.HandleFunc(webAdminLedgerAccountsPath, handler.handleWebCreateLedgerAccount)
 	mux.HandleFunc(webAdminTaxCodesPath, handler.handleWebCreateTaxCode)
 	mux.HandleFunc(webAdminPeriodsPath, handler.handleWebAccountingPeriods)
+	mux.HandleFunc(webAdminAccessUsersPath, handler.handleWebAdminAccessUsers)
 	mux.HandleFunc(webAdminPartiesPath+"/", handler.handleWebAdminPartyDetail)
 	mux.HandleFunc(webAdminPeriodsPath+"/", handler.handleWebAccountingPeriodAction)
+	mux.HandleFunc(webAdminAccessUsersPath+"/", handler.handleWebAdminMembershipAction)
 	mux.HandleFunc(webOperationsPath, handler.handleWebOperationsLanding)
 	mux.HandleFunc(webOperationsFeedPath, handler.handleWebOperationsFeed)
 	mux.HandleFunc(webAgentChatPath, handler.handleWebAgentChat)
@@ -507,8 +550,10 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(adminTaxCodesPath, handler.handleAdminTaxCodes)
 	mux.HandleFunc(adminPeriodsPath, handler.handleAdminAccountingPeriods)
 	mux.HandleFunc(adminPartiesPath, handler.handleAdminParties)
+	mux.HandleFunc(adminAccessUsersPath, handler.handleAdminAccessUsers)
 	mux.HandleFunc(adminPartiesPath+"/", handler.handleAdminPartyDetail)
 	mux.HandleFunc(adminPeriodsPath+"/", handler.handleAdminAccountingPeriodAction)
+	mux.HandleFunc(adminAccessUsersPath+"/", handler.handleAdminAccessMembershipAction)
 	mux.HandleFunc(approvalDecisionPrefix, handler.handleDecideApproval)
 	return mux
 }
@@ -1390,6 +1435,25 @@ func handlePartyAdminError(w http.ResponseWriter, err error, fallback string) {
 	}
 }
 
+func handleAccessAdminError(w http.ResponseWriter, err error, fallback string) {
+	switch {
+	case errors.Is(err, identityaccess.ErrUnauthorized):
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
+	case errors.Is(err, identityaccess.ErrInvalidUser):
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid user"})
+	case errors.Is(err, identityaccess.ErrInvalidMembership):
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid membership"})
+	case errors.Is(err, identityaccess.ErrUserNotFound):
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "user not found"})
+	case errors.Is(err, identityaccess.ErrMembershipNotFound):
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "membership not found"})
+	case errors.Is(err, identityaccess.ErrProtectedMembership):
+		writeJSON(w, http.StatusConflict, errorResponse{Error: "membership update would remove current admin access"})
+	default:
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: fallback})
+	}
+}
+
 func mapLedgerAccount(account accounting.LedgerAccount) ledgerAccountResponse {
 	return ledgerAccountResponse{
 		ID:                  account.ID,
@@ -1464,6 +1528,20 @@ func mapContact(contact parties.Contact) contactResponse {
 		CreatedByUserID: contact.CreatedByUserID,
 		CreatedAt:       contact.CreatedAt,
 		UpdatedAt:       contact.UpdatedAt,
+	}
+}
+
+func mapOrgUserMembership(item identityaccess.OrgUserMembership) orgUserMembershipResponse {
+	return orgUserMembershipResponse{
+		MembershipID:     item.MembershipID,
+		OrgID:            item.OrgID,
+		UserID:           item.UserID,
+		UserEmail:        item.UserEmail,
+		UserDisplayName:  item.UserDisplayName,
+		UserStatus:       item.UserStatus,
+		RoleCode:         item.RoleCode,
+		MembershipStatus: item.MembershipStatus,
+		CreatedAt:        item.CreatedAt,
 	}
 }
 

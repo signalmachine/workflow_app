@@ -2169,6 +2169,92 @@ func TestHandleWebAdminPartiesCreateRedirectsWithNotice(t *testing.T) {
 	}
 }
 
+func TestHandleWebAdminAccessShowsMembershipControls(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		nil,
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				ctx := testSessionContext()
+				ctx.RoleCode = identityaccess.RoleAdmin
+				return ctx, nil
+			},
+			listOrgUsers: func(context.Context, identityaccess.ListOrgUsersInput) ([]identityaccess.OrgUserMembership, error) {
+				return []identityaccess.OrgUserMembership{{
+					MembershipID:     "membership-1",
+					UserID:           "user-2",
+					UserEmail:        "operator@example.com",
+					UserDisplayName:  "Operator One",
+					UserStatus:       "active",
+					RoleCode:         identityaccess.RoleOperator,
+					MembershipStatus: "active",
+				}}, nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/admin/access", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, `User and role controls`) {
+		t.Fatalf("expected access heading, body=%s", body)
+	}
+	if !strings.Contains(body, `operator@example.com`) || !strings.Contains(body, `Update role`) {
+		t.Fatalf("expected membership table and role controls, body=%s", body)
+	}
+}
+
+func TestHandleWebAdminAccessRoleUpdateRedirectsWithNotice(t *testing.T) {
+	var captured identityaccess.UpdateMembershipRoleInput
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		nil,
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				ctx := testSessionContext()
+				ctx.RoleCode = identityaccess.RoleAdmin
+				return ctx, nil
+			},
+			updateMembershipRole: func(_ context.Context, input identityaccess.UpdateMembershipRoleInput) (identityaccess.OrgUserMembership, error) {
+				captured = input
+				return identityaccess.OrgUserMembership{MembershipID: input.MembershipID, RoleCode: input.RoleCode}, nil
+			},
+		},
+	)
+
+	form := url.Values{"role_code": {identityaccess.RoleApprover}}
+	req := httptest.NewRequest(http.MethodPost, "/app/admin/access/users/membership-1/role", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if location := recorder.Header().Get("Location"); !strings.Contains(location, "/app/admin/access?notice=Membership+role+updated.") {
+		t.Fatalf("expected success redirect, got %s", location)
+	}
+	if captured.MembershipID != "membership-1" || captured.RoleCode != identityaccess.RoleApprover {
+		t.Fatalf("unexpected captured input: %+v", captured)
+	}
+}
+
 func TestHandleWebReviewLandingGroupsRouteFamilies(t *testing.T) {
 	handler := NewAgentAPIHandlerWithDependencies(
 		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
@@ -3567,6 +3653,9 @@ func (s stubOperatorReviewReader) GetInventoryLandingSnapshot(ctx context.Contex
 type stubBrowserSessionService struct {
 	authenticateSession     func(context.Context, string, string) (identityaccess.SessionContext, error)
 	authenticateAccessToken func(context.Context, string) (identityaccess.SessionContext, error)
+	listOrgUsers            func(context.Context, identityaccess.ListOrgUsersInput) ([]identityaccess.OrgUserMembership, error)
+	provisionOrgUser        func(context.Context, identityaccess.ProvisionOrgUserInput) (identityaccess.OrgUserMembership, error)
+	updateMembershipRole    func(context.Context, identityaccess.UpdateMembershipRoleInput) (identityaccess.OrgUserMembership, error)
 }
 
 func (s stubBrowserSessionService) StartBrowserSession(context.Context, identityaccess.StartBrowserSessionInput) (identityaccess.BrowserSession, error) {
@@ -3601,6 +3690,27 @@ func (s stubBrowserSessionService) RevokeAuthenticatedSession(context.Context, s
 
 func (s stubBrowserSessionService) RevokeAccessTokenSession(context.Context, string) error {
 	return nil
+}
+
+func (s stubBrowserSessionService) ListOrgUsers(ctx context.Context, input identityaccess.ListOrgUsersInput) ([]identityaccess.OrgUserMembership, error) {
+	if s.listOrgUsers != nil {
+		return s.listOrgUsers(ctx, input)
+	}
+	return nil, nil
+}
+
+func (s stubBrowserSessionService) ProvisionOrgUser(ctx context.Context, input identityaccess.ProvisionOrgUserInput) (identityaccess.OrgUserMembership, error) {
+	if s.provisionOrgUser != nil {
+		return s.provisionOrgUser(ctx, input)
+	}
+	return identityaccess.OrgUserMembership{}, nil
+}
+
+func (s stubBrowserSessionService) UpdateMembershipRole(ctx context.Context, input identityaccess.UpdateMembershipRoleInput) (identityaccess.OrgUserMembership, error) {
+	if s.updateMembershipRole != nil {
+		return s.updateMembershipRole(ctx, input)
+	}
+	return identityaccess.OrgUserMembership{}, nil
 }
 
 type stubSubmissionService struct {

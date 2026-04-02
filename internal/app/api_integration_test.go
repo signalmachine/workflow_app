@@ -343,6 +343,92 @@ func TestAgentAPIAdminPartyMaintenanceIntegration(t *testing.T) {
 	}
 }
 
+func TestAgentAPIAdminAccessMaintenanceIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, adminUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleAdmin)
+	_, operatorUserID := seedOrgAndUserInOrg(t, ctx, db, identityaccess.RoleOperator, orgID)
+
+	handler := app.NewAgentAPIHandler(db)
+	adminCookies := issueBrowserSessionCookies(t, ctx, db, handler, orgID, adminUserID)
+	operatorCookies := issueBrowserSessionCookies(t, ctx, db, handler, orgID, operatorUserID)
+
+	createReq := httptest.NewRequest(http.MethodPost, "/api/admin/access/users", bytes.NewBufferString(`{
+		"email":"approver@example.com",
+		"display_name":"Approver One",
+		"role_code":"approver",
+		"password":"approver-password-123"
+	}`))
+	createReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(createReq, adminCookies)
+	createRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(createRecorder, createReq)
+	if createRecorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected create access user status: got %d body=%s", createRecorder.Code, createRecorder.Body.String())
+	}
+
+	var created struct {
+		MembershipID string `json:"membership_id"`
+		UserID       string `json:"user_id"`
+		UserEmail    string `json:"user_email"`
+		RoleCode     string `json:"role_code"`
+	}
+	if err := json.Unmarshal(createRecorder.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode access create response: %v", err)
+	}
+	if strings.TrimSpace(created.MembershipID) == "" || strings.TrimSpace(created.UserID) == "" {
+		t.Fatalf("expected membership and user identifiers, body=%s", createRecorder.Body.String())
+	}
+	if created.UserEmail != "approver@example.com" || created.RoleCode != identityaccess.RoleApprover {
+		t.Fatalf("unexpected created access record: %+v", created)
+	}
+
+	listReq := httptest.NewRequest(http.MethodGet, "/api/admin/access/users", nil)
+	applyResponseCookies(listReq, adminCookies)
+	listRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(listRecorder, listReq)
+	if listRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected list access users status: got %d body=%s", listRecorder.Code, listRecorder.Body.String())
+	}
+	requireContains(t, listRecorder.Body.String(), `"user_email":"approver@example.com"`)
+
+	updateReq := httptest.NewRequest(http.MethodPost, "/api/admin/access/users/"+created.MembershipID+"/role", bytes.NewBufferString(`{
+		"role_code":"operator"
+	}`))
+	updateReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(updateReq, adminCookies)
+	updateRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(updateRecorder, updateReq)
+	if updateRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected update access role status: got %d body=%s", updateRecorder.Code, updateRecorder.Body.String())
+	}
+	requireContains(t, updateRecorder.Body.String(), `"role_code":"operator"`)
+
+	operatorReq := httptest.NewRequest(http.MethodGet, "/api/admin/access/users", nil)
+	applyResponseCookies(operatorReq, operatorCookies)
+	operatorRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(operatorRecorder, operatorReq)
+	if operatorRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("expected operator access-admin denial, got %d body=%s", operatorRecorder.Code, operatorRecorder.Body.String())
+	}
+
+	selfDemotionReq := httptest.NewRequest(http.MethodPost, "/api/admin/access/users/"+loadMembershipIDForUser(t, ctx, db, orgID, adminUserID)+"/role", bytes.NewBufferString(`{
+		"role_code":"operator"
+	}`))
+	selfDemotionReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(selfDemotionReq, adminCookies)
+	selfDemotionRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(selfDemotionRecorder, selfDemotionReq)
+	if selfDemotionRecorder.Code != http.StatusConflict {
+		t.Fatalf("expected protected-admin conflict, got %d body=%s", selfDemotionRecorder.Code, selfDemotionRecorder.Body.String())
+	}
+}
+
 func TestAgentAPITokenSessionIssueRefreshAndRevokeIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()
@@ -4024,6 +4110,21 @@ func loadOrgSlugAndUserEmail(t *testing.T, ctx context.Context, db *sql.DB, orgI
 	}
 
 	return orgSlug, userEmail
+}
+
+func loadMembershipIDForUser(t *testing.T, ctx context.Context, db *sql.DB, orgID, userID string) string {
+	t.Helper()
+
+	var membershipID string
+	if err := db.QueryRowContext(
+		ctx,
+		`SELECT id FROM identityaccess.memberships WHERE org_id = $1 AND user_id = $2`,
+		orgID,
+		userID,
+	).Scan(&membershipID); err != nil {
+		t.Fatalf("load membership id: %v", err)
+	}
+	return membershipID
 }
 
 func issueBrowserSessionCookies(t *testing.T, ctx context.Context, db *sql.DB, handler http.Handler, orgID, userID string) []*http.Cookie {

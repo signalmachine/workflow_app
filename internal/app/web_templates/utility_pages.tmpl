@@ -36,6 +36,108 @@
 {{template "web_shell_end" .}}
 {{end}}
 
+{{define "web_admin_access"}}
+{{template "web_shell_start" .}}
+
+{{template "web_page_header" (dict
+  "eyebrow" "Admin access"
+  "title" "User and role controls"
+  "body" "Use bounded admin-only access maintenance here to provision org memberships and change membership roles on the shared identity foundation."
+)}}
+
+<section class="plain-section">
+  <div class="eyebrow">Maintenance routes</div>
+  <div class="route-list">
+    <a class="route-link-card" data-summary="Return to the grouped admin maintenance hub for the broader posture and adjacent privileged setup families." href="/app/admin">Admin hub</a>
+    <a class="route-link-card" data-summary="Open approval review when the next step is a governed workflow decision rather than identity maintenance." href="/app/review/approvals?status=pending">Approval queue</a>
+    <a class="route-link-card" data-summary="Open audit review when you need the actor and timestamp trail behind a maintenance change." href="/app/review/audit">Audit review</a>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">Provision user</div>
+      <h2>Attach or create org access</h2>
+      <p>Create a new login-backed user for this org, or attach an existing user by email without widening Admin into a broad identity workspace.</p>
+    </div>
+  </div>
+
+  <form method="post" action="/app/admin/access/users" class="field-grid compact-form">
+    <label>Email
+      <input type="email" name="email" placeholder="operator@example.com" required>
+    </label>
+    <label>Display name
+      <input type="text" name="display_name" placeholder="Operator One">
+    </label>
+    <label>Role
+      <select name="role_code" required>
+        {{range .AdminAccess.RoleOptions}}
+        <option value="{{.}}">{{.}}</option>
+        {{end}}
+      </select>
+    </label>
+    <label>Password
+      <input type="password" name="password" placeholder="Required only for a brand new user">
+    </label>
+    <div class="button-row">
+      <button type="submit">Save access membership</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">Current memberships</div>
+      <h2>Org-scoped access map</h2>
+      <p>Review current users and update membership roles without leaving the promoted admin surface.</p>
+    </div>
+  </div>
+
+  {{if .AdminAccess.Users}}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Role</th>
+          <th>User status</th>
+          <th>Membership status</th>
+          <th>Control</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .AdminAccess.Users}}
+        <tr>
+          <td><strong>{{.UserDisplayName}}</strong><br>{{.UserEmail}}</td>
+          <td>{{.RoleCode}}</td>
+          <td>{{.UserStatus}}</td>
+          <td>{{.MembershipStatus}}</td>
+          <td>
+            {{$currentRole := .RoleCode}}
+            <form method="post" action="/app/admin/access/users/{{.MembershipID}}/role" class="compact-inline-form">
+              <select name="role_code" aria-label="Role for {{.UserEmail}}">
+                {{range $.AdminAccess.RoleOptions}}
+                <option value="{{.}}" {{if eq . $currentRole}}selected{{end}}>{{.}}</option>
+                {{end}}
+              </select>
+              <button type="submit" class="secondary">Update role</button>
+            </form>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  {{template "web_empty_state" (dict "title" "No org users yet" "body" "Provision the first org membership from this page to make access continuity explicit." )}}
+  {{end}}
+</section>
+
+{{template "web_shell_end" .}}
+{{end}}
+
 {{define "web_admin_accounting"}}
 {{template "web_shell_start" .}}
 
