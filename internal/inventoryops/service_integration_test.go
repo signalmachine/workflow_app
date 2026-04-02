@@ -243,6 +243,57 @@ func TestInventoryMovementRejectsMismatchedDocumentAndPurposeIntegration(t *test
 	}
 }
 
+func TestInventoryListItemsAndLocationsIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, adminUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleAdmin, "")
+	adminSession := startSession(t, ctx, db, orgID, adminUserID)
+	admin := identityaccess.Actor{OrgID: orgID, UserID: adminUserID, SessionID: adminSession.ID}
+
+	inventoryService := inventoryops.NewService(db)
+
+	item := createItem(t, ctx, inventoryService, inventoryops.CreateItemInput{
+		SKU:          "PUMP-100",
+		Name:         "Warehouse Pump",
+		ItemRole:     inventoryops.ItemRoleTraceableEquipment,
+		TrackingMode: inventoryops.TrackingModeSerial,
+		Actor:        admin,
+	})
+	location := createLocation(t, ctx, inventoryService, inventoryops.CreateLocationInput{
+		Code:         "WH-Z",
+		Name:         "North Warehouse",
+		LocationRole: inventoryops.LocationRoleWarehouse,
+		Actor:        admin,
+	})
+
+	items, err := inventoryService.ListItems(ctx, inventoryops.ListItemsInput{
+		ItemRole: inventoryops.ItemRoleTraceableEquipment,
+		Actor:    admin,
+	})
+	if err != nil {
+		t.Fatalf("list inventory items: %v", err)
+	}
+	if len(items) != 1 || items[0].ID != item.ID || items[0].TrackingMode != inventoryops.TrackingModeSerial {
+		t.Fatalf("unexpected inventory items: %+v", items)
+	}
+
+	locations, err := inventoryService.ListLocations(ctx, inventoryops.ListLocationsInput{
+		LocationRole: inventoryops.LocationRoleWarehouse,
+		Actor:        admin,
+	})
+	if err != nil {
+		t.Fatalf("list inventory locations: %v", err)
+	}
+	if len(locations) != 1 || locations[0].ID != location.ID || locations[0].Code != "WH-Z" {
+		t.Fatalf("unexpected inventory locations: %+v", locations)
+	}
+}
+
 func TestCaptureInventoryDocumentCreatesPayloadMovementsAndHandoffsIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()

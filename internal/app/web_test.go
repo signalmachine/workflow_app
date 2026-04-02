@@ -16,6 +16,7 @@ import (
 	"workflow_app/internal/attachments"
 	"workflow_app/internal/identityaccess"
 	"workflow_app/internal/intake"
+	"workflow_app/internal/inventoryops"
 	"workflow_app/internal/parties"
 	"workflow_app/internal/reporting"
 )
@@ -1955,6 +1956,9 @@ func TestHandleWebAdminShowsMaintenanceHubForAdmin(t *testing.T) {
 	if !strings.Contains(body, `Party setup`) {
 		t.Fatalf("expected party setup family, body=%s", body)
 	}
+	if !strings.Contains(body, `Inventory setup`) {
+		t.Fatalf("expected inventory setup family, body=%s", body)
+	}
 }
 
 func TestHandleWebAdminAccountingShowsSetupForms(t *testing.T) {
@@ -2252,6 +2256,131 @@ func TestHandleWebAdminAccessRoleUpdateRedirectsWithNotice(t *testing.T) {
 	}
 	if captured.MembershipID != "membership-1" || captured.RoleCode != identityaccess.RoleApprover {
 		t.Fatalf("unexpected captured input: %+v", captured)
+	}
+}
+
+func TestHandleWebAdminInventoryShowsSetupForms(t *testing.T) {
+	handler := newAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		nil,
+		nil,
+		nil,
+		stubAccountingAdminService{},
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				ctx := testSessionContext()
+				ctx.RoleCode = identityaccess.RoleAdmin
+				return ctx, nil
+			},
+		},
+		stubInventoryAdminService{
+			listItems: func(context.Context, inventoryops.ListItemsInput) ([]inventoryops.Item, error) {
+				return []inventoryops.Item{{ID: "item-1", SKU: "PUMP-100", Name: "Warehouse Pump", ItemRole: inventoryops.ItemRoleTraceableEquipment, TrackingMode: inventoryops.TrackingModeSerial, Status: "active"}}, nil
+			},
+			listLocations: func(context.Context, inventoryops.ListLocationsInput) ([]inventoryops.Location, error) {
+				return []inventoryops.Location{{ID: "loc-1", Code: "WH-A", Name: "Main Warehouse", LocationRole: inventoryops.LocationRoleWarehouse, Status: "active"}}, nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/admin/inventory", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, `Inventory setup maintenance`) {
+		t.Fatalf("expected inventory setup heading, body=%s", body)
+	}
+	if !strings.Contains(body, `Create inventory item`) || !strings.Contains(body, `Create inventory location`) {
+		t.Fatalf("expected inventory setup forms, body=%s", body)
+	}
+	if !strings.Contains(body, `Warehouse Pump`) || !strings.Contains(body, `Main Warehouse`) {
+		t.Fatalf("expected inventory master data to render, body=%s", body)
+	}
+}
+
+func TestHandleWebAdminInventoryCreateRedirectsWithNotice(t *testing.T) {
+	var capturedItem inventoryops.CreateItemInput
+	var capturedLocation inventoryops.CreateLocationInput
+	handler := newAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		nil,
+		nil,
+		nil,
+		stubAccountingAdminService{},
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				ctx := testSessionContext()
+				ctx.RoleCode = identityaccess.RoleAdmin
+				return ctx, nil
+			},
+		},
+		stubInventoryAdminService{
+			createItem: func(_ context.Context, input inventoryops.CreateItemInput) (inventoryops.Item, error) {
+				capturedItem = input
+				return inventoryops.Item{ID: "item-1", SKU: input.SKU, Name: input.Name}, nil
+			},
+			createLocation: func(_ context.Context, input inventoryops.CreateLocationInput) (inventoryops.Location, error) {
+				capturedLocation = input
+				return inventoryops.Location{ID: "loc-1", Code: input.Code, Name: input.Name}, nil
+			},
+		},
+	)
+
+	itemForm := url.Values{
+		"sku":           {"PUMP-100"},
+		"name":          {"Warehouse Pump"},
+		"item_role":     {inventoryops.ItemRoleTraceableEquipment},
+		"tracking_mode": {inventoryops.TrackingModeSerial},
+	}
+	itemReq := httptest.NewRequest(http.MethodPost, "/app/admin/inventory/items", strings.NewReader(itemForm.Encode()))
+	itemReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	itemReq.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	itemReq.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	itemRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(itemRecorder, itemReq)
+
+	if itemRecorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected item status: got %d body=%s", itemRecorder.Code, itemRecorder.Body.String())
+	}
+	if location := itemRecorder.Header().Get("Location"); !strings.Contains(location, "/app/admin/inventory?notice=Inventory+item+created.") {
+		t.Fatalf("expected item success redirect, got %s", location)
+	}
+	if capturedItem.SKU != "PUMP-100" || capturedItem.ItemRole != inventoryops.ItemRoleTraceableEquipment {
+		t.Fatalf("unexpected captured item input: %+v", capturedItem)
+	}
+
+	locationForm := url.Values{
+		"code":          {"WH-A"},
+		"name":          {"Main Warehouse"},
+		"location_role": {inventoryops.LocationRoleWarehouse},
+	}
+	locationReq := httptest.NewRequest(http.MethodPost, "/app/admin/inventory/locations", strings.NewReader(locationForm.Encode()))
+	locationReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	locationReq.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	locationReq.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	locationRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(locationRecorder, locationReq)
+
+	if locationRecorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected location status: got %d body=%s", locationRecorder.Code, locationRecorder.Body.String())
+	}
+	if location := locationRecorder.Header().Get("Location"); !strings.Contains(location, "/app/admin/inventory?notice=Inventory+location+created.") {
+		t.Fatalf("expected location success redirect, got %s", location)
+	}
+	if capturedLocation.Code != "WH-A" || capturedLocation.LocationRole != inventoryops.LocationRoleWarehouse {
+		t.Fatalf("unexpected captured location input: %+v", capturedLocation)
 	}
 }
 
@@ -3860,4 +3989,39 @@ func (s stubAccountingAdminService) CloseAccountingPeriod(ctx context.Context, i
 		return s.closeAccountingPeriod(ctx, input)
 	}
 	return accounting.AccountingPeriod{}, nil
+}
+
+type stubInventoryAdminService struct {
+	listItems      func(context.Context, inventoryops.ListItemsInput) ([]inventoryops.Item, error)
+	createItem     func(context.Context, inventoryops.CreateItemInput) (inventoryops.Item, error)
+	listLocations  func(context.Context, inventoryops.ListLocationsInput) ([]inventoryops.Location, error)
+	createLocation func(context.Context, inventoryops.CreateLocationInput) (inventoryops.Location, error)
+}
+
+func (s stubInventoryAdminService) ListItems(ctx context.Context, input inventoryops.ListItemsInput) ([]inventoryops.Item, error) {
+	if s.listItems != nil {
+		return s.listItems(ctx, input)
+	}
+	return nil, nil
+}
+
+func (s stubInventoryAdminService) CreateItem(ctx context.Context, input inventoryops.CreateItemInput) (inventoryops.Item, error) {
+	if s.createItem != nil {
+		return s.createItem(ctx, input)
+	}
+	return inventoryops.Item{}, nil
+}
+
+func (s stubInventoryAdminService) ListLocations(ctx context.Context, input inventoryops.ListLocationsInput) ([]inventoryops.Location, error) {
+	if s.listLocations != nil {
+		return s.listLocations(ctx, input)
+	}
+	return nil, nil
+}
+
+func (s stubInventoryAdminService) CreateLocation(ctx context.Context, input inventoryops.CreateLocationInput) (inventoryops.Location, error) {
+	if s.createLocation != nil {
+		return s.createLocation(ctx, input)
+	}
+	return inventoryops.Location{}, nil
 }

@@ -17,6 +17,7 @@ import (
 	"workflow_app/internal/attachments"
 	"workflow_app/internal/identityaccess"
 	"workflow_app/internal/intake"
+	"workflow_app/internal/inventoryops"
 	"workflow_app/internal/parties"
 	"workflow_app/internal/reporting"
 )
@@ -383,6 +384,17 @@ type webAdminAccessData struct {
 	RoleOptions []string
 }
 
+type webAdminInventoryData struct {
+	Session             identityaccess.SessionContext
+	Notice              string
+	Error               string
+	ItemRoleOptions     []string
+	TrackingModeOptions []string
+	LocationRoleOptions []string
+	Items               []inventoryops.Item
+	Locations           []inventoryops.Location
+}
+
 type webAdminData struct {
 	Session             identityaccess.SessionContext
 	Notice              string
@@ -425,6 +437,7 @@ type webPageData struct {
 	AdminAccounting         *webAdminAccountingData
 	AdminParties            *webAdminPartiesData
 	AdminAccess             *webAdminAccessData
+	AdminInventory          *webAdminInventoryData
 	OperationsLanding       *webOperationsLandingData
 	OperationsFeed          *webOperationsFeedData
 	AgentChat               *webAgentChatData

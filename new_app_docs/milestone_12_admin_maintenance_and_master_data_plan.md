@@ -1,7 +1,7 @@
 # workflow_app Milestone 12 Admin Maintenance and Master Data Plan
 
 Date: 2026-04-02
-Status: Active milestone with Slice 1 through Slice 4 implemented in code and only later follow-on controls still queued
+Status: Active milestone with Slice 1 through Slice 5 implemented in code and only later follow-on controls still queued
 Purpose: define the first real privileged maintenance surface for browser operators so `Admin` stops being a placeholder route directory and becomes the controlled entry point for manual master-data and configuration work on the shared backend.
 
 ## 1. Why this milestone exists
@@ -160,7 +160,8 @@ Recommended queue from the current repository state:
 3. Slice 2 is now implemented in code through `/app/admin/accounting` plus bounded admin-only `/api/admin/accounting/...` seams for ledger-account, tax-code, and accounting-period list or create flows and accounting-period close controls
 4. Slice 3 customer and party maintenance is now implemented in code through `/app/admin/parties` plus bounded admin-only `/api/admin/parties` seams for list, create, filtered list, and exact detail reads with contact visibility
 5. Slice 4 access controls are now implemented in code through `/app/admin/access` plus bounded admin-only `/api/admin/access/users` list and provision seams and `/api/admin/access/users/{membership_id}/role` role updates on the shared `identityaccess` service seam
-6. later follow-on policy or operational controls remain queued only if workflow evidence or operator continuity justifies them after the first four slices settle
+6. Slice 5 inventory master-data maintenance is now implemented in code through `/app/admin/inventory` plus bounded admin-only `/api/admin/inventory/items` and `/api/admin/inventory/locations` seams for item and location list or create flows
+7. later follow-on policy or operational controls remain queued only if workflow evidence or operator continuity justifies them after the first five slices settle
 
 ## 8. Verification
 
@@ -184,12 +185,12 @@ When this milestone begins or changes:
 
 ## 10. Current checkpoint
 
-Slice 1 through Slice 4 are now implemented in code.
+Slice 1 through Slice 5 are now implemented in code.
 
 Implemented outcome:
 
 1. `/app/settings` now states the user-scoped ownership rules directly, keeps the page focused on session context plus personal continuity, and shows an explicit admin handoff only for admin actors
-2. `/app/admin` now presents grouped maintenance families for accounting setup, party setup, and access or governance posture instead of acting as only a flat review-link directory
+2. `/app/admin` now presents grouped maintenance families for accounting setup, party setup, access or governance posture, and inventory setup instead of acting as only a flat review-link directory
 3. `/app/admin/accounting` now exposes the first real admin-only browser maintenance surface for ledger-account, tax-code, and accounting-period setup while keeping posted-truth accounting review separate
 4. the shared API seam now exposes bounded admin-only list and create endpoints for ledger accounts, tax codes, and accounting periods plus period-close controls for later non-browser reuse
 5. route-catalog and role-aware home copy now describe `Admin` as the privileged maintenance hub rather than a generic utility page
@@ -201,7 +202,10 @@ Implemented outcome:
 11. the shared API seam now exposes bounded admin-only `/api/admin/access/users` list and provision flows plus `/api/admin/access/users/{membership_id}/role` role updates for later non-browser reuse on the same backend foundation
 12. focused `internal/app` HTTP coverage plus DB-backed `internal/app` and `internal/identityaccess` integration coverage now lock the admin access-maintenance slice in place
 13. the first access slice also blocks the currently signed-in admin from removing their own admin role accidentally during a role update
+14. `/app/admin/inventory` now exposes the first real admin-only browser maintenance surface for inventory item and location setup while keeping downstream stock review, movement review, and reconciliation review separate
+15. the shared API seam now exposes bounded admin-only `/api/admin/inventory/items` and `/api/admin/inventory/locations` list and create flows for later non-browser reuse on the same inventory foundation
+16. focused `internal/app` HTTP coverage plus DB-backed `internal/app` and `internal/inventoryops` integration coverage now lock the admin inventory maintenance slice in place
 
 Next queued slice:
 
-1. later policy or operational controls should be promoted only if workflow evidence or operator continuity justifies them after the current four maintenance slices settle
+1. later policy or operational controls should be promoted only if workflow evidence or operator continuity justifies them after the current five maintenance slices settle

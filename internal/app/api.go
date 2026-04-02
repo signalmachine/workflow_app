@@ -19,6 +19,7 @@ import (
 	"workflow_app/internal/documents"
 	"workflow_app/internal/identityaccess"
 	"workflow_app/internal/intake"
+	"workflow_app/internal/inventoryops"
 	"workflow_app/internal/parties"
 	"workflow_app/internal/reporting"
 	"workflow_app/internal/workflow"
@@ -39,9 +40,12 @@ const (
 	webAdminAccountingPath     = "/app/admin/accounting"
 	webAdminPartiesPath        = "/app/admin/parties"
 	webAdminAccessPath         = "/app/admin/access"
+	webAdminInventoryPath      = "/app/admin/inventory"
 	webAdminLedgerAccountsPath = "/app/admin/accounting/ledger-accounts"
 	webAdminTaxCodesPath       = "/app/admin/accounting/tax-codes"
 	webAdminPeriodsPath        = "/app/admin/accounting/periods"
+	webAdminInventoryItemsPath = "/app/admin/inventory/items"
+	webAdminInventoryLocsPath  = "/app/admin/inventory/locations"
 	webAdminPartyDetailPrefix  = "/app/admin/parties/"
 	webAdminAccessUsersPath    = "/app/admin/access/users"
 	webOperationsPath          = "/app/operations"
@@ -97,6 +101,8 @@ const (
 	adminPeriodsPath           = "/api/admin/accounting/periods"
 	adminPartiesPath           = "/api/admin/parties"
 	adminAccessUsersPath       = "/api/admin/access/users"
+	adminInventoryItemsPath    = "/api/admin/inventory/items"
+	adminInventoryLocsPath     = "/api/admin/inventory/locations"
 	approvalDecisionPrefix     = "/api/approvals/"
 	headerOrgID                = "X-Workflow-Org-ID"
 	headerUserID               = "X-Workflow-User-ID"
@@ -178,6 +184,13 @@ type accessAdminService interface {
 	ListOrgUsers(ctx context.Context, input identityaccess.ListOrgUsersInput) ([]identityaccess.OrgUserMembership, error)
 	ProvisionOrgUser(ctx context.Context, input identityaccess.ProvisionOrgUserInput) (identityaccess.OrgUserMembership, error)
 	UpdateMembershipRole(ctx context.Context, input identityaccess.UpdateMembershipRoleInput) (identityaccess.OrgUserMembership, error)
+}
+
+type inventoryAdminService interface {
+	ListItems(ctx context.Context, input inventoryops.ListItemsInput) ([]inventoryops.Item, error)
+	CreateItem(ctx context.Context, input inventoryops.CreateItemInput) (inventoryops.Item, error)
+	ListLocations(ctx context.Context, input inventoryops.ListLocationsInput) ([]inventoryops.Location, error)
+	CreateLocation(ctx context.Context, input inventoryops.CreateLocationInput) (inventoryops.Location, error)
 }
 
 type proposalApprovalService interface {
@@ -338,6 +351,19 @@ type updateMembershipRoleRequest struct {
 	RoleCode string `json:"role_code"`
 }
 
+type createInventoryItemRequest struct {
+	SKU          string `json:"sku"`
+	Name         string `json:"name"`
+	ItemRole     string `json:"item_role"`
+	TrackingMode string `json:"tracking_mode"`
+}
+
+type createInventoryLocationRequest struct {
+	Code         string `json:"code"`
+	Name         string `json:"name"`
+	LocationRole string `json:"location_role"`
+}
+
 type ledgerAccountResponse struct {
 	ID                  string    `json:"id"`
 	Code                string    `json:"code"`
@@ -417,6 +443,29 @@ type orgUserMembershipResponse struct {
 	CreatedAt        time.Time `json:"created_at"`
 }
 
+type inventoryItemResponse struct {
+	ID              string    `json:"id"`
+	SKU             string    `json:"sku"`
+	Name            string    `json:"name"`
+	ItemRole        string    `json:"item_role"`
+	TrackingMode    string    `json:"tracking_mode"`
+	Status          string    `json:"status"`
+	CreatedByUserID string    `json:"created_by_user_id"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+type inventoryLocationResponse struct {
+	ID              string    `json:"id"`
+	Code            string    `json:"code"`
+	Name            string    `json:"name"`
+	LocationRole    string    `json:"location_role"`
+	Status          string    `json:"status"`
+	CreatedByUserID string    `json:"created_by_user_id"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
 type AgentAPIHandler struct {
 	loadProcessor     queuedInboundRequestProcessorLoader
 	submissionService inboundRequestSubmitter
@@ -426,6 +475,7 @@ type AgentAPIHandler struct {
 	accountingAdmin   accountingAdminService
 	partiesAdmin      partiesAdminService
 	accessAdmin       accessAdminService
+	inventoryAdmin    inventoryAdminService
 	authService       browserSessionService
 }
 
@@ -433,10 +483,11 @@ func NewAgentAPIHandler(db *sql.DB) http.Handler {
 	documentService := documents.NewService(db)
 	authService := identityaccess.NewService(db)
 	accountingService := accounting.NewService(db, documentService)
+	inventoryService := inventoryops.NewService(db)
 	partiesService := parties.NewService(db)
 	return newAgentAPIHandlerWithDependencies(func() (ProcessNextQueuedInboundRequester, error) {
 		return NewOpenAIAgentProcessorFromEnv(db)
-	}, NewSubmissionService(db), reporting.NewService(db), workflow.NewService(db, documentService), newProcessedProposalApprovalService(db), accountingService, authService, partiesService)
+	}, NewSubmissionService(db), reporting.NewService(db), workflow.NewService(db, documentService), newProcessedProposalApprovalService(db), accountingService, authService, partiesService, inventoryService)
 }
 
 func NewAgentAPIHandlerWithProcessorLoader(loader queuedInboundRequestProcessorLoader) http.Handler {
@@ -451,10 +502,16 @@ func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	return newAgentAPIHandlerWithDependencies(loader, submissionService, reviewService, approvalService, nil, nil, authService)
 }
 
-func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoader, submissionService inboundRequestSubmitter, reviewService operatorReviewReader, approvalService approvalDecisionService, proposalApproval proposalApprovalService, accountingAdmin accountingAdminService, authService browserSessionService, partiesAdmin ...partiesAdminService) http.Handler {
+func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoader, submissionService inboundRequestSubmitter, reviewService operatorReviewReader, approvalService approvalDecisionService, proposalApproval proposalApprovalService, accountingAdmin accountingAdminService, authService browserSessionService, optionalServices ...any) http.Handler {
 	var partyAdminService partiesAdminService
-	if len(partiesAdmin) > 0 {
-		partyAdminService = partiesAdmin[0]
+	var inventoryAdmin inventoryAdminService
+	for _, svc := range optionalServices {
+		switch typed := svc.(type) {
+		case partiesAdminService:
+			partyAdminService = typed
+		case inventoryAdminService:
+			inventoryAdmin = typed
+		}
 	}
 	var identityAdminService accessAdminService
 	if authService != nil {
@@ -471,6 +528,7 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 		accountingAdmin:   accountingAdmin,
 		partiesAdmin:      partyAdminService,
 		accessAdmin:       identityAdminService,
+		inventoryAdmin:    inventoryAdmin,
 		authService:       authService,
 	}
 	mux := http.NewServeMux()
@@ -484,10 +542,13 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(webAdminAccountingPath, handler.handleWebAdminAccounting)
 	mux.HandleFunc(webAdminPartiesPath, handler.handleWebAdminParties)
 	mux.HandleFunc(webAdminAccessPath, handler.handleWebAdminAccess)
+	mux.HandleFunc(webAdminInventoryPath, handler.handleWebAdminInventory)
 	mux.HandleFunc(webAdminLedgerAccountsPath, handler.handleWebCreateLedgerAccount)
 	mux.HandleFunc(webAdminTaxCodesPath, handler.handleWebCreateTaxCode)
 	mux.HandleFunc(webAdminPeriodsPath, handler.handleWebAccountingPeriods)
 	mux.HandleFunc(webAdminAccessUsersPath, handler.handleWebAdminAccessUsers)
+	mux.HandleFunc(webAdminInventoryItemsPath, handler.handleWebAdminInventoryItems)
+	mux.HandleFunc(webAdminInventoryLocsPath, handler.handleWebAdminInventoryLocations)
 	mux.HandleFunc(webAdminPartiesPath+"/", handler.handleWebAdminPartyDetail)
 	mux.HandleFunc(webAdminPeriodsPath+"/", handler.handleWebAccountingPeriodAction)
 	mux.HandleFunc(webAdminAccessUsersPath+"/", handler.handleWebAdminMembershipAction)
@@ -551,6 +612,8 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(adminPeriodsPath, handler.handleAdminAccountingPeriods)
 	mux.HandleFunc(adminPartiesPath, handler.handleAdminParties)
 	mux.HandleFunc(adminAccessUsersPath, handler.handleAdminAccessUsers)
+	mux.HandleFunc(adminInventoryItemsPath, handler.handleAdminInventoryItems)
+	mux.HandleFunc(adminInventoryLocsPath, handler.handleAdminInventoryLocations)
 	mux.HandleFunc(adminPartiesPath+"/", handler.handleAdminPartyDetail)
 	mux.HandleFunc(adminPeriodsPath+"/", handler.handleAdminAccountingPeriodAction)
 	mux.HandleFunc(adminAccessUsersPath+"/", handler.handleAdminAccessMembershipAction)
@@ -1542,6 +1605,33 @@ func mapOrgUserMembership(item identityaccess.OrgUserMembership) orgUserMembersh
 		RoleCode:         item.RoleCode,
 		MembershipStatus: item.MembershipStatus,
 		CreatedAt:        item.CreatedAt,
+	}
+}
+
+func mapInventoryItem(item inventoryops.Item) inventoryItemResponse {
+	return inventoryItemResponse{
+		ID:              item.ID,
+		SKU:             item.SKU,
+		Name:            item.Name,
+		ItemRole:        item.ItemRole,
+		TrackingMode:    item.TrackingMode,
+		Status:          item.Status,
+		CreatedByUserID: item.CreatedByUserID,
+		CreatedAt:       item.CreatedAt,
+		UpdatedAt:       item.UpdatedAt,
+	}
+}
+
+func mapInventoryLocation(location inventoryops.Location) inventoryLocationResponse {
+	return inventoryLocationResponse{
+		ID:              location.ID,
+		Code:            location.Code,
+		Name:            location.Name,
+		LocationRole:    location.LocationRole,
+		Status:          location.Status,
+		CreatedByUserID: location.CreatedByUserID,
+		CreatedAt:       location.CreatedAt,
+		UpdatedAt:       location.UpdatedAt,
 	}
 }
 

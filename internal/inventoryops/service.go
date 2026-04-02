@@ -231,6 +231,16 @@ type ListStockInput struct {
 	Actor       identityaccess.Actor
 }
 
+type ListItemsInput struct {
+	ItemRole string
+	Actor    identityaccess.Actor
+}
+
+type ListLocationsInput struct {
+	LocationRole string
+	Actor        identityaccess.Actor
+}
+
 type Service struct {
 	db *sql.DB
 }
@@ -708,6 +718,103 @@ ORDER BY item_id, location_id;`,
 	}
 
 	return balances, nil
+}
+
+func (s *Service) ListItems(ctx context.Context, input ListItemsInput) ([]Item, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin list items: %w", err)
+	}
+	defer tx.Rollback()
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin, identityaccess.RoleOperator, identityaccess.RoleApprover); err != nil {
+		return nil, err
+	}
+
+	rows, err := tx.QueryContext(ctx, `
+SELECT
+	id,
+	org_id,
+	sku,
+	name,
+	item_role,
+	tracking_mode,
+	status,
+	created_by_user_id,
+	created_at,
+	updated_at
+FROM inventory_ops.items
+WHERE org_id = $1
+  AND ($2 = '' OR item_role = $2)
+ORDER BY sku, created_at, id;`,
+		input.Actor.OrgID,
+		strings.TrimSpace(input.ItemRole),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query inventory items: %w", err)
+	}
+	defer rows.Close()
+
+	var items []Item
+	for rows.Next() {
+		item, err := scanItem(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan inventory item: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate inventory items: %w", err)
+	}
+	return items, nil
+}
+
+func (s *Service) ListLocations(ctx context.Context, input ListLocationsInput) ([]Location, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin list locations: %w", err)
+	}
+	defer tx.Rollback()
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin, identityaccess.RoleOperator, identityaccess.RoleApprover); err != nil {
+		return nil, err
+	}
+
+	rows, err := tx.QueryContext(ctx, `
+SELECT
+	id,
+	org_id,
+	code,
+	name,
+	location_role,
+	status,
+	created_by_user_id,
+	created_at,
+	updated_at
+FROM inventory_ops.locations
+WHERE org_id = $1
+  AND ($2 = '' OR location_role = $2)
+ORDER BY code, created_at, id;`,
+		input.Actor.OrgID,
+		strings.TrimSpace(input.LocationRole),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query inventory locations: %w", err)
+	}
+	defer rows.Close()
+
+	var locations []Location
+	for rows.Next() {
+		location, err := scanLocation(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan inventory location: %w", err)
+		}
+		locations = append(locations, location)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate inventory locations: %w", err)
+	}
+	return locations, nil
 }
 
 func validateMovementInput(input RecordMovementInput) error {

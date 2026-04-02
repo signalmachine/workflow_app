@@ -429,6 +429,89 @@ func TestAgentAPIAdminAccessMaintenanceIntegration(t *testing.T) {
 	}
 }
 
+func TestAgentAPIAdminInventoryMaintenanceIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, adminUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleAdmin)
+	_, operatorUserID := seedOrgAndUserInOrg(t, ctx, db, identityaccess.RoleOperator, orgID)
+
+	handler := app.NewAgentAPIHandler(db)
+	adminCookies := issueBrowserSessionCookies(t, ctx, db, handler, orgID, adminUserID)
+	operatorCookies := issueBrowserSessionCookies(t, ctx, db, handler, orgID, operatorUserID)
+
+	createItemReq := httptest.NewRequest(http.MethodPost, "/api/admin/inventory/items", bytes.NewBufferString(`{
+		"sku":"PUMP-100",
+		"name":"Warehouse Pump",
+		"item_role":"traceable_equipment",
+		"tracking_mode":"serial"
+	}`))
+	createItemReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(createItemReq, adminCookies)
+	createItemRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(createItemRecorder, createItemReq)
+	if createItemRecorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected create inventory item status: got %d body=%s", createItemRecorder.Code, createItemRecorder.Body.String())
+	}
+
+	var itemResponse struct {
+		ID           string `json:"id"`
+		SKU          string `json:"sku"`
+		ItemRole     string `json:"item_role"`
+		TrackingMode string `json:"tracking_mode"`
+	}
+	if err := json.Unmarshal(createItemRecorder.Body.Bytes(), &itemResponse); err != nil {
+		t.Fatalf("decode inventory item response: %v", err)
+	}
+	if strings.TrimSpace(itemResponse.ID) == "" || itemResponse.SKU != "PUMP-100" || itemResponse.ItemRole != inventoryops.ItemRoleTraceableEquipment {
+		t.Fatalf("unexpected inventory item response: %+v", itemResponse)
+	}
+
+	createLocationReq := httptest.NewRequest(http.MethodPost, "/api/admin/inventory/locations", bytes.NewBufferString(`{
+		"code":"WH-A",
+		"name":"Main Warehouse",
+		"location_role":"warehouse"
+	}`))
+	createLocationReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(createLocationReq, adminCookies)
+	createLocationRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(createLocationRecorder, createLocationReq)
+	if createLocationRecorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected create inventory location status: got %d body=%s", createLocationRecorder.Code, createLocationRecorder.Body.String())
+	}
+	requireContains(t, createLocationRecorder.Body.String(), `"code":"WH-A"`)
+
+	listItemsReq := httptest.NewRequest(http.MethodGet, "/api/admin/inventory/items?item_role=traceable_equipment", nil)
+	applyResponseCookies(listItemsReq, adminCookies)
+	listItemsRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(listItemsRecorder, listItemsReq)
+	if listItemsRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected list inventory items status: got %d body=%s", listItemsRecorder.Code, listItemsRecorder.Body.String())
+	}
+	requireContains(t, listItemsRecorder.Body.String(), `"sku":"PUMP-100"`)
+
+	listLocationsReq := httptest.NewRequest(http.MethodGet, "/api/admin/inventory/locations?location_role=warehouse", nil)
+	applyResponseCookies(listLocationsReq, adminCookies)
+	listLocationsRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(listLocationsRecorder, listLocationsReq)
+	if listLocationsRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected list inventory locations status: got %d body=%s", listLocationsRecorder.Code, listLocationsRecorder.Body.String())
+	}
+	requireContains(t, listLocationsRecorder.Body.String(), `"code":"WH-A"`)
+
+	operatorReq := httptest.NewRequest(http.MethodGet, "/api/admin/inventory/items", nil)
+	applyResponseCookies(operatorReq, operatorCookies)
+	operatorRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(operatorRecorder, operatorReq)
+	if operatorRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("expected operator inventory-admin denial, got %d body=%s", operatorRecorder.Code, operatorRecorder.Body.String())
+	}
+}
+
 func TestAgentAPITokenSessionIssueRefreshAndRevokeIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()

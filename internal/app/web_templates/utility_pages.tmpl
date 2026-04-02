@@ -138,6 +138,152 @@
 {{template "web_shell_end" .}}
 {{end}}
 
+{{define "web_admin_inventory"}}
+{{template "web_shell_start" .}}
+
+{{template "web_page_header" (dict
+  "eyebrow" "Admin inventory"
+  "title" "Inventory setup maintenance"
+  "body" "Use bounded admin-only setup here for inventory items and locations before downstream stock, movement, and reconciliation work depends on them."
+)}}
+
+<section class="plain-section">
+  <div class="eyebrow">Maintenance routes</div>
+  <div class="route-list">
+    <a class="route-link-card" data-summary="Return to the grouped admin maintenance hub for the broader posture and adjacent privileged setup families." href="/app/admin">Admin hub</a>
+    <a class="route-link-card" data-summary="Open inventory review when the next step is stock, movement, or reconciliation continuity instead of master-data setup." href="/app/review/inventory">Inventory review</a>
+    <a class="route-link-card" data-summary="Search the access-scoped route catalog when you need a nearby admin or inventory route." href="/app/routes?q=admin+inventory">Search related routes</a>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">Inventory items</div>
+      <h2>Shared item master</h2>
+      <p>Create bounded inventory items on the shared inventory foundation before movement capture or reconciliation depends on them.</p>
+    </div>
+  </div>
+
+  <form method="post" action="/app/admin/inventory/items" class="field-grid compact-form">
+    <label>SKU
+      <input type="text" name="sku" placeholder="PUMP-100" required>
+    </label>
+    <label>Name
+      <input type="text" name="name" placeholder="Warehouse pump" required>
+    </label>
+    <label>Item role
+      <select name="item_role" required>
+        {{range .AdminInventory.ItemRoleOptions}}
+        <option value="{{.}}">{{.}}</option>
+        {{end}}
+      </select>
+    </label>
+    <label>Tracking mode
+      <select name="tracking_mode" required>
+        {{range .AdminInventory.TrackingModeOptions}}
+        <option value="{{.}}">{{.}}</option>
+        {{end}}
+      </select>
+    </label>
+    <div class="button-row">
+      <button type="submit">Create inventory item</button>
+    </div>
+  </form>
+
+  {{if .AdminInventory.Items}}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>SKU</th>
+          <th>Name</th>
+          <th>Role</th>
+          <th>Tracking</th>
+          <th>Status</th>
+          <th>Review</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .AdminInventory.Items}}
+        <tr>
+          <td>{{.SKU}}</td>
+          <td>{{.Name}}</td>
+          <td>{{.ItemRole}}</td>
+          <td>{{.TrackingMode}}</td>
+          <td>{{.Status}}</td>
+          <td><a class="pill-link" href="/app/review/inventory/items/{{.ID}}">Open review</a></td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  {{template "web_empty_state" (dict "title" "No inventory items yet" "body" "Create the first item before downstream stock or movement truth depends on it." )}}
+  {{end}}
+</section>
+
+<section class="panel">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">Inventory locations</div>
+      <h2>Shared location master</h2>
+      <p>Create bounded warehouse, site, van, adjustment, vendor, customer, or installed locations on the same inventory foundation.</p>
+    </div>
+  </div>
+
+  <form method="post" action="/app/admin/inventory/locations" class="field-grid compact-form">
+    <label>Code
+      <input type="text" name="code" placeholder="WH-A" required>
+    </label>
+    <label>Name
+      <input type="text" name="name" placeholder="Main warehouse" required>
+    </label>
+    <label>Location role
+      <select name="location_role" required>
+        {{range .AdminInventory.LocationRoleOptions}}
+        <option value="{{.}}">{{.}}</option>
+        {{end}}
+      </select>
+    </label>
+    <div class="button-row">
+      <button type="submit">Create inventory location</button>
+    </div>
+  </form>
+
+  {{if .AdminInventory.Locations}}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Name</th>
+          <th>Role</th>
+          <th>Status</th>
+          <th>Review</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .AdminInventory.Locations}}
+        <tr>
+          <td>{{.Code}}</td>
+          <td>{{.Name}}</td>
+          <td>{{.LocationRole}}</td>
+          <td>{{.Status}}</td>
+          <td><a class="pill-link" href="/app/review/inventory/locations/{{.ID}}">Open review</a></td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  {{template "web_empty_state" (dict "title" "No inventory locations yet" "body" "Create the first bounded location before stock movement or reconciliation depends on it." )}}
+  {{end}}
+</section>
+
+{{template "web_shell_end" .}}
+{{end}}
+
 {{define "web_admin_accounting"}}
 {{template "web_shell_start" .}}
 

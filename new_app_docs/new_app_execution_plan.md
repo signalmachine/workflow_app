@@ -519,7 +519,7 @@ Goal:
 Scope:
 
 1. explicit admin-maintenance landing page posture
-2. bounded browser and API maintenance seams for ledger accounts, tax codes, accounting periods, and customer or party setup
+2. bounded browser and API maintenance seams for ledger accounts, tax codes, accounting periods, inventory items, inventory locations, and customer or party setup
 3. clear separation between user-scoped `Settings` and privileged `Admin`
 4. bounded browser and API access-management seams for org users and membership roles
 5. admin-only authorization and audit-visible privileged writes on the shared backend
@@ -528,7 +528,7 @@ Exit criteria:
 
 1. `/app/admin` is a real privileged maintenance hub rather than a review-link placeholder
 2. `/app/settings` remains user-scoped and does not silently absorb org-scoped maintenance ownership
-3. admins can manually create and browse at least ledger accounts, customer-party records, and org user memberships through the promoted browser seam
+3. admins can manually create and browse at least ledger accounts, inventory items, inventory locations, customer-party records, and org user memberships through the promoted browser seam
 4. the same foundational maintenance capabilities are exposed through shared API contracts where appropriate
 5. the new maintenance breadth remains bounded and does not reopen CRM-first drift or broad manual-entry ERP scope
 
@@ -538,10 +538,11 @@ Current planning checkpoint:
 2. Slice 1 remains implemented in code: `Settings` is explicitly user-scoped, `Admin` is now a grouped privileged maintenance hub, and route-discovery plus role-aware copy treat admin work as maintenance rather than generic utility posture
 3. Slice 3 is now also implemented in code through `/app/admin/parties` plus bounded `/api/admin/parties` list, filtered list, create, and exact-detail reads with contact visibility on the shared `parties` service seam
 4. Slice 4 is now also implemented in code through `/app/admin/access` plus bounded `/api/admin/access/users` list and provision flows and `/api/admin/access/users/{membership_id}/role` role-update control on the shared `identityaccess` service seam
-5. focused `internal/app` HTTP coverage plus DB-backed `identityaccess`, accounting, `parties`, and `internal/app` integration coverage now verify the landed admin maintenance slices
-6. protected self-role-change handling now keeps the currently signed-in admin from removing their own admin access accidentally during this first bounded access-management slice
-7. the canonical plan for this milestone remains `milestone_12_admin_maintenance_and_master_data_plan.md`
-8. the next queued implementation work inside this milestone is later policy or operational controls only if workflow evidence or operator continuity justifies them
+5. Slice 5 is now also implemented in code through `/app/admin/inventory` plus bounded `/api/admin/inventory/items` and `/api/admin/inventory/locations` list and create flows on the shared `inventory_ops` service seam, with direct continuity into the promoted inventory review detail routes
+6. focused `internal/app` HTTP coverage plus DB-backed `identityaccess`, accounting, `inventory_ops`, `parties`, and `internal/app` integration coverage now verify the landed admin maintenance slices
+7. protected self-role-change handling now keeps the currently signed-in admin from removing their own admin access accidentally during this first bounded access-management slice
+8. the canonical plan for this milestone remains `milestone_12_admin_maintenance_and_master_data_plan.md`
+9. the next queued implementation work inside this milestone is later policy or operational controls only if workflow evidence or operator continuity justifies them
 
 ## 17. Execution warning
 

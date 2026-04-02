@@ -8,6 +8,7 @@ import (
 
 	"workflow_app/internal/accounting"
 	"workflow_app/internal/identityaccess"
+	"workflow_app/internal/inventoryops"
 	"workflow_app/internal/parties"
 )
 
@@ -275,6 +276,130 @@ func (h *AgentAPIHandler) handleAdminParties(w http.ResponseWriter, r *http.Requ
 			return
 		}
 		writeJSON(w, http.StatusCreated, mapParty(party))
+	default:
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+	}
+}
+
+func handleInventoryAdminError(w http.ResponseWriter, err error, fallback string) {
+	switch {
+	case errors.Is(err, identityaccess.ErrUnauthorized):
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
+	case errors.Is(err, inventoryops.ErrInvalidItem):
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid inventory item"})
+	case errors.Is(err, inventoryops.ErrInvalidLocation):
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid inventory location"})
+	default:
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: fallback})
+	}
+}
+
+func (h *AgentAPIHandler) handleAdminInventoryItems(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != adminInventoryItemsPath {
+		http.NotFound(w, r)
+		return
+	}
+	if h.inventoryAdmin == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "inventory admin service unavailable"})
+		return
+	}
+
+	actor, err := h.adminActorFromRequest(r)
+	if err != nil {
+		writeAdminActorError(w, err)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		items, err := h.inventoryAdmin.ListItems(r.Context(), inventoryops.ListItemsInput{
+			ItemRole: strings.TrimSpace(r.URL.Query().Get("item_role")),
+			Actor:    actor,
+		})
+		if err != nil {
+			handleInventoryAdminError(w, err, "failed to list inventory items")
+			return
+		}
+		response := struct {
+			Items []inventoryItemResponse `json:"items"`
+		}{Items: make([]inventoryItemResponse, 0, len(items))}
+		for _, item := range items {
+			response.Items = append(response.Items, mapInventoryItem(item))
+		}
+		writeJSON(w, http.StatusOK, response)
+	case http.MethodPost:
+		var req createInventoryItemRequest
+		if err := decodeJSONBody(r, &req, false); err != nil {
+			writeJSONBodyError(w, err)
+			return
+		}
+		item, err := h.inventoryAdmin.CreateItem(r.Context(), inventoryops.CreateItemInput{
+			SKU:          strings.TrimSpace(req.SKU),
+			Name:         strings.TrimSpace(req.Name),
+			ItemRole:     strings.TrimSpace(req.ItemRole),
+			TrackingMode: strings.TrimSpace(req.TrackingMode),
+			Actor:        actor,
+		})
+		if err != nil {
+			handleInventoryAdminError(w, err, "failed to create inventory item")
+			return
+		}
+		writeJSON(w, http.StatusCreated, mapInventoryItem(item))
+	default:
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+	}
+}
+
+func (h *AgentAPIHandler) handleAdminInventoryLocations(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != adminInventoryLocsPath {
+		http.NotFound(w, r)
+		return
+	}
+	if h.inventoryAdmin == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "inventory admin service unavailable"})
+		return
+	}
+
+	actor, err := h.adminActorFromRequest(r)
+	if err != nil {
+		writeAdminActorError(w, err)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		items, err := h.inventoryAdmin.ListLocations(r.Context(), inventoryops.ListLocationsInput{
+			LocationRole: strings.TrimSpace(r.URL.Query().Get("location_role")),
+			Actor:        actor,
+		})
+		if err != nil {
+			handleInventoryAdminError(w, err, "failed to list inventory locations")
+			return
+		}
+		response := struct {
+			Items []inventoryLocationResponse `json:"items"`
+		}{Items: make([]inventoryLocationResponse, 0, len(items))}
+		for _, item := range items {
+			response.Items = append(response.Items, mapInventoryLocation(item))
+		}
+		writeJSON(w, http.StatusOK, response)
+	case http.MethodPost:
+		var req createInventoryLocationRequest
+		if err := decodeJSONBody(r, &req, false); err != nil {
+			writeJSONBodyError(w, err)
+			return
+		}
+		location, err := h.inventoryAdmin.CreateLocation(r.Context(), inventoryops.CreateLocationInput{
+			Code:         strings.TrimSpace(req.Code),
+			Name:         strings.TrimSpace(req.Name),
+			LocationRole: strings.TrimSpace(req.LocationRole),
+			Actor:        actor,
+		})
+		if err != nil {
+			handleInventoryAdminError(w, err, "failed to create inventory location")
+			return
+		}
+		writeJSON(w, http.StatusCreated, mapInventoryLocation(location))
 	default:
 		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
 	}

@@ -9,6 +9,7 @@ import (
 
 	"workflow_app/internal/accounting"
 	"workflow_app/internal/identityaccess"
+	"workflow_app/internal/inventoryops"
 	"workflow_app/internal/parties"
 )
 
@@ -93,6 +94,28 @@ func adminPartiesPathWithMessage(key, message string) string {
 		return webAdminPartiesPath
 	}
 	return appendWebMessage(webAdminPartiesPath, key, message)
+}
+
+func inventoryAdminWebErrorMessage(err error, fallback string) string {
+	switch {
+	case err == nil:
+		return ""
+	case err == identityaccess.ErrUnauthorized:
+		return "unauthorized"
+	case err == inventoryops.ErrInvalidItem:
+		return "invalid inventory item"
+	case err == inventoryops.ErrInvalidLocation:
+		return "invalid inventory location"
+	default:
+		return fallback
+	}
+}
+
+func adminInventoryPathWithMessage(key, message string) string {
+	if strings.TrimSpace(message) == "" {
+		return webAdminInventoryPath
+	}
+	return appendWebMessage(webAdminInventoryPath, key, message)
 }
 
 func (h *AgentAPIHandler) handleWebAdminAccounting(w http.ResponseWriter, r *http.Request) {
@@ -299,6 +322,70 @@ func (h *AgentAPIHandler) handleWebAdminPartyDetail(w http.ResponseWriter, r *ht
 	})
 }
 
+func (h *AgentAPIHandler) handleWebAdminInventory(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != webAdminInventoryPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, ok := h.requireWebAdminSessionWithService(w, r, h.inventoryAdmin != nil, "inventory admin service unavailable")
+	if !ok {
+		return
+	}
+
+	data := webAdminInventoryData{
+		Session: sessionContext,
+		Notice:  strings.TrimSpace(r.URL.Query().Get("notice")),
+		Error:   strings.TrimSpace(r.URL.Query().Get("error")),
+		ItemRoleOptions: []string{
+			inventoryops.ItemRoleResale,
+			inventoryops.ItemRoleServiceMaterial,
+			inventoryops.ItemRoleTraceableEquipment,
+			inventoryops.ItemRoleDirectExpenseConsumable,
+		},
+		TrackingModeOptions: []string{
+			inventoryops.TrackingModeNone,
+			inventoryops.TrackingModeSerial,
+			inventoryops.TrackingModeLot,
+		},
+		LocationRoleOptions: []string{
+			inventoryops.LocationRoleWarehouse,
+			inventoryops.LocationRoleVan,
+			inventoryops.LocationRoleSite,
+			inventoryops.LocationRoleVendor,
+			inventoryops.LocationRoleCustomer,
+			inventoryops.LocationRoleAdjustment,
+			inventoryops.LocationRoleInstalled,
+		},
+	}
+
+	items, err := h.inventoryAdmin.ListItems(r.Context(), inventoryops.ListItemsInput{Actor: sessionContext.Actor})
+	if err != nil {
+		data.Error = inventoryAdminWebErrorMessage(err, "failed to load inventory items")
+	} else {
+		data.Items = items
+	}
+	locations, err := h.inventoryAdmin.ListLocations(r.Context(), inventoryops.ListLocationsInput{Actor: sessionContext.Actor})
+	if err != nil && data.Error == "" {
+		data.Error = inventoryAdminWebErrorMessage(err, "failed to load inventory locations")
+	} else if err == nil {
+		data.Locations = locations
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:          "workflow_app",
+		ActivePath:     webAdminPath,
+		Notice:         data.Notice,
+		Error:          data.Error,
+		Session:        &sessionContext,
+		AdminInventory: &data,
+	})
+}
+
 func (h *AgentAPIHandler) handleWebCreateLedgerAccount(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != webAdminLedgerAccountsPath {
 		http.NotFound(w, r)
@@ -443,4 +530,69 @@ func (h *AgentAPIHandler) handleWebAccountingPeriodAction(w http.ResponseWriter,
 		return
 	}
 	http.Redirect(w, r, adminAccountingPathWithMessage("notice", "Accounting period closed."), http.StatusSeeOther)
+}
+
+func (h *AgentAPIHandler) handleWebAdminInventoryItems(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != webAdminInventoryItemsPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, ok := h.requireWebAdminSessionWithService(w, r, h.inventoryAdmin != nil, "inventory admin service unavailable")
+	if !ok {
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, adminInventoryPathWithMessage("error", "invalid inventory item form"), http.StatusSeeOther)
+		return
+	}
+
+	_, err := h.inventoryAdmin.CreateItem(r.Context(), inventoryops.CreateItemInput{
+		SKU:          strings.TrimSpace(r.FormValue("sku")),
+		Name:         strings.TrimSpace(r.FormValue("name")),
+		ItemRole:     strings.TrimSpace(r.FormValue("item_role")),
+		TrackingMode: strings.TrimSpace(r.FormValue("tracking_mode")),
+		Actor:        sessionContext.Actor,
+	})
+	if err != nil {
+		http.Redirect(w, r, adminInventoryPathWithMessage("error", inventoryAdminWebErrorMessage(err, "failed to create inventory item")), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, adminInventoryPathWithMessage("notice", "Inventory item created."), http.StatusSeeOther)
+}
+
+func (h *AgentAPIHandler) handleWebAdminInventoryLocations(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != webAdminInventoryLocsPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, ok := h.requireWebAdminSessionWithService(w, r, h.inventoryAdmin != nil, "inventory admin service unavailable")
+	if !ok {
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, adminInventoryPathWithMessage("error", "invalid inventory location form"), http.StatusSeeOther)
+		return
+	}
+
+	_, err := h.inventoryAdmin.CreateLocation(r.Context(), inventoryops.CreateLocationInput{
+		Code:         strings.TrimSpace(r.FormValue("code")),
+		Name:         strings.TrimSpace(r.FormValue("name")),
+		LocationRole: strings.TrimSpace(r.FormValue("location_role")),
+		Actor:        sessionContext.Actor,
+	})
+	if err != nil {
+		http.Redirect(w, r, adminInventoryPathWithMessage("error", inventoryAdminWebErrorMessage(err, "failed to create inventory location")), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, adminInventoryPathWithMessage("notice", "Inventory location created."), http.StatusSeeOther)
 }

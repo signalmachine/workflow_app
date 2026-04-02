@@ -1,7 +1,7 @@
 # workflow_app Application Workflow Catalog
 
 Date: 2026-04-02
-Status: Active durable workflow catalog updated for the grouped landing pages at `/app/operations`, `/app/review`, and `/app/inventory`, the searchable route catalog at `/app/routes`, the utility surfaces at `/app/settings` plus access-scoped `/app/admin`, the admin accounting, party, and access-control setup surfaces at `/app/admin/accounting`, `/app/admin/parties`, and `/app/admin/access`, and the role-aware operator home on `/app`
+Status: Active durable workflow catalog updated for the grouped landing pages at `/app/operations`, `/app/review`, and `/app/inventory`, the searchable route catalog at `/app/routes`, the utility surfaces at `/app/settings` plus access-scoped `/app/admin`, the admin accounting, party, access-control, and inventory setup surfaces at `/app/admin/accounting`, `/app/admin/parties`, `/app/admin/access`, and `/app/admin/inventory`, and the role-aware operator home on `/app`
 Purpose: capture the application workflows and related feature continuity in one durable reference document for implementation review, testing, onboarding, and later user-guide preparation.
 
 ## 1. How to read this document
@@ -71,8 +71,9 @@ Primary continuity surfaces:
 9. admin accounting setup surface
 10. admin party setup surface
 11. admin access-control surface
-12. session introspection
-13. subsequent browser-authenticated `/api/...` writes and review reads
+12. admin inventory setup surface
+13. session introspection
+14. subsequent browser-authenticated `/api/...` writes and review reads
 
 ### 2.1.1 Admin accounting setup maintenance
 
@@ -147,6 +148,32 @@ Expected outputs:
 2. controlled creation or attachment of org memberships without widening into a broad identity-product console
 3. bounded membership-role updates with durable audit visibility
 4. protection against the currently signed-in admin accidentally removing their own admin access during this first role-update slice
+
+Current status:
+
+1. implemented
+2. repo_verified
+3. pending_live_validation
+
+### 2.1.4 Admin inventory setup maintenance
+
+Purpose:
+allow an admin actor to create and browse bounded inventory items and inventory locations through one maintenance seam that stays on the shared `inventory_ops` truth model and continues directly into the promoted inventory review routes.
+
+Entry points:
+
+1. `GET /api/admin/inventory/items`
+2. `POST /api/admin/inventory/items`
+3. `GET /api/admin/inventory/locations`
+4. `POST /api/admin/inventory/locations`
+5. `/app/admin/inventory`
+
+Expected outputs:
+
+1. bounded admin-only inventory item creation on the shared `inventory_ops` service seam
+2. bounded admin-only inventory location creation on the same shared inventory foundation
+3. visible browser continuity between the admin maintenance hub, the inventory setup page, and the existing exact inventory review routes
+4. shared API reuse for later non-browser inventory maintenance without introducing browser-local truth
 
 Current status:
 
