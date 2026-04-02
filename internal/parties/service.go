@@ -85,6 +85,11 @@ type ListContactsInput struct {
 	Actor   identityaccess.Actor
 }
 
+type GetPartyInput struct {
+	PartyID string
+	Actor   identityaccess.Actor
+}
+
 type Service struct {
 	db *sql.DB
 }
@@ -397,6 +402,33 @@ ORDER BY is_primary DESC, created_at DESC, id DESC`,
 	}
 
 	return contacts, nil
+}
+
+func (s *Service) GetParty(ctx context.Context, input GetPartyInput) (Party, error) {
+	if strings.TrimSpace(input.PartyID) == "" {
+		return Party{}, ErrInvalidParty
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Party{}, fmt.Errorf("begin get party: %w", err)
+	}
+	defer tx.Rollback()
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin, identityaccess.RoleOperator, identityaccess.RoleApprover); err != nil {
+		return Party{}, err
+	}
+
+	party, err := getParty(ctx, tx, input.Actor.OrgID, strings.TrimSpace(input.PartyID))
+	if err != nil {
+		return Party{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return Party{}, fmt.Errorf("commit get party: %w", err)
+	}
+
+	return party, nil
 }
 
 func getPartyForUpdate(ctx context.Context, tx *sql.Tx, orgID, partyID string) (Party, error) {

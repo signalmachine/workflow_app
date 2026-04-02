@@ -131,6 +131,43 @@ func TestListPartiesFiltersByKindIntegration(t *testing.T) {
 	}
 }
 
+func TestGetPartyReturnsExactTenantScopedPartyIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
+
+	service := parties.NewService(db)
+
+	created, err := service.CreateParty(ctx, parties.CreatePartyInput{
+		PartyCode:   "CUST-200",
+		DisplayName: "Exact Customer",
+		LegalName:   "Exact Customer Pvt Ltd",
+		PartyKind:   parties.PartyKindCustomerVendor,
+		Actor:       operator,
+	})
+	if err != nil {
+		t.Fatalf("create party: %v", err)
+	}
+
+	loaded, err := service.GetParty(ctx, parties.GetPartyInput{
+		PartyID: created.ID,
+		Actor:   operator,
+	})
+	if err != nil {
+		t.Fatalf("get party: %v", err)
+	}
+	if loaded.ID != created.ID || loaded.PartyCode != "CUST-200" || loaded.PartyKind != parties.PartyKindCustomerVendor {
+		t.Fatalf("unexpected party detail: %+v", loaded)
+	}
+}
+
 func TestCreateContactRejectsMissingOrCrossTenantPartyIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()

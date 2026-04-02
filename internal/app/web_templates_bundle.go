@@ -140,6 +140,8 @@ func webTemplateName(data webPageData) string {
 		return "web_admin"
 	case data.AdminAccounting != nil:
 		return "web_admin_accounting"
+	case data.AdminParties != nil:
+		return "web_admin_parties"
 	case data.OperationsLanding != nil:
 		return "web_operations_landing"
 	case data.InboundSubmit != nil:

@@ -1,12 +1,23 @@
 package app
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 	"time"
 
 	"workflow_app/internal/accounting"
+	"workflow_app/internal/identityaccess"
+	"workflow_app/internal/parties"
 )
+
+func writeAdminActorError(w http.ResponseWriter, err error) {
+	if errors.Is(err, identityaccess.ErrUnauthorized) {
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
+		return
+	}
+	writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+}
 
 func (h *AgentAPIHandler) handleAdminLedgerAccounts(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != adminLedgerAccountsPath {
@@ -18,9 +29,9 @@ func (h *AgentAPIHandler) handleAdminLedgerAccounts(w http.ResponseWriter, r *ht
 		return
 	}
 
-	actor, err := h.actorFromRequest(r)
+	actor, err := h.adminActorFromRequest(r)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		writeAdminActorError(w, err)
 		return
 	}
 
@@ -73,9 +84,9 @@ func (h *AgentAPIHandler) handleAdminTaxCodes(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	actor, err := h.actorFromRequest(r)
+	actor, err := h.adminActorFromRequest(r)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		writeAdminActorError(w, err)
 		return
 	}
 
@@ -128,9 +139,9 @@ func (h *AgentAPIHandler) handleAdminAccountingPeriods(w http.ResponseWriter, r 
 		return
 	}
 
-	actor, err := h.actorFromRequest(r)
+	actor, err := h.adminActorFromRequest(r)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		writeAdminActorError(w, err)
 		return
 	}
 
@@ -196,9 +207,9 @@ func (h *AgentAPIHandler) handleAdminAccountingPeriodAction(w http.ResponseWrite
 		return
 	}
 
-	actor, err := h.actorFromRequest(r)
+	actor, err := h.adminActorFromRequest(r)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		writeAdminActorError(w, err)
 		return
 	}
 
@@ -211,4 +222,113 @@ func (h *AgentAPIHandler) handleAdminAccountingPeriodAction(w http.ResponseWrite
 		return
 	}
 	writeJSON(w, http.StatusOK, mapAccountingPeriod(period))
+}
+
+func (h *AgentAPIHandler) handleAdminParties(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != adminPartiesPath {
+		http.NotFound(w, r)
+		return
+	}
+	if h.partiesAdmin == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "party admin service unavailable"})
+		return
+	}
+
+	actor, err := h.adminActorFromRequest(r)
+	if err != nil {
+		writeAdminActorError(w, err)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		items, err := h.partiesAdmin.ListParties(r.Context(), parties.ListPartiesInput{
+			PartyKind: strings.TrimSpace(r.URL.Query().Get("party_kind")),
+			Actor:     actor,
+		})
+		if err != nil {
+			handlePartyAdminError(w, err, "failed to list parties")
+			return
+		}
+		response := struct {
+			Items []partyResponse `json:"items"`
+		}{Items: make([]partyResponse, 0, len(items))}
+		for _, item := range items {
+			response.Items = append(response.Items, mapParty(item))
+		}
+		writeJSON(w, http.StatusOK, response)
+	case http.MethodPost:
+		var req createPartyRequest
+		if err := decodeJSONBody(r, &req, false); err != nil {
+			writeJSONBodyError(w, err)
+			return
+		}
+		party, err := h.partiesAdmin.CreateParty(r.Context(), parties.CreatePartyInput{
+			PartyCode:   strings.TrimSpace(req.PartyCode),
+			DisplayName: strings.TrimSpace(req.DisplayName),
+			LegalName:   strings.TrimSpace(req.LegalName),
+			PartyKind:   strings.TrimSpace(req.PartyKind),
+			Actor:       actor,
+		})
+		if err != nil {
+			handlePartyAdminError(w, err, "failed to create party")
+			return
+		}
+		writeJSON(w, http.StatusCreated, mapParty(party))
+	default:
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+	}
+}
+
+func (h *AgentAPIHandler) handleAdminPartyDetail(w http.ResponseWriter, r *http.Request) {
+	if h.partiesAdmin == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "party admin service unavailable"})
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+		return
+	}
+
+	partyID, ok := parseChildPath(adminPartiesPath, r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	actor, err := h.adminActorFromRequest(r)
+	if err != nil {
+		writeAdminActorError(w, err)
+		return
+	}
+
+	party, err := h.partiesAdmin.GetParty(r.Context(), parties.GetPartyInput{
+		PartyID: partyID,
+		Actor:   actor,
+	})
+	if err != nil {
+		handlePartyAdminError(w, err, "failed to load party")
+		return
+	}
+
+	contacts, err := h.partiesAdmin.ListContacts(r.Context(), parties.ListContactsInput{
+		PartyID: partyID,
+		Actor:   actor,
+	})
+	if err != nil {
+		handlePartyAdminError(w, err, "failed to list party contacts")
+		return
+	}
+
+	response := struct {
+		Party    partyResponse     `json:"party"`
+		Contacts []contactResponse `json:"contacts"`
+	}{
+		Party:    mapParty(party),
+		Contacts: make([]contactResponse, 0, len(contacts)),
+	}
+	for _, contact := range contacts {
+		response.Contacts = append(response.Contacts, mapContact(contact))
+	}
+	writeJSON(w, http.StatusOK, response)
 }

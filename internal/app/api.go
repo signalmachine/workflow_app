@@ -19,6 +19,7 @@ import (
 	"workflow_app/internal/documents"
 	"workflow_app/internal/identityaccess"
 	"workflow_app/internal/intake"
+	"workflow_app/internal/parties"
 	"workflow_app/internal/reporting"
 	"workflow_app/internal/workflow"
 )
@@ -36,9 +37,11 @@ const (
 	webSettingsPath            = "/app/settings"
 	webAdminPath               = "/app/admin"
 	webAdminAccountingPath     = "/app/admin/accounting"
+	webAdminPartiesPath        = "/app/admin/parties"
 	webAdminLedgerAccountsPath = "/app/admin/accounting/ledger-accounts"
 	webAdminTaxCodesPath       = "/app/admin/accounting/tax-codes"
 	webAdminPeriodsPath        = "/app/admin/accounting/periods"
+	webAdminPartyDetailPrefix  = "/app/admin/parties/"
 	webOperationsPath          = "/app/operations"
 	webOperationsFeedPath      = "/app/operations-feed"
 	webAgentChatPath           = "/app/agent-chat"
@@ -90,6 +93,7 @@ const (
 	adminLedgerAccountsPath    = "/api/admin/accounting/ledger-accounts"
 	adminTaxCodesPath          = "/api/admin/accounting/tax-codes"
 	adminPeriodsPath           = "/api/admin/accounting/periods"
+	adminPartiesPath           = "/api/admin/parties"
 	approvalDecisionPrefix     = "/api/approvals/"
 	headerOrgID                = "X-Workflow-Org-ID"
 	headerUserID               = "X-Workflow-User-ID"
@@ -158,6 +162,13 @@ type accountingAdminService interface {
 	ListAccountingPeriods(ctx context.Context, input accounting.ListAccountingPeriodsInput) ([]accounting.AccountingPeriod, error)
 	CreateAccountingPeriod(ctx context.Context, input accounting.CreateAccountingPeriodInput) (accounting.AccountingPeriod, error)
 	CloseAccountingPeriod(ctx context.Context, input accounting.CloseAccountingPeriodInput) (accounting.AccountingPeriod, error)
+}
+
+type partiesAdminService interface {
+	ListParties(ctx context.Context, input parties.ListPartiesInput) ([]parties.Party, error)
+	GetParty(ctx context.Context, input parties.GetPartyInput) (parties.Party, error)
+	CreateParty(ctx context.Context, input parties.CreatePartyInput) (parties.Party, error)
+	ListContacts(ctx context.Context, input parties.ListContactsInput) ([]parties.Contact, error)
 }
 
 type proposalApprovalService interface {
@@ -300,6 +311,13 @@ type createAccountingPeriodRequest struct {
 	EndOn      string `json:"end_on"`
 }
 
+type createPartyRequest struct {
+	PartyCode   string `json:"party_code"`
+	DisplayName string `json:"display_name"`
+	LegalName   string `json:"legal_name"`
+	PartyKind   string `json:"party_kind"`
+}
+
 type ledgerAccountResponse struct {
 	ID                  string    `json:"id"`
 	Code                string    `json:"code"`
@@ -341,6 +359,32 @@ type accountingPeriodResponse struct {
 	UpdatedAt       time.Time  `json:"updated_at"`
 }
 
+type partyResponse struct {
+	ID              string    `json:"id"`
+	PartyCode       string    `json:"party_code"`
+	DisplayName     string    `json:"display_name"`
+	LegalName       *string   `json:"legal_name,omitempty"`
+	PartyKind       string    `json:"party_kind"`
+	Status          string    `json:"status"`
+	CreatedByUserID string    `json:"created_by_user_id"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+type contactResponse struct {
+	ID              string    `json:"id"`
+	PartyID         string    `json:"party_id"`
+	FullName        string    `json:"full_name"`
+	RoleTitle       *string   `json:"role_title,omitempty"`
+	Email           *string   `json:"email,omitempty"`
+	Phone           *string   `json:"phone,omitempty"`
+	IsPrimary       bool      `json:"is_primary"`
+	Status          string    `json:"status"`
+	CreatedByUserID string    `json:"created_by_user_id"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
 type AgentAPIHandler struct {
 	loadProcessor     queuedInboundRequestProcessorLoader
 	submissionService inboundRequestSubmitter
@@ -348,6 +392,7 @@ type AgentAPIHandler struct {
 	approvalService   approvalDecisionService
 	proposalApproval  proposalApprovalService
 	accountingAdmin   accountingAdminService
+	partiesAdmin      partiesAdminService
 	authService       browserSessionService
 }
 
@@ -355,9 +400,10 @@ func NewAgentAPIHandler(db *sql.DB) http.Handler {
 	documentService := documents.NewService(db)
 	authService := identityaccess.NewService(db)
 	accountingService := accounting.NewService(db, documentService)
+	partiesService := parties.NewService(db)
 	return newAgentAPIHandlerWithDependencies(func() (ProcessNextQueuedInboundRequester, error) {
 		return NewOpenAIAgentProcessorFromEnv(db)
-	}, NewSubmissionService(db), reporting.NewService(db), workflow.NewService(db, documentService), newProcessedProposalApprovalService(db), accountingService, authService)
+	}, NewSubmissionService(db), reporting.NewService(db), workflow.NewService(db, documentService), newProcessedProposalApprovalService(db), accountingService, authService, partiesService)
 }
 
 func NewAgentAPIHandlerWithProcessorLoader(loader queuedInboundRequestProcessorLoader) http.Handler {
@@ -372,7 +418,11 @@ func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	return newAgentAPIHandlerWithDependencies(loader, submissionService, reviewService, approvalService, nil, nil, authService)
 }
 
-func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoader, submissionService inboundRequestSubmitter, reviewService operatorReviewReader, approvalService approvalDecisionService, proposalApproval proposalApprovalService, accountingAdmin accountingAdminService, authService browserSessionService) http.Handler {
+func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoader, submissionService inboundRequestSubmitter, reviewService operatorReviewReader, approvalService approvalDecisionService, proposalApproval proposalApprovalService, accountingAdmin accountingAdminService, authService browserSessionService, partiesAdmin ...partiesAdminService) http.Handler {
+	var partyAdminService partiesAdminService
+	if len(partiesAdmin) > 0 {
+		partyAdminService = partiesAdmin[0]
+	}
 	handler := &AgentAPIHandler{
 		loadProcessor:     loader,
 		submissionService: submissionService,
@@ -380,6 +430,7 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 		approvalService:   approvalService,
 		proposalApproval:  proposalApproval,
 		accountingAdmin:   accountingAdmin,
+		partiesAdmin:      partyAdminService,
 		authService:       authService,
 	}
 	mux := http.NewServeMux()
@@ -391,9 +442,11 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(webSettingsPath, handler.handleWebSettings)
 	mux.HandleFunc(webAdminPath, handler.handleWebAdmin)
 	mux.HandleFunc(webAdminAccountingPath, handler.handleWebAdminAccounting)
+	mux.HandleFunc(webAdminPartiesPath, handler.handleWebAdminParties)
 	mux.HandleFunc(webAdminLedgerAccountsPath, handler.handleWebCreateLedgerAccount)
 	mux.HandleFunc(webAdminTaxCodesPath, handler.handleWebCreateTaxCode)
 	mux.HandleFunc(webAdminPeriodsPath, handler.handleWebAccountingPeriods)
+	mux.HandleFunc(webAdminPartiesPath+"/", handler.handleWebAdminPartyDetail)
 	mux.HandleFunc(webAdminPeriodsPath+"/", handler.handleWebAccountingPeriodAction)
 	mux.HandleFunc(webOperationsPath, handler.handleWebOperationsLanding)
 	mux.HandleFunc(webOperationsFeedPath, handler.handleWebOperationsFeed)
@@ -453,6 +506,8 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(adminLedgerAccountsPath, handler.handleAdminLedgerAccounts)
 	mux.HandleFunc(adminTaxCodesPath, handler.handleAdminTaxCodes)
 	mux.HandleFunc(adminPeriodsPath, handler.handleAdminAccountingPeriods)
+	mux.HandleFunc(adminPartiesPath, handler.handleAdminParties)
+	mux.HandleFunc(adminPartiesPath+"/", handler.handleAdminPartyDetail)
 	mux.HandleFunc(adminPeriodsPath+"/", handler.handleAdminAccountingPeriodAction)
 	mux.HandleFunc(approvalDecisionPrefix, handler.handleDecideApproval)
 	return mux
@@ -486,6 +541,20 @@ func (h *AgentAPIHandler) actorFromRequest(r *http.Request) (identityaccess.Acto
 	sessionContext, err := h.sessionContextFromRequest(r)
 	if err != nil {
 		return identityaccess.Actor{}, err
+	}
+	return sessionContext.Actor, nil
+}
+
+func (h *AgentAPIHandler) adminActorFromRequest(r *http.Request) (identityaccess.Actor, error) {
+	if h.authService == nil {
+		return identityaccess.Actor{}, identityaccess.ErrUnauthorized
+	}
+	sessionContext, err := h.sessionContextFromRequest(r)
+	if err != nil {
+		return identityaccess.Actor{}, err
+	}
+	if !strings.EqualFold(strings.TrimSpace(sessionContext.RoleCode), identityaccess.RoleAdmin) {
+		return identityaccess.Actor{}, identityaccess.ErrUnauthorized
 	}
 	return sessionContext.Actor, nil
 }
@@ -1304,6 +1373,23 @@ func handleAccountingAdminError(w http.ResponseWriter, err error, fallback strin
 	}
 }
 
+func handlePartyAdminError(w http.ResponseWriter, err error, fallback string) {
+	switch {
+	case errors.Is(err, identityaccess.ErrUnauthorized):
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
+	case errors.Is(err, parties.ErrInvalidParty):
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid party"})
+	case errors.Is(err, parties.ErrInvalidContact):
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid contact"})
+	case errors.Is(err, parties.ErrPartyNotFound):
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "party not found"})
+	case errors.Is(err, parties.ErrContactNotFound):
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "contact not found"})
+	default:
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: fallback})
+	}
+}
+
 func mapLedgerAccount(account accounting.LedgerAccount) ledgerAccountResponse {
 	return ledgerAccountResponse{
 		ID:                  account.ID,
@@ -1349,6 +1435,52 @@ func mapAccountingPeriod(period accounting.AccountingPeriod) accountingPeriodRes
 		CreatedAt:       period.CreatedAt,
 		UpdatedAt:       period.UpdatedAt,
 	}
+}
+
+func mapParty(party parties.Party) partyResponse {
+	return partyResponse{
+		ID:              party.ID,
+		PartyCode:       party.PartyCode,
+		DisplayName:     party.DisplayName,
+		LegalName:       nullableString(party.LegalName),
+		PartyKind:       party.PartyKind,
+		Status:          party.Status,
+		CreatedByUserID: party.CreatedByUserID,
+		CreatedAt:       party.CreatedAt,
+		UpdatedAt:       party.UpdatedAt,
+	}
+}
+
+func mapContact(contact parties.Contact) contactResponse {
+	return contactResponse{
+		ID:              contact.ID,
+		PartyID:         contact.PartyID,
+		FullName:        contact.FullName,
+		RoleTitle:       nullableString(contact.RoleTitle),
+		Email:           nullStringPtr(contact.Email),
+		Phone:           nullStringPtr(contact.Phone),
+		IsPrimary:       contact.IsPrimary,
+		Status:          contact.Status,
+		CreatedByUserID: contact.CreatedByUserID,
+		CreatedAt:       contact.CreatedAt,
+		UpdatedAt:       contact.UpdatedAt,
+	}
+}
+
+func nullableString(value string) *string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+func nullStringPtr(value sql.NullString) *string {
+	if !value.Valid || strings.TrimSpace(value.String) == "" {
+		return nil
+	}
+	trimmed := strings.TrimSpace(value.String)
+	return &trimmed
 }
 
 func mapApprovalQueueEntry(entry reporting.ApprovalQueueEntry) approvalQueueEntryResponse {

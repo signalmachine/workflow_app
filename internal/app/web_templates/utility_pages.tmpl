@@ -270,6 +270,153 @@
 {{template "web_shell_end" .}}
 {{end}}
 
+{{define "web_admin_parties"}}
+{{template "web_shell_start" .}}
+
+{{template "web_page_header" (dict
+  "eyebrow" "Admin parties"
+  "title" "Customer and party setup"
+  "body" "Use bounded admin-only maintenance here for customer and vendor support records on the shared parties model without reviving CRM-first product gravity."
+)}}
+
+<section class="plain-section">
+  <div class="eyebrow">Maintenance routes</div>
+  <div class="route-list">
+    <a class="route-link-card" data-summary="Return to the grouped admin maintenance hub for the broader posture and later privileged controls." href="/app/admin">Admin hub</a>
+    <a class="route-link-card" data-summary="Open document review when the next step is downstream workflow continuity instead of support-record setup." href="/app/review/documents">Document review</a>
+    <a class="route-link-card" data-summary="Search the access-scoped route catalog when you need a nearby setup or review route." href="/app/routes?q=admin+party">Search related routes</a>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">Create party</div>
+      <h2>Bounded counterparty setup</h2>
+      <p>Create customer, vendor, hybrid, or other support records on the shared parties service seam.</p>
+    </div>
+  </div>
+
+  <form method="post" action="/app/admin/parties" class="field-grid compact-form">
+    <label>Party code
+      <input type="text" name="party_code" placeholder="CUST-100" required>
+    </label>
+    <label>Display name
+      <input type="text" name="display_name" placeholder="Northwind Service" required>
+    </label>
+    <label>Legal name
+      <input type="text" name="legal_name" placeholder="Northwind Service Pvt Ltd">
+    </label>
+    <label>Party kind
+      <select name="party_kind" required>
+        {{range .AdminParties.PartyKindOptions}}
+        <option value="{{.}}">{{.}}</option>
+        {{end}}
+      </select>
+    </label>
+    <div class="button-row">
+      <button type="submit">Create party</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">Existing parties</div>
+      <h2>Customer and vendor support records</h2>
+      <p>Open exact detail to confirm kind, status, and contact continuity before downstream document work depends on the record.</p>
+    </div>
+  </div>
+
+  {{if .AdminParties.Parties}}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Display name</th>
+          <th>Kind</th>
+          <th>Status</th>
+          <th>Detail</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .AdminParties.Parties}}
+        <tr>
+          <td>{{.PartyCode}}</td>
+          <td>{{.DisplayName}}</td>
+          <td>{{.PartyKind}}</td>
+          <td>{{.Status}}</td>
+          <td><a class="pill-link" href="/app/admin/parties/{{.ID}}">Open detail</a></td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  {{template "web_empty_state" (dict "title" "No parties yet" "body" "Create the first customer or vendor support record before downstream document ownership depends on it." )}}
+  {{end}}
+</section>
+
+{{if .AdminParties.Detail}}
+<section class="panel">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">Exact detail</div>
+      <h2>{{.AdminParties.Detail.Party.DisplayName}}</h2>
+      <p>Use exact detail to confirm the shared party identity and current contact visibility before routing into workflow work.</p>
+    </div>
+  </div>
+
+  <div class="detail-grid">
+    <div><strong>Party code</strong><br>{{.AdminParties.Detail.Party.PartyCode}}</div>
+    <div><strong>Kind</strong><br>{{.AdminParties.Detail.Party.PartyKind}}</div>
+    <div><strong>Status</strong><br>{{.AdminParties.Detail.Party.Status}}</div>
+    <div><strong>Legal name</strong><br>{{if .AdminParties.Detail.Party.LegalName}}{{.AdminParties.Detail.Party.LegalName}}{{else}}-{{end}}</div>
+  </div>
+
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">Contacts</div>
+      <h3>Visible support contacts</h3>
+    </div>
+  </div>
+
+  {{if .AdminParties.Detail.Contacts}}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Role</th>
+          <th>Email</th>
+          <th>Phone</th>
+          <th>Primary</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .AdminParties.Detail.Contacts}}
+        <tr>
+          <td>{{.FullName}}</td>
+          <td>{{if .RoleTitle}}{{.RoleTitle}}{{else}}-{{end}}</td>
+          <td>{{if .Email.Valid}}{{.Email.String}}{{else}}-{{end}}</td>
+          <td>{{if .Phone.Valid}}{{.Phone.String}}{{else}}-{{end}}</td>
+          <td>{{if .IsPrimary}}yes{{else}}no{{end}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  {{template "web_empty_state" (dict "title" "No contacts for this party" "body" "Contact creation stays out of this slice, but exact detail still shows whether support contacts already exist." )}}
+  {{end}}
+</section>
+{{end}}
+
+{{template "web_shell_end" .}}
+{{end}}
+
 {{define "web_settings"}}
 {{template "web_shell_start" .}}
 

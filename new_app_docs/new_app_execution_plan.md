@@ -523,9 +523,10 @@ Current planning checkpoint:
 
 1. the current codebase now exposes Slice 2 accounting setup maintenance through `/app/admin/accounting` plus bounded `/api/admin/accounting/...` seams for ledger-account, tax-code, and accounting-period list or create flows and accounting-period close controls
 2. Slice 1 remains implemented in code: `Settings` is explicitly user-scoped, `Admin` is now a grouped privileged maintenance hub, and route-discovery plus role-aware copy treat admin work as maintenance rather than generic utility posture
-3. focused `internal/app` HTTP coverage plus DB-backed accounting and `internal/app` integration coverage now verify the landed admin accounting maintenance slice
-4. the canonical plan for this milestone remains `milestone_12_admin_maintenance_and_master_data_plan.md`
-5. the next queued implementation slice is Slice 3 customer and party maintenance
+3. Slice 3 is now also implemented in code through `/app/admin/parties` plus bounded `/api/admin/parties` list, filtered list, create, and exact-detail reads with contact visibility on the shared `parties` service seam
+4. focused `internal/app` HTTP coverage plus DB-backed accounting, `parties`, and `internal/app` integration coverage now verify the landed admin maintenance slices
+5. the canonical plan for this milestone remains `milestone_12_admin_maintenance_and_master_data_plan.md`
+6. the next queued implementation slice is Slice 4 access and follow-on controls
 
 ## 17. Execution warning
 

@@ -25,6 +25,7 @@ import (
 	"workflow_app/internal/identityaccess"
 	"workflow_app/internal/intake"
 	"workflow_app/internal/inventoryops"
+	"workflow_app/internal/parties"
 	"workflow_app/internal/reporting"
 	"workflow_app/internal/testsupport/dbtest"
 	"workflow_app/internal/workflow"
@@ -258,6 +259,88 @@ func TestAgentAPIAdminAccountingMaintenanceIntegration(t *testing.T) {
 		t.Fatalf("unexpected close accounting period status: got %d body=%s", closePeriodRecorder.Code, closePeriodRecorder.Body.String())
 	}
 	requireContains(t, closePeriodRecorder.Body.String(), `"status":"closed"`)
+}
+
+func TestAgentAPIAdminPartyMaintenanceIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, adminUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleAdmin)
+	_, operatorUserID := seedOrgAndUserInOrg(t, ctx, db, identityaccess.RoleOperator, orgID)
+
+	handler := app.NewAgentAPIHandler(db)
+	adminCookies := issueBrowserSessionCookies(t, ctx, db, handler, orgID, adminUserID)
+	operatorCookies := issueBrowserSessionCookies(t, ctx, db, handler, orgID, operatorUserID)
+
+	createPartyReq := httptest.NewRequest(http.MethodPost, "/api/admin/parties", bytes.NewBufferString(`{
+		"party_code":"CUST-100",
+		"display_name":"Northwind Service",
+		"legal_name":"Northwind Service Pvt Ltd",
+		"party_kind":"customer"
+	}`))
+	createPartyReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(createPartyReq, adminCookies)
+	createPartyRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(createPartyRecorder, createPartyReq)
+	if createPartyRecorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected create party status: got %d body=%s", createPartyRecorder.Code, createPartyRecorder.Body.String())
+	}
+
+	var partyResponse struct {
+		ID        string `json:"id"`
+		PartyCode string `json:"party_code"`
+		PartyKind string `json:"party_kind"`
+	}
+	if err := json.Unmarshal(createPartyRecorder.Body.Bytes(), &partyResponse); err != nil {
+		t.Fatalf("decode party response: %v", err)
+	}
+	if strings.TrimSpace(partyResponse.ID) == "" || partyResponse.PartyCode != "CUST-100" || partyResponse.PartyKind != parties.PartyKindCustomer {
+		t.Fatalf("unexpected party response: %+v", partyResponse)
+	}
+
+	partiesService := parties.NewService(db)
+	adminSession := startSession(t, ctx, db, orgID, adminUserID)
+	adminActor := identityaccess.Actor{OrgID: orgID, UserID: adminUserID, SessionID: adminSession.ID}
+	if _, err := partiesService.CreateContact(ctx, parties.CreateContactInput{
+		PartyID:   partyResponse.ID,
+		FullName:  "Asha Nair",
+		RoleTitle: "Accounts",
+		Email:     "asha@example.com",
+		IsPrimary: true,
+		Actor:     adminActor,
+	}); err != nil {
+		t.Fatalf("create contact: %v", err)
+	}
+
+	listReq := httptest.NewRequest(http.MethodGet, "/api/admin/parties?party_kind=customer", nil)
+	applyResponseCookies(listReq, adminCookies)
+	listRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(listRecorder, listReq)
+	if listRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected list parties status: got %d body=%s", listRecorder.Code, listRecorder.Body.String())
+	}
+	requireContains(t, listRecorder.Body.String(), `"party_code":"CUST-100"`)
+
+	detailReq := httptest.NewRequest(http.MethodGet, "/api/admin/parties/"+partyResponse.ID, nil)
+	applyResponseCookies(detailReq, adminCookies)
+	detailRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(detailRecorder, detailReq)
+	if detailRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected party detail status: got %d body=%s", detailRecorder.Code, detailRecorder.Body.String())
+	}
+	requireContains(t, detailRecorder.Body.String(), `"full_name":"Asha Nair"`)
+
+	operatorReq := httptest.NewRequest(http.MethodGet, "/api/admin/parties", nil)
+	applyResponseCookies(operatorReq, operatorCookies)
+	operatorRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(operatorRecorder, operatorReq)
+	if operatorRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("expected operator party-admin denial, got %d body=%s", operatorRecorder.Code, operatorRecorder.Body.String())
+	}
 }
 
 func TestAgentAPITokenSessionIssueRefreshAndRevokeIntegration(t *testing.T) {

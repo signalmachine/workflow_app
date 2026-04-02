@@ -1,7 +1,7 @@
 # workflow_app Application Workflow Catalog
 
 Date: 2026-04-02
-Status: Active durable workflow catalog updated for the grouped landing pages at `/app/operations`, `/app/review`, and `/app/inventory`, the searchable route catalog at `/app/routes`, the utility surfaces at `/app/settings` plus access-scoped `/app/admin`, the admin accounting setup surface at `/app/admin/accounting`, and the role-aware operator home on `/app`
+Status: Active durable workflow catalog updated for the grouped landing pages at `/app/operations`, `/app/review`, and `/app/inventory`, the searchable route catalog at `/app/routes`, the utility surfaces at `/app/settings` plus access-scoped `/app/admin`, the admin accounting and party setup surfaces at `/app/admin/accounting` and `/app/admin/parties`, and the role-aware operator home on `/app`
 Purpose: capture the application workflows and related feature continuity in one durable reference document for implementation review, testing, onboarding, and later user-guide preparation.
 
 ## 1. How to read this document
@@ -69,8 +69,9 @@ Primary continuity surfaces:
 7. settings utility surface
 8. access-scoped admin utility surface
 9. admin accounting setup surface
-10. session introspection
-11. subsequent browser-authenticated `/api/...` writes and review reads
+10. admin party setup surface
+11. session introspection
+12. subsequent browser-authenticated `/api/...` writes and review reads
 
 ### 2.1.1 Admin accounting setup maintenance
 
@@ -94,6 +95,32 @@ Expected outputs:
 2. visible browser continuity between the admin maintenance hub and the accounting setup page
 3. durable audit-visible setup writes for ledger accounts, tax codes, and accounting periods
 4. bounded period-close control without widening posted-truth accounting review into generic editing
+
+Current status:
+
+1. implemented
+2. repo_verified
+3. pending_live_validation
+
+### 2.1.2 Admin party setup maintenance
+
+Purpose:
+allow an admin actor to create and browse bounded customer and vendor support records, and to open exact party detail with current contact visibility, through one maintenance seam that stays separate from workflow review pages and avoids CRM-first drift.
+
+Entry points:
+
+1. `GET /api/admin/parties`
+2. `POST /api/admin/parties`
+3. `GET /api/admin/parties/{party_id}`
+4. `/app/admin/parties`
+5. `/app/admin/parties/{party_id}`
+
+Expected outputs:
+
+1. bounded admin-only customer and vendor support-record creation on the shared `parties` service seam
+2. visible browser continuity between the admin maintenance hub and the party setup page
+3. exact party-detail continuity with current contact visibility before downstream document or accounting work depends on the record
+4. shared API reuse for later non-browser admin maintenance without introducing browser-local truth
 
 Current status:
 

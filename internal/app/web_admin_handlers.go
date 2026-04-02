@@ -9,6 +9,7 @@ import (
 
 	"workflow_app/internal/accounting"
 	"workflow_app/internal/identityaccess"
+	"workflow_app/internal/parties"
 )
 
 func (h *AgentAPIHandler) requireWebAdminSession(w http.ResponseWriter, r *http.Request) (identityaccess.SessionContext, bool) {
@@ -21,8 +22,16 @@ func (h *AgentAPIHandler) requireWebAdminSession(w http.ResponseWriter, r *http.
 		http.Redirect(w, r, webAppPath+"?error="+url.QueryEscape("admin surface requires admin role"), http.StatusSeeOther)
 		return identityaccess.SessionContext{}, false
 	}
-	if h.accountingAdmin == nil {
-		http.Redirect(w, r, webAdminPath+"?error="+url.QueryEscape("accounting admin service unavailable"), http.StatusSeeOther)
+	return sessionContext, true
+}
+
+func (h *AgentAPIHandler) requireWebAdminSessionWithService(w http.ResponseWriter, r *http.Request, serviceAvailable bool, unavailableMessage string) (identityaccess.SessionContext, bool) {
+	sessionContext, ok := h.requireWebAdminSession(w, r)
+	if !ok {
+		return identityaccess.SessionContext{}, false
+	}
+	if !serviceAvailable {
+		http.Redirect(w, r, webAdminPath+"?error="+url.QueryEscape(unavailableMessage), http.StatusSeeOther)
 		return identityaccess.SessionContext{}, false
 	}
 	return sessionContext, true
@@ -60,6 +69,32 @@ func adminAccountingPathWithMessage(key, message string) string {
 	return appendWebMessage(webAdminAccountingPath, key, message)
 }
 
+func partyAdminWebErrorMessage(err error, fallback string) string {
+	switch {
+	case err == nil:
+		return ""
+	case err == identityaccess.ErrUnauthorized:
+		return "unauthorized"
+	case err == parties.ErrInvalidParty:
+		return "invalid party"
+	case err == parties.ErrPartyNotFound:
+		return "party not found"
+	case err == parties.ErrInvalidContact:
+		return "invalid contact"
+	case err == parties.ErrContactNotFound:
+		return "contact not found"
+	default:
+		return fallback
+	}
+}
+
+func adminPartiesPathWithMessage(key, message string) string {
+	if strings.TrimSpace(message) == "" {
+		return webAdminPartiesPath
+	}
+	return appendWebMessage(webAdminPartiesPath, key, message)
+}
+
 func (h *AgentAPIHandler) handleWebAdminAccounting(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != webAdminAccountingPath {
 		http.NotFound(w, r)
@@ -70,7 +105,7 @@ func (h *AgentAPIHandler) handleWebAdminAccounting(w http.ResponseWriter, r *htt
 		return
 	}
 
-	sessionContext, ok := h.requireWebAdminSession(w, r)
+	sessionContext, ok := h.requireWebAdminSessionWithService(w, r, h.accountingAdmin != nil, "accounting admin service unavailable")
 	if !ok {
 		return
 	}
@@ -130,6 +165,140 @@ func (h *AgentAPIHandler) handleWebAdminAccounting(w http.ResponseWriter, r *htt
 	})
 }
 
+func (h *AgentAPIHandler) handleWebAdminParties(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != webAdminPartiesPath {
+		http.NotFound(w, r)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		sessionContext, ok := h.requireWebAdminSessionWithService(w, r, h.partiesAdmin != nil, "party admin service unavailable")
+		if !ok {
+			return
+		}
+
+		data := webAdminPartiesData{
+			Session: sessionContext,
+			Notice:  strings.TrimSpace(r.URL.Query().Get("notice")),
+			Error:   strings.TrimSpace(r.URL.Query().Get("error")),
+			PartyKindOptions: []string{
+				parties.PartyKindCustomer,
+				parties.PartyKindVendor,
+				parties.PartyKindCustomerVendor,
+				parties.PartyKindOther,
+			},
+		}
+
+		items, err := h.partiesAdmin.ListParties(r.Context(), parties.ListPartiesInput{Actor: sessionContext.Actor})
+		if err != nil {
+			data.Error = partyAdminWebErrorMessage(err, "failed to load parties")
+		} else {
+			data.Parties = items
+		}
+
+		h.renderWebPage(w, webPageData{
+			Title:        "workflow_app",
+			ActivePath:   webAdminPath,
+			Notice:       data.Notice,
+			Error:        data.Error,
+			Session:      &sessionContext,
+			AdminParties: &data,
+		})
+	case http.MethodPost:
+		sessionContext, ok := h.requireWebAdminSessionWithService(w, r, h.partiesAdmin != nil, "party admin service unavailable")
+		if !ok {
+			return
+		}
+		if err := r.ParseForm(); err != nil {
+			http.Redirect(w, r, adminPartiesPathWithMessage("error", "invalid party form"), http.StatusSeeOther)
+			return
+		}
+
+		_, err := h.partiesAdmin.CreateParty(r.Context(), parties.CreatePartyInput{
+			PartyCode:   strings.TrimSpace(r.FormValue("party_code")),
+			DisplayName: strings.TrimSpace(r.FormValue("display_name")),
+			LegalName:   strings.TrimSpace(r.FormValue("legal_name")),
+			PartyKind:   strings.TrimSpace(r.FormValue("party_kind")),
+			Actor:       sessionContext.Actor,
+		})
+		if err != nil {
+			http.Redirect(w, r, adminPartiesPathWithMessage("error", partyAdminWebErrorMessage(err, "failed to create party")), http.StatusSeeOther)
+			return
+		}
+		http.Redirect(w, r, adminPartiesPathWithMessage("notice", "Party created."), http.StatusSeeOther)
+	default:
+		http.NotFound(w, r)
+	}
+}
+
+func (h *AgentAPIHandler) handleWebAdminPartyDetail(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+
+	partyID, ok := parseChildPath(strings.TrimSuffix(webAdminPartyDetailPrefix, "/"), r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, ok := h.requireWebAdminSessionWithService(w, r, h.partiesAdmin != nil, "party admin service unavailable")
+	if !ok {
+		return
+	}
+
+	data := webAdminPartiesData{
+		Session: sessionContext,
+		Notice:  strings.TrimSpace(r.URL.Query().Get("notice")),
+		Error:   strings.TrimSpace(r.URL.Query().Get("error")),
+		PartyKindOptions: []string{
+			parties.PartyKindCustomer,
+			parties.PartyKindVendor,
+			parties.PartyKindCustomerVendor,
+			parties.PartyKindOther,
+		},
+	}
+
+	items, err := h.partiesAdmin.ListParties(r.Context(), parties.ListPartiesInput{Actor: sessionContext.Actor})
+	if err != nil {
+		data.Error = partyAdminWebErrorMessage(err, "failed to load parties")
+	} else {
+		data.Parties = items
+	}
+
+	party, err := h.partiesAdmin.GetParty(r.Context(), parties.GetPartyInput{
+		PartyID: partyID,
+		Actor:   sessionContext.Actor,
+	})
+	if err != nil {
+		http.Redirect(w, r, adminPartiesPathWithMessage("error", partyAdminWebErrorMessage(err, "failed to load party")), http.StatusSeeOther)
+		return
+	}
+
+	contacts, err := h.partiesAdmin.ListContacts(r.Context(), parties.ListContactsInput{
+		PartyID: partyID,
+		Actor:   sessionContext.Actor,
+	})
+	if err != nil {
+		data.Error = partyAdminWebErrorMessage(err, "failed to load party contacts")
+	}
+	data.Detail = &webAdminPartyDetailData{
+		Party:    party,
+		Contacts: contacts,
+	}
+
+	h.renderWebPage(w, webPageData{
+		Title:        "workflow_app",
+		ActivePath:   webAdminPath,
+		Notice:       data.Notice,
+		Error:        data.Error,
+		Session:      &sessionContext,
+		AdminParties: &data,
+	})
+}
+
 func (h *AgentAPIHandler) handleWebCreateLedgerAccount(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != webAdminLedgerAccountsPath {
 		http.NotFound(w, r)
@@ -140,7 +309,7 @@ func (h *AgentAPIHandler) handleWebCreateLedgerAccount(w http.ResponseWriter, r 
 		return
 	}
 
-	sessionContext, ok := h.requireWebAdminSession(w, r)
+	sessionContext, ok := h.requireWebAdminSessionWithService(w, r, h.accountingAdmin != nil, "accounting admin service unavailable")
 	if !ok {
 		return
 	}
@@ -175,7 +344,7 @@ func (h *AgentAPIHandler) handleWebCreateTaxCode(w http.ResponseWriter, r *http.
 		return
 	}
 
-	sessionContext, ok := h.requireWebAdminSession(w, r)
+	sessionContext, ok := h.requireWebAdminSessionWithService(w, r, h.accountingAdmin != nil, "accounting admin service unavailable")
 	if !ok {
 		return
 	}
@@ -216,7 +385,7 @@ func (h *AgentAPIHandler) handleWebAccountingPeriods(w http.ResponseWriter, r *h
 		return
 	}
 
-	sessionContext, ok := h.requireWebAdminSession(w, r)
+	sessionContext, ok := h.requireWebAdminSessionWithService(w, r, h.accountingAdmin != nil, "accounting admin service unavailable")
 	if !ok {
 		return
 	}
@@ -261,7 +430,7 @@ func (h *AgentAPIHandler) handleWebAccountingPeriodAction(w http.ResponseWriter,
 		return
 	}
 
-	sessionContext, ok := h.requireWebAdminSession(w, r)
+	sessionContext, ok := h.requireWebAdminSessionWithService(w, r, h.accountingAdmin != nil, "accounting admin service unavailable")
 	if !ok {
 		return
 	}

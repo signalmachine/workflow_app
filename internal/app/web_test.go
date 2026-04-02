@@ -16,6 +16,7 @@ import (
 	"workflow_app/internal/attachments"
 	"workflow_app/internal/identityaccess"
 	"workflow_app/internal/intake"
+	"workflow_app/internal/parties"
 	"workflow_app/internal/reporting"
 )
 
@@ -2068,6 +2069,106 @@ func TestHandleWebCreateLedgerAccountRedirectsWithNotice(t *testing.T) {
 	}
 }
 
+func TestHandleWebAdminPartiesShowsSetupAndDetail(t *testing.T) {
+	handler := newAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		nil,
+		nil,
+		nil,
+		stubAccountingAdminService{},
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				ctx := testSessionContext()
+				ctx.RoleCode = identityaccess.RoleAdmin
+				return ctx, nil
+			},
+		},
+		stubPartiesAdminService{
+			listParties: func(context.Context, parties.ListPartiesInput) ([]parties.Party, error) {
+				return []parties.Party{{ID: "party-1", PartyCode: "CUST-100", DisplayName: "Northwind Service", PartyKind: parties.PartyKindCustomer, Status: parties.StatusActive}}, nil
+			},
+			getParty: func(context.Context, parties.GetPartyInput) (parties.Party, error) {
+				return parties.Party{ID: "party-1", PartyCode: "CUST-100", DisplayName: "Northwind Service", LegalName: "Northwind Service Pvt Ltd", PartyKind: parties.PartyKindCustomer, Status: parties.StatusActive}, nil
+			},
+			listContacts: func(context.Context, parties.ListContactsInput) ([]parties.Contact, error) {
+				return []parties.Contact{{ID: "contact-1", PartyID: "party-1", FullName: "Asha Nair", IsPrimary: true}}, nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/admin/parties/party-1", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, `Customer and party setup`) {
+		t.Fatalf("expected party setup heading, body=%s", body)
+	}
+	if !strings.Contains(body, `Create party`) {
+		t.Fatalf("expected create party form, body=%s", body)
+	}
+	if !strings.Contains(body, `Northwind Service`) || !strings.Contains(body, `Asha Nair`) {
+		t.Fatalf("expected party detail and contact list, body=%s", body)
+	}
+}
+
+func TestHandleWebAdminPartiesCreateRedirectsWithNotice(t *testing.T) {
+	var captured parties.CreatePartyInput
+	handler := newAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		nil,
+		nil,
+		nil,
+		stubAccountingAdminService{},
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				ctx := testSessionContext()
+				ctx.RoleCode = identityaccess.RoleAdmin
+				return ctx, nil
+			},
+		},
+		stubPartiesAdminService{
+			createParty: func(_ context.Context, input parties.CreatePartyInput) (parties.Party, error) {
+				captured = input
+				return parties.Party{ID: "party-1", PartyCode: input.PartyCode, DisplayName: input.DisplayName}, nil
+			},
+		},
+	)
+
+	form := url.Values{
+		"party_code":   {"CUST-100"},
+		"display_name": {"Northwind Service"},
+		"legal_name":   {"Northwind Service Pvt Ltd"},
+		"party_kind":   {parties.PartyKindCustomer},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/app/admin/parties", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if location := recorder.Header().Get("Location"); !strings.Contains(location, "/app/admin/parties?notice=Party+created.") {
+		t.Fatalf("expected success redirect, got %s", location)
+	}
+	if captured.PartyCode != "CUST-100" || captured.PartyKind != parties.PartyKindCustomer {
+		t.Fatalf("unexpected captured input: %+v", captured)
+	}
+}
+
 func TestHandleWebReviewLandingGroupsRouteFamilies(t *testing.T) {
 	handler := NewAgentAPIHandlerWithDependencies(
 		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
@@ -3607,6 +3708,41 @@ func (s stubAccountingAdminService) CreateAccountingPeriod(ctx context.Context, 
 		return s.createAccountingPeriod(ctx, input)
 	}
 	return accounting.AccountingPeriod{}, nil
+}
+
+type stubPartiesAdminService struct {
+	listParties  func(context.Context, parties.ListPartiesInput) ([]parties.Party, error)
+	getParty     func(context.Context, parties.GetPartyInput) (parties.Party, error)
+	createParty  func(context.Context, parties.CreatePartyInput) (parties.Party, error)
+	listContacts func(context.Context, parties.ListContactsInput) ([]parties.Contact, error)
+}
+
+func (s stubPartiesAdminService) ListParties(ctx context.Context, input parties.ListPartiesInput) ([]parties.Party, error) {
+	if s.listParties != nil {
+		return s.listParties(ctx, input)
+	}
+	return nil, nil
+}
+
+func (s stubPartiesAdminService) GetParty(ctx context.Context, input parties.GetPartyInput) (parties.Party, error) {
+	if s.getParty != nil {
+		return s.getParty(ctx, input)
+	}
+	return parties.Party{}, nil
+}
+
+func (s stubPartiesAdminService) CreateParty(ctx context.Context, input parties.CreatePartyInput) (parties.Party, error) {
+	if s.createParty != nil {
+		return s.createParty(ctx, input)
+	}
+	return parties.Party{}, nil
+}
+
+func (s stubPartiesAdminService) ListContacts(ctx context.Context, input parties.ListContactsInput) ([]parties.Contact, error) {
+	if s.listContacts != nil {
+		return s.listContacts(ctx, input)
+	}
+	return nil, nil
 }
 
 func (s stubAccountingAdminService) CloseAccountingPeriod(ctx context.Context, input accounting.CloseAccountingPeriodInput) (accounting.AccountingPeriod, error) {

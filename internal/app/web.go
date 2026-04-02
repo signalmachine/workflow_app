@@ -17,6 +17,7 @@ import (
 	"workflow_app/internal/attachments"
 	"workflow_app/internal/identityaccess"
 	"workflow_app/internal/intake"
+	"workflow_app/internal/parties"
 	"workflow_app/internal/reporting"
 )
 
@@ -360,6 +361,20 @@ type webAdminAccountingData struct {
 	TaxTypeOptions      []string
 }
 
+type webAdminPartyDetailData struct {
+	Party    parties.Party
+	Contacts []parties.Contact
+}
+
+type webAdminPartiesData struct {
+	Session          identityaccess.SessionContext
+	Notice           string
+	Error            string
+	Parties          []parties.Party
+	PartyKindOptions []string
+	Detail           *webAdminPartyDetailData
+}
+
 type webAdminData struct {
 	Session             identityaccess.SessionContext
 	Notice              string
@@ -400,6 +415,7 @@ type webPageData struct {
 	Settings                *webSettingsData
 	Admin                   *webAdminData
 	AdminAccounting         *webAdminAccountingData
+	AdminParties            *webAdminPartiesData
 	OperationsLanding       *webOperationsLandingData
 	OperationsFeed          *webOperationsFeedData
 	AgentChat               *webAgentChatData

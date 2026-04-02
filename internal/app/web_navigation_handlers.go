@@ -120,6 +120,7 @@ func routeCatalogEntries() []webRouteCatalogEntry {
 		{Title: "Settings", Href: webSettingsPath, Category: "Utility", Summary: "User-scoped utility surface for session context, personal continuity, and safe handoff back into workflow routes.", Keywords: "settings session preferences home shortcuts utility personal"},
 		{Title: "Admin", Href: webAdminPath, Category: "Utility", Summary: "Privileged maintenance hub for governed setup families, review controls, and admin-only route continuity.", Keywords: "admin governance accounting setup maintenance privileged utility", RequiresRole: identityaccess.RoleAdmin},
 		{Title: "Admin accounting setup", Href: webAdminAccountingPath, Category: "Utility", Summary: "Admin-only setup surface for ledger accounts, tax codes, and accounting periods on the shared backend.", Keywords: "admin accounting setup ledger accounts tax codes accounting periods maintenance", RequiresRole: identityaccess.RoleAdmin},
+		{Title: "Admin party setup", Href: webAdminPartiesPath, Category: "Utility", Summary: "Admin-only customer and party maintenance on the shared support-record model with exact detail continuity.", Keywords: "admin party setup customer vendor counterparty contacts maintenance", RequiresRole: identityaccess.RoleAdmin},
 		{Title: "Submit inbound request", Href: webSubmitInboundPagePath, Category: "Operations", Summary: "Dedicated persisted intake route for new browser-originated requests.", Keywords: "intake submit inbound request create new"},
 		{Title: "Operations landing", Href: webOperationsPath, Category: "Operations", Summary: "Bundle landing for queue movement, durable feed review, and agent-chat continuity.", Keywords: "operations queue feed agent chat landing"},
 		{Title: "Operations feed", Href: webOperationsFeedPath, Category: "Operations", Summary: "Durable feed of recent request, proposal, and approval movement.", Keywords: "operations feed recent movement queue"},
@@ -355,9 +356,9 @@ func (h *AgentAPIHandler) handleWebAdmin(w http.ResponseWriter, r *http.Request)
 			{
 				Title:        "Party setup",
 				Summary:      "Customer and vendor support records should reuse the shared party model rather than reopening CRM-first product gravity.",
-				CurrentHref:  webDocumentsPath,
-				CurrentLabel: "Open document review",
-				NextSlice:    "Next slice: expose bounded admin-only customer and party maintenance while keeping workflow ownership in the shared backend.",
+				CurrentHref:  webAdminPartiesPath,
+				CurrentLabel: "Open party setup",
+				NextSlice:    "Current slice: bounded admin-only customer and party maintenance now exposes list, create, and exact-detail continuity on the shared parties service seam.",
 			},
 			{
 				Title:        "Access and governance",
@@ -369,6 +370,7 @@ func (h *AgentAPIHandler) handleWebAdmin(w http.ResponseWriter, r *http.Request)
 		},
 		AdminActions: []webHomeAction{
 			{Title: "Open accounting setup", Summary: "Create ledger accounts, tax codes, and accounting periods from the bounded admin maintenance surface.", Href: webAdminAccountingPath},
+			{Title: "Open party setup", Summary: "Create customer and vendor support records, then use exact detail to confirm kind and contact continuity.", Href: webAdminPartiesPath},
 			{Title: "Open approval queue", Summary: "Keep explicit approval decisions ahead of downstream document or posting review.", Href: webApprovalsPath + "?status=pending"},
 			{Title: "Open accounting review", Summary: "Use centralized accounting review for posted truth, control accounts, and tax summaries.", Href: webAccountingPath},
 			{Title: "Open audit review", Summary: "Trace actor, timestamp, and workflow causation without leaving the shared browser seam.", Href: webAuditPath},
