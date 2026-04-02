@@ -75,6 +75,46 @@ func (h *AgentAPIHandler) handleAdminLedgerAccounts(w http.ResponseWriter, r *ht
 	}
 }
 
+func (h *AgentAPIHandler) handleAdminLedgerAccountAction(w http.ResponseWriter, r *http.Request) {
+	if h.accountingAdmin == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "accounting admin service unavailable"})
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+		return
+	}
+
+	accountID, action, ok := parseChildActionPath(adminLedgerAccountsPath, r.URL.Path)
+	if !ok || !strings.EqualFold(strings.TrimSpace(action), "status") {
+		http.NotFound(w, r)
+		return
+	}
+
+	actor, err := h.adminActorFromRequest(r)
+	if err != nil {
+		writeAdminActorError(w, err)
+		return
+	}
+
+	var req updateStatusRequest
+	if err := decodeJSONBody(r, &req, false); err != nil {
+		writeJSONBodyError(w, err)
+		return
+	}
+
+	account, err := h.accountingAdmin.UpdateLedgerAccountStatus(r.Context(), accounting.UpdateLedgerAccountStatusInput{
+		AccountID: accountID,
+		Status:    strings.TrimSpace(req.Status),
+		Actor:     actor,
+	})
+	if err != nil {
+		handleAccountingAdminError(w, err, "failed to update ledger account status")
+		return
+	}
+	writeJSON(w, http.StatusOK, mapLedgerAccount(account))
+}
+
 func (h *AgentAPIHandler) handleAdminTaxCodes(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != adminTaxCodesPath {
 		http.NotFound(w, r)
@@ -128,6 +168,46 @@ func (h *AgentAPIHandler) handleAdminTaxCodes(w http.ResponseWriter, r *http.Req
 	default:
 		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
 	}
+}
+
+func (h *AgentAPIHandler) handleAdminTaxCodeAction(w http.ResponseWriter, r *http.Request) {
+	if h.accountingAdmin == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "accounting admin service unavailable"})
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+		return
+	}
+
+	taxCodeID, action, ok := parseChildActionPath(adminTaxCodesPath, r.URL.Path)
+	if !ok || !strings.EqualFold(strings.TrimSpace(action), "status") {
+		http.NotFound(w, r)
+		return
+	}
+
+	actor, err := h.adminActorFromRequest(r)
+	if err != nil {
+		writeAdminActorError(w, err)
+		return
+	}
+
+	var req updateStatusRequest
+	if err := decodeJSONBody(r, &req, false); err != nil {
+		writeJSONBodyError(w, err)
+		return
+	}
+
+	code, err := h.accountingAdmin.UpdateTaxCodeStatus(r.Context(), accounting.UpdateTaxCodeStatusInput{
+		TaxCodeID: taxCodeID,
+		Status:    strings.TrimSpace(req.Status),
+		Actor:     actor,
+	})
+	if err != nil {
+		handleAccountingAdminError(w, err, "failed to update tax code status")
+		return
+	}
+	writeJSON(w, http.StatusOK, mapTaxCode(code))
 }
 
 func (h *AgentAPIHandler) handleAdminAccountingPeriods(w http.ResponseWriter, r *http.Request) {
@@ -350,6 +430,46 @@ func (h *AgentAPIHandler) handleAdminInventoryItems(w http.ResponseWriter, r *ht
 	}
 }
 
+func (h *AgentAPIHandler) handleAdminInventoryItemAction(w http.ResponseWriter, r *http.Request) {
+	if h.inventoryAdmin == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "inventory admin service unavailable"})
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+		return
+	}
+
+	itemID, action, ok := parseChildActionPath(adminInventoryItemsPath, r.URL.Path)
+	if !ok || !strings.EqualFold(strings.TrimSpace(action), "status") {
+		http.NotFound(w, r)
+		return
+	}
+
+	actor, err := h.adminActorFromRequest(r)
+	if err != nil {
+		writeAdminActorError(w, err)
+		return
+	}
+
+	var req updateStatusRequest
+	if err := decodeJSONBody(r, &req, false); err != nil {
+		writeJSONBodyError(w, err)
+		return
+	}
+
+	item, err := h.inventoryAdmin.UpdateItemStatus(r.Context(), inventoryops.UpdateItemStatusInput{
+		ItemID: itemID,
+		Status: strings.TrimSpace(req.Status),
+		Actor:  actor,
+	})
+	if err != nil {
+		handleInventoryAdminError(w, err, "failed to update inventory item status")
+		return
+	}
+	writeJSON(w, http.StatusOK, mapInventoryItem(item))
+}
+
 func (h *AgentAPIHandler) handleAdminInventoryLocations(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != adminInventoryLocsPath {
 		http.NotFound(w, r)
@@ -405,6 +525,46 @@ func (h *AgentAPIHandler) handleAdminInventoryLocations(w http.ResponseWriter, r
 	}
 }
 
+func (h *AgentAPIHandler) handleAdminInventoryLocationAction(w http.ResponseWriter, r *http.Request) {
+	if h.inventoryAdmin == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "inventory admin service unavailable"})
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+		return
+	}
+
+	locationID, action, ok := parseChildActionPath(adminInventoryLocsPath, r.URL.Path)
+	if !ok || !strings.EqualFold(strings.TrimSpace(action), "status") {
+		http.NotFound(w, r)
+		return
+	}
+
+	actor, err := h.adminActorFromRequest(r)
+	if err != nil {
+		writeAdminActorError(w, err)
+		return
+	}
+
+	var req updateStatusRequest
+	if err := decodeJSONBody(r, &req, false); err != nil {
+		writeJSONBodyError(w, err)
+		return
+	}
+
+	location, err := h.inventoryAdmin.UpdateLocationStatus(r.Context(), inventoryops.UpdateLocationStatusInput{
+		LocationID: locationID,
+		Status:     strings.TrimSpace(req.Status),
+		Actor:      actor,
+	})
+	if err != nil {
+		handleInventoryAdminError(w, err, "failed to update inventory location status")
+		return
+	}
+	writeJSON(w, http.StatusOK, mapInventoryLocation(location))
+}
+
 func (h *AgentAPIHandler) handleAdminPartyDetail(w http.ResponseWriter, r *http.Request) {
 	if h.partiesAdmin == nil {
 		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "party admin service unavailable"})
@@ -455,31 +615,53 @@ func (h *AgentAPIHandler) handleAdminPartyDetail(w http.ResponseWriter, r *http.
 		writeJSON(w, http.StatusOK, response)
 	case http.MethodPost:
 		partyID, action, ok := parseChildActionPath(adminPartyContactsPath, r.URL.Path)
-		if !ok || !strings.EqualFold(strings.TrimSpace(action), "contacts") {
+		if !ok {
 			http.NotFound(w, r)
 			return
 		}
 
-		var req createContactRequest
-		if err := decodeJSONBody(r, &req, false); err != nil {
-			writeJSONBodyError(w, err)
-			return
-		}
+		switch strings.TrimSpace(action) {
+		case "contacts":
+			var req createContactRequest
+			if err := decodeJSONBody(r, &req, false); err != nil {
+				writeJSONBodyError(w, err)
+				return
+			}
 
-		contact, err := h.partiesAdmin.CreateContact(r.Context(), parties.CreateContactInput{
-			PartyID:   partyID,
-			FullName:  strings.TrimSpace(req.FullName),
-			RoleTitle: strings.TrimSpace(req.RoleTitle),
-			Email:     strings.TrimSpace(req.Email),
-			Phone:     strings.TrimSpace(req.Phone),
-			IsPrimary: req.IsPrimary,
-			Actor:     actor,
-		})
-		if err != nil {
-			handlePartyAdminError(w, err, "failed to create party contact")
-			return
+			contact, err := h.partiesAdmin.CreateContact(r.Context(), parties.CreateContactInput{
+				PartyID:   partyID,
+				FullName:  strings.TrimSpace(req.FullName),
+				RoleTitle: strings.TrimSpace(req.RoleTitle),
+				Email:     strings.TrimSpace(req.Email),
+				Phone:     strings.TrimSpace(req.Phone),
+				IsPrimary: req.IsPrimary,
+				Actor:     actor,
+			})
+			if err != nil {
+				handlePartyAdminError(w, err, "failed to create party contact")
+				return
+			}
+			writeJSON(w, http.StatusCreated, mapContact(contact))
+		case "status":
+			var req updateStatusRequest
+			if err := decodeJSONBody(r, &req, false); err != nil {
+				writeJSONBodyError(w, err)
+				return
+			}
+
+			party, err := h.partiesAdmin.UpdatePartyStatus(r.Context(), parties.UpdatePartyStatusInput{
+				PartyID: partyID,
+				Status:  strings.TrimSpace(req.Status),
+				Actor:   actor,
+			})
+			if err != nil {
+				handlePartyAdminError(w, err, "failed to update party status")
+				return
+			}
+			writeJSON(w, http.StatusOK, mapParty(party))
+		default:
+			http.NotFound(w, r)
 		}
-		writeJSON(w, http.StatusCreated, mapContact(contact))
 	default:
 		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
 	}

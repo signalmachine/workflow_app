@@ -243,6 +243,58 @@ func TestInventoryMovementRejectsMismatchedDocumentAndPurposeIntegration(t *test
 	}
 }
 
+func TestUpdateMasterStatusesIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, adminUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleAdmin, "")
+	adminSession := startSession(t, ctx, db, orgID, adminUserID)
+	admin := identityaccess.Actor{OrgID: orgID, UserID: adminUserID, SessionID: adminSession.ID}
+
+	inventoryService := inventoryops.NewService(db)
+	item := createItem(t, ctx, inventoryService, inventoryops.CreateItemInput{
+		SKU:          "VALVE-001",
+		Name:         "Isolation Valve",
+		ItemRole:     inventoryops.ItemRoleResale,
+		TrackingMode: inventoryops.TrackingModeNone,
+		Actor:        admin,
+	})
+	location := createLocation(t, ctx, inventoryService, inventoryops.CreateLocationInput{
+		Code:         "WH-Z",
+		Name:         "Status Warehouse",
+		LocationRole: inventoryops.LocationRoleWarehouse,
+		Actor:        admin,
+	})
+
+	updatedItem, err := inventoryService.UpdateItemStatus(ctx, inventoryops.UpdateItemStatusInput{
+		ItemID: item.ID,
+		Status: inventoryops.StatusInactive,
+		Actor:  admin,
+	})
+	if err != nil {
+		t.Fatalf("update item status: %v", err)
+	}
+	if updatedItem.Status != inventoryops.StatusInactive {
+		t.Fatalf("unexpected item status: %s", updatedItem.Status)
+	}
+
+	updatedLocation, err := inventoryService.UpdateLocationStatus(ctx, inventoryops.UpdateLocationStatusInput{
+		LocationID: location.ID,
+		Status:     inventoryops.StatusInactive,
+		Actor:      admin,
+	})
+	if err != nil {
+		t.Fatalf("update location status: %v", err)
+	}
+	if updatedLocation.Status != inventoryops.StatusInactive {
+		t.Fatalf("unexpected location status: %s", updatedLocation.Status)
+	}
+}
+
 func TestInventoryListItemsAndLocationsIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()

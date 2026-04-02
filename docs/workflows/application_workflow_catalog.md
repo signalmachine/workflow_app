@@ -78,7 +78,7 @@ Primary continuity surfaces:
 ### 2.1.1 Admin accounting setup maintenance
 
 Purpose:
-allow an admin actor to create and browse foundational ledger accounts, tax codes, and accounting periods, and to close accounting periods, through one bounded maintenance seam that stays separate from posted-truth accounting review.
+allow an admin actor to create and browse foundational ledger accounts, tax codes, and accounting periods, to close accounting periods, and to mark ledger accounts or tax codes active or inactive through one bounded maintenance seam that stays separate from posted-truth accounting review.
 
 Entry points:
 
@@ -96,7 +96,8 @@ Expected outputs:
 1. bounded admin-only master-data creation on the shared accounting service seam
 2. visible browser continuity between the admin maintenance hub and the accounting setup page
 3. durable audit-visible setup writes for ledger accounts, tax codes, and accounting periods
-4. bounded period-close control without widening posted-truth accounting review into generic editing
+4. bounded active or inactive status governance for ledger accounts and tax codes without widening into generic edit-heavy CRUD
+5. bounded period-close control without widening posted-truth accounting review into generic editing
 
 Current status:
 
@@ -107,7 +108,7 @@ Current status:
 ### 2.1.2 Admin party setup maintenance
 
 Purpose:
-allow an admin actor to create and browse bounded customer and vendor support records, and to open exact party detail with current contact visibility, through one maintenance seam that stays separate from workflow review pages and avoids CRM-first drift.
+allow an admin actor to create and browse bounded customer and vendor support records, to open exact party detail with current contact visibility, and to mark a party active or inactive through one maintenance seam that stays separate from workflow review pages and avoids CRM-first drift.
 
 Entry points:
 
@@ -122,7 +123,8 @@ Expected outputs:
 1. bounded admin-only customer and vendor support-record creation on the shared `parties` service seam
 2. visible browser continuity between the admin maintenance hub and the party setup page
 3. exact party-detail continuity with current contact visibility before downstream document or accounting work depends on the record
-4. shared API reuse for later non-browser admin maintenance without introducing browser-local truth
+4. bounded active or inactive party governance on the same shared truth model
+5. shared API reuse for later non-browser admin maintenance without introducing browser-local truth
 
 Current status:
 
@@ -158,7 +160,7 @@ Current status:
 ### 2.1.4 Admin inventory setup maintenance
 
 Purpose:
-allow an admin actor to create and browse bounded inventory items and inventory locations through one maintenance seam that stays on the shared `inventory_ops` truth model and continues directly into the promoted inventory review routes.
+allow an admin actor to create and browse bounded inventory items and inventory locations, and to mark those master records active or inactive, through one maintenance seam that stays on the shared `inventory_ops` truth model and continues directly into the promoted inventory review routes.
 
 Entry points:
 
@@ -172,8 +174,9 @@ Expected outputs:
 
 1. bounded admin-only inventory item creation on the shared `inventory_ops` service seam
 2. bounded admin-only inventory location creation on the same shared inventory foundation
-3. visible browser continuity between the admin maintenance hub, the inventory setup page, and the existing exact inventory review routes
-4. shared API reuse for later non-browser inventory maintenance without introducing browser-local truth
+3. bounded active or inactive status governance for inventory items and locations on that same shared truth model
+4. visible browser continuity between the admin maintenance hub, the inventory setup page, and the existing exact inventory review routes
+5. shared API reuse for later non-browser inventory maintenance without introducing browser-local truth
 
 Current status:
 

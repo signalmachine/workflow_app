@@ -2015,6 +2015,9 @@ func TestHandleWebAdminAccountingShowsSetupForms(t *testing.T) {
 	if !strings.Contains(body, `Accounts Receivable`) || !strings.Contains(body, `GST18`) || !strings.Contains(body, `FY2026-04`) {
 		t.Fatalf("expected maintenance lists to render seeded data, body=%s", body)
 	}
+	if !strings.Contains(body, `Mark inactive`) {
+		t.Fatalf("expected status controls to render, body=%s", body)
+	}
 }
 
 func TestHandleWebCreateLedgerAccountRedirectsWithNotice(t *testing.T) {
@@ -2073,6 +2076,49 @@ func TestHandleWebCreateLedgerAccountRedirectsWithNotice(t *testing.T) {
 	}
 }
 
+func TestHandleWebLedgerAccountStatusRedirectsWithNotice(t *testing.T) {
+	var captured accounting.UpdateLedgerAccountStatusInput
+	handler := newAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		nil,
+		nil,
+		nil,
+		stubAccountingAdminService{
+			updateLedgerStatus: func(_ context.Context, input accounting.UpdateLedgerAccountStatusInput) (accounting.LedgerAccount, error) {
+				captured = input
+				return accounting.LedgerAccount{ID: input.AccountID, Status: input.Status}, nil
+			},
+		},
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				ctx := testSessionContext()
+				ctx.RoleCode = identityaccess.RoleAdmin
+				return ctx, nil
+			},
+		},
+	)
+
+	form := url.Values{"status": {accounting.StatusInactive}}
+	req := httptest.NewRequest(http.MethodPost, "/app/admin/accounting/ledger-accounts/acct-1/status", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if location := recorder.Header().Get("Location"); !strings.Contains(location, "/app/admin/accounting?notice=Ledger+account+marked+inactive.") {
+		t.Fatalf("expected success redirect, got %s", location)
+	}
+	if captured.AccountID != "acct-1" || captured.Status != accounting.StatusInactive {
+		t.Fatalf("unexpected captured input: %+v", captured)
+	}
+}
+
 func TestHandleWebAdminPartiesShowsSetupAndDetail(t *testing.T) {
 	handler := newAgentAPIHandlerWithDependencies(
 		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
@@ -2124,6 +2170,9 @@ func TestHandleWebAdminPartiesShowsSetupAndDetail(t *testing.T) {
 	}
 	if !strings.Contains(body, `Northwind Service`) || !strings.Contains(body, `Asha Nair`) {
 		t.Fatalf("expected party detail and contact list, body=%s", body)
+	}
+	if !strings.Contains(body, `Mark party inactive`) {
+		t.Fatalf("expected party status control, body=%s", body)
 	}
 }
 
@@ -2221,6 +2270,50 @@ func TestHandleWebAdminPartyContactCreateRedirectsWithNotice(t *testing.T) {
 		t.Fatalf("expected success redirect, got %s", location)
 	}
 	if captured.PartyID != "party-1" || captured.FullName != "Asha Nair" || captured.Email != "asha@example.com" || !captured.IsPrimary {
+		t.Fatalf("unexpected captured input: %+v", captured)
+	}
+}
+
+func TestHandleWebAdminPartyStatusRedirectsWithNotice(t *testing.T) {
+	var captured parties.UpdatePartyStatusInput
+	handler := newAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		nil,
+		nil,
+		nil,
+		stubAccountingAdminService{},
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				ctx := testSessionContext()
+				ctx.RoleCode = identityaccess.RoleAdmin
+				return ctx, nil
+			},
+		},
+		stubPartiesAdminService{
+			updateStatus: func(_ context.Context, input parties.UpdatePartyStatusInput) (parties.Party, error) {
+				captured = input
+				return parties.Party{ID: input.PartyID, Status: input.Status}, nil
+			},
+		},
+	)
+
+	form := url.Values{"status": {parties.StatusInactive}}
+	req := httptest.NewRequest(http.MethodPost, "/app/admin/parties/party-1/status", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if location := recorder.Header().Get("Location"); !strings.Contains(location, "/app/admin/parties/party-1?notice=Party+marked+inactive.") {
+		t.Fatalf("expected success redirect, got %s", location)
+	}
+	if captured.PartyID != "party-1" || captured.Status != parties.StatusInactive {
 		t.Fatalf("unexpected captured input: %+v", captured)
 	}
 }
@@ -2357,6 +2450,9 @@ func TestHandleWebAdminInventoryShowsSetupForms(t *testing.T) {
 	if !strings.Contains(body, `Warehouse Pump`) || !strings.Contains(body, `Main Warehouse`) {
 		t.Fatalf("expected inventory master data to render, body=%s", body)
 	}
+	if !strings.Contains(body, `Mark inactive`) {
+		t.Fatalf("expected inventory status controls, body=%s", body)
+	}
 }
 
 func TestHandleWebAdminInventoryCreateRedirectsWithNotice(t *testing.T) {
@@ -2433,6 +2529,74 @@ func TestHandleWebAdminInventoryCreateRedirectsWithNotice(t *testing.T) {
 	}
 	if capturedLocation.Code != "WH-A" || capturedLocation.LocationRole != inventoryops.LocationRoleWarehouse {
 		t.Fatalf("unexpected captured location input: %+v", capturedLocation)
+	}
+}
+
+func TestHandleWebAdminInventoryStatusRedirectsWithNotice(t *testing.T) {
+	var capturedItem inventoryops.UpdateItemStatusInput
+	var capturedLocation inventoryops.UpdateLocationStatusInput
+	handler := newAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		nil,
+		nil,
+		nil,
+		stubAccountingAdminService{},
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				ctx := testSessionContext()
+				ctx.RoleCode = identityaccess.RoleAdmin
+				return ctx, nil
+			},
+		},
+		stubInventoryAdminService{
+			updateItem: func(_ context.Context, input inventoryops.UpdateItemStatusInput) (inventoryops.Item, error) {
+				capturedItem = input
+				return inventoryops.Item{ID: input.ItemID, Status: input.Status}, nil
+			},
+			updateLocation: func(_ context.Context, input inventoryops.UpdateLocationStatusInput) (inventoryops.Location, error) {
+				capturedLocation = input
+				return inventoryops.Location{ID: input.LocationID, Status: input.Status}, nil
+			},
+		},
+	)
+
+	itemForm := url.Values{"status": {inventoryops.StatusInactive}}
+	itemReq := httptest.NewRequest(http.MethodPost, "/app/admin/inventory/items/item-1/status", strings.NewReader(itemForm.Encode()))
+	itemReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	itemReq.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	itemReq.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	itemRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(itemRecorder, itemReq)
+
+	if itemRecorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected item status: got %d body=%s", itemRecorder.Code, itemRecorder.Body.String())
+	}
+	if location := itemRecorder.Header().Get("Location"); !strings.Contains(location, "/app/admin/inventory?notice=Inventory+item+marked+inactive.") {
+		t.Fatalf("expected item success redirect, got %s", location)
+	}
+	if capturedItem.ItemID != "item-1" || capturedItem.Status != inventoryops.StatusInactive {
+		t.Fatalf("unexpected captured item status input: %+v", capturedItem)
+	}
+
+	locationForm := url.Values{"status": {inventoryops.StatusInactive}}
+	locationReq := httptest.NewRequest(http.MethodPost, "/app/admin/inventory/locations/loc-1/status", strings.NewReader(locationForm.Encode()))
+	locationReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	locationReq.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	locationReq.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	locationRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(locationRecorder, locationReq)
+
+	if locationRecorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected location status: got %d body=%s", locationRecorder.Code, locationRecorder.Body.String())
+	}
+	if location := locationRecorder.Header().Get("Location"); !strings.Contains(location, "/app/admin/inventory?notice=Inventory+location+marked+inactive.") {
+		t.Fatalf("expected location success redirect, got %s", location)
+	}
+	if capturedLocation.LocationID != "loc-1" || capturedLocation.Status != inventoryops.StatusInactive {
+		t.Fatalf("unexpected captured location status input: %+v", capturedLocation)
 	}
 }
 
@@ -3952,8 +4116,10 @@ func (s stubSubmissionService) DownloadAttachment(context.Context, DownloadAttac
 type stubAccountingAdminService struct {
 	listLedgerAccounts     func(context.Context, accounting.ListLedgerAccountsInput) ([]accounting.LedgerAccount, error)
 	createLedgerAccount    func(context.Context, accounting.CreateLedgerAccountInput) (accounting.LedgerAccount, error)
+	updateLedgerStatus     func(context.Context, accounting.UpdateLedgerAccountStatusInput) (accounting.LedgerAccount, error)
 	listTaxCodes           func(context.Context, accounting.ListTaxCodesInput) ([]accounting.TaxCode, error)
 	createTaxCode          func(context.Context, accounting.CreateTaxCodeInput) (accounting.TaxCode, error)
+	updateTaxCodeStatus    func(context.Context, accounting.UpdateTaxCodeStatusInput) (accounting.TaxCode, error)
 	listAccountingPeriods  func(context.Context, accounting.ListAccountingPeriodsInput) ([]accounting.AccountingPeriod, error)
 	createAccountingPeriod func(context.Context, accounting.CreateAccountingPeriodInput) (accounting.AccountingPeriod, error)
 	closeAccountingPeriod  func(context.Context, accounting.CloseAccountingPeriodInput) (accounting.AccountingPeriod, error)
@@ -3973,6 +4139,13 @@ func (s stubAccountingAdminService) CreateLedgerAccount(ctx context.Context, inp
 	return accounting.LedgerAccount{}, nil
 }
 
+func (s stubAccountingAdminService) UpdateLedgerAccountStatus(ctx context.Context, input accounting.UpdateLedgerAccountStatusInput) (accounting.LedgerAccount, error) {
+	if s.updateLedgerStatus != nil {
+		return s.updateLedgerStatus(ctx, input)
+	}
+	return accounting.LedgerAccount{}, nil
+}
+
 func (s stubAccountingAdminService) ListTaxCodes(ctx context.Context, input accounting.ListTaxCodesInput) ([]accounting.TaxCode, error) {
 	if s.listTaxCodes != nil {
 		return s.listTaxCodes(ctx, input)
@@ -3983,6 +4156,13 @@ func (s stubAccountingAdminService) ListTaxCodes(ctx context.Context, input acco
 func (s stubAccountingAdminService) CreateTaxCode(ctx context.Context, input accounting.CreateTaxCodeInput) (accounting.TaxCode, error) {
 	if s.createTaxCode != nil {
 		return s.createTaxCode(ctx, input)
+	}
+	return accounting.TaxCode{}, nil
+}
+
+func (s stubAccountingAdminService) UpdateTaxCodeStatus(ctx context.Context, input accounting.UpdateTaxCodeStatusInput) (accounting.TaxCode, error) {
+	if s.updateTaxCodeStatus != nil {
+		return s.updateTaxCodeStatus(ctx, input)
 	}
 	return accounting.TaxCode{}, nil
 }
@@ -4005,6 +4185,7 @@ type stubPartiesAdminService struct {
 	listParties   func(context.Context, parties.ListPartiesInput) ([]parties.Party, error)
 	getParty      func(context.Context, parties.GetPartyInput) (parties.Party, error)
 	createParty   func(context.Context, parties.CreatePartyInput) (parties.Party, error)
+	updateStatus  func(context.Context, parties.UpdatePartyStatusInput) (parties.Party, error)
 	listContacts  func(context.Context, parties.ListContactsInput) ([]parties.Contact, error)
 	createContact func(context.Context, parties.CreateContactInput) (parties.Contact, error)
 }
@@ -4026,6 +4207,13 @@ func (s stubPartiesAdminService) GetParty(ctx context.Context, input parties.Get
 func (s stubPartiesAdminService) CreateParty(ctx context.Context, input parties.CreatePartyInput) (parties.Party, error) {
 	if s.createParty != nil {
 		return s.createParty(ctx, input)
+	}
+	return parties.Party{}, nil
+}
+
+func (s stubPartiesAdminService) UpdatePartyStatus(ctx context.Context, input parties.UpdatePartyStatusInput) (parties.Party, error) {
+	if s.updateStatus != nil {
+		return s.updateStatus(ctx, input)
 	}
 	return parties.Party{}, nil
 }
@@ -4054,8 +4242,10 @@ func (s stubAccountingAdminService) CloseAccountingPeriod(ctx context.Context, i
 type stubInventoryAdminService struct {
 	listItems      func(context.Context, inventoryops.ListItemsInput) ([]inventoryops.Item, error)
 	createItem     func(context.Context, inventoryops.CreateItemInput) (inventoryops.Item, error)
+	updateItem     func(context.Context, inventoryops.UpdateItemStatusInput) (inventoryops.Item, error)
 	listLocations  func(context.Context, inventoryops.ListLocationsInput) ([]inventoryops.Location, error)
 	createLocation func(context.Context, inventoryops.CreateLocationInput) (inventoryops.Location, error)
+	updateLocation func(context.Context, inventoryops.UpdateLocationStatusInput) (inventoryops.Location, error)
 }
 
 func (s stubInventoryAdminService) ListItems(ctx context.Context, input inventoryops.ListItemsInput) ([]inventoryops.Item, error) {
@@ -4072,6 +4262,13 @@ func (s stubInventoryAdminService) CreateItem(ctx context.Context, input invento
 	return inventoryops.Item{}, nil
 }
 
+func (s stubInventoryAdminService) UpdateItemStatus(ctx context.Context, input inventoryops.UpdateItemStatusInput) (inventoryops.Item, error) {
+	if s.updateItem != nil {
+		return s.updateItem(ctx, input)
+	}
+	return inventoryops.Item{}, nil
+}
+
 func (s stubInventoryAdminService) ListLocations(ctx context.Context, input inventoryops.ListLocationsInput) ([]inventoryops.Location, error) {
 	if s.listLocations != nil {
 		return s.listLocations(ctx, input)
@@ -4082,6 +4279,13 @@ func (s stubInventoryAdminService) ListLocations(ctx context.Context, input inve
 func (s stubInventoryAdminService) CreateLocation(ctx context.Context, input inventoryops.CreateLocationInput) (inventoryops.Location, error) {
 	if s.createLocation != nil {
 		return s.createLocation(ctx, input)
+	}
+	return inventoryops.Location{}, nil
+}
+
+func (s stubInventoryAdminService) UpdateLocationStatus(ctx context.Context, input inventoryops.UpdateLocationStatusInput) (inventoryops.Location, error) {
+	if s.updateLocation != nil {
+		return s.updateLocation(ctx, input)
 	}
 	return inventoryops.Location{}, nil
 }

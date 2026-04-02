@@ -49,6 +49,9 @@ const (
 	AccountClassRevenue   = "revenue"
 	AccountClassExpense   = "expense"
 
+	StatusActive   = "active"
+	StatusInactive = "inactive"
+
 	ControlTypeNone          = "none"
 	ControlTypeReceivable    = "receivable"
 	ControlTypePayable       = "payable"
@@ -208,6 +211,18 @@ type CreateTaxCodeInput struct {
 	ReceivableAccountID string
 	PayableAccountID    string
 	Actor               identityaccess.Actor
+}
+
+type UpdateLedgerAccountStatusInput struct {
+	AccountID string
+	Status    string
+	Actor     identityaccess.Actor
+}
+
+type UpdateTaxCodeStatusInput struct {
+	TaxCodeID string
+	Status    string
+	Actor     identityaccess.Actor
 }
 
 type ListLedgerAccountsInput struct {
@@ -637,6 +652,144 @@ func (s *Service) CreateTaxCode(ctx context.Context, input CreateTaxCodeInput) (
 
 	if err := tx.Commit(); err != nil {
 		return TaxCode{}, fmt.Errorf("commit create tax code: %w", err)
+	}
+
+	return taxCode, nil
+}
+
+func (s *Service) UpdateLedgerAccountStatus(ctx context.Context, input UpdateLedgerAccountStatusInput) (LedgerAccount, error) {
+	status := strings.TrimSpace(input.Status)
+	if strings.TrimSpace(input.AccountID) == "" || !isValidSetupStatus(status) {
+		return LedgerAccount{}, ErrInvalidAccount
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return LedgerAccount{}, fmt.Errorf("begin update ledger account status: %w", err)
+	}
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin); err != nil {
+		_ = tx.Rollback()
+		return LedgerAccount{}, err
+	}
+
+	account, err := scanLedgerAccount(tx.QueryRowContext(ctx, `
+UPDATE accounting.ledger_accounts
+SET status = $3,
+	updated_at = NOW()
+WHERE org_id = $1
+  AND id = $2
+RETURNING
+	id,
+	org_id,
+	code,
+	name,
+	account_class,
+	control_type,
+	allows_direct_posting,
+	status,
+	tax_category_code,
+	created_by_user_id,
+	created_at,
+	updated_at;`,
+		input.Actor.OrgID,
+		input.AccountID,
+		status,
+	))
+	if err != nil {
+		_ = tx.Rollback()
+		if errors.Is(err, ErrLedgerAccountNotFound) {
+			return LedgerAccount{}, err
+		}
+		return LedgerAccount{}, fmt.Errorf("update ledger account status: %w", err)
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
+		EventType:   "accounting.ledger_account_status_updated",
+		EntityType:  "accounting.ledger_account",
+		EntityID:    account.ID,
+		Payload: map[string]any{
+			"code":   account.Code,
+			"status": account.Status,
+		},
+	}); err != nil {
+		_ = tx.Rollback()
+		return LedgerAccount{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return LedgerAccount{}, fmt.Errorf("commit update ledger account status: %w", err)
+	}
+
+	return account, nil
+}
+
+func (s *Service) UpdateTaxCodeStatus(ctx context.Context, input UpdateTaxCodeStatusInput) (TaxCode, error) {
+	status := strings.TrimSpace(input.Status)
+	if strings.TrimSpace(input.TaxCodeID) == "" || !isValidSetupStatus(status) {
+		return TaxCode{}, ErrInvalidTaxCode
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return TaxCode{}, fmt.Errorf("begin update tax code status: %w", err)
+	}
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin); err != nil {
+		_ = tx.Rollback()
+		return TaxCode{}, err
+	}
+
+	taxCode, err := scanTaxCode(tx.QueryRowContext(ctx, `
+UPDATE accounting.tax_codes
+SET status = $3,
+	updated_at = NOW()
+WHERE org_id = $1
+  AND id = $2
+RETURNING
+	id,
+	org_id,
+	code,
+	name,
+	tax_type,
+	rate_basis_points,
+	receivable_account_id,
+	payable_account_id,
+	status,
+	created_by_user_id,
+	created_at,
+	updated_at;`,
+		input.Actor.OrgID,
+		input.TaxCodeID,
+		status,
+	))
+	if err != nil {
+		_ = tx.Rollback()
+		if errors.Is(err, ErrTaxCodeNotFound) {
+			return TaxCode{}, err
+		}
+		return TaxCode{}, fmt.Errorf("update tax code status: %w", err)
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
+		EventType:   "accounting.tax_code_status_updated",
+		EntityType:  "accounting.tax_code",
+		EntityID:    taxCode.ID,
+		Payload: map[string]any{
+			"code":   taxCode.Code,
+			"status": taxCode.Status,
+		},
+	}); err != nil {
+		_ = tx.Rollback()
+		return TaxCode{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return TaxCode{}, fmt.Errorf("commit update tax code status: %w", err)
 	}
 
 	return taxCode, nil
@@ -2491,6 +2644,15 @@ func normalizeOptionalDate(value time.Time) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	return normalizeEffectiveOn(value), true
+}
+
+func isValidSetupStatus(value string) bool {
+	switch strings.TrimSpace(value) {
+	case StatusActive, StatusInactive:
+		return true
+	default:
+		return false
+	}
 }
 
 func normalizePeriodRange(startOn, endOn time.Time) (time.Time, time.Time, error) {

@@ -202,6 +202,18 @@ func TestAgentAPIAdminAccountingMaintenanceIntegration(t *testing.T) {
 		t.Fatalf("expected operator ledger-account denial, got %d body=%s", operatorLedgerRecorder.Code, operatorLedgerRecorder.Body.String())
 	}
 
+	updateLedgerReq := httptest.NewRequest(http.MethodPost, "/api/admin/accounting/ledger-accounts/"+ledgerResponse.ID+"/status", bytes.NewBufferString(`{
+		"status":"inactive"
+	}`))
+	updateLedgerReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(updateLedgerReq, adminCookies)
+	updateLedgerRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(updateLedgerRecorder, updateLedgerReq)
+	if updateLedgerRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected update ledger account status: got %d body=%s", updateLedgerRecorder.Code, updateLedgerRecorder.Body.String())
+	}
+	requireContains(t, updateLedgerRecorder.Body.String(), `"status":"inactive"`)
+
 	createTaxReq := httptest.NewRequest(http.MethodPost, "/api/admin/accounting/tax-codes", bytes.NewBufferString(`{
 		"code":"GST18",
 		"name":"GST 18%",
@@ -217,6 +229,12 @@ func TestAgentAPIAdminAccountingMaintenanceIntegration(t *testing.T) {
 		t.Fatalf("unexpected create tax code status: got %d body=%s", createTaxRecorder.Code, createTaxRecorder.Body.String())
 	}
 	requireContains(t, createTaxRecorder.Body.String(), `"code":"GST18"`)
+	var taxCodeResponse struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(createTaxRecorder.Body.Bytes(), &taxCodeResponse); err != nil {
+		t.Fatalf("decode tax code response: %v", err)
+	}
 
 	listTaxReq := httptest.NewRequest(http.MethodGet, "/api/admin/accounting/tax-codes", nil)
 	applyResponseCookies(listTaxReq, adminCookies)
@@ -226,6 +244,18 @@ func TestAgentAPIAdminAccountingMaintenanceIntegration(t *testing.T) {
 		t.Fatalf("unexpected list tax codes status: got %d body=%s", listTaxRecorder.Code, listTaxRecorder.Body.String())
 	}
 	requireContains(t, listTaxRecorder.Body.String(), `"code":"GST18"`)
+
+	updateTaxReq := httptest.NewRequest(http.MethodPost, "/api/admin/accounting/tax-codes/"+taxCodeResponse.ID+"/status", bytes.NewBufferString(`{
+		"status":"inactive"
+	}`))
+	updateTaxReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(updateTaxReq, adminCookies)
+	updateTaxRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(updateTaxRecorder, updateTaxReq)
+	if updateTaxRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected update tax code status: got %d body=%s", updateTaxRecorder.Code, updateTaxRecorder.Body.String())
+	}
+	requireContains(t, updateTaxRecorder.Body.String(), `"status":"inactive"`)
 
 	createPeriodReq := httptest.NewRequest(http.MethodPost, "/api/admin/accounting/periods", bytes.NewBufferString(`{
 		"period_code":"FY2026-04",
@@ -342,6 +372,18 @@ func TestAgentAPIAdminPartyMaintenanceIntegration(t *testing.T) {
 	if operatorRecorder.Code != http.StatusUnauthorized {
 		t.Fatalf("expected operator party-admin denial, got %d body=%s", operatorRecorder.Code, operatorRecorder.Body.String())
 	}
+
+	updatePartyReq := httptest.NewRequest(http.MethodPost, "/api/admin/parties/"+partyResponse.ID+"/status", bytes.NewBufferString(`{
+		"status":"inactive"
+	}`))
+	updatePartyReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(updatePartyReq, adminCookies)
+	updatePartyRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(updatePartyRecorder, updatePartyReq)
+	if updatePartyRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected update party status: got %d body=%s", updatePartyRecorder.Code, updatePartyRecorder.Body.String())
+	}
+	requireContains(t, updatePartyRecorder.Body.String(), `"status":"inactive"`)
 }
 
 func TestAgentAPIAdminAccessMaintenanceIntegration(t *testing.T) {
@@ -511,6 +553,37 @@ func TestAgentAPIAdminInventoryMaintenanceIntegration(t *testing.T) {
 	if operatorRecorder.Code != http.StatusUnauthorized {
 		t.Fatalf("expected operator inventory-admin denial, got %d body=%s", operatorRecorder.Code, operatorRecorder.Body.String())
 	}
+
+	updateItemReq := httptest.NewRequest(http.MethodPost, "/api/admin/inventory/items/"+itemResponse.ID+"/status", bytes.NewBufferString(`{
+		"status":"inactive"
+	}`))
+	updateItemReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(updateItemReq, adminCookies)
+	updateItemRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(updateItemRecorder, updateItemReq)
+	if updateItemRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected update inventory item status: got %d body=%s", updateItemRecorder.Code, updateItemRecorder.Body.String())
+	}
+	requireContains(t, updateItemRecorder.Body.String(), `"status":"inactive"`)
+
+	var locationResponse struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(createLocationRecorder.Body.Bytes(), &locationResponse); err != nil {
+		t.Fatalf("decode inventory location response: %v", err)
+	}
+
+	updateLocationReq := httptest.NewRequest(http.MethodPost, "/api/admin/inventory/locations/"+locationResponse.ID+"/status", bytes.NewBufferString(`{
+		"status":"inactive"
+	}`))
+	updateLocationReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(updateLocationReq, adminCookies)
+	updateLocationRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(updateLocationRecorder, updateLocationReq)
+	if updateLocationRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected update inventory location status: got %d body=%s", updateLocationRecorder.Code, updateLocationRecorder.Body.String())
+	}
+	requireContains(t, updateLocationRecorder.Body.String(), `"status":"inactive"`)
 }
 
 func TestAgentAPITokenSessionIssueRefreshAndRevokeIntegration(t *testing.T) {

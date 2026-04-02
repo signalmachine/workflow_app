@@ -118,6 +118,13 @@ func adminInventoryPathWithMessage(key, message string) string {
 	return appendWebMessage(webAdminInventoryPath, key, message)
 }
 
+func adminStatusNotice(noun, status string) string {
+	if strings.TrimSpace(status) == accounting.StatusInactive {
+		return noun + " marked inactive."
+	}
+	return noun + " marked active."
+}
+
 func (h *AgentAPIHandler) handleWebAdminAccounting(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != webAdminAccountingPath {
 		http.NotFound(w, r)
@@ -319,7 +326,7 @@ func (h *AgentAPIHandler) handleWebAdminPartyDetail(w http.ResponseWriter, r *ht
 		})
 	case http.MethodPost:
 		partyID, action, ok := parseChildActionPath(webAdminPartyContactsPath, r.URL.Path)
-		if !ok || !strings.EqualFold(strings.TrimSpace(action), "contacts") {
+		if !ok {
 			http.NotFound(w, r)
 			return
 		}
@@ -329,25 +336,41 @@ func (h *AgentAPIHandler) handleWebAdminPartyDetail(w http.ResponseWriter, r *ht
 			return
 		}
 		if err := r.ParseForm(); err != nil {
-			http.Redirect(w, r, appendWebMessage(webAdminPartiesPath+"/"+partyID, "error", "invalid contact form"), http.StatusSeeOther)
+			http.Redirect(w, r, appendWebMessage(webAdminPartiesPath+"/"+partyID, "error", "invalid party form"), http.StatusSeeOther)
 			return
 		}
 
-		_, err := h.partiesAdmin.CreateContact(r.Context(), parties.CreateContactInput{
-			PartyID:   partyID,
-			FullName:  strings.TrimSpace(r.FormValue("full_name")),
-			RoleTitle: strings.TrimSpace(r.FormValue("role_title")),
-			Email:     strings.TrimSpace(r.FormValue("email")),
-			Phone:     strings.TrimSpace(r.FormValue("phone")),
-			IsPrimary: strings.TrimSpace(r.FormValue("is_primary")) != "",
-			Actor:     sessionContext.Actor,
-		})
 		redirectPath := webAdminPartiesPath + "/" + partyID
-		if err != nil {
-			http.Redirect(w, r, appendWebMessage(redirectPath, "error", partyAdminWebErrorMessage(err, "failed to create party contact")), http.StatusSeeOther)
-			return
+		switch strings.TrimSpace(action) {
+		case "contacts":
+			_, err := h.partiesAdmin.CreateContact(r.Context(), parties.CreateContactInput{
+				PartyID:   partyID,
+				FullName:  strings.TrimSpace(r.FormValue("full_name")),
+				RoleTitle: strings.TrimSpace(r.FormValue("role_title")),
+				Email:     strings.TrimSpace(r.FormValue("email")),
+				Phone:     strings.TrimSpace(r.FormValue("phone")),
+				IsPrimary: strings.TrimSpace(r.FormValue("is_primary")) != "",
+				Actor:     sessionContext.Actor,
+			})
+			if err != nil {
+				http.Redirect(w, r, appendWebMessage(redirectPath, "error", partyAdminWebErrorMessage(err, "failed to create party contact")), http.StatusSeeOther)
+				return
+			}
+			http.Redirect(w, r, appendWebMessage(redirectPath, "notice", "Party contact created."), http.StatusSeeOther)
+		case "status":
+			status := strings.TrimSpace(r.FormValue("status"))
+			if _, err := h.partiesAdmin.UpdatePartyStatus(r.Context(), parties.UpdatePartyStatusInput{
+				PartyID: partyID,
+				Status:  status,
+				Actor:   sessionContext.Actor,
+			}); err != nil {
+				http.Redirect(w, r, appendWebMessage(redirectPath, "error", partyAdminWebErrorMessage(err, "failed to update party status")), http.StatusSeeOther)
+				return
+			}
+			http.Redirect(w, r, appendWebMessage(redirectPath, "notice", adminStatusNotice("Party", status)), http.StatusSeeOther)
+		default:
+			http.NotFound(w, r)
 		}
-		http.Redirect(w, r, appendWebMessage(redirectPath, "notice", "Party contact created."), http.StatusSeeOther)
 	default:
 		http.NotFound(w, r)
 	}
@@ -452,6 +475,39 @@ func (h *AgentAPIHandler) handleWebCreateLedgerAccount(w http.ResponseWriter, r 
 	http.Redirect(w, r, adminAccountingPathWithMessage("notice", "Ledger account created."), http.StatusSeeOther)
 }
 
+func (h *AgentAPIHandler) handleWebLedgerAccountAction(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+
+	accountID, action, ok := parseChildActionPath(webAdminLedgerAccountsPath, r.URL.Path)
+	if !ok || !strings.EqualFold(strings.TrimSpace(action), "status") {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, ok := h.requireWebAdminSessionWithService(w, r, h.accountingAdmin != nil, "accounting admin service unavailable")
+	if !ok {
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, adminAccountingPathWithMessage("error", "invalid ledger account form"), http.StatusSeeOther)
+		return
+	}
+
+	status := strings.TrimSpace(r.FormValue("status"))
+	if _, err := h.accountingAdmin.UpdateLedgerAccountStatus(r.Context(), accounting.UpdateLedgerAccountStatusInput{
+		AccountID: accountID,
+		Status:    status,
+		Actor:     sessionContext.Actor,
+	}); err != nil {
+		http.Redirect(w, r, adminAccountingPathWithMessage("error", accountingAdminWebErrorMessage(err, "failed to update ledger account status")), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, adminAccountingPathWithMessage("notice", adminStatusNotice("Ledger account", status)), http.StatusSeeOther)
+}
+
 func (h *AgentAPIHandler) handleWebCreateTaxCode(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != webAdminTaxCodesPath {
 		http.NotFound(w, r)
@@ -491,6 +547,39 @@ func (h *AgentAPIHandler) handleWebCreateTaxCode(w http.ResponseWriter, r *http.
 		return
 	}
 	http.Redirect(w, r, adminAccountingPathWithMessage("notice", "Tax code created."), http.StatusSeeOther)
+}
+
+func (h *AgentAPIHandler) handleWebTaxCodeAction(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+
+	taxCodeID, action, ok := parseChildActionPath(webAdminTaxCodesPath, r.URL.Path)
+	if !ok || !strings.EqualFold(strings.TrimSpace(action), "status") {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, ok := h.requireWebAdminSessionWithService(w, r, h.accountingAdmin != nil, "accounting admin service unavailable")
+	if !ok {
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, adminAccountingPathWithMessage("error", "invalid tax code form"), http.StatusSeeOther)
+		return
+	}
+
+	status := strings.TrimSpace(r.FormValue("status"))
+	if _, err := h.accountingAdmin.UpdateTaxCodeStatus(r.Context(), accounting.UpdateTaxCodeStatusInput{
+		TaxCodeID: taxCodeID,
+		Status:    status,
+		Actor:     sessionContext.Actor,
+	}); err != nil {
+		http.Redirect(w, r, adminAccountingPathWithMessage("error", accountingAdminWebErrorMessage(err, "failed to update tax code status")), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, adminAccountingPathWithMessage("notice", adminStatusNotice("Tax code", status)), http.StatusSeeOther)
 }
 
 func (h *AgentAPIHandler) handleWebAccountingPeriods(w http.ResponseWriter, r *http.Request) {
@@ -596,6 +685,39 @@ func (h *AgentAPIHandler) handleWebAdminInventoryItems(w http.ResponseWriter, r 
 	http.Redirect(w, r, adminInventoryPathWithMessage("notice", "Inventory item created."), http.StatusSeeOther)
 }
 
+func (h *AgentAPIHandler) handleWebAdminInventoryItemAction(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+
+	itemID, action, ok := parseChildActionPath(webAdminInventoryItemsPath, r.URL.Path)
+	if !ok || !strings.EqualFold(strings.TrimSpace(action), "status") {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, ok := h.requireWebAdminSessionWithService(w, r, h.inventoryAdmin != nil, "inventory admin service unavailable")
+	if !ok {
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, adminInventoryPathWithMessage("error", "invalid inventory item form"), http.StatusSeeOther)
+		return
+	}
+
+	status := strings.TrimSpace(r.FormValue("status"))
+	if _, err := h.inventoryAdmin.UpdateItemStatus(r.Context(), inventoryops.UpdateItemStatusInput{
+		ItemID: itemID,
+		Status: status,
+		Actor:  sessionContext.Actor,
+	}); err != nil {
+		http.Redirect(w, r, adminInventoryPathWithMessage("error", inventoryAdminWebErrorMessage(err, "failed to update inventory item status")), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, adminInventoryPathWithMessage("notice", adminStatusNotice("Inventory item", status)), http.StatusSeeOther)
+}
+
 func (h *AgentAPIHandler) handleWebAdminInventoryLocations(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != webAdminInventoryLocsPath {
 		http.NotFound(w, r)
@@ -626,4 +748,37 @@ func (h *AgentAPIHandler) handleWebAdminInventoryLocations(w http.ResponseWriter
 		return
 	}
 	http.Redirect(w, r, adminInventoryPathWithMessage("notice", "Inventory location created."), http.StatusSeeOther)
+}
+
+func (h *AgentAPIHandler) handleWebAdminInventoryLocationAction(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+
+	locationID, action, ok := parseChildActionPath(webAdminInventoryLocsPath, r.URL.Path)
+	if !ok || !strings.EqualFold(strings.TrimSpace(action), "status") {
+		http.NotFound(w, r)
+		return
+	}
+
+	sessionContext, ok := h.requireWebAdminSessionWithService(w, r, h.inventoryAdmin != nil, "inventory admin service unavailable")
+	if !ok {
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, adminInventoryPathWithMessage("error", "invalid inventory location form"), http.StatusSeeOther)
+		return
+	}
+
+	status := strings.TrimSpace(r.FormValue("status"))
+	if _, err := h.inventoryAdmin.UpdateLocationStatus(r.Context(), inventoryops.UpdateLocationStatusInput{
+		LocationID: locationID,
+		Status:     status,
+		Actor:      sessionContext.Actor,
+	}); err != nil {
+		http.Redirect(w, r, adminInventoryPathWithMessage("error", inventoryAdminWebErrorMessage(err, "failed to update inventory location status")), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, adminInventoryPathWithMessage("notice", adminStatusNotice("Inventory location", status)), http.StatusSeeOther)
 }

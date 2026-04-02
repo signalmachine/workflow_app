@@ -1,7 +1,7 @@
 # workflow_app Milestone 12 Admin Maintenance and Master Data Plan
 
 Date: 2026-04-02
-Status: Active milestone with Slice 1 through Slice 5 implemented in code and only later follow-on controls still queued
+Status: Active milestone with Slice 1 through Slice 6 implemented in code and only later follow-on controls still queued
 Purpose: define the first real privileged maintenance surface for browser operators so `Admin` stops being a placeholder route directory and becomes the controlled entry point for manual master-data and configuration work on the shared backend.
 
 ## 1. Why this milestone exists
@@ -47,8 +47,9 @@ In scope:
 8. customer parties
 9. vendor parties where the current shared party model or adjacent support seams justify them
 10. bounded listing, exact detail, and create flows for those records
-11. explicit admin-only authorization and audit visibility for all privileged writes
-12. documentation and workflow-validation updates for the new privileged maintenance posture
+11. bounded active or inactive status controls for foundational master data where the shared domain models already carry lifecycle status
+12. explicit admin-only authorization and audit visibility for all privileged writes
+13. documentation and workflow-validation updates for the new privileged maintenance posture
 
 Out of scope:
 
@@ -151,6 +152,35 @@ Guardrail:
 
 1. do not start this slice until the earlier master-data slices are landed or explicitly reprioritized
 
+### 6.5 Slice 5: inventory master-data maintenance
+
+Goal:
+
+1. expose bounded inventory item and location setup from the admin surface on the shared inventory foundation
+
+Status:
+
+1. implemented in code
+
+### 6.6 Slice 6: master-data status governance
+
+Goal:
+
+1. let admin actors mark foundational setup records active or inactive on the shared backend so bounded maintenance does not stop at creation-only flows
+
+Scope:
+
+1. ledger-account status controls
+2. tax-code status controls
+3. party status controls
+4. inventory item status controls
+5. inventory location status controls
+6. shared browser and API seams for those controls
+
+Guardrail:
+
+1. keep this slice to bounded status governance on existing shared models rather than widening into generic edit-heavy CRUD
+
 ## 7. Queue position
 
 Recommended queue from the current repository state:
@@ -161,7 +191,8 @@ Recommended queue from the current repository state:
 4. Slice 3 customer and party maintenance is now implemented in code through `/app/admin/parties` plus bounded admin-only `/api/admin/parties` seams for list, create, filtered list, exact detail reads with contact visibility, and exact-detail contact creation
 5. Slice 4 access controls are now implemented in code through `/app/admin/access` plus bounded admin-only `/api/admin/access/users` list and provision seams and `/api/admin/access/users/{membership_id}/role` role updates on the shared `identityaccess` service seam
 6. Slice 5 inventory master-data maintenance is now implemented in code through `/app/admin/inventory` plus bounded admin-only `/api/admin/inventory/items` and `/api/admin/inventory/locations` seams for item and location list or create flows
-7. later follow-on policy or operational controls remain queued only if workflow evidence or operator continuity justifies them after the first five slices settle
+7. Slice 6 master-data status governance is now implemented in code through bounded admin-only active or inactive controls for ledger accounts, tax codes, parties, inventory items, and inventory locations on those same browser and API seams
+8. later follow-on policy or operational controls remain queued only if workflow evidence or operator continuity justifies them after the first six slices settle
 
 ## 8. Verification
 
@@ -185,7 +216,7 @@ When this milestone begins or changes:
 
 ## 10. Current checkpoint
 
-Slice 1 through Slice 5 are now implemented in code.
+Slice 1 through Slice 6 are now implemented in code.
 
 Implemented outcome:
 
@@ -206,7 +237,9 @@ Implemented outcome:
 15. `/app/admin/inventory` now exposes the first real admin-only browser maintenance surface for inventory item and location setup while keeping downstream stock review, movement review, and reconciliation review separate
 16. the shared API seam now exposes bounded admin-only `/api/admin/inventory/items` and `/api/admin/inventory/locations` list and create flows for later non-browser reuse on the same inventory foundation
 17. focused `internal/app` HTTP coverage plus DB-backed `internal/app` and `internal/inventoryops` integration coverage now lock the admin inventory maintenance slice in place
+18. bounded active or inactive controls now exist for ledger accounts, tax codes, parties, inventory items, and inventory locations on both the promoted browser seam and the shared `/api/admin/...` seam so master-data governance no longer stops at creation-only flows
+19. focused `internal/app` HTTP coverage plus DB-backed `accounting`, `parties`, `inventory_ops`, and `internal/app` integration coverage now also lock the status-governance slice in place
 
 Next queued slice:
 
-1. later policy or operational controls should be promoted only if workflow evidence or operator continuity justifies them after the current five maintenance slices settle
+1. later policy or operational controls should be promoted only if workflow evidence or operator continuity justifies them after the current six maintenance slices settle

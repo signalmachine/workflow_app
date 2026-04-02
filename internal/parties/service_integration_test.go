@@ -168,6 +168,52 @@ func TestGetPartyReturnsExactTenantScopedPartyIntegration(t *testing.T) {
 	}
 }
 
+func TestUpdatePartyStatusBlocksNewContactsIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, adminUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleAdmin, "")
+	adminSession := startSession(t, ctx, db, orgID, adminUserID)
+	admin := identityaccess.Actor{OrgID: orgID, UserID: adminUserID, SessionID: adminSession.ID}
+
+	service := parties.NewService(db)
+	party, err := service.CreateParty(ctx, parties.CreatePartyInput{
+		PartyCode:   "CUST-300",
+		DisplayName: "Dormant Customer",
+		PartyKind:   parties.PartyKindCustomer,
+		Actor:       admin,
+	})
+	if err != nil {
+		t.Fatalf("create party: %v", err)
+	}
+
+	updated, err := service.UpdatePartyStatus(ctx, parties.UpdatePartyStatusInput{
+		PartyID: party.ID,
+		Status:  parties.StatusInactive,
+		Actor:   admin,
+	})
+	if err != nil {
+		t.Fatalf("update party status: %v", err)
+	}
+	if updated.Status != parties.StatusInactive {
+		t.Fatalf("unexpected party status: %s", updated.Status)
+	}
+
+	_, err = service.CreateContact(ctx, parties.CreateContactInput{
+		PartyID:  party.ID,
+		FullName: "Blocked Contact",
+		Email:    "blocked@example.com",
+		Actor:    admin,
+	})
+	if !errors.Is(err, parties.ErrInvalidContact) {
+		t.Fatalf("unexpected inactive-party contact error: got %v want %v", err, parties.ErrInvalidContact)
+	}
+}
+
 func TestCreateContactRejectsMissingOrCrossTenantPartyIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()

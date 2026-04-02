@@ -90,6 +90,12 @@ type GetPartyInput struct {
 	Actor   identityaccess.Actor
 }
 
+type UpdatePartyStatusInput struct {
+	PartyID string
+	Status  string
+	Actor   identityaccess.Actor
+}
+
 type Service struct {
 	db *sql.DB
 }
@@ -431,6 +437,73 @@ func (s *Service) GetParty(ctx context.Context, input GetPartyInput) (Party, err
 	return party, nil
 }
 
+func (s *Service) UpdatePartyStatus(ctx context.Context, input UpdatePartyStatusInput) (Party, error) {
+	status := strings.TrimSpace(input.Status)
+	if strings.TrimSpace(input.PartyID) == "" || !isValidPartyStatus(status) {
+		return Party{}, ErrInvalidParty
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Party{}, fmt.Errorf("begin update party status: %w", err)
+	}
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin); err != nil {
+		_ = tx.Rollback()
+		return Party{}, err
+	}
+
+	party, err := scanParty(tx.QueryRowContext(ctx, `
+UPDATE parties.parties
+SET status = $3,
+	updated_at = NOW()
+WHERE org_id = $1
+  AND id = $2
+RETURNING
+	id,
+	org_id,
+	party_code,
+	display_name,
+	legal_name,
+	party_kind,
+	status,
+	created_by_user_id,
+	created_at,
+	updated_at;`,
+		input.Actor.OrgID,
+		input.PartyID,
+		status,
+	))
+	if err != nil {
+		_ = tx.Rollback()
+		if errors.Is(err, ErrPartyNotFound) {
+			return Party{}, err
+		}
+		return Party{}, fmt.Errorf("update party status: %w", err)
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
+		EventType:   "parties.party_status_updated",
+		EntityType:  "parties.party",
+		EntityID:    party.ID,
+		Payload: map[string]any{
+			"party_code": party.PartyCode,
+			"status":     party.Status,
+		},
+	}); err != nil {
+		_ = tx.Rollback()
+		return Party{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return Party{}, fmt.Errorf("commit update party status: %w", err)
+	}
+
+	return party, nil
+}
+
 func getPartyForUpdate(ctx context.Context, tx *sql.Tx, orgID, partyID string) (Party, error) {
 	return scanParty(tx.QueryRowContext(ctx, `
 SELECT
@@ -522,6 +595,15 @@ func scanContact(scanner interface {
 		return Contact{}, err
 	}
 	return contact, nil
+}
+
+func isValidPartyStatus(value string) bool {
+	switch strings.TrimSpace(value) {
+	case StatusActive, StatusInactive:
+		return true
+	default:
+		return false
+	}
 }
 
 func isValidPartyKind(kind string) bool {

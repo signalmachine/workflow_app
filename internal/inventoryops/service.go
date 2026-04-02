@@ -25,6 +25,9 @@ var (
 )
 
 const (
+	StatusActive   = "active"
+	StatusInactive = "inactive"
+
 	ItemRoleResale                  = "resale"
 	ItemRoleServiceMaterial         = "service_material"
 	ItemRoleTraceableEquipment      = "traceable_equipment"
@@ -187,6 +190,18 @@ type CreateLocationInput struct {
 	Name         string
 	LocationRole string
 	Actor        identityaccess.Actor
+}
+
+type UpdateItemStatusInput struct {
+	ItemID string
+	Status string
+	Actor  identityaccess.Actor
+}
+
+type UpdateLocationStatusInput struct {
+	LocationID string
+	Status     string
+	Actor      identityaccess.Actor
 }
 
 type RecordMovementInput struct {
@@ -392,6 +407,139 @@ RETURNING
 
 	if err := tx.Commit(); err != nil {
 		return Location{}, fmt.Errorf("commit create location: %w", err)
+	}
+
+	return location, nil
+}
+
+func (s *Service) UpdateItemStatus(ctx context.Context, input UpdateItemStatusInput) (Item, error) {
+	status := strings.TrimSpace(input.Status)
+	if strings.TrimSpace(input.ItemID) == "" || !isValidStatus(status) {
+		return Item{}, ErrInvalidItem
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Item{}, fmt.Errorf("begin update item status: %w", err)
+	}
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin); err != nil {
+		_ = tx.Rollback()
+		return Item{}, err
+	}
+
+	item, err := scanItem(tx.QueryRowContext(ctx, `
+UPDATE inventory_ops.items
+SET status = $3,
+	updated_at = NOW()
+WHERE org_id = $1
+  AND id = $2
+RETURNING
+	id,
+	org_id,
+	sku,
+	name,
+	item_role,
+	tracking_mode,
+	status,
+	created_by_user_id,
+	created_at,
+	updated_at;`,
+		input.Actor.OrgID,
+		input.ItemID,
+		status,
+	))
+	if err != nil {
+		_ = tx.Rollback()
+		if errors.Is(err, ErrItemNotFound) {
+			return Item{}, err
+		}
+		return Item{}, fmt.Errorf("update inventory item status: %w", err)
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
+		EventType:   "inventory_ops.item_status_updated",
+		EntityType:  "inventory_ops.item",
+		EntityID:    item.ID,
+		Payload: map[string]any{
+			"sku":    item.SKU,
+			"status": item.Status,
+		},
+	}); err != nil {
+		_ = tx.Rollback()
+		return Item{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return Item{}, fmt.Errorf("commit update inventory item status: %w", err)
+	}
+
+	return item, nil
+}
+
+func (s *Service) UpdateLocationStatus(ctx context.Context, input UpdateLocationStatusInput) (Location, error) {
+	status := strings.TrimSpace(input.Status)
+	if strings.TrimSpace(input.LocationID) == "" || !isValidStatus(status) {
+		return Location{}, ErrInvalidLocation
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Location{}, fmt.Errorf("begin update location status: %w", err)
+	}
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin); err != nil {
+		_ = tx.Rollback()
+		return Location{}, err
+	}
+
+	location, err := scanLocation(tx.QueryRowContext(ctx, `
+UPDATE inventory_ops.locations
+SET status = $3,
+	updated_at = NOW()
+WHERE org_id = $1
+  AND id = $2
+RETURNING
+	id,
+	org_id,
+	code,
+	name,
+	location_role,
+	status,
+	created_by_user_id,
+	created_at,
+	updated_at;`,
+		input.Actor.OrgID,
+		input.LocationID,
+		status,
+	))
+	if err != nil {
+		_ = tx.Rollback()
+		if errors.Is(err, ErrLocationNotFound) {
+			return Location{}, err
+		}
+		return Location{}, fmt.Errorf("update inventory location status: %w", err)
+	}
+
+	if err := audit.WriteTx(ctx, tx, audit.Event{
+		OrgID:       input.Actor.OrgID,
+		ActorUserID: input.Actor.UserID,
+		EventType:   "inventory_ops.location_status_updated",
+		EntityType:  "inventory_ops.location",
+		EntityID:    location.ID,
+		Payload: map[string]any{
+			"code":   location.Code,
+			"status": location.Status,
+		},
+	}); err != nil {
+		_ = tx.Rollback()
+		return Location{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return Location{}, fmt.Errorf("commit update inventory location status: %w", err)
 	}
 
 	return location, nil
@@ -1275,6 +1423,15 @@ func scanLocation(row rowScanner) (Location, error) {
 		return Location{}, err
 	}
 	return location, nil
+}
+
+func isValidStatus(value string) bool {
+	switch strings.TrimSpace(value) {
+	case StatusActive, StatusInactive:
+		return true
+	default:
+		return false
+	}
 }
 
 func scanMovement(row rowScanner) (Movement, error) {

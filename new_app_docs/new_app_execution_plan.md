@@ -539,10 +539,11 @@ Current planning checkpoint:
 3. Slice 3 is now also implemented in code through `/app/admin/parties` plus bounded `/api/admin/parties` list, filtered list, create, and exact-detail reads with contact visibility on the shared `parties` service seam
 4. Slice 4 is now also implemented in code through `/app/admin/access` plus bounded `/api/admin/access/users` list and provision flows and `/api/admin/access/users/{membership_id}/role` role-update control on the shared `identityaccess` service seam
 5. Slice 5 is now also implemented in code through `/app/admin/inventory` plus bounded `/api/admin/inventory/items` and `/api/admin/inventory/locations` list and create flows on the shared `inventory_ops` service seam, with direct continuity into the promoted inventory review detail routes
-6. focused `internal/app` HTTP coverage plus DB-backed `identityaccess`, accounting, `inventory_ops`, `parties`, and `internal/app` integration coverage now verify the landed admin maintenance slices
-7. protected self-role-change handling now keeps the currently signed-in admin from removing their own admin access accidentally during this first bounded access-management slice
-8. the canonical plan for this milestone remains `milestone_12_admin_maintenance_and_master_data_plan.md`
-9. the next queued implementation work inside this milestone is later policy or operational controls only if workflow evidence or operator continuity justifies them
+6. Slice 6 is now also implemented in code through bounded active or inactive status controls for ledger accounts, tax codes, parties, inventory items, and inventory locations on the same shared admin browser and API seams so operators can retire or reactivate foundational master data without direct database edits
+7. focused `internal/app` HTTP coverage plus DB-backed `identityaccess`, accounting, `inventory_ops`, `parties`, and `internal/app` integration coverage now verify the landed admin maintenance slices including the new status-governance controls
+8. protected self-role-change handling now keeps the currently signed-in admin from removing their own admin access accidentally during this first bounded access-management slice
+9. the canonical plan for this milestone remains `milestone_12_admin_maintenance_and_master_data_plan.md`
+10. the next queued implementation work inside this milestone is later policy or operational controls only if workflow evidence or operator continuity justifies them
 
 ## 17. Execution warning
 

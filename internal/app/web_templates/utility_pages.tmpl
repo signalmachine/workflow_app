@@ -201,6 +201,7 @@
           <th>Role</th>
           <th>Tracking</th>
           <th>Status</th>
+          <th>Control</th>
           <th>Review</th>
         </tr>
       </thead>
@@ -212,6 +213,12 @@
           <td>{{.ItemRole}}</td>
           <td>{{.TrackingMode}}</td>
           <td>{{.Status}}</td>
+          <td>
+            <form method="post" action="/app/admin/inventory/items/{{.ID}}/status" class="compact-inline-form">
+              <input type="hidden" name="status" value="{{if eq .Status "active"}}inactive{{else}}active{{end}}">
+              <button type="submit" class="secondary">{{if eq .Status "active"}}Mark inactive{{else}}Mark active{{end}}</button>
+            </form>
+          </td>
           <td><a class="pill-link" href="/app/review/inventory/items/{{.ID}}">Open review</a></td>
         </tr>
         {{end}}
@@ -260,6 +267,7 @@
           <th>Name</th>
           <th>Role</th>
           <th>Status</th>
+          <th>Control</th>
           <th>Review</th>
         </tr>
       </thead>
@@ -270,6 +278,12 @@
           <td>{{.Name}}</td>
           <td>{{.LocationRole}}</td>
           <td>{{.Status}}</td>
+          <td>
+            <form method="post" action="/app/admin/inventory/locations/{{.ID}}/status" class="compact-inline-form">
+              <input type="hidden" name="status" value="{{if eq .Status "active"}}inactive{{else}}active{{end}}">
+              <button type="submit" class="secondary">{{if eq .Status "active"}}Mark inactive{{else}}Mark active{{end}}</button>
+            </form>
+          </td>
           <td><a class="pill-link" href="/app/review/inventory/locations/{{.ID}}">Open review</a></td>
         </tr>
         {{end}}
@@ -355,6 +369,7 @@
           <th>Control</th>
           <th>Direct posting</th>
           <th>Status</th>
+          <th>Control</th>
         </tr>
       </thead>
       <tbody>
@@ -366,6 +381,12 @@
           <td>{{.ControlType}}</td>
           <td>{{if .AllowsDirectPosting}}yes{{else}}no{{end}}</td>
           <td>{{.Status}}</td>
+          <td>
+            <form method="post" action="/app/admin/accounting/ledger-accounts/{{.ID}}/status" class="compact-inline-form">
+              <input type="hidden" name="status" value="{{if eq .Status "active"}}inactive{{else}}active{{end}}">
+              <button type="submit" class="secondary">{{if eq .Status "active"}}Mark inactive{{else}}Mark active{{end}}</button>
+            </form>
+          </td>
         </tr>
         {{end}}
       </tbody>
@@ -433,6 +454,7 @@
           <th>Type</th>
           <th>Rate</th>
           <th>Status</th>
+          <th>Control</th>
         </tr>
       </thead>
       <tbody>
@@ -443,6 +465,12 @@
           <td>{{.TaxType}}</td>
           <td>{{.RateBasisPoints}}</td>
           <td>{{.Status}}</td>
+          <td>
+            <form method="post" action="/app/admin/accounting/tax-codes/{{.ID}}/status" class="compact-inline-form">
+              <input type="hidden" name="status" value="{{if eq .Status "active"}}inactive{{else}}active{{end}}">
+              <button type="submit" class="secondary">{{if eq .Status "active"}}Mark inactive{{else}}Mark active{{end}}</button>
+            </form>
+          </td>
         </tr>
         {{end}}
       </tbody>
@@ -586,6 +614,7 @@
           <th>Display name</th>
           <th>Kind</th>
           <th>Status</th>
+          <th>Control</th>
           <th>Detail</th>
         </tr>
       </thead>
@@ -596,6 +625,12 @@
           <td>{{.DisplayName}}</td>
           <td>{{.PartyKind}}</td>
           <td>{{.Status}}</td>
+          <td>
+            <form method="post" action="/app/admin/parties/{{.ID}}/status" class="compact-inline-form">
+              <input type="hidden" name="status" value="{{if eq .Status "active"}}inactive{{else}}active{{end}}">
+              <button type="submit" class="secondary">{{if eq .Status "active"}}Mark inactive{{else}}Mark active{{end}}</button>
+            </form>
+          </td>
           <td><a class="pill-link" href="/app/admin/parties/{{.ID}}">Open detail</a></td>
         </tr>
         {{end}}
@@ -622,6 +657,13 @@
     <div><strong>Kind</strong><br>{{.AdminParties.Detail.Party.PartyKind}}</div>
     <div><strong>Status</strong><br>{{.AdminParties.Detail.Party.Status}}</div>
     <div><strong>Legal name</strong><br>{{if .AdminParties.Detail.Party.LegalName}}{{.AdminParties.Detail.Party.LegalName}}{{else}}-{{end}}</div>
+  </div>
+
+  <div class="button-row">
+    <form method="post" action="/app/admin/parties/{{.AdminParties.Detail.Party.ID}}/status" class="compact-inline-form">
+      <input type="hidden" name="status" value="{{if eq .AdminParties.Detail.Party.Status "active"}}inactive{{else}}active{{end}}">
+      <button type="submit" class="secondary">{{if eq .AdminParties.Detail.Party.Status "active"}}Mark party inactive{{else}}Mark party active{{end}}</button>
+    </form>
   </div>
 
   <div class="section-head">

@@ -168,8 +168,10 @@ type approvalDecisionService interface {
 type accountingAdminService interface {
 	ListLedgerAccounts(ctx context.Context, input accounting.ListLedgerAccountsInput) ([]accounting.LedgerAccount, error)
 	CreateLedgerAccount(ctx context.Context, input accounting.CreateLedgerAccountInput) (accounting.LedgerAccount, error)
+	UpdateLedgerAccountStatus(ctx context.Context, input accounting.UpdateLedgerAccountStatusInput) (accounting.LedgerAccount, error)
 	ListTaxCodes(ctx context.Context, input accounting.ListTaxCodesInput) ([]accounting.TaxCode, error)
 	CreateTaxCode(ctx context.Context, input accounting.CreateTaxCodeInput) (accounting.TaxCode, error)
+	UpdateTaxCodeStatus(ctx context.Context, input accounting.UpdateTaxCodeStatusInput) (accounting.TaxCode, error)
 	ListAccountingPeriods(ctx context.Context, input accounting.ListAccountingPeriodsInput) ([]accounting.AccountingPeriod, error)
 	CreateAccountingPeriod(ctx context.Context, input accounting.CreateAccountingPeriodInput) (accounting.AccountingPeriod, error)
 	CloseAccountingPeriod(ctx context.Context, input accounting.CloseAccountingPeriodInput) (accounting.AccountingPeriod, error)
@@ -179,6 +181,7 @@ type partiesAdminService interface {
 	ListParties(ctx context.Context, input parties.ListPartiesInput) ([]parties.Party, error)
 	GetParty(ctx context.Context, input parties.GetPartyInput) (parties.Party, error)
 	CreateParty(ctx context.Context, input parties.CreatePartyInput) (parties.Party, error)
+	UpdatePartyStatus(ctx context.Context, input parties.UpdatePartyStatusInput) (parties.Party, error)
 	ListContacts(ctx context.Context, input parties.ListContactsInput) ([]parties.Contact, error)
 	CreateContact(ctx context.Context, input parties.CreateContactInput) (parties.Contact, error)
 }
@@ -192,8 +195,10 @@ type accessAdminService interface {
 type inventoryAdminService interface {
 	ListItems(ctx context.Context, input inventoryops.ListItemsInput) ([]inventoryops.Item, error)
 	CreateItem(ctx context.Context, input inventoryops.CreateItemInput) (inventoryops.Item, error)
+	UpdateItemStatus(ctx context.Context, input inventoryops.UpdateItemStatusInput) (inventoryops.Item, error)
 	ListLocations(ctx context.Context, input inventoryops.ListLocationsInput) ([]inventoryops.Location, error)
 	CreateLocation(ctx context.Context, input inventoryops.CreateLocationInput) (inventoryops.Location, error)
+	UpdateLocationStatus(ctx context.Context, input inventoryops.UpdateLocationStatusInput) (inventoryops.Location, error)
 }
 
 type proposalApprovalService interface {
@@ -373,6 +378,10 @@ type createInventoryLocationRequest struct {
 	Code         string `json:"code"`
 	Name         string `json:"name"`
 	LocationRole string `json:"location_role"`
+}
+
+type updateStatusRequest struct {
+	Status string `json:"status"`
 }
 
 type ledgerAccountResponse struct {
@@ -561,8 +570,12 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(webAdminInventoryItemsPath, handler.handleWebAdminInventoryItems)
 	mux.HandleFunc(webAdminInventoryLocsPath, handler.handleWebAdminInventoryLocations)
 	mux.HandleFunc(webAdminPartiesPath+"/", handler.handleWebAdminPartyDetail)
+	mux.HandleFunc(webAdminLedgerAccountsPath+"/", handler.handleWebLedgerAccountAction)
+	mux.HandleFunc(webAdminTaxCodesPath+"/", handler.handleWebTaxCodeAction)
 	mux.HandleFunc(webAdminPeriodsPath+"/", handler.handleWebAccountingPeriodAction)
 	mux.HandleFunc(webAdminAccessUsersPath+"/", handler.handleWebAdminMembershipAction)
+	mux.HandleFunc(webAdminInventoryItemsPath+"/", handler.handleWebAdminInventoryItemAction)
+	mux.HandleFunc(webAdminInventoryLocsPath+"/", handler.handleWebAdminInventoryLocationAction)
 	mux.HandleFunc(webOperationsPath, handler.handleWebOperationsLanding)
 	mux.HandleFunc(webOperationsFeedPath, handler.handleWebOperationsFeed)
 	mux.HandleFunc(webAgentChatPath, handler.handleWebAgentChat)
@@ -626,8 +639,12 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(adminInventoryItemsPath, handler.handleAdminInventoryItems)
 	mux.HandleFunc(adminInventoryLocsPath, handler.handleAdminInventoryLocations)
 	mux.HandleFunc(adminPartiesPath+"/", handler.handleAdminPartyDetail)
+	mux.HandleFunc(adminLedgerAccountsPath+"/", handler.handleAdminLedgerAccountAction)
+	mux.HandleFunc(adminTaxCodesPath+"/", handler.handleAdminTaxCodeAction)
 	mux.HandleFunc(adminPeriodsPath+"/", handler.handleAdminAccountingPeriodAction)
 	mux.HandleFunc(adminAccessUsersPath+"/", handler.handleAdminAccessMembershipAction)
+	mux.HandleFunc(adminInventoryItemsPath+"/", handler.handleAdminInventoryItemAction)
+	mux.HandleFunc(adminInventoryLocsPath+"/", handler.handleAdminInventoryLocationAction)
 	mux.HandleFunc(approvalDecisionPrefix, handler.handleDecideApproval)
 	return mux
 }

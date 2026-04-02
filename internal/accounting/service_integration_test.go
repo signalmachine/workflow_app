@@ -211,6 +211,67 @@ func TestCreateTaxCodeAndUseItInPostingIntegration(t *testing.T) {
 	}
 }
 
+func TestUpdateSetupStatusesIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, adminUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleAdmin, "")
+	adminSession := startSession(t, ctx, db, orgID, adminUserID)
+	admin := identityaccess.Actor{OrgID: orgID, UserID: adminUserID, SessionID: adminSession.ID}
+
+	documentService := documents.NewService(db)
+	accountingService := accounting.NewService(db, documentService)
+
+	ledger := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:         "5000",
+		Name:         "Field Expenses",
+		AccountClass: accounting.AccountClassExpense,
+		Actor:        admin,
+	})
+	updatedLedger, err := accountingService.UpdateLedgerAccountStatus(ctx, accounting.UpdateLedgerAccountStatusInput{
+		AccountID: ledger.ID,
+		Status:    accounting.StatusInactive,
+		Actor:     admin,
+	})
+	if err != nil {
+		t.Fatalf("update ledger account status: %v", err)
+	}
+	if updatedLedger.Status != accounting.StatusInactive {
+		t.Fatalf("unexpected ledger status: %s", updatedLedger.Status)
+	}
+
+	control := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:         "2101",
+		Name:         "GST Output",
+		AccountClass: accounting.AccountClassLiability,
+		ControlType:  accounting.ControlTypeGSTOutput,
+		Actor:        admin,
+	})
+	taxCode := createTaxCode(t, ctx, accountingService, accounting.CreateTaxCodeInput{
+		Code:             "GST18",
+		Name:             "GST 18%",
+		TaxType:          accounting.TaxTypeGST,
+		RateBasisPoints:  1800,
+		PayableAccountID: control.ID,
+		Actor:            admin,
+	})
+	updatedTaxCode, err := accountingService.UpdateTaxCodeStatus(ctx, accounting.UpdateTaxCodeStatusInput{
+		TaxCodeID: taxCode.ID,
+		Status:    accounting.StatusInactive,
+		Actor:     admin,
+	})
+	if err != nil {
+		t.Fatalf("update tax code status: %v", err)
+	}
+	if updatedTaxCode.Status != accounting.StatusInactive {
+		t.Fatalf("unexpected tax code status: %s", updatedTaxCode.Status)
+	}
+}
+
 func TestCreateAdoptedAccountingDocumentsIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()
