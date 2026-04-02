@@ -2119,6 +2119,9 @@ func TestHandleWebAdminPartiesShowsSetupAndDetail(t *testing.T) {
 	if !strings.Contains(body, `Create party`) {
 		t.Fatalf("expected create party form, body=%s", body)
 	}
+	if !strings.Contains(body, `Create contact`) {
+		t.Fatalf("expected contact creation form, body=%s", body)
+	}
 	if !strings.Contains(body, `Northwind Service`) || !strings.Contains(body, `Asha Nair`) {
 		t.Fatalf("expected party detail and contact list, body=%s", body)
 	}
@@ -2169,6 +2172,55 @@ func TestHandleWebAdminPartiesCreateRedirectsWithNotice(t *testing.T) {
 		t.Fatalf("expected success redirect, got %s", location)
 	}
 	if captured.PartyCode != "CUST-100" || captured.PartyKind != parties.PartyKindCustomer {
+		t.Fatalf("unexpected captured input: %+v", captured)
+	}
+}
+
+func TestHandleWebAdminPartyContactCreateRedirectsWithNotice(t *testing.T) {
+	var captured parties.CreateContactInput
+	handler := newAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		nil,
+		nil,
+		nil,
+		stubAccountingAdminService{},
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				ctx := testSessionContext()
+				ctx.RoleCode = identityaccess.RoleAdmin
+				return ctx, nil
+			},
+		},
+		stubPartiesAdminService{
+			createContact: func(_ context.Context, input parties.CreateContactInput) (parties.Contact, error) {
+				captured = input
+				return parties.Contact{ID: "contact-1", PartyID: input.PartyID, FullName: input.FullName, IsPrimary: input.IsPrimary}, nil
+			},
+		},
+	)
+
+	form := url.Values{
+		"full_name":  {"Asha Nair"},
+		"role_title": {"Accounts"},
+		"email":      {"asha@example.com"},
+		"is_primary": {"true"},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/app/admin/parties/party-1/contacts", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if location := recorder.Header().Get("Location"); !strings.Contains(location, "/app/admin/parties/party-1?notice=Party+contact+created.") {
+		t.Fatalf("expected success redirect, got %s", location)
+	}
+	if captured.PartyID != "party-1" || captured.FullName != "Asha Nair" || captured.Email != "asha@example.com" || !captured.IsPrimary {
 		t.Fatalf("unexpected captured input: %+v", captured)
 	}
 }
@@ -3950,10 +4002,11 @@ func (s stubAccountingAdminService) CreateAccountingPeriod(ctx context.Context, 
 }
 
 type stubPartiesAdminService struct {
-	listParties  func(context.Context, parties.ListPartiesInput) ([]parties.Party, error)
-	getParty     func(context.Context, parties.GetPartyInput) (parties.Party, error)
-	createParty  func(context.Context, parties.CreatePartyInput) (parties.Party, error)
-	listContacts func(context.Context, parties.ListContactsInput) ([]parties.Contact, error)
+	listParties   func(context.Context, parties.ListPartiesInput) ([]parties.Party, error)
+	getParty      func(context.Context, parties.GetPartyInput) (parties.Party, error)
+	createParty   func(context.Context, parties.CreatePartyInput) (parties.Party, error)
+	listContacts  func(context.Context, parties.ListContactsInput) ([]parties.Contact, error)
+	createContact func(context.Context, parties.CreateContactInput) (parties.Contact, error)
 }
 
 func (s stubPartiesAdminService) ListParties(ctx context.Context, input parties.ListPartiesInput) ([]parties.Party, error) {
@@ -3982,6 +4035,13 @@ func (s stubPartiesAdminService) ListContacts(ctx context.Context, input parties
 		return s.listContacts(ctx, input)
 	}
 	return nil, nil
+}
+
+func (s stubPartiesAdminService) CreateContact(ctx context.Context, input parties.CreateContactInput) (parties.Contact, error) {
+	if s.createContact != nil {
+		return s.createContact(ctx, input)
+	}
+	return parties.Contact{}, nil
 }
 
 func (s stubAccountingAdminService) CloseAccountingPeriod(ctx context.Context, input accounting.CloseAccountingPeriodInput) (accounting.AccountingPeriod, error) {

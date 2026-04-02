@@ -158,7 +158,7 @@ Recommended queue from the current repository state:
 1. complete the separate Milestone 10 browser-review and workflow-continuity closeout sweep first
 2. Slice 1 is now implemented in code: `/app/settings` remains explicitly user-scoped, `/app/admin` is now a grouped privileged maintenance hub, and the promoted browser copy now makes the admin-versus-settings ownership split explicit
 3. Slice 2 is now implemented in code through `/app/admin/accounting` plus bounded admin-only `/api/admin/accounting/...` seams for ledger-account, tax-code, and accounting-period list or create flows and accounting-period close controls
-4. Slice 3 customer and party maintenance is now implemented in code through `/app/admin/parties` plus bounded admin-only `/api/admin/parties` seams for list, create, filtered list, and exact detail reads with contact visibility
+4. Slice 3 customer and party maintenance is now implemented in code through `/app/admin/parties` plus bounded admin-only `/api/admin/parties` seams for list, create, filtered list, exact detail reads with contact visibility, and exact-detail contact creation
 5. Slice 4 access controls are now implemented in code through `/app/admin/access` plus bounded admin-only `/api/admin/access/users` list and provision seams and `/api/admin/access/users/{membership_id}/role` role updates on the shared `identityaccess` service seam
 6. Slice 5 inventory master-data maintenance is now implemented in code through `/app/admin/inventory` plus bounded admin-only `/api/admin/inventory/items` and `/api/admin/inventory/locations` seams for item and location list or create flows
 7. later follow-on policy or operational controls remain queued only if workflow evidence or operator continuity justifies them after the first five slices settle
@@ -196,15 +196,16 @@ Implemented outcome:
 5. route-catalog and role-aware home copy now describe `Admin` as the privileged maintenance hub rather than a generic utility page
 6. focused `internal/app` HTTP coverage plus DB-backed service and API integration coverage now lock the admin accounting maintenance slice in place
 7. `/app/admin/parties` now exposes the first real admin-only browser maintenance surface for customer and vendor support records while keeping CRM-style breadth out of scope
-8. the shared API seam now exposes bounded admin-only `/api/admin/parties` list, filtered list, create, and exact detail reads with visible contacts for later non-browser reuse
-9. focused `internal/app` HTTP coverage plus DB-backed `internal/app` and `internal/parties` integration coverage now lock the admin party maintenance slice in place
-10. `/app/admin/access` now exposes the first real admin-only browser access-maintenance surface for org users and membership roles while keeping the work bounded to shared identity truth rather than broad identity-product depth
-11. the shared API seam now exposes bounded admin-only `/api/admin/access/users` list and provision flows plus `/api/admin/access/users/{membership_id}/role` role updates for later non-browser reuse on the same backend foundation
-12. focused `internal/app` HTTP coverage plus DB-backed `internal/app` and `internal/identityaccess` integration coverage now lock the admin access-maintenance slice in place
-13. the first access slice also blocks the currently signed-in admin from removing their own admin role accidentally during a role update
-14. `/app/admin/inventory` now exposes the first real admin-only browser maintenance surface for inventory item and location setup while keeping downstream stock review, movement review, and reconciliation review separate
-15. the shared API seam now exposes bounded admin-only `/api/admin/inventory/items` and `/api/admin/inventory/locations` list and create flows for later non-browser reuse on the same inventory foundation
-16. focused `internal/app` HTTP coverage plus DB-backed `internal/app` and `internal/inventoryops` integration coverage now lock the admin inventory maintenance slice in place
+8. exact party detail now also supports bounded contact creation so shared support records can be completed without dropping back to service-only tooling
+9. the shared API seam now exposes bounded admin-only `/api/admin/parties` list, filtered list, create, exact detail reads with visible contacts, and `/api/admin/parties/{party_id}/contacts` create support for later non-browser reuse
+10. focused `internal/app` HTTP coverage plus DB-backed `internal/app` integration coverage now lock the admin party maintenance slice in place
+11. `/app/admin/access` now exposes the first real admin-only browser access-maintenance surface for org users and membership roles while keeping the work bounded to shared identity truth rather than broad identity-product depth
+12. the shared API seam now exposes bounded admin-only `/api/admin/access/users` list and provision flows plus `/api/admin/access/users/{membership_id}/role` role updates for later non-browser reuse on the same backend foundation
+13. focused `internal/app` HTTP coverage plus DB-backed `internal/app` and `internal/identityaccess` integration coverage now lock the admin access-maintenance slice in place
+14. the first access slice also blocks the currently signed-in admin from removing their own admin role accidentally during a role update
+15. `/app/admin/inventory` now exposes the first real admin-only browser maintenance surface for inventory item and location setup while keeping downstream stock review, movement review, and reconciliation review separate
+16. the shared API seam now exposes bounded admin-only `/api/admin/inventory/items` and `/api/admin/inventory/locations` list and create flows for later non-browser reuse on the same inventory foundation
+17. focused `internal/app` HTTP coverage plus DB-backed `internal/app` and `internal/inventoryops` integration coverage now lock the admin inventory maintenance slice in place
 
 Next queued slice:
 

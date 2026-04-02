@@ -302,19 +302,20 @@ func TestAgentAPIAdminPartyMaintenanceIntegration(t *testing.T) {
 		t.Fatalf("unexpected party response: %+v", partyResponse)
 	}
 
-	partiesService := parties.NewService(db)
-	adminSession := startSession(t, ctx, db, orgID, adminUserID)
-	adminActor := identityaccess.Actor{OrgID: orgID, UserID: adminUserID, SessionID: adminSession.ID}
-	if _, err := partiesService.CreateContact(ctx, parties.CreateContactInput{
-		PartyID:   partyResponse.ID,
-		FullName:  "Asha Nair",
-		RoleTitle: "Accounts",
-		Email:     "asha@example.com",
-		IsPrimary: true,
-		Actor:     adminActor,
-	}); err != nil {
-		t.Fatalf("create contact: %v", err)
+	createContactReq := httptest.NewRequest(http.MethodPost, "/api/admin/parties/"+partyResponse.ID+"/contacts", bytes.NewBufferString(`{
+		"full_name":"Asha Nair",
+		"role_title":"Accounts",
+		"email":"asha@example.com",
+		"is_primary":true
+	}`))
+	createContactReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(createContactReq, adminCookies)
+	createContactRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(createContactRecorder, createContactReq)
+	if createContactRecorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected create contact status: got %d body=%s", createContactRecorder.Code, createContactRecorder.Body.String())
 	}
+	requireContains(t, createContactRecorder.Body.String(), `"full_name":"Asha Nair"`)
 
 	listReq := httptest.NewRequest(http.MethodGet, "/api/admin/parties?party_kind=customer", nil)
 	applyResponseCookies(listReq, adminCookies)

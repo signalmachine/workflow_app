@@ -410,50 +410,77 @@ func (h *AgentAPIHandler) handleAdminPartyDetail(w http.ResponseWriter, r *http.
 		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "party admin service unavailable"})
 		return
 	}
-	if r.Method != http.MethodGet {
-		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
-		return
-	}
-
-	partyID, ok := parseChildPath(adminPartiesPath, r.URL.Path)
-	if !ok {
-		http.NotFound(w, r)
-		return
-	}
-
 	actor, err := h.adminActorFromRequest(r)
 	if err != nil {
 		writeAdminActorError(w, err)
 		return
 	}
 
-	party, err := h.partiesAdmin.GetParty(r.Context(), parties.GetPartyInput{
-		PartyID: partyID,
-		Actor:   actor,
-	})
-	if err != nil {
-		handlePartyAdminError(w, err, "failed to load party")
-		return
-	}
+	switch r.Method {
+	case http.MethodGet:
+		partyID, ok := parseChildPath(adminPartiesPath, r.URL.Path)
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
 
-	contacts, err := h.partiesAdmin.ListContacts(r.Context(), parties.ListContactsInput{
-		PartyID: partyID,
-		Actor:   actor,
-	})
-	if err != nil {
-		handlePartyAdminError(w, err, "failed to list party contacts")
-		return
-	}
+		party, err := h.partiesAdmin.GetParty(r.Context(), parties.GetPartyInput{
+			PartyID: partyID,
+			Actor:   actor,
+		})
+		if err != nil {
+			handlePartyAdminError(w, err, "failed to load party")
+			return
+		}
 
-	response := struct {
-		Party    partyResponse     `json:"party"`
-		Contacts []contactResponse `json:"contacts"`
-	}{
-		Party:    mapParty(party),
-		Contacts: make([]contactResponse, 0, len(contacts)),
+		contacts, err := h.partiesAdmin.ListContacts(r.Context(), parties.ListContactsInput{
+			PartyID: partyID,
+			Actor:   actor,
+		})
+		if err != nil {
+			handlePartyAdminError(w, err, "failed to list party contacts")
+			return
+		}
+
+		response := struct {
+			Party    partyResponse     `json:"party"`
+			Contacts []contactResponse `json:"contacts"`
+		}{
+			Party:    mapParty(party),
+			Contacts: make([]contactResponse, 0, len(contacts)),
+		}
+		for _, contact := range contacts {
+			response.Contacts = append(response.Contacts, mapContact(contact))
+		}
+		writeJSON(w, http.StatusOK, response)
+	case http.MethodPost:
+		partyID, action, ok := parseChildActionPath(adminPartyContactsPath, r.URL.Path)
+		if !ok || !strings.EqualFold(strings.TrimSpace(action), "contacts") {
+			http.NotFound(w, r)
+			return
+		}
+
+		var req createContactRequest
+		if err := decodeJSONBody(r, &req, false); err != nil {
+			writeJSONBodyError(w, err)
+			return
+		}
+
+		contact, err := h.partiesAdmin.CreateContact(r.Context(), parties.CreateContactInput{
+			PartyID:   partyID,
+			FullName:  strings.TrimSpace(req.FullName),
+			RoleTitle: strings.TrimSpace(req.RoleTitle),
+			Email:     strings.TrimSpace(req.Email),
+			Phone:     strings.TrimSpace(req.Phone),
+			IsPrimary: req.IsPrimary,
+			Actor:     actor,
+		})
+		if err != nil {
+			handlePartyAdminError(w, err, "failed to create party contact")
+			return
+		}
+		writeJSON(w, http.StatusCreated, mapContact(contact))
+	default:
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
 	}
-	for _, contact := range contacts {
-		response.Contacts = append(response.Contacts, mapContact(contact))
-	}
-	writeJSON(w, http.StatusOK, response)
 }

@@ -44,6 +44,7 @@ const (
 	webAdminLedgerAccountsPath = "/app/admin/accounting/ledger-accounts"
 	webAdminTaxCodesPath       = "/app/admin/accounting/tax-codes"
 	webAdminPeriodsPath        = "/app/admin/accounting/periods"
+	webAdminPartyContactsPath  = "/app/admin/parties"
 	webAdminInventoryItemsPath = "/app/admin/inventory/items"
 	webAdminInventoryLocsPath  = "/app/admin/inventory/locations"
 	webAdminPartyDetailPrefix  = "/app/admin/parties/"
@@ -100,6 +101,7 @@ const (
 	adminTaxCodesPath          = "/api/admin/accounting/tax-codes"
 	adminPeriodsPath           = "/api/admin/accounting/periods"
 	adminPartiesPath           = "/api/admin/parties"
+	adminPartyContactsPath     = "/api/admin/parties"
 	adminAccessUsersPath       = "/api/admin/access/users"
 	adminInventoryItemsPath    = "/api/admin/inventory/items"
 	adminInventoryLocsPath     = "/api/admin/inventory/locations"
@@ -178,6 +180,7 @@ type partiesAdminService interface {
 	GetParty(ctx context.Context, input parties.GetPartyInput) (parties.Party, error)
 	CreateParty(ctx context.Context, input parties.CreatePartyInput) (parties.Party, error)
 	ListContacts(ctx context.Context, input parties.ListContactsInput) ([]parties.Contact, error)
+	CreateContact(ctx context.Context, input parties.CreateContactInput) (parties.Contact, error)
 }
 
 type accessAdminService interface {
@@ -338,6 +341,14 @@ type createPartyRequest struct {
 	DisplayName string `json:"display_name"`
 	LegalName   string `json:"legal_name"`
 	PartyKind   string `json:"party_kind"`
+}
+
+type createContactRequest struct {
+	FullName  string `json:"full_name"`
+	RoleTitle string `json:"role_title"`
+	Email     string `json:"email"`
+	Phone     string `json:"phone"`
+	IsPrimary bool   `json:"is_primary"`
 }
 
 type provisionOrgUserRequest struct {

@@ -628,8 +628,34 @@
     <div>
       <div class="eyebrow">Contacts</div>
       <h3>Visible support contacts</h3>
+      <p>Add the bounded contact records that downstream document, approval, and execution flows may need to reuse.</p>
     </div>
   </div>
+
+  <form method="post" action="/app/admin/parties/{{.AdminParties.Detail.Party.ID}}/contacts" class="stack-form">
+    <div class="form-grid">
+      <label>Full name
+        <input type="text" name="full_name" required>
+      </label>
+      <label>Role title
+        <input type="text" name="role_title">
+      </label>
+      <label>Email
+        <input type="email" name="email">
+      </label>
+      <label>Phone
+        <input type="text" name="phone">
+      </label>
+    </div>
+    <label class="checkbox-field">
+      <input type="checkbox" name="is_primary" value="true">
+      Mark as primary contact
+    </label>
+    <p class="help-text">Provide at least one direct contact method so operators can reuse this support record downstream.</p>
+    <div class="button-row">
+      <button type="submit">Create contact</button>
+    </div>
+  </form>
 
   {{if .AdminParties.Detail.Contacts}}
   <div class="table-wrap">
@@ -657,7 +683,7 @@
     </table>
   </div>
   {{else}}
-  {{template "web_empty_state" (dict "title" "No contacts for this party" "body" "Contact creation stays out of this slice, but exact detail still shows whether support contacts already exist." )}}
+  {{template "web_empty_state" (dict "title" "No contacts for this party" "body" "Create the first shared support contact here before downstream document or execution work depends on it." )}}
   {{end}}
 </section>
 {{end}}

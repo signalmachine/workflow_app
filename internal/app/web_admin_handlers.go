@@ -256,70 +256,101 @@ func (h *AgentAPIHandler) handleWebAdminParties(w http.ResponseWriter, r *http.R
 }
 
 func (h *AgentAPIHandler) handleWebAdminPartyDetail(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
+	switch r.Method {
+	case http.MethodGet:
+		partyID, ok := parseChildPath(strings.TrimSuffix(webAdminPartyDetailPrefix, "/"), r.URL.Path)
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+
+		sessionContext, ok := h.requireWebAdminSessionWithService(w, r, h.partiesAdmin != nil, "party admin service unavailable")
+		if !ok {
+			return
+		}
+
+		data := webAdminPartiesData{
+			Session: sessionContext,
+			Notice:  strings.TrimSpace(r.URL.Query().Get("notice")),
+			Error:   strings.TrimSpace(r.URL.Query().Get("error")),
+			PartyKindOptions: []string{
+				parties.PartyKindCustomer,
+				parties.PartyKindVendor,
+				parties.PartyKindCustomerVendor,
+				parties.PartyKindOther,
+			},
+		}
+
+		items, err := h.partiesAdmin.ListParties(r.Context(), parties.ListPartiesInput{Actor: sessionContext.Actor})
+		if err != nil {
+			data.Error = partyAdminWebErrorMessage(err, "failed to load parties")
+		} else {
+			data.Parties = items
+		}
+
+		party, err := h.partiesAdmin.GetParty(r.Context(), parties.GetPartyInput{
+			PartyID: partyID,
+			Actor:   sessionContext.Actor,
+		})
+		if err != nil {
+			http.Redirect(w, r, adminPartiesPathWithMessage("error", partyAdminWebErrorMessage(err, "failed to load party")), http.StatusSeeOther)
+			return
+		}
+
+		contacts, err := h.partiesAdmin.ListContacts(r.Context(), parties.ListContactsInput{
+			PartyID: partyID,
+			Actor:   sessionContext.Actor,
+		})
+		if err != nil {
+			data.Error = partyAdminWebErrorMessage(err, "failed to load party contacts")
+		}
+		data.Detail = &webAdminPartyDetailData{
+			Party:    party,
+			Contacts: contacts,
+		}
+
+		h.renderWebPage(w, webPageData{
+			Title:        "workflow_app",
+			ActivePath:   webAdminPath,
+			Notice:       data.Notice,
+			Error:        data.Error,
+			Session:      &sessionContext,
+			AdminParties: &data,
+		})
+	case http.MethodPost:
+		partyID, action, ok := parseChildActionPath(webAdminPartyContactsPath, r.URL.Path)
+		if !ok || !strings.EqualFold(strings.TrimSpace(action), "contacts") {
+			http.NotFound(w, r)
+			return
+		}
+
+		sessionContext, ok := h.requireWebAdminSessionWithService(w, r, h.partiesAdmin != nil, "party admin service unavailable")
+		if !ok {
+			return
+		}
+		if err := r.ParseForm(); err != nil {
+			http.Redirect(w, r, appendWebMessage(webAdminPartiesPath+"/"+partyID, "error", "invalid contact form"), http.StatusSeeOther)
+			return
+		}
+
+		_, err := h.partiesAdmin.CreateContact(r.Context(), parties.CreateContactInput{
+			PartyID:   partyID,
+			FullName:  strings.TrimSpace(r.FormValue("full_name")),
+			RoleTitle: strings.TrimSpace(r.FormValue("role_title")),
+			Email:     strings.TrimSpace(r.FormValue("email")),
+			Phone:     strings.TrimSpace(r.FormValue("phone")),
+			IsPrimary: strings.TrimSpace(r.FormValue("is_primary")) != "",
+			Actor:     sessionContext.Actor,
+		})
+		redirectPath := webAdminPartiesPath + "/" + partyID
+		if err != nil {
+			http.Redirect(w, r, appendWebMessage(redirectPath, "error", partyAdminWebErrorMessage(err, "failed to create party contact")), http.StatusSeeOther)
+			return
+		}
+		http.Redirect(w, r, appendWebMessage(redirectPath, "notice", "Party contact created."), http.StatusSeeOther)
+	default:
 		http.NotFound(w, r)
-		return
 	}
-
-	partyID, ok := parseChildPath(strings.TrimSuffix(webAdminPartyDetailPrefix, "/"), r.URL.Path)
-	if !ok {
-		http.NotFound(w, r)
-		return
-	}
-
-	sessionContext, ok := h.requireWebAdminSessionWithService(w, r, h.partiesAdmin != nil, "party admin service unavailable")
-	if !ok {
-		return
-	}
-
-	data := webAdminPartiesData{
-		Session: sessionContext,
-		Notice:  strings.TrimSpace(r.URL.Query().Get("notice")),
-		Error:   strings.TrimSpace(r.URL.Query().Get("error")),
-		PartyKindOptions: []string{
-			parties.PartyKindCustomer,
-			parties.PartyKindVendor,
-			parties.PartyKindCustomerVendor,
-			parties.PartyKindOther,
-		},
-	}
-
-	items, err := h.partiesAdmin.ListParties(r.Context(), parties.ListPartiesInput{Actor: sessionContext.Actor})
-	if err != nil {
-		data.Error = partyAdminWebErrorMessage(err, "failed to load parties")
-	} else {
-		data.Parties = items
-	}
-
-	party, err := h.partiesAdmin.GetParty(r.Context(), parties.GetPartyInput{
-		PartyID: partyID,
-		Actor:   sessionContext.Actor,
-	})
-	if err != nil {
-		http.Redirect(w, r, adminPartiesPathWithMessage("error", partyAdminWebErrorMessage(err, "failed to load party")), http.StatusSeeOther)
-		return
-	}
-
-	contacts, err := h.partiesAdmin.ListContacts(r.Context(), parties.ListContactsInput{
-		PartyID: partyID,
-		Actor:   sessionContext.Actor,
-	})
-	if err != nil {
-		data.Error = partyAdminWebErrorMessage(err, "failed to load party contacts")
-	}
-	data.Detail = &webAdminPartyDetailData{
-		Party:    party,
-		Contacts: contacts,
-	}
-
-	h.renderWebPage(w, webPageData{
-		Title:        "workflow_app",
-		ActivePath:   webAdminPath,
-		Notice:       data.Notice,
-		Error:        data.Error,
-		Session:      &sessionContext,
-		AdminParties: &data,
-	})
 }
 
 func (h *AgentAPIHandler) handleWebAdminInventory(w http.ResponseWriter, r *http.Request) {
