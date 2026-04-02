@@ -1,8 +1,20 @@
 # workflow_app Execution Plan
 
-Date: 2026-04-01
-Status: Canonical execution plan updated through the current Milestone 11 implementation state
+Date: 2026-04-02
+Status: Canonical execution plan updated through the active ambitious v2 implementation posture
 Purpose: define the execution path from the completed thin-v1 foundation through the active v2 implementation phase for the `workflow_app` codebase.
+
+## 0. Active execution posture
+
+Thin-v1 is complete and is no longer the limiting execution posture.
+
+Active v2 execution should now assume:
+
+1. contributors may pursue the strongest implementation shape justified by established best practices in product architecture, code structure, operability, and production readiness
+2. active work may include not only additive features but also refactors or rebuilds of weak existing areas when that is the better engineering path
+3. the canonical planning surface should record meaningful refactor or rebuild programs explicitly rather than treating them as accidental side effects of feature work
+4. stronger ambition does not authorize novelty for its own sake; changes should remain grounded in proven business-software and engineering practice
+5. large monolithic code files, `God` files, and concentrated ownership hotspots should be treated as active refactor candidates, with explicit plans where the work is too large to absorb incidentally
 
 ## 1. Milestone 0: New repo bootstrap
 

@@ -1,7 +1,7 @@
 # workflow_app Implementation Defaults
 
-Date: 2026-04-01
-Status: Draft canonical implementation defaults
+Date: 2026-04-02
+Status: Active canonical implementation defaults
 Purpose: record the active defaults that implementation should preserve unless the canonical `workflow_app` planning set is explicitly updated.
 
 ## 1. Default rules
@@ -10,6 +10,8 @@ Purpose: record the active defaults that implementation should preserve unless t
 2. if a new decision changes one of these defaults, update this file and the relevant companion planning doc
 3. if code conflicts with this file, either fix the code or revise the active planning docs explicitly
 4. legacy reference docs may be used for slice detail, but only the active `new_app_docs/` set is canonical
+5. active v2 implementation is no longer constrained by thin-v1 breadth limits; use strong established best practices when they improve the product or the codebase materially
+6. active v2 implementation should continuously evaluate refactor and rebuild opportunities instead of treating the current codebase shape as presumptively correct
 
 ## 2. Locked defaults
 
@@ -26,7 +28,7 @@ Purpose: record the active defaults that implementation should preserve unless t
 
 1. AI may read, summarize, draft, recommend, and request approval
 2. AI may execute bounded writes only through approved tools and normal domain services
-3. financially meaningful writes remain policy-gated, with human gating as the thin-v1 default
+3. financially meaningful writes remain policy-gated, with human gating as the default unless a later explicitly justified policy change is adopted
 4. meaningful business writes and their audit trail must succeed or fail together
 5. AI traceability records supplement audit; they do not replace it
 6. inbound user requests should persist before AI processing begins so asynchronous execution does not depend on synchronous request-response handling
@@ -34,7 +36,7 @@ Purpose: record the active defaults that implementation should preserve unless t
 8. draft inbound requests must not be processed by AI until explicitly queued or submitted
 9. cancellation of parked requests should normally be soft cancel or soft delete rather than unrestricted hard deletion
 10. AI workers must not claim cancelled, hidden, or incomplete draft requests
-11. the first live provider-backed thin-v1 execution path should use the OpenAI Go SDK and the Responses API
+11. the first live provider-backed execution path should use the OpenAI Go SDK and the Responses API
 12. provider-backed AI verification should be opt-in so the default repository build and test flow does not require external API credentials
 
 ### 2.3 Document identity and ownership
@@ -74,7 +76,7 @@ Purpose: record the active defaults that implementation should preserve unless t
 
 ### 2.6 Support records
 
-1. thin v1 includes minimum party and contact support depth for trading and service document flows
+1. the system includes minimum party and contact support depth for trading and service document flows and may deepen that support where stronger workflow execution or operator continuity requires it
 2. party and contact support records do not justify a primary CRM module
 3. support-record depth should stay anchored to document, accounting, inventory, and execution correctness rather than commercial CRM breadth
 4. shared foundation entities should use one canonical identity across modules rather than separate module-local truth models
@@ -104,11 +106,11 @@ Purpose: record the active defaults that implementation should preserve unless t
 2. the web layer should stay aligned with the AI-agent-first operating model rather than becoming a broad manual-entry product by default
 3. CLI tooling may exist for developer or support work, but it is not a first-class product interface
 4. the web layer should use backend contracts that a later mobile client can also reuse rather than diverging into a second backend model
-5. mobile-product depth, voice-capture UX, and richer multimodal client behavior remain v2 concerns unless a foundation dependency proves otherwise
-6. the preferred thin-v1 web stack is Go server-rendered HTML on the shared Go backend without a separate Node build pipeline
-7. keep standard HTML forms and normal server-rendered navigation as the active baseline until a later bounded slice explicitly adds selective progressive enhancement
-8. `htmx` remains the preferred later progressive-enhancement layer where partial-page updates materially improve operator continuity while preserving server-rendered ownership, but it is not part of the active baseline yet
-9. `Alpine.js` remains acceptable only as a later additive layer for small local UI-state needs such as disclosure, tabs, or lightweight interaction polish, and it is not part of the active baseline yet
+5. mobile-product depth, voice-capture UX, and richer multimodal client behavior remain valid active-v2 expansion areas when they are justified by product or operational value
+6. the preferred web stack remains Go server-rendered HTML on the shared Go backend without a separate Node build pipeline unless the canonical plans explicitly change that choice
+7. keep standard HTML forms and normal server-rendered navigation as the active baseline, but add selective progressive enhancement when it materially improves operator continuity, usability, or implementation quality
+8. `htmx` remains the preferred progressive-enhancement layer where partial-page updates materially improve operator continuity while preserving server-rendered ownership
+9. `Alpine.js` remains acceptable as an additive layer for small local UI-state needs such as disclosure, tabs, or lightweight interaction polish where it is the cleanest pragmatic choice
 10. do not adopt Tailwind CSS by default; the current browser layer should continue to use repo-owned templates plus repo-owned CSS unless the canonical planning set later promotes a concrete reason to change that authoring model
 11. do not introduce a separate SPA frontend, Node dependency tree, or frontend-specific build chain unless the canonical planning set is explicitly updated to justify that cost
 12. `internal/app` should remain transport and orchestration only: route selection, auth extraction, request validation, response mapping, HTML rendering, and browser or API adaptation belong there, while durable business rules, write-path invariants, and cross-module ownership decisions belong in domain services and reporting reads
@@ -135,7 +137,9 @@ Purpose: record the active defaults that implementation should preserve unless t
 31. major landing or gateway pages such as `Inventory` or `Accounting` should primarily present grouped links into more specific activities or workflows rather than trying to host those downstream workflows inline
 32. dedicated activity, workflow, review, and detail pages should default to a single-column stacked layout rather than two-column page composition unless a narrow exception is explicitly justified
 33. dedicated workflow or activity pages should feel calm and specific, with one clear start point for that workflow and only the minimum supporting context needed to begin correctly
-34. during the active v2 implementation phase, contributors should actively take bounded refactoring opportunities that improve modularity, reduce file concentration, simplify ownership boundaries, or lower regression risk, provided those refactors stay tied to the active implementation slice and remain verified
+34. during the active v2 implementation phase, contributors should actively take refactoring and rebuild opportunities that improve modularity, reduce file concentration, simplify ownership boundaries, strengthen contracts, or lower regression risk, provided those changes remain coherent, justified, and verified
+35. when codebase review reveals a materially weak area, contributors should either fix it in the current change or add an explicit canonical plan for that refactor or rebuild rather than silently carrying the weakness forward
+36. large monolithic files, `God` files, and concentrated orchestration files should be actively reviewed for responsibility splits, seam extraction, or reimplementation into smaller modules when that improves modularity, efficiency, scalability, or testability
 
 ### 2.10 Inbound request and attachment handling
 

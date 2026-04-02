@@ -1,8 +1,8 @@
 # workflow_app Planning README
 
-Date: 2026-03-19
-Status: Canonical planning set for the completed thin-v1 foundation and the active v2 implementation phase
-Purpose: define the planning baseline that started the repository reset, records thin-v1 completion, and now governs the active v2 implementation phase.
+Date: 2026-04-02
+Status: Canonical planning set for the completed thin-v1 foundation and the active ambitious v2 implementation phase
+Purpose: define the planning baseline that started the repository reset, records thin-v1 completion, and now governs the active ambitious v2 implementation phase.
 
 ## Why this folder exists
 
@@ -28,7 +28,7 @@ For the separate workflow-reference and workflow-validation track, use `docs/wor
 
 Track rule:
 
-1. keep workflow testing and review evidence out of `new_app_docs/` unless it directly promotes a bounded product fix plan
+1. keep workflow testing and review evidence out of `new_app_docs/` unless it directly promotes a concrete product fix plan or implementation change
 2. if workflow validation discovers a real product issue, add the resulting fix plan here and track implementation here
 3. workflow validation may be paused or deferred when urgent product fixes need implementation first without treating that pause as drift
 
@@ -39,8 +39,21 @@ The active planning phase is now v2 beginning at Milestone 10.
 V2 in this repository means:
 
 1. enhance the application across backend, AI, browser, validation, and operational readiness layers on top of the completed foundation
-2. broaden capability deliberately where it strengthens real operator usefulness and production readiness
-3. keep the completed thin-v1 foundation, shared truth model, and workflow doctrine intact rather than reopening foundational modeling under a different label
+2. broaden capability deliberately and ambitiously where it strengthens real operator usefulness, maintainability, and production readiness
+3. continuously review the codebase for weak seams, underbuilt architecture, or outdated implementation choices and refactor or rebuild them when appropriate
+4. keep the completed thin-v1 foundation, shared truth model, and workflow doctrine intact rather than reopening foundational modeling under a different label
+
+## Active posture
+
+The active posture is no longer thin, conservative expansion.
+
+It is an ambitious best-practice implementation phase:
+
+1. contributors may apply proven engineering, architecture, product, and operational best practices without artificial thin-scope limits
+2. contributors should not preserve weak code, awkward module boundaries, or underbuilt seams merely because they already exist
+3. contributors should proactively identify refactor or rebuild opportunities and either implement them in the current change when appropriate or promote them into the canonical planning docs
+4. `go wild` means freedom to use strong, established practices, not freedom to introduce novelty, experimentation, or avoidable complexity that is not justified by business-software best practice
+5. large monolithic code files and other `God` file concentrations should be treated as explicit refactor or rebuild candidates during active implementation planning
 
 `workflow_app` still keeps the same multi-agent doctrine moving into v2:
 

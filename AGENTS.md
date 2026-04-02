@@ -56,7 +56,7 @@ Prefer a local disposable PostgreSQL instance for `TEST_DATABASE_URL` during DB-
 
 ## Writing Style & Naming Conventions
 
-Write concise Markdown with clear headings and short paragraphs or numbered rules. Follow the existing lowercase snake-case filename pattern, for example `new_app_execution_plan.md` or `v2_scope_overview.md`. Use date-stamped filenames only when the date is materially part of the record. Keep terminology aligned with the planning set: documents, ledgers, execution context, approvals, reports, thin v1, and v2.
+Write concise Markdown with clear headings and short paragraphs or numbered rules. Follow the existing lowercase snake-case filename pattern, for example `new_app_execution_plan.md` or `v2_scope_overview.md`. Use date-stamped filenames only when the date is materially part of the record. Keep terminology aligned with the planning set: documents, ledgers, execution context, approvals, reports, completed thin v1, and active v2.
 
 Keep milestone, slice, and checkpoint labels in planning docs, tracker rows, commits, and review notes rather than in long-lived production source filenames or exported identifiers. Name code by owned domain responsibility, route family, or technical role instead of implementation phase labels.
 
@@ -68,15 +68,25 @@ Contributors should push back on weaker architectural or implementation choices,
 
 During implementation, if a codebase review surfaces drift, an issue, an inconsistency, or a conflict, contributors should report it and either fix it in the same change when appropriate or document it in the canonical implementation plan docs for a future session rather than leaving it as silent drift.
 
-When working primarily in a non-backend layer such as the web UI, browser application flow, or AI-agent layer, contributors should still fix backend bugs, missing support seams, inconsistencies, or narrow capability gaps that materially block correctness, continuity, or usability. Those backend changes should stay within existing ownership boundaries and should remain in service of the active implementation slice rather than becoming unrelated backend feature expansion.
+When working primarily in a non-backend layer such as the web UI, browser application flow, or AI-agent layer, contributors should still fix backend bugs, missing support seams, inconsistencies, or underbuilt architecture that materially block correctness, continuity, maintainability, or usability. Those backend changes should stay within coherent ownership boundaries, but contributors should not preserve weak code merely because it predates the current slice.
+
+The active implementation posture is now ambitious and best-practice-driven rather than thin-scope-driven:
+
+1. thin-v1 is complete and is no longer the limiting delivery posture for active implementation choices
+2. contributors are not operating under artificial thin-phase limits and may implement stronger patterns, broader capability, and deeper refactors when those changes materially improve correctness, operability, maintainability, performance, or production readiness
+3. `go wild` means freedom to apply proven engineering and business-software best practices without artificial narrowness
+4. `go wild` does not mean novelty for its own sake, experimental architecture without justification, or changes that weaken auditability, workflow control, or shared-backend truth
+5. contributors should continuously review the codebase for opportunities to refactor, simplify, modularize, or rebuild weak areas, and should either perform that work in the current change when appropriate or promote an explicit plan for it in the canonical docs
+6. when a code area is visibly underbuilt, structurally weak, or misaligned with established best practices, contributors should prefer correcting or rebuilding it over layering more work on top of it
+7. large monolithic files, `God` files, and concentrated orchestration hotspots should be treated as active refactor targets; contributors should break them into clearer ownership slices, and when the work is too large for the current change they should record a canonical refactor plan rather than leaving the debt implicit
 
 ## Architecture & Scope Guardrails
 
-`workflow_app` is intentionally AI-agent-first, database-first, and centered on documents, ledgers, and execution context. Do not let CRM, portal, or broad manual-entry UI concerns become the center of gravity again. If a capability can wait until v2 without weakening the foundation, put it under `new_app_docs/app_v2_plans/` instead of expanding v1. Thin v1 means narrow breadth, not weak modeling or low quality.
+`workflow_app` is intentionally AI-agent-first, database-first, and centered on documents, ledgers, and execution context. Do not let CRM, portal, or broad manual-entry UI concerns become the center of gravity again. Thin v1 is complete; active work should now optimize for the strongest production-shape implementation that still preserves the workflow-centered doctrine, shared truth model, and approval or audit boundaries.
 
 Everything meaningful in the system should tie to one or more workflows. Not every component is itself a workflow, but every meaningful feature, state transition, support seam, review surface, and operational control should support, constrain, observe, or expose a workflow. If a proposed capability cannot be tied clearly to one or more workflows, treat it as suspect until that relationship is made explicit in code, docs, or planning material.
 
-For the promoted web layer, prefer a Go-native server-rendered stack by default. Use Go `html/template` plus standard browser behavior as the active baseline, defer any `htmx` or `Alpine.js` adoption to later bounded slices with a concrete operator-usability reason, and avoid introducing Tailwind CSS, a separate Node toolchain, or an SPA frontend unless the canonical planning docs are explicitly updated to require that change.
+For the promoted web layer, prefer a Go-native server-rendered stack by default. Use Go `html/template` plus standard browser behavior as the active baseline, and introduce `htmx`, `Alpine.js`, or other supporting layers only when they materially improve operator usability, maintainability, or delivery speed without weakening server-owned truth. Avoid introducing Tailwind CSS, a separate Node toolchain, or an SPA frontend unless the canonical planning docs are explicitly updated to require that change.
 
 The promoted web layer and the later mobile client should continue to share one backend foundation and auth model rather than splitting into web-specific versus mobile-specific backends.
 
@@ -109,7 +119,7 @@ For implementation work:
 
 1. every behavior change should include tests appropriate to the change
 2. workflow-critical changes are not adequately verified by unit or package tests alone when the real risk is end-to-end operator continuity, control-boundary behavior, approval transitions, or operator-visible state
-3. for workflow-critical slices, prefer bounded end-to-end review and live testing on the real `/app` plus `/api/...` seam after focused code review and narrow blocker fixes
+3. for workflow-critical changes, prefer end-to-end review and live testing on the real `/app` plus `/api/...` seam after focused code review and the fixes needed to reach a defensible production-quality result
 4. keep end-to-end workflow testing bounded by an explicit checklist with pass or fail evidence and blocker tracking
 5. when a durable workflow or validation checklist exists in `docs/workflows/`, use it and update it if implemented workflow support or testing policy has drifted
 6. if any verification command fails, investigate the cause before proceeding
@@ -125,7 +135,7 @@ For implementation work:
 
 ## Commit & Pull Request Guidelines
 
-Current Git history is minimal, so use short imperative commit subjects that describe the actual change, for example `docs: tighten thin-v1 scope rules`. Unless the user says otherwise, commit completed implementation slices after verification and documentation sync so progress is captured in small, reviewable checkpoints. Keep each commit and pull request focused on one slice. PRs should explain the purpose, list the canonical files touched, and note any decision, scope, sequencing, or status change. Avoid mixing unrelated planning edits in one review.
+Current Git history is minimal, so use short imperative commit subjects that describe the actual change, for example `docs: update v2 implementation posture`. Unless the user says otherwise, commit completed implementation checkpoints after verification and documentation sync so progress is captured in reviewable units. Keep each commit and pull request focused on one coherent concern. PRs should explain the purpose, list the canonical files touched, and note any decision, scope, sequencing, refactor, or posture change. Avoid mixing unrelated planning edits in one review.
 
 ## Security & Configuration Tips
 

@@ -1,6 +1,6 @@
 # workflow_app Implementation Objectives
 
-Date: 2026-03-27
+Date: 2026-04-02
 Status: High-level multi-version implementation summary
 Purpose: capture the high-level rules, principles, objectives, requirements, specifications, and invariants that implementation work should preserve across the application across v1, v2, and later versions.
 
@@ -21,6 +21,7 @@ Rules:
 9. `docs/workflows/` should be maintained as the separate workflow-reference and workflow-validation layer for supported operator paths, workflow status, reusable end-to-end validation checklists, and live-review evidence, while `new_app_docs/` remains the live implementation-planning source
 10. when high-level objectives, rules, principles, specifications, or invariants change in those canonical sources, this summary should be reviewed and updated if needed
 11. when implementation-time codebase review surfaces drift, an issue, an inconsistency, or a conflict, contributors should report it and either fix it in the same change when appropriate or document it in the canonical implementation plan docs for a future session
+12. active v2 implementation is now explicitly ambitious and best-practice-driven rather than thin-scope-driven, so contributors should not preserve weak architecture or underbuilt code merely because it already exists
 
 ## 2. Product identity
 
@@ -95,6 +96,14 @@ Rules:
 4. v2 and later versions may deepen localization, workflow breadth, vertical extensions, operator surfaces, and production-readiness work on top of the completed v1 foundation
 5. implementation should preserve extension room for later versions without reopening completed thin-v1 foundation scope casually
 6. as of the 2026-03-27 checkpoint closeout and subsequent Milestone 9 completion, the current codebase satisfies the planned thin-v1 foundation depth, so active work should now be framed as v2 work rather than as unfinished baseline v1 scope
+7. active v2 work may now include substantial capability expansion, architectural hardening, and refactor or rebuild programs wherever established best practices support that choice
+
+Active posture clarification:
+
+1. `go wild` means use strong established best practices freely when they improve the product or codebase materially
+2. it does not mean novelty-first architecture, experimental implementation for its own sake, or weakening auditability, control boundaries, or shared-truth discipline
+3. contributors should continuously review the codebase for refactor or rebuild opportunities and either implement them or promote them explicitly into the canonical planning docs
+4. large monolithic files and other `God` files should be treated as explicit modularization and reimplementation candidates when they materially increase maintenance or regression risk
 
 The active thin v1 aims to deliver the minimum serious system that can:
 
@@ -106,7 +115,7 @@ The active thin v1 aims to deliver the minimum serious system that can:
 6. expose approval, review, inspection, and reporting surfaces for humans
 7. persist inbound requests and process them through a review-oriented queue model rather than relying on immediate AI response as the default operating path
 
-Near-term v2 success is defined by broader operator usefulness and production readiness on top of those strong foundations, not by redoing foundation work under a new label.
+Near-term v2 success is defined by broader operator usefulness, stronger architecture, better maintainability, and production readiness on top of those strong foundations, not by redoing foundation work under a new label.
 
 Current checkpoint result:
 
