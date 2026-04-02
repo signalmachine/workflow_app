@@ -1,7 +1,7 @@
 # workflow_app Milestone 12 Admin Maintenance and Master Data Plan
 
-Date: 2026-04-01
-Status: Planned next bounded browser or shared-backend implementation milestone after the separate Milestone 10 closeout sweep
+Date: 2026-04-02
+Status: Active milestone with Slice 1 and Slice 2 implemented in code and Slice 3 customer and party maintenance now queued next
 Purpose: define the first real privileged maintenance surface for browser operators so `Admin` stops being a placeholder route directory and becomes the controlled entry point for manual master-data and configuration work on the shared backend.
 
 ## 1. Why this milestone exists
@@ -156,9 +156,9 @@ Guardrail:
 Recommended queue from the current repository state:
 
 1. complete the separate Milestone 10 browser-review and workflow-continuity closeout sweep first
-2. if that sweep is clean, promote Slice 1 of this milestone as the next browser or shared-backend implementation slice
-3. follow with Slice 2 accounting setup maintenance
-4. then Slice 3 customer and party maintenance
+2. Slice 1 is now implemented in code: `/app/settings` remains explicitly user-scoped, `/app/admin` is now a grouped privileged maintenance hub, and the promoted browser copy now makes the admin-versus-settings ownership split explicit
+3. Slice 2 is now implemented in code through `/app/admin/accounting` plus bounded admin-only `/api/admin/accounting/...` seams for ledger-account, tax-code, and accounting-period list or create flows and accounting-period close controls
+4. Slice 3 customer and party maintenance is now the next browser or shared-backend implementation slice
 5. treat Slice 4 as follow-on only after the first three slices settle or if operator evidence reprioritizes access management sooner
 
 ## 8. Verification
@@ -180,3 +180,20 @@ When this milestone begins or changes:
 2. update `new_app_execution_plan.md` so milestone order remains explicit
 3. update `new_app_implementation_defaults.md` if the settings-versus-admin ownership split changes
 4. update `docs/workflows/` once the new maintenance flows affect durable operator behavior or validation checklists
+
+## 10. Current checkpoint
+
+Slice 1 and Slice 2 are now implemented in code.
+
+Implemented outcome:
+
+1. `/app/settings` now states the user-scoped ownership rules directly, keeps the page focused on session context plus personal continuity, and shows an explicit admin handoff only for admin actors
+2. `/app/admin` now presents grouped maintenance families for accounting setup, party setup, and access or governance posture instead of acting as only a flat review-link directory
+3. `/app/admin/accounting` now exposes the first real admin-only browser maintenance surface for ledger-account, tax-code, and accounting-period setup while keeping posted-truth accounting review separate
+4. the shared API seam now exposes bounded admin-only list and create endpoints for ledger accounts, tax codes, and accounting periods plus period-close controls for later non-browser reuse
+5. route-catalog and role-aware home copy now describe `Admin` as the privileged maintenance hub rather than a generic utility page
+6. focused `internal/app` HTTP coverage plus DB-backed service and API integration coverage now lock the admin accounting maintenance slice in place
+
+Next queued slice:
+
+1. expose the first bounded customer and party maintenance seams through `Admin` without reviving CRM-first product gravity

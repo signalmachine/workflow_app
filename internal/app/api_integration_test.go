@@ -121,6 +121,145 @@ func TestAgentAPISessionLoginCurrentSessionAndLogoutIntegration(t *testing.T) {
 	}
 }
 
+func TestAgentAPIAdminAccountingMaintenanceIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, adminUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleAdmin)
+	_, operatorUserID := seedOrgAndUserInOrg(t, ctx, db, identityaccess.RoleOperator, orgID)
+
+	handler := app.NewAgentAPIHandler(db)
+	adminCookies := issueBrowserSessionCookies(t, ctx, db, handler, orgID, adminUserID)
+	operatorCookies := issueBrowserSessionCookies(t, ctx, db, handler, orgID, operatorUserID)
+
+	createLedgerReq := httptest.NewRequest(http.MethodPost, "/api/admin/accounting/ledger-accounts", bytes.NewBufferString(`{
+		"code":"AR1000",
+		"name":"Accounts Receivable",
+		"account_class":"asset",
+		"control_type":"receivable",
+		"allows_direct_posting":false
+	}`))
+	createLedgerReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(createLedgerReq, adminCookies)
+	createLedgerRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(createLedgerRecorder, createLedgerReq)
+	if createLedgerRecorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected create ledger account status: got %d body=%s", createLedgerRecorder.Code, createLedgerRecorder.Body.String())
+	}
+
+	var ledgerResponse struct {
+		ID   string `json:"id"`
+		Code string `json:"code"`
+	}
+	if err := json.Unmarshal(createLedgerRecorder.Body.Bytes(), &ledgerResponse); err != nil {
+		t.Fatalf("decode ledger account response: %v", err)
+	}
+	if ledgerResponse.Code != "AR1000" || strings.TrimSpace(ledgerResponse.ID) == "" {
+		t.Fatalf("unexpected ledger account response: %+v", ledgerResponse)
+	}
+
+	createTaxControlReq := httptest.NewRequest(http.MethodPost, "/api/admin/accounting/ledger-accounts", bytes.NewBufferString(`{
+		"code":"GST2200",
+		"name":"GST Output",
+		"account_class":"liability",
+		"control_type":"gst_output",
+		"allows_direct_posting":false
+	}`))
+	createTaxControlReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(createTaxControlReq, adminCookies)
+	createTaxControlRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(createTaxControlRecorder, createTaxControlReq)
+	if createTaxControlRecorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected create tax-control account status: got %d body=%s", createTaxControlRecorder.Code, createTaxControlRecorder.Body.String())
+	}
+
+	var taxControlResponse struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(createTaxControlRecorder.Body.Bytes(), &taxControlResponse); err != nil {
+		t.Fatalf("decode tax-control account response: %v", err)
+	}
+
+	listLedgerReq := httptest.NewRequest(http.MethodGet, "/api/admin/accounting/ledger-accounts", nil)
+	applyResponseCookies(listLedgerReq, adminCookies)
+	listLedgerRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(listLedgerRecorder, listLedgerReq)
+	if listLedgerRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected list ledger accounts status: got %d body=%s", listLedgerRecorder.Code, listLedgerRecorder.Body.String())
+	}
+	requireContains(t, listLedgerRecorder.Body.String(), `"code":"AR1000"`)
+
+	operatorLedgerReq := httptest.NewRequest(http.MethodGet, "/api/admin/accounting/ledger-accounts", nil)
+	applyResponseCookies(operatorLedgerReq, operatorCookies)
+	operatorLedgerRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(operatorLedgerRecorder, operatorLedgerReq)
+	if operatorLedgerRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("expected operator ledger-account denial, got %d body=%s", operatorLedgerRecorder.Code, operatorLedgerRecorder.Body.String())
+	}
+
+	createTaxReq := httptest.NewRequest(http.MethodPost, "/api/admin/accounting/tax-codes", bytes.NewBufferString(`{
+		"code":"GST18",
+		"name":"GST 18%",
+		"tax_type":"gst",
+		"rate_basis_points":1800,
+		"payable_account_id":"`+taxControlResponse.ID+`"
+	}`))
+	createTaxReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(createTaxReq, adminCookies)
+	createTaxRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(createTaxRecorder, createTaxReq)
+	if createTaxRecorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected create tax code status: got %d body=%s", createTaxRecorder.Code, createTaxRecorder.Body.String())
+	}
+	requireContains(t, createTaxRecorder.Body.String(), `"code":"GST18"`)
+
+	listTaxReq := httptest.NewRequest(http.MethodGet, "/api/admin/accounting/tax-codes", nil)
+	applyResponseCookies(listTaxReq, adminCookies)
+	listTaxRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(listTaxRecorder, listTaxReq)
+	if listTaxRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected list tax codes status: got %d body=%s", listTaxRecorder.Code, listTaxRecorder.Body.String())
+	}
+	requireContains(t, listTaxRecorder.Body.String(), `"code":"GST18"`)
+
+	createPeriodReq := httptest.NewRequest(http.MethodPost, "/api/admin/accounting/periods", bytes.NewBufferString(`{
+		"period_code":"FY2026-04",
+		"start_on":"2026-04-01",
+		"end_on":"2026-04-30"
+	}`))
+	createPeriodReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(createPeriodReq, adminCookies)
+	createPeriodRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(createPeriodRecorder, createPeriodReq)
+	if createPeriodRecorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected create accounting period status: got %d body=%s", createPeriodRecorder.Code, createPeriodRecorder.Body.String())
+	}
+
+	var periodResponse struct {
+		ID     string `json:"id"`
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal(createPeriodRecorder.Body.Bytes(), &periodResponse); err != nil {
+		t.Fatalf("decode accounting period response: %v", err)
+	}
+	if strings.TrimSpace(periodResponse.ID) == "" || periodResponse.Status != "open" {
+		t.Fatalf("unexpected accounting period response: %+v", periodResponse)
+	}
+
+	closePeriodReq := httptest.NewRequest(http.MethodPost, "/api/admin/accounting/periods/"+periodResponse.ID+"/close", nil)
+	applyResponseCookies(closePeriodReq, adminCookies)
+	closePeriodRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(closePeriodRecorder, closePeriodReq)
+	if closePeriodRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected close accounting period status: got %d body=%s", closePeriodRecorder.Code, closePeriodRecorder.Body.String())
+	}
+	requireContains(t, closePeriodRecorder.Body.String(), `"status":"closed"`)
+}
+
 func TestAgentAPITokenSessionIssueRefreshAndRevokeIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()

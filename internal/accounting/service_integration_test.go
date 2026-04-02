@@ -1095,6 +1095,85 @@ func TestAccountingPeriodsControlPostingAndReversalIntegration(t *testing.T) {
 	}
 }
 
+func TestAdminAccountingMaintenanceListingIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, adminUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleAdmin, "")
+	adminSession := startSession(t, ctx, db, orgID, adminUserID)
+	admin := identityaccess.Actor{OrgID: orgID, UserID: adminUserID, SessionID: adminSession.ID}
+
+	_, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator, orgID)
+	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
+
+	documentService := documents.NewService(db)
+	accountingService := accounting.NewService(db, documentService)
+
+	createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:         "1100",
+		Name:         "Accounts Receivable",
+		AccountClass: accounting.AccountClassAsset,
+		ControlType:  accounting.ControlTypeReceivable,
+		Actor:        admin,
+	})
+	gstOutput := createLedgerAccount(t, ctx, accountingService, accounting.CreateLedgerAccountInput{
+		Code:         "2201",
+		Name:         "GST Output",
+		AccountClass: accounting.AccountClassLiability,
+		ControlType:  accounting.ControlTypeGSTOutput,
+		Actor:        admin,
+	})
+	createTaxCode(t, ctx, accountingService, accounting.CreateTaxCodeInput{
+		Code:             "GST18",
+		Name:             "GST 18%",
+		TaxType:          accounting.TaxTypeGST,
+		RateBasisPoints:  1800,
+		PayableAccountID: gstOutput.ID,
+		Actor:            admin,
+	})
+	if _, err := accountingService.CreateAccountingPeriod(ctx, accounting.CreateAccountingPeriodInput{
+		PeriodCode: "FY2026-04",
+		StartOn:    time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		EndOn:      time.Date(2026, 4, 30, 0, 0, 0, 0, time.UTC),
+		Actor:      admin,
+	}); err != nil {
+		t.Fatalf("create accounting period: %v", err)
+	}
+
+	accounts, err := accountingService.ListLedgerAccounts(ctx, accounting.ListLedgerAccountsInput{Actor: admin})
+	if err != nil {
+		t.Fatalf("list ledger accounts: %v", err)
+	}
+	if len(accounts) != 2 || accounts[0].Code != "1100" || accounts[1].Code != "2201" {
+		t.Fatalf("unexpected ledger accounts: %+v", accounts)
+	}
+
+	taxCodes, err := accountingService.ListTaxCodes(ctx, accounting.ListTaxCodesInput{Actor: admin})
+	if err != nil {
+		t.Fatalf("list tax codes: %v", err)
+	}
+	if len(taxCodes) != 1 || taxCodes[0].Code != "GST18" {
+		t.Fatalf("unexpected tax codes: %+v", taxCodes)
+	}
+
+	periods, err := accountingService.ListAccountingPeriods(ctx, accounting.ListAccountingPeriodsInput{Actor: admin})
+	if err != nil {
+		t.Fatalf("list accounting periods: %v", err)
+	}
+	if len(periods) != 1 || periods[0].PeriodCode != "FY2026-04" {
+		t.Fatalf("unexpected accounting periods: %+v", periods)
+	}
+
+	if _, err := accountingService.ListLedgerAccounts(ctx, accounting.ListLedgerAccountsInput{Actor: operator}); !errors.Is(err, identityaccess.ErrUnauthorized) {
+		t.Fatalf("unexpected operator ledger-account list error: got %v want %v", err, identityaccess.ErrUnauthorized)
+	}
+}
+
 func TestListJournalEntriesAndControlAccountBalancesIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()

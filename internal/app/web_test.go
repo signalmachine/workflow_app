@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"workflow_app/internal/accounting"
 	"workflow_app/internal/attachments"
 	"workflow_app/internal/identityaccess"
 	"workflow_app/internal/intake"
@@ -1866,14 +1867,20 @@ func TestHandleWebSettingsShowsRoleAwareHomeActions(t *testing.T) {
 	}
 
 	body := recorder.Body.String()
-	if !strings.Contains(body, `User utility surface`) {
+	if !strings.Contains(body, `User-scoped settings and continuity`) {
 		t.Fatalf("expected settings heading, body=%s", body)
+	}
+	if !strings.Contains(body, `Settings stays user-scoped`) {
+		t.Fatalf("expected explicit settings ownership copy, body=%s", body)
 	}
 	if !strings.Contains(body, `Review pending approvals (2)`) {
 		t.Fatalf("expected role-aware approval shortcut, body=%s", body)
 	}
 	if !strings.Contains(body, `/app/review/proposals?status=approval_requested`) {
 		t.Fatalf("expected approval-ready proposal shortcut, body=%s", body)
+	}
+	if strings.Contains(body, `Open admin maintenance hub`) {
+		t.Fatalf("expected non-admin settings page to avoid admin continuation, body=%s", body)
 	}
 }
 
@@ -1902,6 +1909,162 @@ func TestHandleWebAdminRequiresAdminRole(t *testing.T) {
 	}
 	if location := recorder.Header().Get("Location"); !strings.Contains(location, "admin+surface+requires+admin+role") {
 		t.Fatalf("expected admin-role redirect, got %s", location)
+	}
+}
+
+func TestHandleWebAdminShowsMaintenanceHubForAdmin(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		nil,
+		nil,
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				ctx := testSessionContext()
+				ctx.RoleCode = identityaccess.RoleAdmin
+				return ctx, nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/admin", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, `Privileged maintenance hub`) {
+		t.Fatalf("expected admin hub heading, body=%s", body)
+	}
+	if !strings.Contains(body, `Maintenance families`) {
+		t.Fatalf("expected maintenance families section, body=%s", body)
+	}
+	if !strings.Contains(body, `Accounting setup`) {
+		t.Fatalf("expected accounting setup family, body=%s", body)
+	}
+	if !strings.Contains(body, `Current slice: admin-only browser and API maintenance now expose bounded list, create, and period-close controls`) {
+		t.Fatalf("expected current-slice accounting setup copy, body=%s", body)
+	}
+	if !strings.Contains(body, `Party setup`) {
+		t.Fatalf("expected party setup family, body=%s", body)
+	}
+}
+
+func TestHandleWebAdminAccountingShowsSetupForms(t *testing.T) {
+	handler := newAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		nil,
+		nil,
+		nil,
+		stubAccountingAdminService{
+			listLedgerAccounts: func(context.Context, accounting.ListLedgerAccountsInput) ([]accounting.LedgerAccount, error) {
+				return []accounting.LedgerAccount{{ID: "acct-1", Code: "1100", Name: "Accounts Receivable", AccountClass: accounting.AccountClassAsset, ControlType: accounting.ControlTypeReceivable, Status: "active"}}, nil
+			},
+			listTaxCodes: func(context.Context, accounting.ListTaxCodesInput) ([]accounting.TaxCode, error) {
+				return []accounting.TaxCode{{ID: "tax-1", Code: "GST18", Name: "GST 18%", TaxType: accounting.TaxTypeGST, RateBasisPoints: 1800, Status: "active"}}, nil
+			},
+			listAccountingPeriods: func(context.Context, accounting.ListAccountingPeriodsInput) ([]accounting.AccountingPeriod, error) {
+				return []accounting.AccountingPeriod{{ID: "period-1", PeriodCode: "FY2026-04", StartOn: time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC), EndOn: time.Date(2026, 4, 30, 0, 0, 0, 0, time.UTC), Status: "open"}}, nil
+			},
+		},
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				ctx := testSessionContext()
+				ctx.RoleCode = identityaccess.RoleAdmin
+				return ctx, nil
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/admin/accounting", nil)
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, `Accounting setup maintenance`) {
+		t.Fatalf("expected accounting setup heading, body=%s", body)
+	}
+	if !strings.Contains(body, `Create ledger account`) {
+		t.Fatalf("expected ledger account form, body=%s", body)
+	}
+	if !strings.Contains(body, `Create tax code`) {
+		t.Fatalf("expected tax code form, body=%s", body)
+	}
+	if !strings.Contains(body, `Create accounting period`) {
+		t.Fatalf("expected accounting period form, body=%s", body)
+	}
+	if !strings.Contains(body, `Accounts Receivable`) || !strings.Contains(body, `GST18`) || !strings.Contains(body, `FY2026-04`) {
+		t.Fatalf("expected maintenance lists to render seeded data, body=%s", body)
+	}
+}
+
+func TestHandleWebCreateLedgerAccountRedirectsWithNotice(t *testing.T) {
+	var captured accounting.CreateLedgerAccountInput
+	handler := newAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		nil,
+		nil,
+		nil,
+		stubAccountingAdminService{
+			createLedgerAccount: func(_ context.Context, input accounting.CreateLedgerAccountInput) (accounting.LedgerAccount, error) {
+				captured = input
+				return accounting.LedgerAccount{ID: "acct-1", Code: input.Code, Name: input.Name}, nil
+			},
+			listLedgerAccounts: func(context.Context, accounting.ListLedgerAccountsInput) ([]accounting.LedgerAccount, error) {
+				return nil, nil
+			},
+			listTaxCodes: func(context.Context, accounting.ListTaxCodesInput) ([]accounting.TaxCode, error) { return nil, nil },
+			listAccountingPeriods: func(context.Context, accounting.ListAccountingPeriodsInput) ([]accounting.AccountingPeriod, error) {
+				return nil, nil
+			},
+		},
+		stubBrowserSessionService{
+			authenticateSession: func(context.Context, string, string) (identityaccess.SessionContext, error) {
+				ctx := testSessionContext()
+				ctx.RoleCode = identityaccess.RoleAdmin
+				return ctx, nil
+			},
+		},
+	)
+
+	form := url.Values{
+		"code":                  {"AR1000"},
+		"name":                  {"Accounts Receivable"},
+		"account_class":         {accounting.AccountClassAsset},
+		"control_type":          {accounting.ControlTypeReceivable},
+		"allows_direct_posting": {"true"},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/app/admin/accounting/ledger-accounts", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(&http.Cookie{Name: sessionIDCookieName, Value: "00000000-0000-4000-8000-000000000123"})
+	req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh-123"})
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if location := recorder.Header().Get("Location"); !strings.Contains(location, "/app/admin/accounting?notice=Ledger+account+created.") {
+		t.Fatalf("expected success redirect, got %s", location)
+	}
+	if captured.Code != "AR1000" || captured.ControlType != accounting.ControlTypeReceivable || !captured.AllowsDirectPosting {
+		t.Fatalf("unexpected captured input: %+v", captured)
 	}
 }
 
@@ -3392,4 +3555,63 @@ func (s stubSubmissionService) DeleteInboundDraft(ctx context.Context, input Del
 
 func (s stubSubmissionService) DownloadAttachment(context.Context, DownloadAttachmentInput) (attachments.AttachmentContent, error) {
 	return attachments.AttachmentContent{}, nil
+}
+
+type stubAccountingAdminService struct {
+	listLedgerAccounts     func(context.Context, accounting.ListLedgerAccountsInput) ([]accounting.LedgerAccount, error)
+	createLedgerAccount    func(context.Context, accounting.CreateLedgerAccountInput) (accounting.LedgerAccount, error)
+	listTaxCodes           func(context.Context, accounting.ListTaxCodesInput) ([]accounting.TaxCode, error)
+	createTaxCode          func(context.Context, accounting.CreateTaxCodeInput) (accounting.TaxCode, error)
+	listAccountingPeriods  func(context.Context, accounting.ListAccountingPeriodsInput) ([]accounting.AccountingPeriod, error)
+	createAccountingPeriod func(context.Context, accounting.CreateAccountingPeriodInput) (accounting.AccountingPeriod, error)
+	closeAccountingPeriod  func(context.Context, accounting.CloseAccountingPeriodInput) (accounting.AccountingPeriod, error)
+}
+
+func (s stubAccountingAdminService) ListLedgerAccounts(ctx context.Context, input accounting.ListLedgerAccountsInput) ([]accounting.LedgerAccount, error) {
+	if s.listLedgerAccounts != nil {
+		return s.listLedgerAccounts(ctx, input)
+	}
+	return nil, nil
+}
+
+func (s stubAccountingAdminService) CreateLedgerAccount(ctx context.Context, input accounting.CreateLedgerAccountInput) (accounting.LedgerAccount, error) {
+	if s.createLedgerAccount != nil {
+		return s.createLedgerAccount(ctx, input)
+	}
+	return accounting.LedgerAccount{}, nil
+}
+
+func (s stubAccountingAdminService) ListTaxCodes(ctx context.Context, input accounting.ListTaxCodesInput) ([]accounting.TaxCode, error) {
+	if s.listTaxCodes != nil {
+		return s.listTaxCodes(ctx, input)
+	}
+	return nil, nil
+}
+
+func (s stubAccountingAdminService) CreateTaxCode(ctx context.Context, input accounting.CreateTaxCodeInput) (accounting.TaxCode, error) {
+	if s.createTaxCode != nil {
+		return s.createTaxCode(ctx, input)
+	}
+	return accounting.TaxCode{}, nil
+}
+
+func (s stubAccountingAdminService) ListAccountingPeriods(ctx context.Context, input accounting.ListAccountingPeriodsInput) ([]accounting.AccountingPeriod, error) {
+	if s.listAccountingPeriods != nil {
+		return s.listAccountingPeriods(ctx, input)
+	}
+	return nil, nil
+}
+
+func (s stubAccountingAdminService) CreateAccountingPeriod(ctx context.Context, input accounting.CreateAccountingPeriodInput) (accounting.AccountingPeriod, error) {
+	if s.createAccountingPeriod != nil {
+		return s.createAccountingPeriod(ctx, input)
+	}
+	return accounting.AccountingPeriod{}, nil
+}
+
+func (s stubAccountingAdminService) CloseAccountingPeriod(ctx context.Context, input accounting.CloseAccountingPeriodInput) (accounting.AccountingPeriod, error) {
+	if s.closeAccountingPeriod != nil {
+		return s.closeAccountingPeriod(ctx, input)
+	}
+	return accounting.AccountingPeriod{}, nil
 }

@@ -36,13 +36,247 @@
 {{template "web_shell_end" .}}
 {{end}}
 
+{{define "web_admin_accounting"}}
+{{template "web_shell_start" .}}
+
+{{template "web_page_header" (dict
+  "eyebrow" "Admin accounting"
+  "title" "Accounting setup maintenance"
+  "body" "Use bounded admin-only setup forms here for ledger accounts, tax codes, and accounting periods without widening posted-truth review into generic editing."
+)}}
+
+<section class="plain-section">
+  <div class="eyebrow">Maintenance routes</div>
+  <div class="route-list">
+    <a class="route-link-card" data-summary="Return to the grouped admin maintenance hub for the broader posture and next queued maintenance families." href="/app/admin">Admin hub</a>
+    <a class="route-link-card" data-summary="Use posted-truth accounting review for journals, control accounts, and tax summaries after setup is in place." href="/app/review/accounting">Accounting review</a>
+    <a class="route-link-card" data-summary="Search the access-scoped route catalog when the next admin or workflow surface is outside this setup page." href="/app/routes?q=admin+accounting">Search related routes</a>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">Ledger accounts</div>
+      <h2>Foundational chart setup</h2>
+      <p>Create bounded ledger-account records on the shared accounting service seam.</p>
+    </div>
+  </div>
+
+  <form method="post" action="/app/admin/accounting/ledger-accounts" class="field-grid compact-form">
+    <label>Code
+      <input type="text" name="code" placeholder="AR1000" required>
+    </label>
+    <label>Name
+      <input type="text" name="name" placeholder="Accounts receivable" required>
+    </label>
+    <label>Account class
+      <select name="account_class" required>
+        {{range .AdminAccounting.AccountClassOptions}}
+        <option value="{{.}}">{{.}}</option>
+        {{end}}
+      </select>
+    </label>
+    <label>Control type
+      <select name="control_type">
+        {{range .AdminAccounting.ControlTypeOptions}}
+        <option value="{{.}}">{{.}}</option>
+        {{end}}
+      </select>
+    </label>
+    <label>Tax category code
+      <input type="text" name="tax_category_code" placeholder="GST_OUTPUT">
+    </label>
+    <label>
+      <input type="checkbox" name="allows_direct_posting" value="true">
+      Allow direct posting
+    </label>
+    <div class="button-row">
+      <button type="submit">Create ledger account</button>
+    </div>
+  </form>
+
+  {{if .AdminAccounting.LedgerAccounts}}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Name</th>
+          <th>Class</th>
+          <th>Control</th>
+          <th>Direct posting</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .AdminAccounting.LedgerAccounts}}
+        <tr>
+          <td>{{.Code}}</td>
+          <td>{{.Name}}</td>
+          <td>{{.AccountClass}}</td>
+          <td>{{.ControlType}}</td>
+          <td>{{if .AllowsDirectPosting}}yes{{else}}no{{end}}</td>
+          <td>{{.Status}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  {{template "web_empty_state" (dict "title" "No ledger accounts yet" "body" "Create the first bounded ledger account to seed downstream accounting setup." )}}
+  {{end}}
+</section>
+
+<section class="panel">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">Tax codes</div>
+      <h2>Tax setup</h2>
+      <p>Bind GST or TDS codes to the relevant receivable or payable control accounts.</p>
+    </div>
+  </div>
+
+  <form method="post" action="/app/admin/accounting/tax-codes" class="field-grid compact-form">
+    <label>Code
+      <input type="text" name="code" placeholder="GST18" required>
+    </label>
+    <label>Name
+      <input type="text" name="name" placeholder="GST 18%" required>
+    </label>
+    <label>Tax type
+      <select name="tax_type" required>
+        {{range .AdminAccounting.TaxTypeOptions}}
+        <option value="{{.}}">{{.}}</option>
+        {{end}}
+      </select>
+    </label>
+    <label>Rate basis points
+      <input type="number" name="rate_basis_points" min="0" max="10000" step="1" value="0" required>
+    </label>
+    <label>Receivable account
+      <select name="receivable_account_id">
+        <option value="">None</option>
+        {{range .AdminAccounting.LedgerAccounts}}
+        <option value="{{.ID}}">{{.Code}} - {{.Name}}</option>
+        {{end}}
+      </select>
+    </label>
+    <label>Payable account
+      <select name="payable_account_id">
+        <option value="">None</option>
+        {{range .AdminAccounting.LedgerAccounts}}
+        <option value="{{.ID}}">{{.Code}} - {{.Name}}</option>
+        {{end}}
+      </select>
+    </label>
+    <div class="button-row">
+      <button type="submit">Create tax code</button>
+    </div>
+  </form>
+
+  {{if .AdminAccounting.TaxCodes}}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Rate</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .AdminAccounting.TaxCodes}}
+        <tr>
+          <td>{{.Code}}</td>
+          <td>{{.Name}}</td>
+          <td>{{.TaxType}}</td>
+          <td>{{.RateBasisPoints}}</td>
+          <td>{{.Status}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  {{template "web_empty_state" (dict "title" "No tax codes yet" "body" "Create GST or TDS setup once the matching control accounts exist." )}}
+  {{end}}
+</section>
+
+<section class="panel">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">Accounting periods</div>
+      <h2>Posting-control windows</h2>
+      <p>Create bounded accounting periods and close them explicitly when posting should stop for that range.</p>
+    </div>
+  </div>
+
+  <form method="post" action="/app/admin/accounting/periods" class="field-grid compact-form">
+    <label>Period code
+      <input type="text" name="period_code" placeholder="FY2026-04" required>
+    </label>
+    <label>Start on
+      <input type="date" name="start_on" required>
+    </label>
+    <label>End on
+      <input type="date" name="end_on" required>
+    </label>
+    <div class="button-row">
+      <button type="submit">Create accounting period</button>
+    </div>
+  </form>
+
+  {{if .AdminAccounting.AccountingPeriods}}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Period</th>
+          <th>Start</th>
+          <th>End</th>
+          <th>Status</th>
+          <th>Control</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .AdminAccounting.AccountingPeriods}}
+        <tr>
+          <td>{{.PeriodCode}}</td>
+          <td>{{formatTime .StartOn}}</td>
+          <td>{{formatTime .EndOn}}</td>
+          <td><span class="{{statusClass .Status}}">{{.Status}}</span></td>
+          <td>
+            {{if eq .Status "open"}}
+            <form method="post" action="/app/admin/accounting/periods/{{.ID}}/close">
+              <button type="submit" class="secondary">Close period</button>
+            </form>
+            {{else}}
+            Closed
+            {{end}}
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  {{template "web_empty_state" (dict "title" "No accounting periods yet" "body" "Create the first posting window before relying on period-close controls." )}}
+  {{end}}
+</section>
+
+{{template "web_shell_end" .}}
+{{end}}
+
 {{define "web_settings"}}
 {{template "web_shell_start" .}}
 
 {{template "web_page_header" (dict
   "eyebrow" "Settings"
-  "title" "User utility surface"
-  "body" "Keep utility routes separate from workflow review and activity pages."
+  "title" "User-scoped settings and continuity"
+  "body" "Keep personal utility context here, and keep org-scoped maintenance under the separate admin surface."
 )}}
 
 <section class="plain-section">
@@ -51,10 +285,37 @@
 </section>
 
 <section class="plain-section">
+  <div class="eyebrow">Ownership split</div>
+  <div class="plain-list">
+    {{range .Settings.SettingsPrinciples}}
+    <p>{{.}}</p>
+    {{end}}
+  </div>
+</section>
+
+<section class="plain-section">
   <div class="eyebrow">Current recommended routes</div>
   <div class="route-list">
     {{range .Settings.PrimaryActions}}
     <a class="route-link-card" data-summary="{{.Summary}}" href="{{.Href}}">{{.Title}}{{if .Badge}} ({{.Badge}}){{end}}</a>
+    {{end}}
+  </div>
+</section>
+
+{{if .Settings.AdminContinuation}}
+<section class="plain-section">
+  <div class="eyebrow">Admin continuity</div>
+  <div class="route-list">
+    <a class="route-link-card" data-summary="{{.Settings.AdminContinuation.Summary}}" href="{{.Settings.AdminContinuation.Href}}">{{.Settings.AdminContinuation.Title}}</a>
+  </div>
+</section>
+{{end}}
+
+<section class="plain-section">
+  <div class="eyebrow">Personal utility routes</div>
+  <div class="route-list">
+    {{range .Settings.PersonalUtilityLinks}}
+    <a class="route-link-card" data-summary="{{.Summary}}" href="{{.Href}}">{{.Title}}</a>
     {{end}}
   </div>
 </section>
@@ -67,12 +328,35 @@
 
 {{template "web_page_header" (dict
   "eyebrow" "Admin"
-  "title" "Privileged utility surface"
-  "body" "Use this page as a simple directory for governance-oriented review routes."
+  "title" "Privileged maintenance hub"
+  "body" "Use this surface for org-scoped maintenance families, governed review entry points, and later bounded setup flows."
 )}}
 
 <section class="plain-section">
-  <div class="eyebrow">Admin routes</div>
+  <div class="eyebrow">Admin posture</div>
+  <div class="plain-list">
+    {{range .Admin.AdminPrinciples}}
+    <p>{{.}}</p>
+    {{end}}
+  </div>
+</section>
+
+<section class="plain-section">
+  <div class="eyebrow">Maintenance families</div>
+  <div class="plain-list">
+    {{range .Admin.MaintenanceFamilies}}
+    <div>
+      <p><strong>{{.Title}}</strong></p>
+      <p>{{.Summary}}</p>
+      <p><a href="{{.CurrentHref}}">{{.CurrentLabel}}</a></p>
+      <p>{{.NextSlice}}</p>
+    </div>
+    {{end}}
+  </div>
+</section>
+
+<section class="plain-section">
+  <div class="eyebrow">Current admin routes</div>
   <div class="route-list">
     {{range .Admin.AdminActions}}
     <a class="route-link-card" data-summary="{{.Summary}}" href="{{.Href}}">{{.Title}}</a>

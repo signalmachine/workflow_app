@@ -1,7 +1,7 @@
 # workflow_app Application Workflow Catalog
 
-Date: 2026-04-01
-Status: Active durable workflow catalog updated for the grouped landing pages at `/app/operations`, `/app/review`, and `/app/inventory`, the searchable route catalog at `/app/routes`, the utility surfaces at `/app/settings` plus access-scoped `/app/admin`, and the role-aware operator home on `/app`
+Date: 2026-04-02
+Status: Active durable workflow catalog updated for the grouped landing pages at `/app/operations`, `/app/review`, and `/app/inventory`, the searchable route catalog at `/app/routes`, the utility surfaces at `/app/settings` plus access-scoped `/app/admin`, the admin accounting setup surface at `/app/admin/accounting`, and the role-aware operator home on `/app`
 Purpose: capture the application workflows and related feature continuity in one durable reference document for implementation review, testing, onboarding, and later user-guide preparation.
 
 ## 1. How to read this document
@@ -68,8 +68,38 @@ Primary continuity surfaces:
 6. route catalog
 7. settings utility surface
 8. access-scoped admin utility surface
-9. session introspection
-10. subsequent browser-authenticated `/api/...` writes and review reads
+9. admin accounting setup surface
+10. session introspection
+11. subsequent browser-authenticated `/api/...` writes and review reads
+
+### 2.1.1 Admin accounting setup maintenance
+
+Purpose:
+allow an admin actor to create and browse foundational ledger accounts, tax codes, and accounting periods, and to close accounting periods, through one bounded maintenance seam that stays separate from posted-truth accounting review.
+
+Entry points:
+
+1. `GET /api/admin/accounting/ledger-accounts`
+2. `POST /api/admin/accounting/ledger-accounts`
+3. `GET /api/admin/accounting/tax-codes`
+4. `POST /api/admin/accounting/tax-codes`
+5. `GET /api/admin/accounting/periods`
+6. `POST /api/admin/accounting/periods`
+7. `POST /api/admin/accounting/periods/{period_id}/close`
+8. `/app/admin/accounting`
+
+Expected outputs:
+
+1. bounded admin-only master-data creation on the shared accounting service seam
+2. visible browser continuity between the admin maintenance hub and the accounting setup page
+3. durable audit-visible setup writes for ledger accounts, tax codes, and accounting periods
+4. bounded period-close control without widening posted-truth accounting review into generic editing
+
+Current status:
+
+1. implemented
+2. repo_verified
+3. pending_live_validation
 
 ### 2.2 Inbound request submit and queue processing
 

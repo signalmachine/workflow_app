@@ -76,7 +76,7 @@ func buildHomeActions(session identityaccess.SessionContext, inboundSummary []re
 		if queuedCount > 0 {
 			primary = appendAction(primary, "Open queued requests", "Use the grouped review queue before processing so operators can confirm the next exact request path.", webInboundRequestsPath+"?status=queued", queuedCount)
 		}
-		primary = appendAction(primary, "Open admin surface", "Keep privileged review and governance links behind the secondary admin utility surface.", webAdminPath, 0)
+		primary = appendAction(primary, "Open admin maintenance hub", "Use the admin hub for privileged setup families, governed review paths, and later maintenance flows.", webAdminPath, 0)
 		secondary = appendAction(secondary, "Review failures", "Failure visibility stays close to the operator home so broken coordinator paths do not hide behind downstream review.", webInboundRequestsPath+"?status=failed", failedCount)
 		secondary = appendAction(secondary, "Open accounting review", "Use centralized accounting review for posted truth, control accounts, and tax-summary continuity.", webAccountingPath, 0)
 		secondary = appendAction(secondary, "Open audit review", "Use audit lookup when the question is actor, causation, or exact state-transition provenance.", webAuditPath, 0)
@@ -117,8 +117,9 @@ func routeCatalogEntries() []webRouteCatalogEntry {
 	return []webRouteCatalogEntry{
 		{Title: "Home", Href: webAppPath, Category: "Core shell", Summary: "Role-aware operator start surface with workload-oriented shortcuts and continuity into active workflow families.", Keywords: "dashboard home quick links workload operator"},
 		{Title: "Route catalog", Href: webRouteCatalogPath, Category: "Core shell", Summary: "Searchable navigation surface for route titles, workflow terms, and common operator intent.", Keywords: "catalog routes search command palette navigation"},
-		{Title: "Settings", Href: webSettingsPath, Category: "Utility", Summary: "User-scoped utility surface that explains the current home posture and links back into the most relevant workflow routes.", Keywords: "settings session preferences home shortcuts utility"},
-		{Title: "Admin", Href: webAdminPath, Category: "Utility", Summary: "Privileged utility surface for admin-oriented review entry points and governance posture.", Keywords: "admin governance audit accounting privileged utility", RequiresRole: identityaccess.RoleAdmin},
+		{Title: "Settings", Href: webSettingsPath, Category: "Utility", Summary: "User-scoped utility surface for session context, personal continuity, and safe handoff back into workflow routes.", Keywords: "settings session preferences home shortcuts utility personal"},
+		{Title: "Admin", Href: webAdminPath, Category: "Utility", Summary: "Privileged maintenance hub for governed setup families, review controls, and admin-only route continuity.", Keywords: "admin governance accounting setup maintenance privileged utility", RequiresRole: identityaccess.RoleAdmin},
+		{Title: "Admin accounting setup", Href: webAdminAccountingPath, Category: "Utility", Summary: "Admin-only setup surface for ledger accounts, tax codes, and accounting periods on the shared backend.", Keywords: "admin accounting setup ledger accounts tax codes accounting periods maintenance", RequiresRole: identityaccess.RoleAdmin},
 		{Title: "Submit inbound request", Href: webSubmitInboundPagePath, Category: "Operations", Summary: "Dedicated persisted intake route for new browser-originated requests.", Keywords: "intake submit inbound request create new"},
 		{Title: "Operations landing", Href: webOperationsPath, Category: "Operations", Summary: "Bundle landing for queue movement, durable feed review, and agent-chat continuity.", Keywords: "operations queue feed agent chat landing"},
 		{Title: "Operations feed", Href: webOperationsFeedPath, Category: "Operations", Summary: "Durable feed of recent request, proposal, and approval movement.", Keywords: "operations feed recent movement queue"},
@@ -276,6 +277,15 @@ func (h *AgentAPIHandler) handleWebSettings(w http.ResponseWriter, r *http.Reque
 		Session: sessionContext,
 		Notice:  strings.TrimSpace(r.URL.Query().Get("notice")),
 		Error:   strings.TrimSpace(r.URL.Query().Get("error")),
+		SettingsPrinciples: []string{
+			"Settings stays user-scoped: session context, personal continuity, and safe workflow shortcuts belong here.",
+			"Org-scoped maintenance, access-sensitive setup, and governed controls belong under Admin for authorized actors.",
+			"Workflow pages remain the primary working surfaces; utility pages should route back into exact operational or review paths.",
+		},
+		PersonalUtilityLinks: []webHomeAction{
+			{Title: "Open route catalog", Summary: "Search grouped route families when the next workflow surface is not obvious from the shell.", Href: webRouteCatalogPath},
+			{Title: "Open home", Summary: "Return to the role-aware home surface for workload-prioritized entry points.", Href: webAppPath},
+		},
 	}
 
 	if h.reviewService != nil {
@@ -285,6 +295,13 @@ func (h *AgentAPIHandler) handleWebSettings(w http.ResponseWriter, r *http.Reque
 		} else {
 			sortInboundRequestStatusSummaries(snapshot.InboundSummary)
 			data.PrimaryActions, _ = buildHomeActions(sessionContext, snapshot.InboundSummary, snapshot.ProposalSummary, snapshot.PendingApprovals)
+		}
+	}
+	if strings.EqualFold(strings.TrimSpace(sessionContext.RoleCode), identityaccess.RoleAdmin) {
+		data.AdminContinuation = &webHomeAction{
+			Title:   "Open admin maintenance hub",
+			Summary: "Use the separate admin surface for org-scoped setup families, governance review, and later privileged controls.",
+			Href:    webAdminPath,
 		}
 	}
 
@@ -322,7 +339,36 @@ func (h *AgentAPIHandler) handleWebAdmin(w http.ResponseWriter, r *http.Request)
 		Session: sessionContext,
 		Notice:  strings.TrimSpace(r.URL.Query().Get("notice")),
 		Error:   strings.TrimSpace(r.URL.Query().Get("error")),
+		AdminPrinciples: []string{
+			"Admin owns org-scoped maintenance, access-sensitive setup, and governed operational controls.",
+			"Privileged maintenance should stay bounded to foundational setup and exception handling on shared domain services.",
+			"Review pages remain read-first workflow surfaces; admin maintenance should not dissolve them into broad spreadsheet editing.",
+		},
+		MaintenanceFamilies: []webAdminFamily{
+			{
+				Title:        "Accounting setup",
+				Summary:      "Foundational ledger-account, tax-code, and accounting-period maintenance belongs here instead of under ordinary review routes.",
+				CurrentHref:  webAdminAccountingPath,
+				CurrentLabel: "Open accounting setup",
+				NextSlice:    "Current slice: admin-only browser and API maintenance now expose bounded list, create, and period-close controls on the shared accounting service seam.",
+			},
+			{
+				Title:        "Party setup",
+				Summary:      "Customer and vendor support records should reuse the shared party model rather than reopening CRM-first product gravity.",
+				CurrentHref:  webDocumentsPath,
+				CurrentLabel: "Open document review",
+				NextSlice:    "Next slice: expose bounded admin-only customer and party maintenance while keeping workflow ownership in the shared backend.",
+			},
+			{
+				Title:        "Access and governance",
+				Summary:      "Approval, audit, and later access-management controls stay grouped under one privileged maintenance posture.",
+				CurrentHref:  webAuditPath,
+				CurrentLabel: "Open audit review",
+				NextSlice:    "Follow-on slice: add user, role, and later policy controls only after the foundational maintenance seams above are stable.",
+			},
+		},
 		AdminActions: []webHomeAction{
+			{Title: "Open accounting setup", Summary: "Create ledger accounts, tax codes, and accounting periods from the bounded admin maintenance surface.", Href: webAdminAccountingPath},
 			{Title: "Open approval queue", Summary: "Keep explicit approval decisions ahead of downstream document or posting review.", Href: webApprovalsPath + "?status=pending"},
 			{Title: "Open accounting review", Summary: "Use centralized accounting review for posted truth, control accounts, and tax summaries.", Href: webAccountingPath},
 			{Title: "Open audit review", Summary: "Trace actor, timestamp, and workflow causation without leaving the shared browser seam.", Href: webAuditPath},

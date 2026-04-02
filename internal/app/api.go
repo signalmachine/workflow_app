@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"workflow_app/internal/accounting"
 	"workflow_app/internal/ai"
 	"workflow_app/internal/attachments"
 	"workflow_app/internal/documents"
@@ -34,6 +35,10 @@ const (
 	webRouteCatalogPath        = "/app/routes"
 	webSettingsPath            = "/app/settings"
 	webAdminPath               = "/app/admin"
+	webAdminAccountingPath     = "/app/admin/accounting"
+	webAdminLedgerAccountsPath = "/app/admin/accounting/ledger-accounts"
+	webAdminTaxCodesPath       = "/app/admin/accounting/tax-codes"
+	webAdminPeriodsPath        = "/app/admin/accounting/periods"
 	webOperationsPath          = "/app/operations"
 	webOperationsFeedPath      = "/app/operations-feed"
 	webAgentChatPath           = "/app/agent-chat"
@@ -82,6 +87,9 @@ const (
 	reviewInventoryReconPath   = "/api/review/inventory/reconciliation"
 	reviewWorkOrdersPath       = "/api/review/work-orders"
 	reviewAuditEventsPath      = "/api/review/audit-events"
+	adminLedgerAccountsPath    = "/api/admin/accounting/ledger-accounts"
+	adminTaxCodesPath          = "/api/admin/accounting/tax-codes"
+	adminPeriodsPath           = "/api/admin/accounting/periods"
 	approvalDecisionPrefix     = "/api/approvals/"
 	headerOrgID                = "X-Workflow-Org-ID"
 	headerUserID               = "X-Workflow-User-ID"
@@ -140,6 +148,16 @@ type operatorReviewReader interface {
 
 type approvalDecisionService interface {
 	DecideApproval(ctx context.Context, input workflow.DecideApprovalInput) (workflow.Approval, documents.Document, error)
+}
+
+type accountingAdminService interface {
+	ListLedgerAccounts(ctx context.Context, input accounting.ListLedgerAccountsInput) ([]accounting.LedgerAccount, error)
+	CreateLedgerAccount(ctx context.Context, input accounting.CreateLedgerAccountInput) (accounting.LedgerAccount, error)
+	ListTaxCodes(ctx context.Context, input accounting.ListTaxCodesInput) ([]accounting.TaxCode, error)
+	CreateTaxCode(ctx context.Context, input accounting.CreateTaxCodeInput) (accounting.TaxCode, error)
+	ListAccountingPeriods(ctx context.Context, input accounting.ListAccountingPeriodsInput) ([]accounting.AccountingPeriod, error)
+	CreateAccountingPeriod(ctx context.Context, input accounting.CreateAccountingPeriodInput) (accounting.AccountingPeriod, error)
+	CloseAccountingPeriod(ctx context.Context, input accounting.CloseAccountingPeriodInput) (accounting.AccountingPeriod, error)
 }
 
 type proposalApprovalService interface {
@@ -258,21 +276,88 @@ type sessionRefreshRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+type createLedgerAccountRequest struct {
+	Code                string `json:"code"`
+	Name                string `json:"name"`
+	AccountClass        string `json:"account_class"`
+	ControlType         string `json:"control_type"`
+	AllowsDirectPosting bool   `json:"allows_direct_posting"`
+	TaxCategoryCode     string `json:"tax_category_code"`
+}
+
+type createTaxCodeRequest struct {
+	Code                string `json:"code"`
+	Name                string `json:"name"`
+	TaxType             string `json:"tax_type"`
+	RateBasisPoints     int    `json:"rate_basis_points"`
+	ReceivableAccountID string `json:"receivable_account_id"`
+	PayableAccountID    string `json:"payable_account_id"`
+}
+
+type createAccountingPeriodRequest struct {
+	PeriodCode string `json:"period_code"`
+	StartOn    string `json:"start_on"`
+	EndOn      string `json:"end_on"`
+}
+
+type ledgerAccountResponse struct {
+	ID                  string    `json:"id"`
+	Code                string    `json:"code"`
+	Name                string    `json:"name"`
+	AccountClass        string    `json:"account_class"`
+	ControlType         string    `json:"control_type"`
+	AllowsDirectPosting bool      `json:"allows_direct_posting"`
+	Status              string    `json:"status"`
+	TaxCategoryCode     *string   `json:"tax_category_code,omitempty"`
+	CreatedByUserID     string    `json:"created_by_user_id"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
+}
+
+type taxCodeResponse struct {
+	ID                  string    `json:"id"`
+	Code                string    `json:"code"`
+	Name                string    `json:"name"`
+	TaxType             string    `json:"tax_type"`
+	RateBasisPoints     int       `json:"rate_basis_points"`
+	ReceivableAccountID *string   `json:"receivable_account_id,omitempty"`
+	PayableAccountID    *string   `json:"payable_account_id,omitempty"`
+	Status              string    `json:"status"`
+	CreatedByUserID     string    `json:"created_by_user_id"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
+}
+
+type accountingPeriodResponse struct {
+	ID              string     `json:"id"`
+	PeriodCode      string     `json:"period_code"`
+	StartOn         string     `json:"start_on"`
+	EndOn           string     `json:"end_on"`
+	Status          string     `json:"status"`
+	ClosedByUserID  *string    `json:"closed_by_user_id,omitempty"`
+	ClosedAt        *time.Time `json:"closed_at,omitempty"`
+	CreatedByUserID string     `json:"created_by_user_id"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
+}
+
 type AgentAPIHandler struct {
 	loadProcessor     queuedInboundRequestProcessorLoader
 	submissionService inboundRequestSubmitter
 	reviewService     operatorReviewReader
 	approvalService   approvalDecisionService
 	proposalApproval  proposalApprovalService
+	accountingAdmin   accountingAdminService
 	authService       browserSessionService
 }
 
 func NewAgentAPIHandler(db *sql.DB) http.Handler {
 	documentService := documents.NewService(db)
 	authService := identityaccess.NewService(db)
+	accountingService := accounting.NewService(db, documentService)
 	return newAgentAPIHandlerWithDependencies(func() (ProcessNextQueuedInboundRequester, error) {
 		return NewOpenAIAgentProcessorFromEnv(db)
-	}, NewSubmissionService(db), reporting.NewService(db), workflow.NewService(db, documentService), newProcessedProposalApprovalService(db), authService)
+	}, NewSubmissionService(db), reporting.NewService(db), workflow.NewService(db, documentService), newProcessedProposalApprovalService(db), accountingService, authService)
 }
 
 func NewAgentAPIHandlerWithProcessorLoader(loader queuedInboundRequestProcessorLoader) http.Handler {
@@ -284,16 +369,17 @@ func NewAgentAPIHandlerWithServices(loader queuedInboundRequestProcessorLoader, 
 }
 
 func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoader, submissionService inboundRequestSubmitter, reviewService operatorReviewReader, approvalService approvalDecisionService, authService browserSessionService) http.Handler {
-	return newAgentAPIHandlerWithDependencies(loader, submissionService, reviewService, approvalService, nil, authService)
+	return newAgentAPIHandlerWithDependencies(loader, submissionService, reviewService, approvalService, nil, nil, authService)
 }
 
-func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoader, submissionService inboundRequestSubmitter, reviewService operatorReviewReader, approvalService approvalDecisionService, proposalApproval proposalApprovalService, authService browserSessionService) http.Handler {
+func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoader, submissionService inboundRequestSubmitter, reviewService operatorReviewReader, approvalService approvalDecisionService, proposalApproval proposalApprovalService, accountingAdmin accountingAdminService, authService browserSessionService) http.Handler {
 	handler := &AgentAPIHandler{
 		loadProcessor:     loader,
 		submissionService: submissionService,
 		reviewService:     reviewService,
 		approvalService:   approvalService,
 		proposalApproval:  proposalApproval,
+		accountingAdmin:   accountingAdmin,
 		authService:       authService,
 	}
 	mux := http.NewServeMux()
@@ -304,6 +390,11 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(webRouteCatalogPath, handler.handleWebRouteCatalog)
 	mux.HandleFunc(webSettingsPath, handler.handleWebSettings)
 	mux.HandleFunc(webAdminPath, handler.handleWebAdmin)
+	mux.HandleFunc(webAdminAccountingPath, handler.handleWebAdminAccounting)
+	mux.HandleFunc(webAdminLedgerAccountsPath, handler.handleWebCreateLedgerAccount)
+	mux.HandleFunc(webAdminTaxCodesPath, handler.handleWebCreateTaxCode)
+	mux.HandleFunc(webAdminPeriodsPath, handler.handleWebAccountingPeriods)
+	mux.HandleFunc(webAdminPeriodsPath+"/", handler.handleWebAccountingPeriodAction)
 	mux.HandleFunc(webOperationsPath, handler.handleWebOperationsLanding)
 	mux.HandleFunc(webOperationsFeedPath, handler.handleWebOperationsFeed)
 	mux.HandleFunc(webAgentChatPath, handler.handleWebAgentChat)
@@ -359,6 +450,10 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(reviewWorkOrdersPath, handler.handleListWorkOrders)
 	mux.HandleFunc(reviewWorkOrdersPath+"/", handler.handleGetWorkOrderReview)
 	mux.HandleFunc(reviewAuditEventsPath, handler.handleLookupAuditEvents)
+	mux.HandleFunc(adminLedgerAccountsPath, handler.handleAdminLedgerAccounts)
+	mux.HandleFunc(adminTaxCodesPath, handler.handleAdminTaxCodes)
+	mux.HandleFunc(adminPeriodsPath, handler.handleAdminAccountingPeriods)
+	mux.HandleFunc(adminPeriodsPath+"/", handler.handleAdminAccountingPeriodAction)
 	mux.HandleFunc(approvalDecisionPrefix, handler.handleDecideApproval)
 	return mux
 }
@@ -1183,6 +1278,76 @@ func handleReviewError(w http.ResponseWriter, err error, fallback string) {
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "record not found"})
 	default:
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: fallback})
+	}
+}
+
+func handleAccountingAdminError(w http.ResponseWriter, err error, fallback string) {
+	switch {
+	case errors.Is(err, identityaccess.ErrUnauthorized):
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
+	case errors.Is(err, accounting.ErrInvalidAccount):
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid ledger account"})
+	case errors.Is(err, accounting.ErrInvalidTaxCode):
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid tax code"})
+	case errors.Is(err, accounting.ErrInvalidAccountingPeriod):
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid accounting period"})
+	case errors.Is(err, accounting.ErrLedgerAccountNotFound):
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "ledger account not found"})
+	case errors.Is(err, accounting.ErrTaxCodeNotFound):
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "tax code not found"})
+	case errors.Is(err, accounting.ErrAccountingPeriodNotFound):
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "accounting period not found"})
+	case errors.Is(err, accounting.ErrAccountingPeriodOverlap), errors.Is(err, accounting.ErrAccountingPeriodNotOpen):
+		writeJSON(w, http.StatusConflict, errorResponse{Error: err.Error()})
+	default:
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: fallback})
+	}
+}
+
+func mapLedgerAccount(account accounting.LedgerAccount) ledgerAccountResponse {
+	return ledgerAccountResponse{
+		ID:                  account.ID,
+		Code:                account.Code,
+		Name:                account.Name,
+		AccountClass:        account.AccountClass,
+		ControlType:         account.ControlType,
+		AllowsDirectPosting: account.AllowsDirectPosting,
+		Status:              account.Status,
+		TaxCategoryCode:     stringPtr(account.TaxCategoryCode),
+		CreatedByUserID:     account.CreatedByUserID,
+		CreatedAt:           account.CreatedAt,
+		UpdatedAt:           account.UpdatedAt,
+	}
+}
+
+func mapTaxCode(code accounting.TaxCode) taxCodeResponse {
+	return taxCodeResponse{
+		ID:                  code.ID,
+		Code:                code.Code,
+		Name:                code.Name,
+		TaxType:             code.TaxType,
+		RateBasisPoints:     code.RateBasisPoints,
+		ReceivableAccountID: stringPtr(code.ReceivableAccountID),
+		PayableAccountID:    stringPtr(code.PayableAccountID),
+		Status:              code.Status,
+		CreatedByUserID:     code.CreatedByUserID,
+		CreatedAt:           code.CreatedAt,
+		UpdatedAt:           code.UpdatedAt,
+	}
+}
+
+func mapAccountingPeriod(period accounting.AccountingPeriod) accountingPeriodResponse {
+	return accountingPeriodResponse{
+		ID:              period.ID,
+		PeriodCode:      period.PeriodCode,
+		StartOn:         period.StartOn.Format(time.DateOnly),
+		EndOn:           period.EndOn.Format(time.DateOnly),
+		Status:          period.Status,
+		ClosedByUserID:  stringPtr(period.ClosedByUserID),
+		ClosedAt:        timePtr(period.ClosedAt),
+		CreatedByUserID: period.CreatedByUserID,
+		CreatedAt:       period.CreatedAt,
+		UpdatedAt:       period.UpdatedAt,
 	}
 }
 

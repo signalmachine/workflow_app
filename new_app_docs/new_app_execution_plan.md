@@ -521,10 +521,11 @@ Exit criteria:
 
 Current planning checkpoint:
 
-1. the current codebase already has admin-gated domain services for ledger-account creation, tax-code creation, accounting-period control, and party creation or listing, but those seams are not yet exposed through real admin-maintenance pages in `internal/app`
-2. the current `Settings` and `Admin` pages are still mostly posture rather than real maintenance capability
-3. the canonical plan for this milestone is `milestone_12_admin_maintenance_and_master_data_plan.md`
-4. this milestone should begin only after the separate Milestone 10 browser-review closeout sweep is completed cleanly or after that sweep promotes no higher-priority corrective slice
+1. the current codebase now exposes Slice 2 accounting setup maintenance through `/app/admin/accounting` plus bounded `/api/admin/accounting/...` seams for ledger-account, tax-code, and accounting-period list or create flows and accounting-period close controls
+2. Slice 1 remains implemented in code: `Settings` is explicitly user-scoped, `Admin` is now a grouped privileged maintenance hub, and route-discovery plus role-aware copy treat admin work as maintenance rather than generic utility posture
+3. focused `internal/app` HTTP coverage plus DB-backed accounting and `internal/app` integration coverage now verify the landed admin accounting maintenance slice
+4. the canonical plan for this milestone remains `milestone_12_admin_maintenance_and_master_data_plan.md`
+5. the next queued implementation slice is Slice 3 customer and party maintenance
 
 ## 17. Execution warning
 

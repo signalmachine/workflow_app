@@ -210,6 +210,18 @@ type CreateTaxCodeInput struct {
 	Actor               identityaccess.Actor
 }
 
+type ListLedgerAccountsInput struct {
+	Actor identityaccess.Actor
+}
+
+type ListTaxCodesInput struct {
+	Actor identityaccess.Actor
+}
+
+type ListAccountingPeriodsInput struct {
+	Actor identityaccess.Actor
+}
+
 type CreateInvoiceInput struct {
 	Title            string
 	InvoiceRole      string
@@ -628,6 +640,75 @@ func (s *Service) CreateTaxCode(ctx context.Context, input CreateTaxCodeInput) (
 	}
 
 	return taxCode, nil
+}
+
+func (s *Service) ListLedgerAccounts(ctx context.Context, input ListLedgerAccountsInput) ([]LedgerAccount, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin list ledger accounts: %w", err)
+	}
+	defer tx.Rollback()
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin); err != nil {
+		return nil, err
+	}
+
+	items, err := listLedgerAccountsTx(ctx, tx, input)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit list ledger accounts: %w", err)
+	}
+
+	return items, nil
+}
+
+func (s *Service) ListTaxCodes(ctx context.Context, input ListTaxCodesInput) ([]TaxCode, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin list tax codes: %w", err)
+	}
+	defer tx.Rollback()
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin); err != nil {
+		return nil, err
+	}
+
+	items, err := listTaxCodesTx(ctx, tx, input)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit list tax codes: %w", err)
+	}
+
+	return items, nil
+}
+
+func (s *Service) ListAccountingPeriods(ctx context.Context, input ListAccountingPeriodsInput) ([]AccountingPeriod, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin list accounting periods: %w", err)
+	}
+	defer tx.Rollback()
+
+	if err := identityaccess.AuthorizeTx(ctx, tx, input.Actor, identityaccess.RoleAdmin); err != nil {
+		return nil, err
+	}
+
+	items, err := listAccountingPeriodsTx(ctx, tx, input)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit list accounting periods: %w", err)
+	}
+
+	return items, nil
 }
 
 func (s *Service) ListJournalEntries(ctx context.Context, input ListJournalEntriesInput) ([]JournalEntryReview, error) {
@@ -1564,6 +1645,122 @@ RETURNING
 	updated_at;`
 
 	return scanAccountingPeriod(tx.QueryRowContext(ctx, statement, input.Actor.OrgID, input.PeriodID, input.Actor.UserID))
+}
+
+func listLedgerAccountsTx(ctx context.Context, tx *sql.Tx, input ListLedgerAccountsInput) ([]LedgerAccount, error) {
+	const query = `
+SELECT
+	id,
+	org_id,
+	code,
+	name,
+	account_class,
+	control_type,
+	allows_direct_posting,
+	status,
+	tax_category_code,
+	created_by_user_id,
+	created_at,
+	updated_at
+FROM accounting.ledger_accounts
+WHERE org_id = $1
+ORDER BY code ASC, created_at ASC;`
+
+	rows, err := tx.QueryContext(ctx, query, input.Actor.OrgID)
+	if err != nil {
+		return nil, fmt.Errorf("query ledger accounts: %w", err)
+	}
+	defer rows.Close()
+
+	var items []LedgerAccount
+	for rows.Next() {
+		item, scanErr := scanLedgerAccount(rows)
+		if scanErr != nil {
+			return nil, fmt.Errorf("scan ledger account: %w", scanErr)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate ledger accounts: %w", err)
+	}
+	return items, nil
+}
+
+func listTaxCodesTx(ctx context.Context, tx *sql.Tx, input ListTaxCodesInput) ([]TaxCode, error) {
+	const query = `
+SELECT
+	id,
+	org_id,
+	code,
+	name,
+	tax_type,
+	rate_basis_points,
+	receivable_account_id,
+	payable_account_id,
+	status,
+	created_by_user_id,
+	created_at,
+	updated_at
+FROM accounting.tax_codes
+WHERE org_id = $1
+ORDER BY tax_type ASC, code ASC, created_at ASC;`
+
+	rows, err := tx.QueryContext(ctx, query, input.Actor.OrgID)
+	if err != nil {
+		return nil, fmt.Errorf("query tax codes: %w", err)
+	}
+	defer rows.Close()
+
+	var items []TaxCode
+	for rows.Next() {
+		item, scanErr := scanTaxCode(rows)
+		if scanErr != nil {
+			return nil, fmt.Errorf("scan tax code: %w", scanErr)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate tax codes: %w", err)
+	}
+	return items, nil
+}
+
+func listAccountingPeriodsTx(ctx context.Context, tx *sql.Tx, input ListAccountingPeriodsInput) ([]AccountingPeriod, error) {
+	const query = `
+SELECT
+	id,
+	org_id,
+	period_code,
+	start_on,
+	end_on,
+	status,
+	closed_by_user_id,
+	closed_at,
+	created_by_user_id,
+	created_at,
+	updated_at
+FROM accounting.periods
+WHERE org_id = $1
+ORDER BY start_on DESC, period_code DESC, created_at DESC;`
+
+	rows, err := tx.QueryContext(ctx, query, input.Actor.OrgID)
+	if err != nil {
+		return nil, fmt.Errorf("query accounting periods: %w", err)
+	}
+	defer rows.Close()
+
+	var items []AccountingPeriod
+	for rows.Next() {
+		item, scanErr := scanAccountingPeriod(rows)
+		if scanErr != nil {
+			return nil, fmt.Errorf("scan accounting period: %w", scanErr)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate accounting periods: %w", err)
+	}
+	return items, nil
 }
 
 func listJournalEntriesTx(ctx context.Context, tx *sql.Tx, input ListJournalEntriesInput) ([]JournalEntryReview, error) {

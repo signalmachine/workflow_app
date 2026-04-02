@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"workflow_app/internal/accounting"
 	"workflow_app/internal/attachments"
 	"workflow_app/internal/identityaccess"
 	"workflow_app/internal/intake"
@@ -330,17 +331,42 @@ type webRouteCatalogData struct {
 }
 
 type webSettingsData struct {
-	Session        identityaccess.SessionContext
-	Notice         string
-	Error          string
-	PrimaryActions []webHomeAction
+	Session              identityaccess.SessionContext
+	Notice               string
+	Error                string
+	PrimaryActions       []webHomeAction
+	AdminContinuation    *webHomeAction
+	SettingsPrinciples   []string
+	PersonalUtilityLinks []webHomeAction
+}
+
+type webAdminFamily struct {
+	Title        string
+	Summary      string
+	CurrentHref  string
+	CurrentLabel string
+	NextSlice    string
+}
+
+type webAdminAccountingData struct {
+	Session             identityaccess.SessionContext
+	Notice              string
+	Error               string
+	LedgerAccounts      []accounting.LedgerAccount
+	TaxCodes            []accounting.TaxCode
+	AccountingPeriods   []accounting.AccountingPeriod
+	AccountClassOptions []string
+	ControlTypeOptions  []string
+	TaxTypeOptions      []string
 }
 
 type webAdminData struct {
-	Session      identityaccess.SessionContext
-	Notice       string
-	Error        string
-	AdminActions []webHomeAction
+	Session             identityaccess.SessionContext
+	Notice              string
+	Error               string
+	AdminActions        []webHomeAction
+	MaintenanceFamilies []webAdminFamily
+	AdminPrinciples     []string
 }
 
 func (h *AgentAPIHandler) handleRoot(w http.ResponseWriter, r *http.Request) {
@@ -373,6 +399,7 @@ type webPageData struct {
 	RouteCatalog            *webRouteCatalogData
 	Settings                *webSettingsData
 	Admin                   *webAdminData
+	AdminAccounting         *webAdminAccountingData
 	OperationsLanding       *webOperationsLandingData
 	OperationsFeed          *webOperationsFeedData
 	AgentChat               *webAgentChatData
@@ -1146,4 +1173,3 @@ func templateAuditEntityLabel(entityType string) string {
 		return ""
 	}
 }
-
