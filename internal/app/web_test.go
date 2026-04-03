@@ -35,6 +35,39 @@ func TestRenderWebPageRejectsUnmappedTemplateData(t *testing.T) {
 	}
 }
 
+func TestRegisterWebRoutesSvelteModeServesSPAFallback(t *testing.T) {
+	handler := &AgentAPIHandler{webFrontend: webFrontendSvelte}
+	mux := http.NewServeMux()
+	registerWebRoutes(mux, handler)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/login", nil)
+	recorder := httptest.NewRecorder()
+
+	mux.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), "workflow_app SPA fallback placeholder") {
+		t.Fatalf("expected SPA fallback placeholder body, got %s", recorder.Body.String())
+	}
+}
+
+func TestHandleSvelteAppServesIndexAtAppRoot(t *testing.T) {
+	handler := &AgentAPIHandler{webFrontend: webFrontendSvelte}
+	req := httptest.NewRequest(http.MethodGet, "/app", nil)
+	recorder := httptest.NewRecorder()
+
+	handler.handleSvelteApp(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), "workflow_app web bundle placeholder") {
+		t.Fatalf("expected bundle placeholder body, got %s", recorder.Body.String())
+	}
+}
+
 func TestHandleWebDocumentDetailFallsBackToDocumentScopedAccountingLink(t *testing.T) {
 	handler := NewAgentAPIHandlerWithDependencies(
 		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },

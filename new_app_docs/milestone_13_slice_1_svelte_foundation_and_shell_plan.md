@@ -1,7 +1,7 @@
 # workflow_app Milestone 13 Slice 1 Plan
 
 Date: 2026-04-03
-Status: Planned
+Status: Implemented in code on 2026-04-03
 Purpose: define the first Milestone 13 implementation slice so the Svelte migration starts with the correct app foundation, route structure, auth bootstrap, shell, and shared UI primitives rather than with scattered page rewrites.
 
 ## 1. Slice role
@@ -80,3 +80,15 @@ Before closing this slice:
 2. verify login, logout, and protected-route behavior locally against the Go backend
 3. verify the frontend build output shape matches the planned Go-serving integration
 4. run canonical Go verification if backend or serving integration changes landed in the same slice
+
+## 7. Implementation result
+
+This slice is now implemented in code.
+
+Landed result:
+
+1. `web/` now contains a SvelteKit + Svelte 5 + TypeScript application scaffold with route groups for protected app routes and the public login route
+2. the shared frontend foundation now includes design-token CSS, a sidebar-plus-topbar app shell, shared page-header and feedback primitives, placeholder route surfaces for the promoted browser families, and a minimal API client plus session bootstrap path against `/api/session`
+3. `internal/app` now includes embedded static SPA serving for the built frontend, controlled by `WORKFLOW_WEB_FRONTEND=svelte` so the Svelte shell can be exercised under `/app` without forcing the final cutover in this slice
+4. `npm --prefix web run check`, `npm --prefix web run test`, `npm --prefix web run build`, focused `go test ./internal/app -run 'Test(RegisterWebRoutesSvelteModeServesSPAFallback|HandleSvelteAppServesIndexAtAppRoot|RenderWebPageRejectsUnmappedTemplateData)' -count=1`, `go build ./cmd/... ./internal/...`, and `gopls` diagnostics on the edited Go files all completed cleanly for this slice
+5. the next promoted browser implementation step is now Milestone 13 Slice 2 workflow-surface migration rather than additional shell or scaffold work on the old Go-template stack

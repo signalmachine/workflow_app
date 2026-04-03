@@ -1,0 +1,1 @@
+import"../chunks/8hsZ8H25.js";import"../chunks/zTKxJxkT.js";import{P as n}from"../chunks/DGVF-DZW.js";function c(e){n(e,{title:"Accounting setup placeholder",summary:"Later slices will connect ledger account, tax code, and accounting period maintenance to the existing /api/admin/accounting/... seam."})}export{c as component};

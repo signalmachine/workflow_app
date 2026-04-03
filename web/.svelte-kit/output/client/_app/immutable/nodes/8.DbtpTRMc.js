@@ -1,0 +1,1 @@
+import"../chunks/8hsZ8H25.js";import"../chunks/zTKxJxkT.js";import{P as t}from"../chunks/DGVF-DZW.js";function n(e){t(e,{title:"Party setup placeholder",summary:"Later slices will connect bounded party and contact maintenance to the current shared party model."})}export{n as component};

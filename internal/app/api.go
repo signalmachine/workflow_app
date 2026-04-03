@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -118,6 +119,13 @@ var uuidPattern = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]
 
 const browserSessionDuration = 24 * time.Hour
 const accessTokenDuration = 15 * time.Minute
+
+type webFrontendMode string
+
+const (
+	webFrontendTemplates webFrontendMode = "templates"
+	webFrontendSvelte    webFrontendMode = "svelte"
+)
 
 type ProcessNextQueuedInboundRequester interface {
 	ProcessNextQueuedInboundRequest(ctx context.Context, input ProcessNextQueuedInboundRequestInput) (ProcessNextQueuedInboundRequestResult, error)
@@ -497,6 +505,7 @@ type AgentAPIHandler struct {
 	accessAdmin       accessAdminService
 	inventoryAdmin    inventoryAdminService
 	authService       browserSessionService
+	webFrontend       webFrontendMode
 }
 
 func NewAgentAPIHandler(db *sql.DB) http.Handler {
@@ -550,9 +559,75 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 		accessAdmin:       identityAdminService,
 		inventoryAdmin:    inventoryAdmin,
 		authService:       authService,
+		webFrontend:       loadWebFrontendMode(),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handler.handleRoot)
+	registerWebRoutes(mux, handler)
+	mux.HandleFunc(sessionLoginPath, handler.handleSessionLogin)
+	mux.HandleFunc(sessionTokenPath, handler.handleSessionTokenLogin)
+	mux.HandleFunc(sessionCurrentPath, handler.handleCurrentSession)
+	mux.HandleFunc(sessionRefreshPath, handler.handleSessionRefresh)
+	mux.HandleFunc(sessionLogoutPath, handler.handleSessionLogout)
+	mux.HandleFunc(agentProcessNextQueuedPath, handler.handleProcessNextQueuedInboundRequest)
+	mux.HandleFunc(submitInboundRequestPath, handler.handleSubmitInboundRequest)
+	mux.HandleFunc(inboundRequestActionPrefix, handler.handleInboundRequestAction)
+	mux.HandleFunc(attachmentContentPrefix, handler.handleDownloadAttachment)
+	mux.HandleFunc(reviewInboundRequestsPath, handler.handleListInboundRequests)
+	mux.HandleFunc(reviewInboundRequestsPath+"/", handler.handleGetInboundRequestDetail)
+	mux.HandleFunc(reviewInboundSummaryPath, handler.handleListInboundRequestStatusSummary)
+	mux.HandleFunc(reviewProposalListPath, handler.handleListProcessedProposals)
+	mux.HandleFunc(reviewProposalActionPrefix, handler.handleProcessedProposalAction)
+	mux.HandleFunc(reviewProposalSummaryPath, handler.handleListProcessedProposalStatusSummary)
+	mux.HandleFunc(reviewApprovalQueuePath, handler.handleListApprovalQueue)
+	mux.HandleFunc(reviewDocumentsPath, handler.handleListDocuments)
+	mux.HandleFunc(reviewJournalEntriesPath, handler.handleListJournalEntries)
+	mux.HandleFunc(reviewControlBalancesPath, handler.handleListControlAccountBalances)
+	mux.HandleFunc(reviewTaxSummariesPath, handler.handleListTaxSummaries)
+	mux.HandleFunc(reviewInventoryStockPath, handler.handleListInventoryStock)
+	mux.HandleFunc(reviewInventoryMovesPath, handler.handleListInventoryMovements)
+	mux.HandleFunc(reviewInventoryReconPath, handler.handleListInventoryReconciliation)
+	mux.HandleFunc(reviewWorkOrdersPath, handler.handleListWorkOrders)
+	mux.HandleFunc(reviewWorkOrdersPath+"/", handler.handleGetWorkOrderReview)
+	mux.HandleFunc(reviewAuditEventsPath, handler.handleLookupAuditEvents)
+	mux.HandleFunc(adminLedgerAccountsPath, handler.handleAdminLedgerAccounts)
+	mux.HandleFunc(adminTaxCodesPath, handler.handleAdminTaxCodes)
+	mux.HandleFunc(adminPeriodsPath, handler.handleAdminAccountingPeriods)
+	mux.HandleFunc(adminPartiesPath, handler.handleAdminParties)
+	mux.HandleFunc(adminAccessUsersPath, handler.handleAdminAccessUsers)
+	mux.HandleFunc(adminInventoryItemsPath, handler.handleAdminInventoryItems)
+	mux.HandleFunc(adminInventoryLocsPath, handler.handleAdminInventoryLocations)
+	mux.HandleFunc(adminPartiesPath+"/", handler.handleAdminPartyDetail)
+	mux.HandleFunc(adminLedgerAccountsPath+"/", handler.handleAdminLedgerAccountAction)
+	mux.HandleFunc(adminTaxCodesPath+"/", handler.handleAdminTaxCodeAction)
+	mux.HandleFunc(adminPeriodsPath+"/", handler.handleAdminAccountingPeriodAction)
+	mux.HandleFunc(adminAccessUsersPath+"/", handler.handleAdminAccessMembershipAction)
+	mux.HandleFunc(adminInventoryItemsPath+"/", handler.handleAdminInventoryItemAction)
+	mux.HandleFunc(adminInventoryLocsPath+"/", handler.handleAdminInventoryLocationAction)
+	mux.HandleFunc(approvalDecisionPrefix, handler.handleDecideApproval)
+	return mux
+}
+
+func loadWebFrontendMode() webFrontendMode {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("WORKFLOW_WEB_FRONTEND"))) {
+	case string(webFrontendSvelte):
+		return webFrontendSvelte
+	default:
+		return webFrontendTemplates
+	}
+}
+
+func registerWebRoutes(mux *http.ServeMux, handler *AgentAPIHandler) {
+	if mux == nil || handler == nil {
+		return
+	}
+
+	if handler.webFrontend == webFrontendSvelte {
+		mux.HandleFunc(webAppPath, handler.handleSvelteApp)
+		mux.HandleFunc(webAppPath+"/", handler.handleSvelteApp)
+		return
+	}
+
 	mux.HandleFunc(webAppPath, handler.handleWebAppDashboard)
 	mux.HandleFunc(webLoginPath, handler.handleWebLogin)
 	mux.HandleFunc(webLogoutPath, handler.handleWebLogout)
@@ -605,48 +680,6 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(webWorkOrdersPath+"/", handler.handleWebWorkOrderDetail)
 	mux.HandleFunc(webAuditPath, handler.handleWebAudit)
 	mux.HandleFunc(webAuditDetailPrefix, handler.handleWebAuditDetail)
-	mux.HandleFunc(sessionLoginPath, handler.handleSessionLogin)
-	mux.HandleFunc(sessionTokenPath, handler.handleSessionTokenLogin)
-	mux.HandleFunc(sessionCurrentPath, handler.handleCurrentSession)
-	mux.HandleFunc(sessionRefreshPath, handler.handleSessionRefresh)
-	mux.HandleFunc(sessionLogoutPath, handler.handleSessionLogout)
-	mux.HandleFunc(agentProcessNextQueuedPath, handler.handleProcessNextQueuedInboundRequest)
-	mux.HandleFunc(submitInboundRequestPath, handler.handleSubmitInboundRequest)
-	mux.HandleFunc(inboundRequestActionPrefix, handler.handleInboundRequestAction)
-	mux.HandleFunc(attachmentContentPrefix, handler.handleDownloadAttachment)
-	mux.HandleFunc(reviewInboundRequestsPath, handler.handleListInboundRequests)
-	mux.HandleFunc(reviewInboundRequestsPath+"/", handler.handleGetInboundRequestDetail)
-	mux.HandleFunc(reviewInboundSummaryPath, handler.handleListInboundRequestStatusSummary)
-	mux.HandleFunc(reviewProposalListPath, handler.handleListProcessedProposals)
-	mux.HandleFunc(reviewProposalActionPrefix, handler.handleProcessedProposalAction)
-	mux.HandleFunc(reviewProposalSummaryPath, handler.handleListProcessedProposalStatusSummary)
-	mux.HandleFunc(reviewApprovalQueuePath, handler.handleListApprovalQueue)
-	mux.HandleFunc(reviewDocumentsPath, handler.handleListDocuments)
-	mux.HandleFunc(reviewJournalEntriesPath, handler.handleListJournalEntries)
-	mux.HandleFunc(reviewControlBalancesPath, handler.handleListControlAccountBalances)
-	mux.HandleFunc(reviewTaxSummariesPath, handler.handleListTaxSummaries)
-	mux.HandleFunc(reviewInventoryStockPath, handler.handleListInventoryStock)
-	mux.HandleFunc(reviewInventoryMovesPath, handler.handleListInventoryMovements)
-	mux.HandleFunc(reviewInventoryReconPath, handler.handleListInventoryReconciliation)
-	mux.HandleFunc(reviewWorkOrdersPath, handler.handleListWorkOrders)
-	mux.HandleFunc(reviewWorkOrdersPath+"/", handler.handleGetWorkOrderReview)
-	mux.HandleFunc(reviewAuditEventsPath, handler.handleLookupAuditEvents)
-	mux.HandleFunc(adminLedgerAccountsPath, handler.handleAdminLedgerAccounts)
-	mux.HandleFunc(adminTaxCodesPath, handler.handleAdminTaxCodes)
-	mux.HandleFunc(adminPeriodsPath, handler.handleAdminAccountingPeriods)
-	mux.HandleFunc(adminPartiesPath, handler.handleAdminParties)
-	mux.HandleFunc(adminAccessUsersPath, handler.handleAdminAccessUsers)
-	mux.HandleFunc(adminInventoryItemsPath, handler.handleAdminInventoryItems)
-	mux.HandleFunc(adminInventoryLocsPath, handler.handleAdminInventoryLocations)
-	mux.HandleFunc(adminPartiesPath+"/", handler.handleAdminPartyDetail)
-	mux.HandleFunc(adminLedgerAccountsPath+"/", handler.handleAdminLedgerAccountAction)
-	mux.HandleFunc(adminTaxCodesPath+"/", handler.handleAdminTaxCodeAction)
-	mux.HandleFunc(adminPeriodsPath+"/", handler.handleAdminAccountingPeriodAction)
-	mux.HandleFunc(adminAccessUsersPath+"/", handler.handleAdminAccessMembershipAction)
-	mux.HandleFunc(adminInventoryItemsPath+"/", handler.handleAdminInventoryItemAction)
-	mux.HandleFunc(adminInventoryLocsPath+"/", handler.handleAdminInventoryLocationAction)
-	mux.HandleFunc(approvalDecisionPrefix, handler.handleDecideApproval)
-	return mux
 }
 
 func populateInboundRequestDetailLookup(input *reporting.GetInboundRequestDetailInput, lookup string) {

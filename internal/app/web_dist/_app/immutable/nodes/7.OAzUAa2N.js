@@ -1,0 +1,1 @@
+import"../chunks/8hsZ8H25.js";import"../chunks/zTKxJxkT.js";import{P as e}from"../chunks/DGVF-DZW.js";function r(t){e(t,{title:"Inventory setup placeholder",summary:"Later slices will connect item and location maintenance to the shared inventory admin endpoints without moving product truth into the browser."})}export{r as component};

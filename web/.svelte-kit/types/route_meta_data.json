@@ -1,0 +1,51 @@
+{
+	"/(app)": [
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts",
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/": [
+		"src/routes/+layout.ts"
+	],
+	"/(app)/admin": [
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/admin/access": [
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/admin/accounting": [
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/admin/inventory": [
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/admin/parties": [
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/inventory": [
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(public)/login": [
+		"src/routes/(public)/login/+page.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/operations": [
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/review": [
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/(app)/settings": [
+		"src/routes/(app)/+layout.ts",
+		"src/routes/+layout.ts"
+	]
+}
