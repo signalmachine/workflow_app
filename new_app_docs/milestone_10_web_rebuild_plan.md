@@ -1,8 +1,8 @@
 # workflow_app Milestone 10 Web Rebuild Plan
 
-Date: 2026-04-01
-Status: Implemented in code through Slice 1 through Slice 3 plus one grouped closeout corrective slice, with browser-review and workflow-continuity evidence still pending
-Purpose: define the first active v2 milestone: a full web-layer rebuild that replaces the current monolithic browser implementation with a modular, scalable server-rendered application layer while preserving the shared backend truth model and forcing implementation through a small number of large related slices.
+Date: 2026-04-03
+Status: Implemented historical milestone for the earlier Go-template browser rebuild; the approved forward browser direction is now the Svelte-based replacement documented in `../docs/svelte_web_guides/svelte_web_ui_migration_plan.md`
+Purpose: record the first active v2 milestone that rebuilt the original browser layer into a modular Go-template application on the shared backend, which now serves as prior implementation context and migration source material rather than the forward target stack.
 
 ## 1. Why this milestone exists
 
@@ -36,14 +36,14 @@ It is the correct next-planning shape if the team wants a materially stronger br
 This milestone should:
 
 1. replace the current monolithic template architecture
-2. establish a modular page and component structure for the server-rendered web layer
+2. establish a modular page and component structure for the then-active Go-template web layer
 3. simplify shell, navigation, hierarchy, and page rhythm across the browser surface
 4. preserve the shared `/app` plus `/api/...` seam and the existing workflow doctrine
 
 This milestone is not:
 
-1. a SPA rewrite
-2. a Node or frontend-build-pipeline promotion
+1. the current Svelte rewrite plan
+2. the current approved frontend-build-pipeline promotion
 3. a second business backend
 4. a workflow-model redesign
 5. a disguised foundation rewrite
@@ -54,7 +54,7 @@ Rebuild the completed thin-v1 web layer so it becomes a maintainable, scalable, 
 
 Milestone 10 should produce:
 
-1. a modular server-rendered web architecture
+1. a modular Go-template web architecture that could support later migration if the canonical direction changed
 2. a calmer and more structured operator shell
 3. a coherent page taxonomy for dashboard, intake, review, detail, and communication surfaces
 4. a reusable UI-composition model that lowers future implementation and regression risk
@@ -71,7 +71,7 @@ The correct target is:
 2. the same domain services and reporting read paths
 3. the same request -> AI -> recommendation -> approval -> document -> posting or execution continuity
 4. the same browser-session and shared auth foundation
-5. the same server-rendered stack, optionally with `htmx` or `Alpine.js` only where the canonical defaults already allow them
+5. the same shared Go backend and browser-session foundation, with the then-active server-rendered stack retained for that milestone's implementation
 
 The rebuild should change:
 

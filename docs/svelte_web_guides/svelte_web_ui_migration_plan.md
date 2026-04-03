@@ -4,9 +4,9 @@ Date: 2026-04-03
 Status: Implementation planning — approved for execution  
 Purpose: Define the complete architecture, component structure, API seam, and phased execution plan for replacing the Go `html/template` web layer with a modular Svelte SPA.
 
-**Design standards companion document:** [`docs/web_ui_design_guide.md`](web_ui_design_guide.md) — the durable canonical reference for navigation model, typography, whitespace, information hierarchy, and enterprise UI principles. All design decisions during implementation must align with that guide.
+**Design standards companion document:** [`docs/svelte_web_guides/web_ui_design_guide.md`](web_ui_design_guide.md) — the durable canonical reference for navigation model, typography, whitespace, information hierarchy, and enterprise UI principles. All design decisions during implementation must align with that guide.
 
-**Svelte 5 implementation guide:** [`docs/svelte_guide.md`](svelte_guide.md) — correct Svelte 5 runes syntax, common AI-tool mistakes to reject, application-specific patterns, router integration, stores, and component templates. Read this before writing any Svelte code.
+**Svelte 5 implementation guide:** [`docs/svelte_web_guides/svelte_guide.md`](svelte_guide.md) — correct Svelte 5 runes syntax, common AI-tool mistakes to reject, application-specific patterns, router integration, stores, and component templates. Read this before writing any Svelte code.
 
 ---
 
@@ -294,7 +294,7 @@ web/src/
 
 The design system — color tokens, typography scale, spacing, whitespace doctrine, navigation model, and enterprise UI principles — is defined in the canonical companion document:
 
-> **[`docs/web_ui_design_guide.md`](web_ui_design_guide.md)** — read this before building any component.
+> **[`docs/svelte_web_guides/web_ui_design_guide.md`](web_ui_design_guide.md)** — read this before building any component.
 
 Key decisions from that guide that directly affect Svelte implementation:
 
@@ -440,7 +440,7 @@ export async function listInboundRequests(params: {
 
 ### 7.1 `AppShell.svelte`
 
-The application shell uses a **left sidebar layout** as defined in `docs/web_ui_design_guide.md` §3. This is a fundamental departure from the current top nav-strip model.
+The application shell uses a **left sidebar layout** as defined in `docs/svelte_web_guides/web_ui_design_guide.md` §3. This is a fundamental departure from the current top nav-strip model.
 
 Structure:
 ```
@@ -827,7 +827,7 @@ None of these prevent deletion — they are either pure display logic portworthy
 
 Steps:
 1. Initialize `web/` Svelte + Vite + TypeScript project
-2. Implement `app.css` with full design token set from `docs/web_ui_design_guide.md` §5; import IBM Plex Sans
+2. Implement `app.css` with full design token set from `docs/svelte_web_guides/web_ui_design_guide.md` §5; import IBM Plex Sans
 3. Build `AppShell`, `TopBar`, `SideNav`, `SideNavItem`, `UserMenu` shell components (sidebar layout — no `NavBubbles`); build `PublicLayout`
 4. Build `FlashBanner` (toast stack, top-right), `LoadingSpinner`, `EmptyState` feedback components
 5. Implement `client.ts`, `session.ts`, `types.ts` in `lib/api/`
@@ -976,7 +976,7 @@ All questions from the initial draft have been resolved by validating against th
 
 ## 16. Design principles for the Svelte layer
 
-These principles govern all implementation decisions. For the full design rationale, visual standards, and anti-patterns, see [`docs/web_ui_design_guide.md`](web_ui_design_guide.md).
+These principles govern all implementation decisions. For the full design rationale, visual standards, and anti-patterns, see [`docs/svelte_web_guides/web_ui_design_guide.md`](web_ui_design_guide.md).
 
 1. **Left sidebar, not top-strip nav.** `AppShell` uses a fixed 220px sidebar. The TopBar contains only brand and user menu. No nav bubbles, no double header band.
 

@@ -196,20 +196,19 @@ Not intended as core thin-v1 behavior:
 4. a separate backend for web versus mobile clients
 5. thin v1 should still preserve one shared backend foundation that later mobile and web clients can both use, even where their capture and presentation layers differ
 
-Preferred thin-v1 web-implementation stance:
+Preferred web-implementation stance:
 
-1. keep Go-native server-rendered HTML as the baseline browser delivery model
-2. keep plain server-rendered browser behavior as the active baseline until a later bounded slice justifies selective progressive enhancement
-3. prefer progressive enhancement such as `htmx` only later and only where it materially improves operator continuity while preserving server ownership of rendering and workflow state
-4. use small client-state helpers such as `Alpine.js` only later and only where local interaction needs justify them
-5. avoid adopting Tailwind CSS by default; continue to prefer repo-owned templates plus repo-owned CSS unless the canonical planning set later promotes a concrete reason to change that authoring model
-6. avoid introducing a separate SPA architecture, Node dependency chain, or frontend-specific build pipeline in thin v1 unless the canonical planning set explicitly changes that decision
-7. when the promoted web layer proves a concrete need, backend corrections and narrow shared-backend enhancements should still be made, but they should stay in service of the same shared engine and must not become a pretext for unrelated backend feature expansion or a second web-specific backend
-8. the same principle applies when work is centered on other non-backend layers such as the AI-agent layer: backend bugs, missing support seams, and narrow capability gaps should still be corrected when they materially block the active slice, but they should remain tied to that slice rather than expanding backend scope opportunistically
-9. during Milestone 7 execution, prefer larger coherent browser-workflow slices over many tiny continuity patches, while still keeping each slice bounded to one related operator path rather than mixing unrelated areas into one delivery
-8. during Milestone 7, mobile-readiness work should stay limited to the client-neutral backend hygiene needed to keep the shared seam reusable later, and it should not displace the still-pending browser slices
-9. the broader client-neutral backend hardening needed for a later lightweight mobile client should follow as a post-Milestone-7 backend milestone rather than replacing the Milestone 7 browser finish work
-10. Milestone 8 should be planned and executed as an explicit bounded slice set with a review gate at the end, rather than as an open-ended hardening bucket
+1. keep one shared Go backend foundation for web and later mobile clients
+2. use the approved Svelte-based web replacement as the active browser direction rather than treating the older Go-template layer as the long-term baseline
+3. keep workflow truth, approval boundaries, durable state, and business rules on the shared backend seams rather than shifting them into client-only logic
+4. accept the required frontend build pipeline for the approved Svelte stack, but do not split the product into separate web-specific and mobile-specific backends or a separate browser-only runtime truth model
+5. avoid adopting Tailwind CSS by default; continue to prefer repo-owned styles and the active design standards unless the canonical planning set later promotes a concrete reason to change that authoring model
+6. when the promoted web layer proves a concrete need, backend corrections and narrow shared-backend enhancements should still be made, but they should stay in service of the same shared engine and must not become a pretext for unrelated backend feature expansion or a second web-specific backend
+7. the same principle applies when work is centered on other non-backend layers such as the AI-agent layer: backend bugs, missing support seams, and narrow capability gaps should still be corrected when they materially block the active slice, but they should remain tied to that slice rather than expanding backend scope opportunistically
+8. browser implementation work should still prefer coherent workflow-centered slices over scattered UI churn, while keeping each slice bounded to one related operator path rather than mixing unrelated areas into one delivery
+9. mobile-readiness work should stay limited to the client-neutral backend hygiene needed to keep the shared seam reusable later, and it should not displace the active browser migration
+10. the broader client-neutral backend hardening needed for a later lightweight mobile client should follow as a post-Milestone-7 backend milestone rather than replacing the Milestone 7 browser finish work
+11. Milestone 8 should be planned and executed as an explicit bounded slice set with a review gate at the end, rather than as an open-ended hardening bucket
 
 ## 8. Data and database principles
 

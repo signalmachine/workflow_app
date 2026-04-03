@@ -8,7 +8,7 @@ Scope: Applies to all web and mobile client surfaces built on the `workflow_app`
 
 ## 1. Purpose and scope
 
-This document defines the **durable design standards** for the `workflow_app` operator interface. It is not a migration guide or a component implementation plan — those live in `docs/svelte_web_ui_migration_plan.md`. This guide defines *how the UI should feel and be structured*, regardless of implementation technology.
+This document defines the **durable design standards** for the `workflow_app` operator interface. It is not a migration guide or a component implementation plan — those live in `docs/svelte_web_guides/svelte_web_ui_migration_plan.md`. This guide defines *how the UI should feel and be structured*, regardless of implementation technology.
 
 The standards here apply to:
 - The Svelte SPA being built now

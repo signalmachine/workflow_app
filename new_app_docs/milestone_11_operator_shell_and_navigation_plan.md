@@ -1,8 +1,8 @@
 # workflow_app Milestone 11 Operator Shell and Navigation Plan
 
-Date: 2026-04-01
-Status: Active v2 milestone with Slice 1 through Slice 3 implemented in code while Milestone 10 browser-review closeout remains pending on the separate workflow-validation track and the bounded ERP-style density-correction follow-up is now implemented in code
-Purpose: define the next browser-application planning layer after the Milestone 10 rebuild so the promoted web UI can move from a structurally sound modular shell to a calmer SAP-style operator shell with stronger navigation scaling, landing-page bundling, user-specific starting surfaces, and a later corrective move away from the current card-heavy presentation.
+Date: 2026-04-03
+Status: Implemented historical follow-on milestone for the earlier Go-template browser layer; its information-architecture lessons still matter, but the approved forward browser direction is now the Svelte-based replacement documented in `../docs/svelte_web_guides/svelte_web_ui_migration_plan.md`
+Purpose: record the follow-on browser-planning layer after the Milestone 10 rebuild so the promoted web UI could move from a structurally sound modular shell to a calmer SAP-style operator shell; this now serves as historical product-direction context for the Svelte migration rather than the active stack prescription.
 
 ## 1. Why this milestone exists
 
@@ -52,8 +52,8 @@ This milestone should build on the modular Milestone 10 browser foundation rathe
 
 It should preserve:
 
-1. the shared Go backend and server-rendered stack
-2. the rebuilt modular template bundle and shared primitives
+1. the shared Go backend and auth foundation
+2. the earlier rebuilt browser information architecture, shared primitives, and route continuity patterns that remain relevant during migration
 3. the same route continuity and shared backend truth
 4. the same workflow-first, review-first, approval-aware doctrine
 
@@ -188,9 +188,9 @@ In scope for this milestone:
 9. defining the preferred restrained blue-gray visual palette for shell backgrounds, lines, and landing-page treatment
 10. adding the minimum supporting preference model needed for pinned links, role-aware defaults, user-specific shortcuts, or later bubble-visibility preferences if the current shared foundation lacks it
 
-Out of scope:
+Out of scope for this historical milestone:
 
-1. introducing a SPA or Node-based navigation framework
+1. introducing a SPA or Node-based navigation framework during that milestone phase
 2. turning the search surface into a broad write-action launcher on day one
 3. exposing every route as permanent global chrome
 4. broad CRM-style workspace personalization unrelated to workflows

@@ -293,7 +293,7 @@ Scope:
 5. request, proposal, document, accounting, inventory, work-order, and audit review surfaces through the web layer
 6. enough page flow, navigation, and operator continuity that v1 is usable without direct service or database tooling
 7. shared backend contracts that a later v2 mobile client can also reuse
-8. a Go-native web implementation approach with server-rendered HTML as the baseline and lightweight progressive enhancement rather than a separate frontend build system
+8. a web implementation approach on the shared Go backend that preserves one auth and API foundation for browser and later mobile clients; the approved forward browser direction is now the Svelte-based replacement rather than further expansion of the older Go-template layer
 
 Exit criteria:
 
@@ -304,7 +304,7 @@ Exit criteria:
 
 Current implementation checkpoint:
 
-1. the first Milestone 7 browser slice now exists as a server-rendered `/app` surface on top of the shared backend seam
+1. the first Milestone 7 browser slice established `/app` as a real browser surface on top of the shared backend seam through the earlier server-rendered implementation, which now serves as migration source material for the approved Svelte replacement
 2. operators can now sign in with browser-session auth, submit inbound requests with file attachments, process the next queued request, review recent requests and pending approvals, open inbound-request detail, inspect attachments plus AI runs, artifacts, recommendations, and proposals, and decide approvals without dropping back to bespoke scripts
 3. the next Milestone 7 browser slice widened that same application surface into downstream document and accounting review: `/app/review/documents` exposes document review, and `/app/review/accounting` exposes journal-entry review, control-account balance review, and tax-summary review on the same browser session and reporting-read foundation
 4. the next Milestone 7 browser slice now also widens that same application surface into `/app/review/inventory`, `/app/review/work-orders`, `/app/review/work-orders/{work_order_id}`, and `/app/review/audit`, so operators can continue into stock, movement, reconciliation, work-order rollup, and audit inspection without leaving the browser layer
@@ -328,7 +328,7 @@ Current implementation checkpoint:
 22. this milestone is therefore complete, and the next active implementation target was Milestone 8 client-neutral backend hardening for later lightweight mobile reuse
 23. detailed sequencing, slice scope, and control rules are captured in `thin_v1_archive/web_application_layer_plan.md`
 24. residual browser work should now be treated as regression fixes or later UX refinement rather than as an active milestone plan
-25. the active web-stack direction remains explicit: keep Go server-rendered HTML as the primary rendering model and keep plain browser behavior as the current baseline; defer any selective `htmx` or `Alpine.js` adoption to a later bounded slice with a concrete operator-usability reason, avoid Tailwind CSS by default, and avoid introducing a Node toolchain unless the canonical planning set changes
+25. the active web-stack direction is now explicit: use the approved Svelte-based web replacement on the same shared Go backend and auth seam, treat the earlier Go-template browser layer as implemented interim architecture and migration source material, avoid Tailwind CSS by default, and keep deployment centered on one Go-served application surface rather than a separate browser-only backend
 
 ## 9. Milestone 8: Client-neutral backend hardening for later mobile reuse
 

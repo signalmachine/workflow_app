@@ -1,6 +1,6 @@
 # workflow_app Planning README
 
-Date: 2026-04-02
+Date: 2026-04-03
 Status: Canonical planning set for the completed thin-v1 foundation and the active ambitious v2 implementation phase
 Purpose: define the planning baseline that started the repository reset, records thin-v1 completion, and now governs the active ambitious v2 implementation phase.
 
@@ -42,6 +42,12 @@ V2 in this repository means:
 2. broaden capability deliberately and ambitiously where it strengthens real operator usefulness, maintainability, and production readiness
 3. continuously review the codebase for weak seams, underbuilt architecture, or outdated implementation choices and refactor or rebuild them when appropriate
 4. keep the completed thin-v1 foundation, shared truth model, and workflow doctrine intact rather than reopening foundational modeling under a different label
+
+The active browser-direction update is now explicit:
+
+1. the earlier Go-template browser rebuild established the shared `/app` plus `/api/...` seam and validated the workflow-centered browser model
+2. the approved forward web direction is now the Svelte-based replacement documented in `../docs/svelte_web_guides/svelte_web_ui_migration_plan.md`
+3. the shared Go backend, session model, API seam, and workflow doctrine remain the truth foundation for that migration
 
 ## Active posture
 
@@ -92,7 +98,8 @@ For the active v2 planning surface, read these in order:
 12. `web_ui_erp_style_density_correction_plan.md`
 13. `milestone_12_admin_maintenance_and_master_data_plan.md`
 14. `new_app_tracker.md`
-15. `../docs/workflows/README.md` for the durable workflow-reference and validation-track layer after the active planning read
+15. `../docs/svelte_web_guides/svelte_web_ui_migration_plan.md`
+16. `../docs/workflows/README.md` for the durable workflow-reference and validation-track layer after the active planning read
 
 Reference-only rule:
 

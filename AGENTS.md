@@ -54,6 +54,17 @@ For planning-only or Markdown-only sessions, do not force MCP usage when local d
 
 Prefer a local disposable PostgreSQL instance for `TEST_DATABASE_URL` during DB-backed verification. If the serialized suite appears hung, inspect and clean up stale advisory-lock holder sessions on the disposable test DB before treating the symptom as a product defect.
 
+## Svelte Session Rules
+
+When working on the planned Svelte-based web replacement:
+
+1. use the Svelte MCP server as the default documentation source for Svelte 5 and SvelteKit work
+2. start Svelte or SvelteKit research with `mcp__svelte__list_sections`
+3. analyze the returned section metadata, especially `use_cases`, then fetch all relevant sections with `mcp__svelte__get_documentation`
+4. when writing Svelte code, run `mcp__svelte__svelte_autofixer` before presenting the code and continue until it reports no issues or suggestions
+5. ask the user before generating a playground link, and use `mcp__svelte__playground_link` only after user confirmation
+6. do not generate a playground link when the code has been written directly into repository files
+
 ## Writing Style & Naming Conventions
 
 Write concise Markdown with clear headings and short paragraphs or numbered rules. Follow the existing lowercase snake-case filename pattern, for example `new_app_execution_plan.md` or `v2_scope_overview.md`. Use date-stamped filenames only when the date is materially part of the record. Keep terminology aligned with the planning set: documents, ledgers, execution context, approvals, reports, completed thin v1, and active v2.
@@ -86,7 +97,7 @@ The active implementation posture is now ambitious and best-practice-driven rath
 
 Everything meaningful in the system should tie to one or more workflows. Not every component is itself a workflow, but every meaningful feature, state transition, support seam, review surface, and operational control should support, constrain, observe, or expose a workflow. If a proposed capability cannot be tied clearly to one or more workflows, treat it as suspect until that relationship is made explicit in code, docs, or planning material.
 
-For the promoted web layer, prefer a Go-native server-rendered stack by default. Use Go `html/template` plus standard browser behavior as the active baseline, and introduce `htmx`, `Alpine.js`, or other supporting layers only when they materially improve operator usability, maintainability, or delivery speed without weakening server-owned truth. Avoid introducing Tailwind CSS, a separate Node toolchain, or an SPA frontend unless the canonical planning docs are explicitly updated to require that change.
+For the promoted web layer, the active direction is now a Svelte-based web application served on the same shared Go backend and auth model. Keep browser logic, workflow state, and business truth on the shared backend seams, use the approved Svelte toolchain rather than extending the old Go `html/template` layer as the forward path, and avoid Tailwind CSS by default unless the canonical planning docs are explicitly updated again.
 
 The promoted web layer and the later mobile client should continue to share one backend foundation and auth model rather than splitting into web-specific versus mobile-specific backends.
 

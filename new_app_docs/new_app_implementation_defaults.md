@@ -107,12 +107,12 @@ Purpose: record the active defaults that implementation should preserve unless t
 3. CLI tooling may exist for developer or support work, but it is not a first-class product interface
 4. the web layer should use backend contracts that a later mobile client can also reuse rather than diverging into a second backend model
 5. mobile-product depth, voice-capture UX, and richer multimodal client behavior remain valid active-v2 expansion areas when they are justified by product or operational value
-6. the preferred web stack remains Go server-rendered HTML on the shared Go backend without a separate Node build pipeline unless the canonical plans explicitly change that choice
-7. keep standard HTML forms and normal server-rendered navigation as the active baseline, but add selective progressive enhancement when it materially improves operator continuity, usability, or implementation quality
-8. `htmx` remains the preferred progressive-enhancement layer where partial-page updates materially improve operator continuity while preserving server-rendered ownership
-9. `Alpine.js` remains acceptable as an additive layer for small local UI-state needs such as disclosure, tabs, or lightweight interaction polish where it is the cleanest pragmatic choice
-10. do not adopt Tailwind CSS by default; the current browser layer should continue to use repo-owned templates plus repo-owned CSS unless the canonical planning set later promotes a concrete reason to change that authoring model
-11. do not introduce a separate SPA frontend, Node dependency tree, or frontend-specific build chain unless the canonical planning set is explicitly updated to justify that cost
+6. the approved web stack is now a Svelte-based web application on the shared Go backend, with Go continuing to own the same `/api/...` seam, session model, and deployable application boundary
+7. use the approved Svelte web-replacement plan in `../docs/svelte_web_guides/svelte_web_ui_migration_plan.md` as the forward browser-architecture reference rather than extending the old Go-template stack as the default long-term path
+8. a Node-based frontend build chain is now an accepted implementation dependency for the web layer because it is required for the approved Svelte toolchain, but deployment should continue to preserve one Go-served application surface rather than a separate long-running browser-only backend
+9. do not adopt Tailwind CSS by default; prefer repo-owned application styles and the design standards documented for the Svelte web migration unless the canonical planning set later promotes a concrete reason to change that authoring model
+10. keep browser behavior aligned with the same workflow-first, approval-aware, shared-backend truth model rather than moving business rules or durable workflow state into client-only code
+11. the earlier server-rendered browser layer remains useful reference and migration source material, but it is no longer the default target architecture for active web work
 12. `internal/app` should remain transport and orchestration only: route selection, auth extraction, request validation, response mapping, HTML rendering, and browser or API adaptation belong there, while durable business rules, write-path invariants, and cross-module ownership decisions belong in domain services and reporting reads
 13. if a browser or API change requires new business branching, prefer pushing that branching into a shared service contract or reporting read model rather than adding transport-specific business logic inside handlers or template-driven code paths
 14. the global shell should move to a top-bar model rather than a heavy persistent side rail for the promoted browser surface
