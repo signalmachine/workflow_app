@@ -48,8 +48,12 @@ func TestRegisterWebRoutesSvelteModeServesSPAFallback(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
 	}
-	if !strings.Contains(recorder.Body.String(), "workflow_app SPA fallback placeholder") {
-		t.Fatalf("expected SPA fallback placeholder body, got %s", recorder.Body.String())
+	body := recorder.Body.String()
+	if !strings.Contains(body, `data-sveltekit-preload-data="hover"`) {
+		t.Fatalf("expected svelte app shell body, got %s", body)
+	}
+	if !strings.Contains(body, `/app/_app/immutable/entry/start.`) {
+		t.Fatalf("expected app-base entry preload, got %s", body)
 	}
 }
 
@@ -63,8 +67,12 @@ func TestHandleSvelteAppServesIndexAtAppRoot(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
 	}
-	if !strings.Contains(recorder.Body.String(), "workflow_app web bundle placeholder") {
-		t.Fatalf("expected bundle placeholder body, got %s", recorder.Body.String())
+	body := recorder.Body.String()
+	if !strings.Contains(body, `data-sveltekit-preload-data="hover"`) {
+		t.Fatalf("expected svelte app shell body, got %s", body)
+	}
+	if !strings.Contains(body, `import("./_app/immutable/entry/start.`) {
+		t.Fatalf("expected relative app-root entry import, got %s", body)
 	}
 }
 

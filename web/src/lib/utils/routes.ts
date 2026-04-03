@@ -10,8 +10,20 @@ function withBase(path: string): string {
 export const routes = {
 	login: withBase('/login'),
 	home: withBase('/'),
+	routeCatalog: withBase('/routes'),
+	submitInboundRequest: withBase('/submit-inbound-request'),
 	operations: withBase('/operations'),
+	operationsFeed: withBase('/operations-feed'),
+	agentChat: withBase('/agent-chat'),
 	review: withBase('/review'),
+	reviewInboundRequests: withBase('/review/inbound-requests'),
+	reviewProposals: withBase('/review/proposals'),
+	reviewApprovals: withBase('/review/approvals'),
+	reviewDocuments: withBase('/review/documents'),
+	reviewAccounting: withBase('/review/accounting'),
+	reviewInventory: withBase('/review/inventory'),
+	reviewWorkOrders: withBase('/review/work-orders'),
+	reviewAudit: withBase('/review/audit'),
 	inventory: withBase('/inventory'),
 	settings: withBase('/settings'),
 	admin: withBase('/admin'),
@@ -20,3 +32,19 @@ export const routes = {
 	adminAccess: withBase('/admin/access'),
 	adminInventory: withBase('/admin/inventory')
 };
+
+export function withQuery(path: string, query: Record<string, string | number | undefined>): string {
+	const params = new URLSearchParams();
+	for (const [key, value] of Object.entries(query)) {
+		if (value === undefined) {
+			continue;
+		}
+		const text = String(value).trim();
+		if (text === '') {
+			continue;
+		}
+		params.set(key, text);
+	}
+	const suffix = params.size > 0 ? `?${params.toString()}` : '';
+	return `${path}${suffix}`;
+}

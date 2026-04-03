@@ -91,6 +91,35 @@ button {
 	cursor: pointer;
 }
 
+input,
+textarea,
+select {
+	background: var(--surface-strong);
+	border: 1px solid var(--line);
+	border-radius: 12px;
+	color: var(--ink);
+	padding: 0.7rem 0.85rem;
+}
+
+textarea {
+	min-height: 8rem;
+	resize: vertical;
+}
+
+button {
+	background: var(--accent-strong);
+	border: 0;
+	border-radius: 999px;
+	color: white;
+	padding: 0.7rem 1rem;
+}
+
+button.secondary {
+	background: var(--surface-strong);
+	border: 1px solid var(--line);
+	color: var(--ink);
+}
+
 .eyebrow {
 	color: var(--ink-faint);
 	font-size: var(--text-2xs);
@@ -101,4 +130,71 @@ button {
 
 .mono {
 	font-family: var(--font-mono);
+}
+
+.page-stack {
+	display: grid;
+	gap: 1rem;
+}
+
+.metric-grid {
+	display: grid;
+	gap: 1rem;
+	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.card-grid {
+	display: grid;
+	gap: 1rem;
+	grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.surface-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: var(--text-sm);
+}
+
+.surface-table th,
+.surface-table td {
+	border-top: 1px solid var(--line);
+	padding: 0.75rem 0.4rem;
+	text-align: left;
+	vertical-align: top;
+}
+
+.surface-table th {
+	color: var(--ink-faint);
+	font-size: var(--text-2xs);
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.table-wrap {
+	overflow-x: auto;
+}
+
+.table-wrap .surface-table {
+	min-width: 760px;
+}
+
+.filter-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+}
+
+.filter-row > * {
+	flex: 1 1 180px;
+}
+
+.filter-actions {
+	align-items: center;
+	display: flex;
+	gap: 0.75rem;
+}
+
+.muted-copy {
+	color: var(--ink-soft);
 }

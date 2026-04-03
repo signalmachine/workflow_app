@@ -1,7 +1,7 @@
 # workflow_app Milestone 13 Slice 2 Plan
 
 Date: 2026-04-03
-Status: Planned
+Status: Implemented in code on 2026-04-03
 Purpose: define the second Milestone 13 implementation slice so the high-value workflow surfaces migrate together on top of the Svelte foundation instead of as disconnected page-by-page rewrites.
 
 ## 1. Slice role
@@ -76,3 +76,15 @@ Before closing this slice:
 1. run frontend verification for the migrated routes
 2. run bounded live workflow checks for login, home, intake, operations feed, agent chat, and core review-list continuity
 3. run canonical Go verification for any new API endpoints or backend changes
+
+## 7. Implementation result
+
+This slice is now implemented in code.
+
+Landed result:
+
+1. the Svelte route family under `web/src/routes/(app)` now covers the role-aware home, inbound request intake, operations landing, operations feed, coordinator chat, route catalog, review landing, and the promoted review-list surfaces for inbound requests, proposals, approvals, documents, accounting, inventory, work orders, and audit
+2. additive shared-backend navigation snapshot endpoints now exist under `/api/navigation/...` so home, operations, review, agent-chat, and route-catalog composition stay server-shaped instead of being rebuilt as client-only browser logic
+3. intake and queue-movement actions now run through the Svelte surfaces against the shared `/api/inbound-requests` and `/api/agent/process-next-queued-inbound-request` seams, while review-list filtering and continuity links stay aligned with SvelteKit navigation and query-state handling
+4. `npm --prefix web run check`, `npm --prefix web run test`, `npm --prefix web run build`, `go build ./cmd/... ./internal/...`, `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...`, `gopls` diagnostics on the edited Go files, and targeted `internal/app` SPA-serving test reruns all completed cleanly for this slice
+5. the next promoted browser implementation step is now Milestone 13 Slice 3 detail-route, admin-parity, and cutover work rather than additional Slice 2 route-family expansion

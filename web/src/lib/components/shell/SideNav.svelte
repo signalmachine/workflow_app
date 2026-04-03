@@ -23,6 +23,7 @@
 	];
 
 	const utilityItems: NavItem[] = [
+		{ label: 'Routes', href: routes.routeCatalog, match: (pathname) => pathname.startsWith(routes.routeCatalog) },
 		{ label: 'Settings', href: routes.settings, match: (pathname) => pathname.startsWith(routes.settings) },
 		{ label: 'Admin', href: routes.admin, match: (pathname) => pathname.startsWith(routes.admin) }
 	];
@@ -41,6 +42,11 @@
 					{item.label}
 				</a>
 			{/each}
+			<div class="nav-subgroup">
+				<a href={routes.submitInboundRequest}>Submit request</a>
+				<a href={routes.operationsFeed}>Operations feed</a>
+				<a href={routes.agentChat}>Agent chat</a>
+			</div>
 		</div>
 		<div class="nav-divider"></div>
 		<div class="nav-group">

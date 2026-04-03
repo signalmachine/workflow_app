@@ -1,0 +1,1 @@
+async function i(a){return new Promise((t,o)=>{const e=new FileReader;e.onerror=()=>o(e.error??new Error("Failed to read file")),e.onload=()=>{const r=e.result;if(typeof r!="string"){o(new Error("Failed to read file"));return}const n=r.indexOf(",");t(n>=0?r.slice(n+1):r)},e.readAsDataURL(a)})}export{i as f};
