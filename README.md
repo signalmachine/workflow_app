@@ -22,7 +22,7 @@ The active web direction for the v2 phase is:
 
 1. Go `net/http` on the shared application backend
 2. a Svelte-based web client served on the same backend and auth origin as `/api/...`
-3. one shared workflow, approval, and reporting truth model across web and later mobile clients
+3. Go remains the owner of business logic, workflow rules, approvals, reporting composition, and durable state while Svelte acts as the display and interaction layer
 4. a frontend build pipeline that supports the approved Svelte migration while keeping deployment centered on the Go application boundary
 5. repo-owned application styles rather than Tailwind CSS by default
 

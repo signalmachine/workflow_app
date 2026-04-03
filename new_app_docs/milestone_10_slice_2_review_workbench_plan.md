@@ -1,8 +1,8 @@
 # workflow_app Milestone 10 Slice 2 Plan
 
-Date: 2026-04-01
-Status: Implemented in code with browser-review closeout still pending on the workflow-validation track
-Purpose: define the second large Milestone 10 implementation slice so the review list and summary pages are rebuilt together as one operator workbench family rather than as scattered per-page redesign tasks.
+Date: 2026-04-03
+Status: Implemented historical slice for the earlier Go-template browser rebuild; superseded as forward stack guidance by `../docs/svelte_web_guides/svelte_web_ui_migration_plan.md`
+Purpose: record the second large Milestone 10 implementation slice from the earlier Go-template browser rebuild so the review-workbench product scope remains available as migration context without serving as the active stack plan.
 
 ## 1. Slice role
 

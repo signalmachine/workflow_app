@@ -1,6 +1,6 @@
 # workflow_app Execution Plan
 
-Date: 2026-04-02
+Date: 2026-04-03
 Status: Canonical execution plan updated through the active ambitious v2 implementation posture
 Purpose: define the execution path from the completed thin-v1 foundation through the active v2 implementation phase for the `workflow_app` codebase.
 
@@ -507,7 +507,7 @@ Current planning checkpoint:
 7. Slice 3 is now implemented in code through a searchable route catalog at `/app/routes`, explicit utility surfaces at `/app/settings` plus access-scoped `/app/admin`, and a role-aware `/app` home that recommends first workflow routes from current workload instead of behaving as a permanently generic dashboard
 8. focused `go test ./internal/app -run '^TestHandleWeb' -count=1`, `go build ./cmd/... ./internal/...`, `gopls` diagnostics, and the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` verification all passed after the Slice 3 implementation
 9. the bounded follow-up in `web_ui_erp_style_density_correction_plan.md` is now also implemented in code, so the promoted browser layer now uses thinner blue-gray shell chrome, simpler login, route-directory landing pages, and single-column workflow-page defaults instead of the earlier card-heavy posture
-10. active v2 implementation should now treat browser work as validation-led: complete the separate Milestone 10 closeout sweep first, and only promote one new bounded fix plan if that evidence exposes a real defect or support seam
+10. active v2 implementation should now treat the separate Milestone 10 closeout sweep as validation input and parity evidence for the Milestone 13 Svelte migration rather than as a reason to keep extending the old browser stack
 11. active v2 implementation should continue taking bounded refactoring opportunities where they materially improve modularity, streamline ownership boundaries, or reduce maintenance risk without drifting into unrelated rewrite work
 
 ## 16. Milestone 12: Admin maintenance and foundational master-data surfaces
@@ -545,7 +545,39 @@ Current planning checkpoint:
 9. the canonical plan for this milestone remains `milestone_12_admin_maintenance_and_master_data_plan.md`
 10. the next queued implementation work inside this milestone is later policy or operational controls only if workflow evidence or operator continuity justifies them
 
-## 17. Execution warning
+## 17. Milestone 13: Svelte browser migration on the shared Go backend
+
+Goal:
+
+1. replace the earlier Go-template browser layer with a Svelte-based web application while preserving one shared Go backend, one auth model, and one workflow truth foundation
+
+Scope:
+
+1. SvelteKit frontend foundation in `web/`
+2. shared shell, auth bootstrap, and design-token foundation
+3. migration of the promoted route family from the current `/app` implementation
+4. additive shared `/api/...` endpoints where Svelte routes need explicit backend seams
+5. Go static serving and cutover from the old browser layer to the built Svelte frontend
+
+Exit criteria:
+
+1. the promoted `/app` route family is available on the Svelte frontend with bounded parity
+2. the Svelte frontend uses the same backend auth and API seams rather than creating a second backend
+3. Go serves the built Svelte frontend under `/app`
+4. the old Go-template browser path is retired from active serving after cutover
+5. workflow validation on the real `/app` plus `/api/...` seam is updated to reflect the new frontend
+
+Current planning checkpoint:
+
+1. the canonical milestone plan is now `milestone_13_svelte_web_migration_plan.md`
+2. the canonical slice plans are now:
+3. `milestone_13_slice_1_svelte_foundation_and_shell_plan.md`
+4. `milestone_13_slice_2_svelte_workflow_surfaces_plan.md`
+5. `milestone_13_slice_3_svelte_detail_admin_and_cutover_plan.md`
+6. the implementation-planning correction from the source guides is explicit: use SvelteKit SPA mode on the shared Go backend rather than a plain hash-router SPA architecture
+7. the existing Go-template `/app` layer should now be treated as migration source material and validation reference rather than the forward browser implementation stack
+
+## 18. Execution warning
 
 Do not add CRM breadth, advanced projects, portal work, payroll, broad UI work, or advanced agent-autonomy features during milestones 0 through 5.
 
@@ -558,7 +590,7 @@ Do not treat Milestone 8 as permission to build the mobile product itself, fork 
 
 Do not treat v2 as permission to abandon the completed foundation discipline, duplicate truth ownership, or reintroduce CRM-first product gravity under a broader roadmap label.
 
-## 18. Quality and sophistication rule
+## 19. Quality and sophistication rule
 
 `workflow_app` is allowed to be thin in breadth, but it is not allowed to be weak in foundation design.
 

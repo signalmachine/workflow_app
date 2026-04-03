@@ -1,8 +1,8 @@
 # workflow_app Milestone 10 Closeout Render-Baseline Correction Plan
 
-Date: 2026-04-01
-Status: Implemented in code, the retired inline browser payload is now removed from `internal/app/web.go`, and verification is complete
-Purpose: record the grouped corrective slice promoted out of Milestone 10 closeout review so the retired monolithic web template can no longer remain an active fallback path behind the rebuilt modular browser bundle.
+Date: 2026-04-03
+Status: Implemented historical corrective slice for the earlier Go-template browser rebuild; superseded as forward stack guidance by `../docs/svelte_web_guides/svelte_web_ui_migration_plan.md`
+Purpose: record the grouped corrective slice promoted out of Milestone 10 closeout review so the retired monolithic Go-template fallback path and its closeout decisions remain available as migration history without serving as the active stack plan.
 
 ## 1. Why this corrective slice exists
 

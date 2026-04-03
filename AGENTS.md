@@ -97,7 +97,7 @@ The active implementation posture is now ambitious and best-practice-driven rath
 
 Everything meaningful in the system should tie to one or more workflows. Not every component is itself a workflow, but every meaningful feature, state transition, support seam, review surface, and operational control should support, constrain, observe, or expose a workflow. If a proposed capability cannot be tied clearly to one or more workflows, treat it as suspect until that relationship is made explicit in code, docs, or planning material.
 
-For the promoted web layer, the active direction is now a Svelte-based web application served on the same shared Go backend and auth model. Keep browser logic, workflow state, and business truth on the shared backend seams, use the approved Svelte toolchain rather than extending the old Go `html/template` layer as the forward path, and avoid Tailwind CSS by default unless the canonical planning docs are explicitly updated again.
+For the promoted web layer, the active direction is now a Svelte-based web application served on the same shared Go backend and auth model. Treat Svelte as the display and interaction layer, keep business logic, workflow state, and business truth on the shared Go backend seams, use the approved Svelte toolchain rather than extending the old Go `html/template` layer as the forward path, and avoid Tailwind CSS by default unless the canonical planning docs are explicitly updated again.
 
 The promoted web layer and the later mobile client should continue to share one backend foundation and auth model rather than splitting into web-specific versus mobile-specific backends.
 

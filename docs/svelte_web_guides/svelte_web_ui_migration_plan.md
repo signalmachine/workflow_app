@@ -68,14 +68,15 @@ The Go backend is **unchanged**:
 
 ## 2. Architectural decisions
 
-### 2.1 SPA with Go serving static files
+### 2.1 SvelteKit SPA mode with Go serving static files
 
-**Decision: Svelte SPA (client-rendered) built to static files, served by Go via `go:embed`.**
+**Decision: SvelteKit app in SPA mode, built to static files and served by Go via `go:embed`.**
 
 Rationale:
 - This application is an internal authenticated operator tool — not a public page with SEO or TTFB requirements.
 - SvelteKit SSR would require a permanent Node server process alongside Go. Two deployment artifacts, two processes, complex CORS/proxy rules in development.
-- The static output model (Vite build → `dist/`) is simple to embed and deploy. Go serves `GET /app*` from the embedded `dist/` directory. Routing is delegated to Svelte's router inside the SPA.
+- SvelteKit SPA mode keeps filesystem routing, layouts, and navigation primitives without requiring a production Node server.
+- The static output model (SvelteKit build → static output with SPA fallback) is simple to embed and deploy. Go serves `GET /app*` from the embedded frontend directory and falls back to the SPA entry page for non-asset routes.
 - No Node runtime at deploy time. Node only needed for `npm run build` during the build step.
 
 ### 2.2 Auth: same-origin cookies
@@ -93,13 +94,13 @@ How it works:
 
 | Tool | Role |
 |---|---|
-| [Vite](https://vite.dev/) | Build tool, dev server |
+| [SvelteKit](https://svelte.dev/docs/kit/introduction) | App framework, filesystem routing, layouts, navigation, build integration |
 | [Svelte 5](https://svelte.dev/) | UI framework (runes-based reactivity) |
-| [`@svelte-spa-router`](https://github.com/ItalyPaleAle/svelte-spa-router) | Hash-based client-side router |
+| [adapter-static](https://svelte.dev/docs/kit/adapter-static) | Static build output with SPA fallback |
 | TypeScript | Type safety on API contracts |
 | Native CSS (scoped per-component) | Styling — no Tailwind, no CSS-in-JS |
 
-> **Router decision: use `@svelte-spa-router` (hash-based routing).** With hash routing, `GET /app` always serves `index.html` and Svelte handles `#/dashboard`, `#/review/inbound-requests`, etc. internally — no Go catch-all configuration needed. `svelte-routing` is an HTML5 history-based library that would require Go to serve `index.html` for every `GET /app/*` path that isn't a static asset; avoid it for this deployment model.
+> **Router decision: use SvelteKit filesystem routing in SPA mode.** Go should serve the built frontend entry page for `GET /app` and non-asset `GET /app/*` paths, while SvelteKit handles client-side navigation for `/app`, `/app/review/inbound-requests`, and the rest of the promoted route family. Do not use `@svelte-spa-router` or hash-based `#/...` URLs for this implementation.
 
 ### 2.4 Type contract: Go → TypeScript
 
@@ -116,27 +117,26 @@ workflow_app/
 ├── cmd/
 │   └── app/                # Go binary — unchanged
 ├── internal/               # All Go backend — unchanged
-├── web/                    # NEW: Svelte project root
+├── web/                    # NEW: SvelteKit project root
 │   ├── src/
 │   │   ├── lib/            # Shared library code
 │   │   │   ├── api/        # API client and type definitions
 │   │   │   ├── components/ # Shared UI components
-│   │   │   ├── stores/     # Svelte stores (session, flash, etc.)
+│   │   │   ├── stores/     # Shared cross-cutting stores
 │   │   │   └── utils/      # Formatting, date helpers
-│   │   ├── routes/         # Route-level page components
-│   │   │   ├── auth/
-│   │   │   ├── dashboard/
-│   │   │   ├── intake/
-│   │   │   ├── operations/
+│   │   ├── routes/         # SvelteKit filesystem routes
+│   │   │   ├── +layout.svelte
+│   │   │   ├── login/
 │   │   │   ├── review/
+│   │   │   ├── operations/
 │   │   │   ├── inventory/
 │   │   │   ├── admin/
 │   │   │   └── settings/
-│   │   ├── layouts/        # Shared layout components
-│   │   ├── App.svelte      # Root app with router
-│   │   └── main.ts         # Entry point
-│   ├── dist/               # Built output — git-ignored; go:embed target
+│   │   ├── app.html
+│   │   └── app.css
+│   ├── build/              # Built output — git-ignored; Go embed target after copy step
 │   ├── package.json
+│   ├── svelte.config.js
 │   ├── tsconfig.json
 │   └── vite.config.ts
 ├── go.mod
@@ -146,9 +146,9 @@ workflow_app/
 
 ### 3.1 Go embedding (additions to existing Go code)
 
-A new file `internal/app/web_static.go` handles Svelte SPA serving. It strips the `/app` URL prefix before passing requests to the file server, and falls back to `index.html` for any non-asset path (hash-based SPA routing). The full implementation is in §10.2.
+A new file `internal/app/web_static.go` handles Svelte frontend serving. It strips the `/app` URL prefix before passing requests to the file server, and falls back to the built SPA entry page for any non-asset path. The full implementation is in §10.2.
 
-The `web/dist/` output is copied to `internal/app/web_dist/` during the build step. The Makefile controls this.
+The frontend build output is copied to `internal/app/web_dist/` during the build step. The Makefile controls this.
 
 ### 3.2 Makefile build order
 
@@ -158,7 +158,7 @@ The `web/dist/` output is copied to `internal/app/web_dist/` during the build st
 build-web:
     cd web && npm ci && npm run build
     rm -rf internal/app/web_dist
-    cp -r web/dist internal/app/web_dist
+    cp -r web/build internal/app/web_dist
 
 build-go:
     go build ./cmd/...
@@ -339,7 +339,7 @@ The migration must fix these specific behavioral and visual problems in the curr
 // On 401: clear session store, redirect to login.
 // On 5xx: surface error to flash store.
 import { session } from '$lib/stores/session';
-import { push } from 'svelte-spa-router';
+import { goto } from '$app/navigation';
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -364,9 +364,9 @@ export async function apiFetch<T>(
   });
 
   if (res.status === 401) {
-    // Clear session store and redirect to login via @svelte-spa-router
+    // Clear session store and redirect to login via SvelteKit navigation
     session.set(null);        // writable store — use .set(null), not .clear()
-    push('/login');           // push() from @svelte-spa-router — not SvelteKit's goto()
+    goto('/login');           // SvelteKit navigation
     throw new Error('Unauthorized');
   }
 
@@ -664,7 +664,7 @@ On app mount, `App.svelte` calls `GET /api/session`:
 2. `POST /api/session/login` with JSON body `{org_slug, email, password, device_label}`.
 3. Go sets `HttpOnly` cookies and **returns the `SessionContext` directly in the 201 response body**. No second GET to `/api/session` is required on login.
 4. `session` store populated from the login response body.
-5. Router navigates to `#/dashboard` via `push('/dashboard')`.
+5. Router navigates to `/` or `/dashboard` via `goto('/dashboard')`.
 
 Note: `GET /api/session` is still used on **app startup** (§9.1) to restore an existing session from cookies. It is not an extra step after login.
 
@@ -673,7 +673,7 @@ Note: `GET /api/session` is still used on **app startup** (§9.1) to restore an 
 User clicks Sign out:
 1. `POST /api/session/logout` (Go clears cookies)
 2. `session` store cleared via `session.set(null)`
-3. Router navigates to login via `push('/login')` (hash-based — same SPA context)
+3. Router navigates to login via `goto('/login')`
 
 ### 9.4 401 handling
 
@@ -764,7 +764,7 @@ import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 
 export default defineConfig({
-  plugins: [svelte()],
+  plugins: [sveltekit()],
   server: {
     proxy: {
       '/api': {
@@ -772,9 +772,6 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
-  },
-  build: {
-    outDir: 'dist',
   },
 });
 ```
@@ -826,7 +823,7 @@ None of these prevent deletion — they are either pure display logic portworthy
 **Goal**: Running Svelte project with login, session management, and dashboard.
 
 Steps:
-1. Initialize `web/` Svelte + Vite + TypeScript project
+1. Initialize `web/` SvelteKit + TypeScript project
 2. Implement `app.css` with full design token set from `docs/svelte_web_guides/web_ui_design_guide.md` §5; import IBM Plex Sans
 3. Build `AppShell`, `TopBar`, `SideNav`, `SideNavItem`, `UserMenu` shell components (sidebar layout — no `NavBubbles`); build `PublicLayout`
 4. Build `FlashBanner` (toast stack, top-right), `LoadingSpinner`, `EmptyState` feedback components
@@ -958,7 +955,7 @@ These documents must be updated **after** the migration is complete (not before 
 
 All questions from the initial draft have been resolved by validating against the codebase:
 
-1. **Router choice**: **Decided — `@svelte-spa-router` (hash-based).** This eliminates any Go catch-all configuration. `svelte-routing` was removed from the toolchain table as it is HTML5-history-based and incompatible with this deployment shape.
+1. **Router choice**: **Decided — SvelteKit filesystem routing in SPA mode.** This keeps layouts, typed navigation, and route structure while still allowing Go to serve one built frontend artifact under `/app` without a production Node server.
 
 2. **Svelte version**: **Decided — Svelte 5.** Current stable release; use runes-based reactivity throughout.
 

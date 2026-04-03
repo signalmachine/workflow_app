@@ -1,8 +1,8 @@
 # workflow_app Web UI ERP-Style Density Correction Plan
 
-Date: 2026-04-01
-Status: Implemented bounded corrective slice
-Purpose: define one focused corrective slice that moves the promoted browser layer away from the current card-heavy, editorial-feeling presentation and toward a denser ERP-style operator application shell without reopening backend truth or route continuity.
+Date: 2026-04-03
+Status: Implemented historical corrective slice for the earlier Go-template browser layer; superseded as forward stack guidance by `../docs/svelte_web_guides/svelte_web_ui_migration_plan.md`
+Purpose: record one focused corrective slice from the earlier browser layer so the visual and density lessons remain available to the Svelte migration without leaving this document positioned as the active implementation plan.
 
 ## 1. Why this slice exists
 

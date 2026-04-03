@@ -2,7 +2,7 @@
 
 Date: 2026-04-02
 Status: Active milestone with Slice 1 through Slice 6 implemented in code and only later follow-on controls still queued
-Purpose: define the first real privileged maintenance surface for browser operators so `Admin` stops being a placeholder route directory and becomes the controlled entry point for manual master-data and configuration work on the shared backend.
+Purpose: define the first real privileged maintenance surface for operators so `Admin` stops being a placeholder route directory and becomes the controlled entry point for manual master-data and configuration work on the shared backend; any remaining browser implementation in this area should now follow the approved Svelte migration surface on the same backend.
 
 ## 1. Why this milestone exists
 
@@ -57,13 +57,13 @@ Out of scope:
 2. broad customer-profile enrichment unrelated to document, accounting, inventory, or execution correctness
 3. turning review pages into generic spreadsheet-style maintenance consoles
 4. bypassing the shared party model by creating duplicate customer truth in a browser-only layer
-5. introducing a second frontend architecture or separate frontend toolchain
+5. using this milestone as the place to make frontend-architecture decisions or to create a browser-only maintenance stack separate from the approved shared-backend Svelte migration path
 
 ## 4. Product and architecture rules
 
 1. user-scoped preferences stay in `Settings`
 2. org-scoped maintenance belongs in `Admin`
-3. admin-maintenance routes should use standard server-rendered forms and shared `internal/app` transport seams
+3. admin-maintenance routes should use the active browser implementation surface on top of shared backend seams rather than transport-local business logic
 4. business validation, authorization, and write ownership stay in domain services
 5. customer maintenance should reuse the existing `parties` model rather than promoting a separate CRM module
 6. accounting master-data maintenance should reuse the existing `accounting` service contracts rather than introducing transport-local write logic

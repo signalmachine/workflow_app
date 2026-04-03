@@ -1,8 +1,8 @@
 # workflow_app Milestone 10 Slice 3 Plan
 
-Date: 2026-04-01
-Status: Implemented in code with browser-review and workflow-continuity closeout still pending
-Purpose: define the third large Milestone 10 implementation slice so the detail surfaces, parity closeout, and retirement of the legacy web structure are finished together instead of being left as an indefinite cleanup tail.
+Date: 2026-04-03
+Status: Implemented historical slice for the earlier Go-template browser rebuild; superseded as forward stack guidance by `../docs/svelte_web_guides/svelte_web_ui_migration_plan.md`
+Purpose: record the third large Milestone 10 implementation slice from the earlier Go-template browser rebuild so detail-surface scope, parity-closeout intent, and continuity expectations remain available as migration context without serving as the active stack plan.
 
 ## 1. Slice role
 

@@ -1,8 +1,8 @@
 # workflow_app Milestone 10 Slice 1 Plan
 
-Date: 2026-04-01
-Status: Implemented in code with browser-review closeout still pending on the workflow-validation track
-Purpose: define the first large Milestone 10 implementation slice so the web rebuild starts with structural foundation work plus the shell and operator-entry surfaces, not with scattered page-by-page redesign.
+Date: 2026-04-03
+Status: Implemented historical slice for the earlier Go-template browser rebuild; superseded as forward stack guidance by `../docs/svelte_web_guides/svelte_web_ui_migration_plan.md`
+Purpose: record the first large Milestone 10 implementation slice from the earlier Go-template browser rebuild so the structural foundation work, shell decisions, and operator-entry product intent remain available as migration context without serving as the active stack plan.
 
 ## 1. Slice role
 

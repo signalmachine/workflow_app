@@ -47,7 +47,8 @@ The active browser-direction update is now explicit:
 
 1. the earlier Go-template browser rebuild established the shared `/app` plus `/api/...` seam and validated the workflow-centered browser model
 2. the approved forward web direction is now the Svelte-based replacement documented in `../docs/svelte_web_guides/svelte_web_ui_migration_plan.md`
-3. the shared Go backend, session model, API seam, and workflow doctrine remain the truth foundation for that migration
+3. the canonical implementation-planning surface for that migration now lives in the Milestone 13 planning docs inside `new_app_docs/`
+4. the shared Go backend, session model, API seam, and workflow doctrine remain the truth foundation for that migration
 
 ## Active posture
 
@@ -90,22 +91,21 @@ For the active v2 planning surface, read these in order:
 4. `new_app_implementation_defaults.md`
 5. `new_app_foundation_coverage.md`
 6. `new_app_execution_plan.md`
-7. `milestone_10_web_rebuild_plan.md`
-8. `milestone_10_slice_1_architecture_and_operator_entry_plan.md`
-9. `milestone_10_slice_2_review_workbench_plan.md`
-10. `milestone_10_slice_3_detail_and_closeout_plan.md`
-11. `milestone_11_operator_shell_and_navigation_plan.md`
-12. `web_ui_erp_style_density_correction_plan.md`
+7. `new_app_tracker.md`
+8. `milestone_13_svelte_web_migration_plan.md`
+9. `milestone_13_slice_1_svelte_foundation_and_shell_plan.md`
+10. `milestone_13_slice_2_svelte_workflow_surfaces_plan.md`
+11. `milestone_13_slice_3_svelte_detail_admin_and_cutover_plan.md`
+12. `../docs/svelte_web_guides/svelte_web_ui_migration_plan.md`
 13. `milestone_12_admin_maintenance_and_master_data_plan.md`
-14. `new_app_tracker.md`
-15. `../docs/svelte_web_guides/svelte_web_ui_migration_plan.md`
-16. `../docs/workflows/README.md` for the durable workflow-reference and validation-track layer after the active planning read
+14. `../docs/workflows/README.md` for the durable workflow-reference and validation-track layer after the active planning read
 
 Reference-only rule:
 
 1. `thin_v1_archive/` is historical context only and should not be part of the default active working set
 2. `app_v2_plans/` is idea and proposal reference material only and should not be part of the default active working set
-3. use either folder only when the current task specifically needs historical thin-v1 context or future-v2 milestone source material
+3. the earlier browser-stack planning docs in top-level `new_app_docs/` for Milestone 10, Milestone 11, and the ERP-style density correction are also historical context now that the Svelte migration is the approved forward web direction
+4. use historical material only when the current task specifically needs prior browser-product decisions, route-family intent, or implementation history rather than active stack guidance
 
 ## Reset decision
 

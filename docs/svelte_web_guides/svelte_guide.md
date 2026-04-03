@@ -386,37 +386,36 @@ For list pages where filters trigger new API calls:
 
 ### 5.3 URL param sync for filter state
 
-Keeps filter state in the URL so filtered views are shareable. Use the `location` store from `@svelte-spa-router`:
+Keeps filter state in the URL so filtered views are shareable. In SvelteKit, use the current URL from `$app/state` and update the query string with `goto()`:
 
 ```svelte
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { push, location } from 'svelte-spa-router';
+  import { goto } from '$app/navigation';
+  import { page } from '$app/state';
 
   let filters = $state({ status: '', reference: '' });
 
-  // Initialise from URL params on mount
-  onMount(() => {
-    const hash = window.location.hash; // e.g. #/review/inbound-requests?status=queued
-    const qIndex = hash.indexOf('?');
-    if (qIndex !== -1) {
-      const qs = new URLSearchParams(hash.slice(qIndex + 1));
-      filters.status = qs.get('status') ?? '';
-      filters.reference = qs.get('request_reference') ?? '';
-    }
-  });
+  // Initialise from current URL query params
+  filters.status = page.url.searchParams.get('status') ?? '';
+  filters.reference = page.url.searchParams.get('request_reference') ?? '';
 
-  // Write filters back to URL when they change
+  let lastQuery = '';
+
+  // Write filters back to the URL when they change
   $effect(() => {
     const { status, reference } = filters;
     const qs = new URLSearchParams();
     if (status) qs.set('status', status);
     if (reference) qs.set('request_reference', reference);
     const query = qs.toString();
-    const base = '/review/inbound-requests';
-    const newHash = query ? `${base}?${query}` : base;
-    // Update hash without triggering router navigation
-    history.replaceState(null, '', `#${newHash}`);
+    if (query === lastQuery) return;
+    lastQuery = query;
+
+    goto(query ? `?${query}` : page.url.pathname, {
+      replaceState: true,
+      noScroll: true,
+      keepFocus: true,
+    });
   });
 </script>
 ```
@@ -531,9 +530,8 @@ The `DataTable` component handles this internally via its `loading` prop. For cu
 ### 6.2 Route-level page component (list page)
 
 ```svelte
-<!-- web/src/routes/review/InboundRequests.svelte -->
+<!-- web/src/routes/review/inbound-requests/+page.svelte -->
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { apiFetch } from '$lib/api/client';
   import { flash } from '$lib/stores/flash';
   import type { InboundRequestReview } from '$lib/api/types';
@@ -543,9 +541,6 @@ The `DataTable` component handles this internally via its `loading` prop. For cu
   import SelectField from '$lib/components/forms/SelectField.svelte';
   import FormField from '$lib/components/forms/FormField.svelte';
   import PageHeader from '$lib/components/layout/PageHeader.svelte';
-
-  // Route params from @svelte-spa-router (if any)
-  // let { params } = $props();
 
   // State
   let rows = $state<InboundRequestReview[]>([]);
@@ -616,10 +611,9 @@ The `DataTable` component handles this internally via its `loading` prop. For cu
 ### 6.3 Route-level page component (detail page)
 
 ```svelte
-<!-- web/src/routes/intake/RequestDetail.svelte -->
+<!-- web/src/routes/inbound-requests/[id]/+page.svelte -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { push } from 'svelte-spa-router';
   import { apiFetch } from '$lib/api/client';
   import { flash } from '$lib/stores/flash';
   import type { InboundRequestDetail } from '$lib/api/types';
@@ -629,11 +623,9 @@ The `DataTable` component handles this internally via its `loading` prop. For cu
   import ConfirmAction from '$lib/components/forms/ConfirmAction.svelte';
   import BreadcrumbBar from '$lib/components/navigation/BreadcrumbBar.svelte';
 
-  // @svelte-spa-router passes route params as a prop
-  interface Props {
-    params: { id: string };
-  }
-  let { params }: Props = $props();
+  import type { PageProps } from './$types';
+
+  let { params }: PageProps = $props();
 
   let detail = $state<InboundRequestDetail | null>(null);
   let loading = $state(true);
@@ -670,7 +662,7 @@ The `DataTable` component handles this internally via its `loading` prop. For cu
 </script>
 
 <BreadcrumbBar crumbs={[
-  { label: 'Inbound Requests', href: '#/review/inbound-requests' },
+  { label: 'Inbound Requests', href: '/review/inbound-requests' },
   { label: detail?.request_reference ?? '…' },
 ]} />
 
@@ -738,64 +730,41 @@ The `DataTable` component handles this internally via its `loading` prop. For cu
 
 ---
 
-## 7. `@svelte-spa-router` integration
+## 7. SvelteKit routing integration
 
-### 7.1 Route definition in `App.svelte`
+### 7.1 Route structure and root layout
+
+SvelteKit uses filesystem routing under `src/routes`. Prefer nested layouts over one root router component:
 
 ```svelte
-<!-- web/src/App.svelte -->
+<!-- web/src/routes/+layout.svelte -->
 <script lang="ts">
-  import Router from 'svelte-spa-router';
-  import { onMount } from 'svelte';
-  import { push } from 'svelte-spa-router';
-  import { session } from '$lib/stores/session';
-  import { apiFetch } from '$lib/api/client';
-  import type { SessionContext } from '$lib/api/types';
-  import AppLayout from './layouts/AppLayout.svelte';
-  import PublicLayout from './layouts/PublicLayout.svelte';
-  import Login from './routes/auth/Login.svelte';
-  import Dashboard from './routes/dashboard/Dashboard.svelte';
-  import InboundRequests from './routes/review/InboundRequests.svelte';
-  import RequestDetail from './routes/intake/RequestDetail.svelte';
-  // ... more imports
-
-  // Check session on startup
-  onMount(async () => {
-    try {
-      const ctx = await apiFetch<SessionContext>('/api/session');
-      session.set(ctx);
-    } catch {
-      push('/login');
-    }
-  });
-
-  // Route map — hash-based (#/dashboard, #/review/inbound-requests, etc.)
-  // All non-login routes should be wrapped with authGuard — see §7.5 for the wrap() pattern.
-  // The example below shows bare routes for readability; production App.svelte applies wrap() to all authenticated routes.
-  const routes = {
-    '/login': Login,
-    '/': Dashboard,
-    '/dashboard': Dashboard,
-    '/review/inbound-requests': InboundRequests,
-    '/intake/requests/:id': RequestDetail,
-    // ... all routes
-  };
+  let { children } = $props();
 </script>
 
-<Router {routes} />
+{@render children()}
+```
+
+```svelte
+<!-- web/src/routes/(app)/+layout.svelte -->
+<script lang="ts">
+  let { children } = $props();
+</script>
+
+<AppShell>
+  {@render children()}
+</AppShell>
 ```
 
 ### 7.2 Reading route params
 
-`@svelte-spa-router` passes URL params as a `params` prop to the matched component:
+In SvelteKit route components, route params come from the typed `params` prop:
 
 ```svelte
-<!-- For route '/intake/requests/:id' -->
 <script lang="ts">
-  interface Props {
-    params: { id: string };
-  }
-  let { params }: Props = $props();
+  import type { PageProps } from './$types';
+
+  let { params }: PageProps = $props();
 
   // Use params.id to fetch the entity
 </script>
@@ -805,18 +774,14 @@ The `DataTable` component handles this internally via its `loading` prop. For cu
 
 ```svelte
 <script lang="ts">
-  import { push, pop, replace } from 'svelte-spa-router';
+  import { goto } from '$app/navigation';
 
   function goToDashboard() {
-    push('/dashboard');
-  }
-
-  function goBack() {
-    pop();
+    goto('/dashboard');
   }
 
   function replaceWithDetail(id: string) {
-    replace(`/intake/requests/${id}`);
+    goto(`/inbound-requests/${id}`, { replaceState: true });
   }
 </script>
 ```
@@ -825,44 +790,39 @@ The `DataTable` component handles this internally via its `loading` prop. For cu
 
 ```svelte
 <script lang="ts">
-  import { location } from 'svelte-spa-router';
-  // $location is a readable store — auto-subscribed with $ prefix
+  import { page } from '$app/state';
 </script>
 
-<!-- $location contains the current hash path, e.g. '/dashboard' -->
 <nav>
-  <a href="#/dashboard" class:active={$location === '/dashboard'}>Home</a>
-  <a href="#/review/inbound-requests" class:active={$location.startsWith('/review')}>Review</a>
+  <a href="/dashboard" class:active={page.url.pathname === '/dashboard'}>Home</a>
+  <a href="/review/inbound-requests" class:active={page.url.pathname.startsWith('/review')}>Review</a>
 </nav>
 ```
 
-### 7.5 Route guards (protecting authenticated routes)
+### 7.5 Route protection
 
-Wrap authenticated routes with a guard using `wrap()`:
+Use a protected layout plus session bootstrap logic rather than router-wrapper guards:
 
 ```svelte
-<!-- App.svelte -->
+<!-- web/src/routes/(app)/+layout.svelte -->
 <script lang="ts">
-  import { wrap } from 'svelte-spa-router/wrap';
-  import { get } from 'svelte/store';
+  import { goto } from '$app/navigation';
   import { session } from '$lib/stores/session';
-  import { push } from 'svelte-spa-router';
 
-  function authGuard(): boolean {
-    if (!get(session)) {
-      push('/login');
-      return false;
+  let { children } = $props();
+
+  $effect(() => {
+    if ($session === null) {
+      goto('/login');
     }
-    return true;
-  }
-
-  const routes = {
-    '/login': Login,
-    '/dashboard': wrap({ component: Dashboard, conditions: [authGuard] }),
-    '/review/inbound-requests': wrap({ component: InboundRequests, conditions: [authGuard] }),
-    // ...
-  };
+  });
 </script>
+
+{#if $session}
+  <AppShell>
+    {@render children()}
+  </AppShell>
+{/if}
 ```
 
 ---
@@ -1105,16 +1065,16 @@ These are the most frequent errors AI tools produce when generating Svelte 5 cod
 </style>
 ```
 
-### 10.7 `goto()` from SvelteKit
+### 10.7 Wrong navigation API for the active stack
 
 ```typescript
-// ❌ Reject — SvelteKit API, not available in this project
-import { goto } from '$app/navigation';
-goto('/dashboard');
-
-// ✅ Correct — @svelte-spa-router
+// ❌ Reject — old router API
 import { push } from 'svelte-spa-router';
 push('/dashboard');
+
+// ✅ Correct — SvelteKit navigation
+import { goto } from '$app/navigation';
+goto('/dashboard');
 ```
 
 ---
@@ -1124,17 +1084,11 @@ push('/dashboard');
 ### 11.1 `vite.config.ts`
 
 ```typescript
+import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
-import { svelte } from '@sveltejs/vite-plugin-svelte';
-import path from 'path';
 
 export default defineConfig({
-  plugins: [svelte()],
-  resolve: {
-    alias: {
-      '$lib': path.resolve('./src/lib'),
-    },
-  },
+  plugins: [sveltekit()],
   server: {
     proxy: {
       '/api': {
@@ -1143,43 +1097,34 @@ export default defineConfig({
       },
     },
   },
-  build: {
-    outDir: 'dist',
-  },
 });
 ```
 
 ### 11.2 `svelte.config.js`
 
 ```javascript
+import adapter from '@sveltejs/adapter-static';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
 export default {
   preprocess: vitePreprocess(),
-  compilerOptions: {
-    runes: true,  // Enforce runes mode globally — prevents accidental Svelte 4 syntax
+  kit: {
+    adapter: adapter({
+      fallback: 'index.html',
+    }),
   },
 };
 ```
-
-> Setting `runes: true` in compiler options causes the compiler to **error** on any Svelte 4 syntax (`export let`, `$:`, `on:`). This is the recommended setting — it turns accidental legacy syntax from a runtime bug into a build error.
 
 ### 11.3 `tsconfig.json`
 
 ```json
 {
-  "extends": "@tsconfig/svelte/tsconfig.json",
+  "extends": "./.svelte-kit/tsconfig.json",
   "compilerOptions": {
     "target": "ESNext",
     "useDefineForClassFields": true,
-    "module": "ESNext",
-    "resolveJsonModule": true,
-    "allowImportingTsExtensions": true,
-    "checkJs": true,
-    "paths": {
-      "$lib": ["./src/lib"],
-      "$lib/*": ["./src/lib/*"]
-    }
+    "resolveJsonModule": true
   },
   "include": ["src/**/*.ts", "src/**/*.svelte"],
   "exclude": ["node_modules"]
@@ -1191,23 +1136,23 @@ export default {
 ```json
 {
   "dependencies": {
-    "svelte": "^5.0.0",
-    "svelte-spa-router": "^4.0.0"
+    "svelte": "^5.0.0"
   },
   "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "^4.0.0",
-    "@tsconfig/svelte": "^5.0.0",
+    "@sveltejs/adapter-static": "^3.0.0",
+    "@sveltejs/kit": "^2.0.0",
     "typescript": "^5.0.0",
-    "vite": "^6.0.0",
+    "svelte-check": "^4.0.0",
     "vitest": "^3.0.0",
     "@testing-library/svelte": "^5.0.0",
     "@fontsource/ibm-plex-sans": "^5.0.0",
     "@fontsource/ibm-plex-mono": "^5.0.0"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest"
   }
 }
@@ -1284,7 +1229,7 @@ ALWAYS use:
 - let { prop } = $props() for component props
 - onclick={} not on:click={}  
 - Callback props not createEventDispatcher
-- import { push } from 'svelte-spa-router' for navigation (NOT goto from $app/navigation)
+- import { goto } from '$app/navigation' for programmatic navigation
 - lang="ts" on all <script> tags
 - var(--token-name) for all CSS values (never hardcoded hex or px)
 - $lib/* for import paths
@@ -1294,7 +1239,7 @@ NEVER use:
 - $: (Svelte 4 reactive)
 - on:click or on:submit (Svelte 4 event directives)
 - createEventDispatcher (Svelte 4)
-- goto() from SvelteKit
+- old router APIs such as `push()` from `svelte-spa-router`
 - Hardcoded colors: use var(--accent), var(--good), etc.
 - Tailwind CSS classes
 ```
