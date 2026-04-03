@@ -1,1 +1,0 @@
-import"../chunks/8hsZ8H25.js";import"../chunks/zTKxJxkT.js";import{P as o}from"../chunks/DGVF-DZW.js";function i(e){o(e,{title:"Access controls placeholder",summary:"Later slices will connect org-user provisioning and membership-role updates to the existing shared identity-access seam."})}export{i as component};

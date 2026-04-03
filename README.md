@@ -133,6 +133,11 @@ WORKFLOW_WEB_FRONTEND=svelte go run ./cmd/app
 
 The default `cmd/app` behavior still serves the existing Go-template browser layer until the later Milestone 13 cutover slice.
 
+Repository rule for generated frontend artifacts:
+
+1. `web/.svelte-kit/` is generated workspace state and is not part of the committed source surface
+2. `internal/app/web_dist/` remains the committed built frontend artifact for the current Go embed and `/app` static-serving path unless the repository later moves that build responsibility fully into CI or release packaging
+
 Open the first browser operator surface:
 
 ```text

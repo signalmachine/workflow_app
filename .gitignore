@@ -37,6 +37,7 @@ Thumbs.db
 # Temporary folders
 /tmp/
 node_modules/
+web/.svelte-kit/
 
 # Build outputs
 /bin/
