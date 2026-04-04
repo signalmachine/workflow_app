@@ -2,11 +2,12 @@
 	interface Props {
 		userDisplayName: string;
 		orgName: string;
+		roleCode: string;
 		onToggleNav: () => void;
 		onLogout: () => void;
 	}
 
-	let { userDisplayName, orgName, onToggleNav, onLogout }: Props = $props();
+	let { userDisplayName, orgName, roleCode, onToggleNav, onLogout }: Props = $props();
 </script>
 
 <header class="topbar">
@@ -24,7 +25,7 @@
 	<div class="user-row">
 		<div class="user-copy">
 			<div>{userDisplayName}</div>
-			<div class="role-hint">Operator shell</div>
+			<div class="role-hint">{roleCode.replaceAll('_', ' ')}</div>
 		</div>
 		<button class="logout-button" onclick={onLogout} type="button">Sign out</button>
 	</div>

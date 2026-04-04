@@ -33,6 +33,10 @@ export const routes = {
 	adminInventory: withBase('/admin/inventory')
 };
 
+export function adminPartyDetail(partyID: string): string {
+	return withBase(`/admin/parties/${partyID}`);
+}
+
 export function withQuery(path: string, query: Record<string, string | number | undefined>): string {
 	const params = new URLSearchParams();
 	for (const [key, value] of Object.entries(query)) {

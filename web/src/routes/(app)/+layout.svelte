@@ -27,6 +27,7 @@
 	currentPath={currentPath}
 	onLogout={handleLogout}
 	orgName={data.session.org_name}
+	roleCode={data.session.role_code}
 	userDisplayName={data.session.user_display_name}
 >
 	{#if notice}

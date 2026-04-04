@@ -8,11 +8,12 @@
 		children: Snippet;
 		currentPath: string;
 		orgName: string;
+		roleCode: string;
 		userDisplayName: string;
 		onLogout: () => void;
 	}
 
-	let { children, currentPath, orgName, userDisplayName, onLogout }: Props = $props();
+	let { children, currentPath, orgName, roleCode, userDisplayName, onLogout }: Props = $props();
 
 	let navOpen = $state(false);
 
@@ -25,8 +26,8 @@
 	}
 </script>
 
-<TopBar {onLogout} {orgName} {userDisplayName} onToggleNav={toggleNav} />
-<SideNav currentPath={currentPath} isOpen={navOpen} onClose={closeNav} />
+<TopBar {onLogout} {orgName} {roleCode} {userDisplayName} onToggleNav={toggleNav} />
+<SideNav currentPath={currentPath} isOpen={navOpen} onClose={closeNav} {roleCode} />
 
 <div class="shell">
 	<main class="content">

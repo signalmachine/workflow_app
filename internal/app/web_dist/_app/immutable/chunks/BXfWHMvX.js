@@ -1,0 +1,1 @@
+import{a as i}from"./C-jCndlc.js";function s(o=fetch){return i("/api/session",void 0,o)}function t(o){return i("/api/session/login",{method:"POST",body:JSON.stringify(o)})}function e(){return i("/api/session/logout",{method:"POST"})}export{e as a,s as g,t as l};

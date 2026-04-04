@@ -454,3 +454,110 @@ export interface RouteCatalogSnapshot {
 	query: string;
 	items: RouteCatalogEntry[];
 }
+
+export interface LedgerAccount {
+	id: string;
+	code: string;
+	name: string;
+	account_class: string;
+	control_type: string;
+	allows_direct_posting: boolean;
+	status: string;
+	tax_category_code?: string;
+	created_by_user_id: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface TaxCode {
+	id: string;
+	code: string;
+	name: string;
+	tax_type: string;
+	rate_basis_points: number;
+	receivable_account_id?: string;
+	payable_account_id?: string;
+	status: string;
+	created_by_user_id: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface AccountingPeriod {
+	id: string;
+	period_code: string;
+	start_on: string;
+	end_on: string;
+	status: string;
+	closed_by_user_id?: string;
+	closed_at?: string;
+	created_by_user_id: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface Party {
+	id: string;
+	party_code: string;
+	display_name: string;
+	legal_name?: string;
+	party_kind: string;
+	status: string;
+	created_by_user_id: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface Contact {
+	id: string;
+	party_id: string;
+	full_name: string;
+	role_title?: string;
+	email?: string;
+	phone?: string;
+	is_primary: boolean;
+	status: string;
+	created_by_user_id: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface PartyDetailResponse {
+	party: Party;
+	contacts: Contact[];
+}
+
+export interface OrgUserMembership {
+	membership_id: string;
+	org_id: string;
+	user_id: string;
+	user_email: string;
+	user_display_name: string;
+	user_status: string;
+	role_code: string;
+	membership_status: string;
+	created_at: string;
+}
+
+export interface InventoryItem {
+	id: string;
+	sku: string;
+	name: string;
+	item_role: string;
+	tracking_mode: string;
+	status: string;
+	created_by_user_id: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface InventoryLocation {
+	id: string;
+	code: string;
+	name: string;
+	location_role: string;
+	status: string;
+	created_by_user_id: string;
+	created_at: string;
+	updated_at: string;
+}

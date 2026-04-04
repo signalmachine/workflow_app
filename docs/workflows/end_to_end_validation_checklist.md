@@ -29,13 +29,13 @@ Policy:
 3. review `docs/workflows/application_workflow_catalog.md`
 4. rerun `set -a; source .env; set +a; go run ./cmd/verify-agent`
 5. run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
-6. if the rebuilt Milestone 10 browser family, the Milestone 11 shell changes, the ERP-style density correction, or the landed Milestone 12 admin accounting, party, access-control, inventory, or master-data status-governance slices are newly landed and not yet closed, review `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor with exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat`, plus `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit` on desktop and a narrow-width viewport and record pass or blocker evidence before resuming live workflow validation
+6. if the rebuilt Milestone 10 browser family, the Milestone 11 shell changes, the ERP-style density correction, or the landed Milestone 12 admin accounting, party, access-control, inventory, or master-data status-governance slices are newly landed and not yet closed, review `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/admin/parties/{party_id}` for exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat`, plus `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit` on desktop and a narrow-width viewport and record pass or blocker evidence before resuming live workflow validation
 
 ## 2.1 Milestone 10 closeout precheck
 
 Before broader end-to-end workflow validation resumes, use this bounded Milestone 10 closeout precheck:
 
-1. confirm `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor including exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat` render cleanly and preserve their primary navigation actions, including multi-term route-catalog searches such as `pending approvals` or `failed requests`, plus visible active or inactive status controls on the promoted admin master-data pages
+1. confirm `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/admin/parties/{party_id}` including exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat` render cleanly and preserve their primary navigation actions, including multi-term route-catalog searches such as `pending approvals` or `failed requests`, plus visible active or inactive status controls on the promoted admin master-data pages
 2. confirm `/app/inbound-requests/{request_reference_or_id}` renders request controls, evidence, execution trace, and downstream continuity links
 3. confirm `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit` render cleanly with filters, contained tables, and exact drill-down links
 4. confirm one exact drill-down chain across request -> proposal -> approval -> document
@@ -65,23 +65,24 @@ Review these routes first on desktop:
 5. `/app/admin`
 6. `/app/admin/accounting`
 7. `/app/admin/parties`
-8. `/app/admin/access`
-9. `/app/admin/inventory`
-10. `/app/operations`
-11. `/app/review`
-12. `/app/inventory`
-13. `/app/submit-inbound-request`
-14. `/app/operations-feed`
-15. `/app/agent-chat`
-16. `/app/inbound-requests/{request_reference_or_id}`
-17. `/app/review/inbound-requests`
-18. `/app/review/approvals`
-19. `/app/review/proposals`
-20. `/app/review/documents`
-21. `/app/review/accounting`
-22. `/app/review/inventory`
-23. `/app/review/work-orders`
-24. `/app/review/audit`
+8. `/app/admin/parties/{party_id}`
+9. `/app/admin/access`
+10. `/app/admin/inventory`
+11. `/app/operations`
+12. `/app/review`
+13. `/app/inventory`
+14. `/app/submit-inbound-request`
+15. `/app/operations-feed`
+16. `/app/agent-chat`
+17. `/app/inbound-requests/{request_reference_or_id}`
+18. `/app/review/inbound-requests`
+19. `/app/review/approvals`
+20. `/app/review/proposals`
+21. `/app/review/documents`
+22. `/app/review/accounting`
+23. `/app/review/inventory`
+24. `/app/review/work-orders`
+25. `/app/review/audit`
 
 For each route, check:
 

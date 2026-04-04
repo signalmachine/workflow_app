@@ -11,9 +11,10 @@
 		currentPath: string;
 		isOpen: boolean;
 		onClose: () => void;
+		roleCode: string;
 	}
 
-	let { currentPath, isOpen, onClose }: Props = $props();
+	let { currentPath, isOpen, onClose, roleCode }: Props = $props();
 
 	const primaryItems: NavItem[] = [
 		{ label: 'Home', href: routes.home, match: (pathname) => pathname === routes.home },
@@ -24,7 +25,10 @@
 
 	const utilityItems: NavItem[] = [
 		{ label: 'Routes', href: routes.routeCatalog, match: (pathname) => pathname.startsWith(routes.routeCatalog) },
-		{ label: 'Settings', href: routes.settings, match: (pathname) => pathname.startsWith(routes.settings) },
+		{ label: 'Settings', href: routes.settings, match: (pathname) => pathname.startsWith(routes.settings) }
+	];
+
+	const adminItems: NavItem[] = [
 		{ label: 'Admin', href: routes.admin, match: (pathname) => pathname.startsWith(routes.admin) }
 	];
 
@@ -55,12 +59,19 @@
 					{item.label}
 				</a>
 			{/each}
-			<div class="nav-subgroup">
-				<a href={routes.adminAccounting}>Accounting setup</a>
-				<a href={routes.adminParties}>Party setup</a>
-				<a href={routes.adminAccess}>Access controls</a>
-				<a href={routes.adminInventory}>Inventory setup</a>
-			</div>
+			{#if roleCode === 'admin'}
+				{#each adminItems as item (item.href)}
+					<a aria-current={active(item) ? 'page' : undefined} class:active={active(item)} href={item.href}>
+						{item.label}
+					</a>
+				{/each}
+				<div class="nav-subgroup">
+					<a href={routes.adminAccounting}>Accounting setup</a>
+					<a href={routes.adminParties}>Party setup</a>
+					<a href={routes.adminAccess}>Access controls</a>
+					<a href={routes.adminInventory}>Inventory setup</a>
+				</div>
+			{/if}
 		</div>
 	</nav>
 </aside>
