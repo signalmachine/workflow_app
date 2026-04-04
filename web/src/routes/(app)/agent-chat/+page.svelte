@@ -8,7 +8,7 @@
 	import SurfaceCard from '$lib/components/primitives/SurfaceCard.svelte';
 	import { fileToBase64 } from '$lib/utils/files';
 	import { formatDateTime } from '$lib/utils/format';
-	import { routes, withQuery } from '$lib/utils/routes';
+	import { inboundRequestDetail, routes, withQuery } from '$lib/utils/routes';
 
 	let { data }: PageProps = $props();
 
@@ -84,7 +84,7 @@
 			{#if data.snapshot.request_reference}
 				<div class="filter-actions">
 					<span class="muted-copy">Latest chat request:</span>
-					<a href={withQuery(routes.reviewInboundRequests, { request_reference: data.snapshot.request_reference })}>
+					<a href={inboundRequestDetail(data.snapshot.request_reference)}>
 						{data.snapshot.request_reference}
 					</a>
 					{#if data.snapshot.request_status}
@@ -110,7 +110,7 @@
 				<tbody>
 					{#each data.snapshot.recent_requests as request (request.request_id)}
 						<tr>
-							<td><a href={withQuery(routes.reviewInboundRequests, { request_reference: request.request_reference })}>{request.request_reference}</a></td>
+							<td><a href={inboundRequestDetail(request.request_reference)}>{request.request_reference}</a></td>
 							<td><StatusBadge status={request.status} /></td>
 							<td>{request.message_count} / {request.attachment_count}</td>
 							<td>{formatDateTime(request.updated_at)}</td>

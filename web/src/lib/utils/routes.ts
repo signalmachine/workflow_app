@@ -10,6 +10,7 @@ function withBase(path: string): string {
 export const routes = {
 	login: withBase('/login'),
 	home: withBase('/'),
+	inboundRequests: withBase('/inbound-requests'),
 	routeCatalog: withBase('/routes'),
 	submitInboundRequest: withBase('/submit-inbound-request'),
 	operations: withBase('/operations'),
@@ -35,6 +36,10 @@ export const routes = {
 
 export function adminPartyDetail(partyID: string): string {
 	return withBase(`/admin/parties/${partyID}`);
+}
+
+export function inboundRequestDetail(requestLookup: string): string {
+	return withBase(`/inbound-requests/${encodeURIComponent(requestLookup)}`);
 }
 
 export function withQuery(path: string, query: Record<string, string | number | undefined>): string {

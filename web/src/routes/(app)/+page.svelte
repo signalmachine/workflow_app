@@ -7,7 +7,7 @@
 	import StatusBadge from '$lib/components/primitives/StatusBadge.svelte';
 	import SurfaceCard from '$lib/components/primitives/SurfaceCard.svelte';
 	import { formatDateTime } from '$lib/utils/format';
-	import { routes, withQuery } from '$lib/utils/routes';
+	import { inboundRequestDetail, routes, withQuery } from '$lib/utils/routes';
 
 	let { data }: PageProps = $props();
 
@@ -62,7 +62,7 @@
 				<tbody>
 					{#each data.dashboard.inbound_requests as request (request.request_id)}
 						<tr>
-							<td><a href={withQuery(routes.reviewInboundRequests, { request_reference: request.request_reference })}>{request.request_reference}</a></td>
+							<td><a href={inboundRequestDetail(request.request_reference)}>{request.request_reference}</a></td>
 							<td><StatusBadge status={request.status} /></td>
 							<td>{request.channel}</td>
 							<td>{request.message_count} / {request.attachment_count}</td>

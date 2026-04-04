@@ -120,6 +120,102 @@ export interface InboundRequestReview {
 	last_recommendation_status?: string;
 }
 
+export interface InboundRequestMessage {
+	message_id: string;
+	message_index: number;
+	message_role: string;
+	text_content: string;
+	created_by_user_id?: string;
+	attachment_count: number;
+	created_at: string;
+}
+
+export interface RequestAttachment {
+	attachment_id: string;
+	request_message_id?: string;
+	link_role: string;
+	original_file_name: string;
+	media_type: string;
+	size_bytes: number;
+	uploaded_by_user_id?: string;
+	latest_derived_text?: string;
+	latest_derived_by_run_id?: string;
+	derived_text_count: number;
+	created_at: string;
+}
+
+export interface AIRun {
+	run_id: string;
+	agent_role: string;
+	capability_code: string;
+	status: string;
+	summary: string;
+	started_at: string;
+	completed_at?: string;
+}
+
+export interface AIStep {
+	step_id: string;
+	run_id: string;
+	step_index: number;
+	step_type: string;
+	step_title: string;
+	status: string;
+	input_payload: Record<string, unknown>;
+	output_payload: Record<string, unknown>;
+	created_at: string;
+}
+
+export interface AIDelegation {
+	delegation_id: string;
+	parent_run_id: string;
+	child_run_id: string;
+	requested_by_step_id?: string;
+	capability_code: string;
+	reason: string;
+	child_agent_role: string;
+	child_capability_code: string;
+	child_run_status: string;
+	created_at: string;
+}
+
+export interface AIArtifact {
+	artifact_id: string;
+	run_id: string;
+	step_id?: string;
+	artifact_type: string;
+	title: string;
+	payload: Record<string, unknown>;
+	created_by_user_id: string;
+	created_at: string;
+}
+
+export interface AIRecommendation {
+	recommendation_id: string;
+	run_id: string;
+	artifact_id?: string;
+	approval_id?: string;
+	recommendation_type: string;
+	status: string;
+	summary: string;
+	payload: Record<string, unknown>;
+	created_by_user_id: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface InboundRequestDetail {
+	request: InboundRequestReview;
+	messages: InboundRequestMessage[];
+	attachments: RequestAttachment[];
+	runs: AIRun[];
+	steps: AIStep[];
+	delegations: AIDelegation[];
+	artifacts: AIArtifact[];
+	recommendations: AIRecommendation[];
+	proposals: ProcessedProposalReview[];
+}
+
 export interface ProcessedProposalStatusSummary {
 	recommendation_status: string;
 	proposal_count: number;

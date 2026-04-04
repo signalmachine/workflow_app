@@ -1,9 +1,16 @@
 import { apiRequest } from '$lib/api/client';
 import type {
+	AIDelegation,
+	AIArtifact,
+	AIRecommendation,
+	AIRun,
+	AIStep,
 	ApprovalQueueEntry,
 	AuditEvent,
 	ControlAccountBalance,
 	DocumentReview,
+	InboundRequestDetail,
+	InboundRequestMessage,
 	InboundRequestReview,
 	InboundRequestStatusSummary,
 	InventoryMovementReview,
@@ -12,6 +19,7 @@ import type {
 	JournalEntryReview,
 	ProcessedProposalReview,
 	ProcessedProposalStatusSummary,
+	RequestAttachment,
 	TaxSummary,
 	WorkOrderReview
 } from '$lib/api/types';
@@ -48,6 +56,23 @@ export function listInboundRequests(
 		undefined,
 		fetcher
 	);
+}
+
+export function getInboundRequestDetail(
+	lookup: string,
+	fetcher: typeof fetch = fetch
+): Promise<{
+	request: InboundRequestReview;
+	messages: InboundRequestMessage[];
+	attachments: RequestAttachment[];
+	runs: AIRun[];
+	steps: AIStep[];
+	delegations: AIDelegation[];
+	artifacts: AIArtifact[];
+	recommendations: AIRecommendation[];
+	proposals: ProcessedProposalReview[];
+}> {
+	return apiRequest<InboundRequestDetail>(`/api/review/inbound-requests/${encodeURIComponent(lookup)}`, undefined, fetcher);
 }
 
 export function listProcessedProposalStatusSummary(fetcher: typeof fetch = fetch): Promise<{ items: ProcessedProposalStatusSummary[] }> {

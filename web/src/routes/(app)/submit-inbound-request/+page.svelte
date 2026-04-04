@@ -5,7 +5,7 @@
 	import PageHeader from '$lib/components/layout/PageHeader.svelte';
 	import SurfaceCard from '$lib/components/primitives/SurfaceCard.svelte';
 	import { fileToBase64 } from '$lib/utils/files';
-	import { routes, withQuery } from '$lib/utils/routes';
+	import { inboundRequestDetail, routes } from '$lib/utils/routes';
 	import type { SubmitInboundRequestResponse } from '$lib/api/types';
 
 	let submitterLabel = $state('');
@@ -45,7 +45,7 @@
 			});
 
 			if (queueForReview) {
-				await goto(withQuery(routes.reviewInboundRequests, { request_reference: result.request_reference }));
+				await goto(inboundRequestDetail(result.request_reference));
 				return;
 			}
 		} catch (error) {
@@ -92,7 +92,7 @@
 			<p class="eyebrow">Latest result</p>
 			<h3>{result.request_reference}</h3>
 			<p class="muted-copy">Current status: {result.status}</p>
-			<a href={withQuery(routes.reviewInboundRequests, { request_reference: result.request_reference })}>Open filtered review</a>
+			<a href={inboundRequestDetail(result.request_reference)}>Open exact request detail</a>
 		</SurfaceCard>
 	{/if}
 </div>

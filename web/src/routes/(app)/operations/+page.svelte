@@ -8,7 +8,7 @@
 	import StatusBadge from '$lib/components/primitives/StatusBadge.svelte';
 	import SurfaceCard from '$lib/components/primitives/SurfaceCard.svelte';
 	import { formatDateTime } from '$lib/utils/format';
-	import { routes, withQuery } from '$lib/utils/routes';
+	import { inboundRequestDetail, routes, withQuery } from '$lib/utils/routes';
 
 	let { data }: PageProps = $props();
 
@@ -26,7 +26,12 @@
 				return;
 			}
 
-			await goto(withQuery(routes.reviewInboundRequests, { request_reference: result.request_reference }));
+			if (!result.request_reference) {
+				processError = 'The processed request did not return a request reference.';
+				return;
+			}
+
+			await goto(inboundRequestDetail(result.request_reference));
 		} catch (error) {
 			processError = error instanceof Error ? error.message : 'Failed to process the next queued request.';
 		} finally {
