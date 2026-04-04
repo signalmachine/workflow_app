@@ -5,7 +5,7 @@
 	import StatusBadge from '$lib/components/primitives/StatusBadge.svelte';
 	import SurfaceCard from '$lib/components/primitives/SurfaceCard.svelte';
 	import { formatDateTime } from '$lib/utils/format';
-	import { routes } from '$lib/utils/routes';
+	import { documentDetail, routes } from '$lib/utils/routes';
 
 	let { data }: PageProps = $props();
 </script>
@@ -41,7 +41,7 @@
 				<tbody>
 					{#each data.documents as document (document.document_id)}
 						<tr>
-							<td>{document.title}</td>
+							<td><a href={documentDetail(document.document_id)}>{document.title}</a></td>
 							<td><StatusBadge status={document.status} /></td>
 							<td>{document.type_code}</td>
 							<td>{document.approval_status ?? '-'}</td>

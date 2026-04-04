@@ -5,7 +5,7 @@
 	import StatusBadge from '$lib/components/primitives/StatusBadge.svelte';
 	import SurfaceCard from '$lib/components/primitives/SurfaceCard.svelte';
 	import { formatDate, formatDateTime, formatMinorUnits } from '$lib/utils/format';
-	import { routes } from '$lib/utils/routes';
+	import { accountingEntryDetail, routes } from '$lib/utils/routes';
 
 	let { data }: PageProps = $props();
 </script>
@@ -36,7 +36,7 @@
 				<tbody>
 					{#each data.journals as journal (journal.entry_id)}
 						<tr>
-							<td>{journal.entry_number}</td>
+							<td><a href={accountingEntryDetail(journal.entry_id)}>{journal.entry_number}</a></td>
 							<td>{journal.entry_kind}</td>
 							<td class="muted-copy">{journal.summary}</td>
 							<td><StatusBadge status={journal.approval_status ?? 'posted'} /></td>

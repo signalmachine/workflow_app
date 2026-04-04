@@ -5,7 +5,7 @@
 	import StatusBadge from '$lib/components/primitives/StatusBadge.svelte';
 	import SurfaceCard from '$lib/components/primitives/SurfaceCard.svelte';
 	import { formatDateTime, formatMilliQuantity } from '$lib/utils/format';
-	import { routes } from '$lib/utils/routes';
+	import { inventoryMovementDetail, routes } from '$lib/utils/routes';
 
 	let { data }: PageProps = $props();
 </script>
@@ -52,7 +52,7 @@
 				<tbody>
 					{#each data.movements as movement (movement.movement_id)}
 						<tr>
-							<td>{movement.movement_number}</td>
+							<td><a href={inventoryMovementDetail(movement.movement_id)}>{movement.movement_number}</a></td>
 							<td><StatusBadge status={movement.movement_type} /></td>
 							<td>{movement.item_sku}</td>
 							<td>{formatMilliQuantity(movement.quantity_milli)}</td>

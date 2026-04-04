@@ -6,7 +6,7 @@
 	import StatusBadge from '$lib/components/primitives/StatusBadge.svelte';
 	import SurfaceCard from '$lib/components/primitives/SurfaceCard.svelte';
 	import { formatDateTime } from '$lib/utils/format';
-	import { routes, withQuery } from '$lib/utils/routes';
+	import { proposalDetail, routes, withQuery } from '$lib/utils/routes';
 
 	let { data }: PageProps = $props();
 </script>
@@ -47,7 +47,7 @@
 				<tbody>
 					{#each data.proposals as proposal (proposal.recommendation_id)}
 						<tr>
-							<td><a href={withQuery(routes.reviewProposals, { request_reference: proposal.request_reference })}>{proposal.request_reference}</a></td>
+							<td><a href={proposalDetail(proposal.recommendation_id)}>{proposal.request_reference}</a></td>
 							<td><StatusBadge status={proposal.recommendation_status} /></td>
 							<td>{proposal.recommendation_type}</td>
 							<td class="muted-copy">{proposal.summary}</td>

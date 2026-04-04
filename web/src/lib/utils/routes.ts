@@ -42,6 +42,34 @@ export function inboundRequestDetail(requestLookup: string): string {
 	return withBase(`/inbound-requests/${encodeURIComponent(requestLookup)}`);
 }
 
+export function approvalDetail(approvalID: string): string {
+	return withBase(`/review/approvals/${encodeURIComponent(approvalID)}`);
+}
+
+export function proposalDetail(recommendationID: string): string {
+	return withBase(`/review/proposals/${encodeURIComponent(recommendationID)}`);
+}
+
+export function documentDetail(documentID: string): string {
+	return withBase(`/review/documents/${encodeURIComponent(documentID)}`);
+}
+
+export function accountingEntryDetail(entryID: string): string {
+	return withBase(`/review/accounting/${encodeURIComponent(entryID)}`);
+}
+
+export function inventoryMovementDetail(movementID: string): string {
+	return withBase(`/review/inventory/${encodeURIComponent(movementID)}`);
+}
+
+export function workOrderDetail(workOrderID: string): string {
+	return withBase(`/review/work-orders/${encodeURIComponent(workOrderID)}`);
+}
+
+export function auditEventDetail(eventID: string): string {
+	return withBase(`/review/audit/${encodeURIComponent(eventID)}`);
+}
+
 export function withQuery(path: string, query: Record<string, string | number | undefined>): string {
 	const params = new URLSearchParams();
 	for (const [key, value] of Object.entries(query)) {

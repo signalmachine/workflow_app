@@ -586,16 +586,21 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(reviewProposalActionPrefix, handler.handleProcessedProposalAction)
 	mux.HandleFunc(reviewProposalSummaryPath, handler.handleListProcessedProposalStatusSummary)
 	mux.HandleFunc(reviewApprovalQueuePath, handler.handleListApprovalQueue)
+	mux.HandleFunc(reviewApprovalQueuePath+"/", handler.handleGetApprovalQueueDetail)
 	mux.HandleFunc(reviewDocumentsPath, handler.handleListDocuments)
+	mux.HandleFunc(reviewDocumentsPath+"/", handler.handleGetDocumentReview)
 	mux.HandleFunc(reviewJournalEntriesPath, handler.handleListJournalEntries)
+	mux.HandleFunc(reviewJournalEntriesPath+"/", handler.handleGetJournalEntryDetail)
 	mux.HandleFunc(reviewControlBalancesPath, handler.handleListControlAccountBalances)
 	mux.HandleFunc(reviewTaxSummariesPath, handler.handleListTaxSummaries)
 	mux.HandleFunc(reviewInventoryStockPath, handler.handleListInventoryStock)
 	mux.HandleFunc(reviewInventoryMovesPath, handler.handleListInventoryMovements)
+	mux.HandleFunc(reviewInventoryMovesPath+"/", handler.handleGetInventoryMovementDetail)
 	mux.HandleFunc(reviewInventoryReconPath, handler.handleListInventoryReconciliation)
 	mux.HandleFunc(reviewWorkOrdersPath, handler.handleListWorkOrders)
 	mux.HandleFunc(reviewWorkOrdersPath+"/", handler.handleGetWorkOrderReview)
 	mux.HandleFunc(reviewAuditEventsPath, handler.handleLookupAuditEvents)
+	mux.HandleFunc(reviewAuditEventsPath+"/", handler.handleGetAuditEventDetail)
 	mux.HandleFunc(navigationDashboardPath, handler.handleGetNavigationDashboard)
 	mux.HandleFunc(navigationOperationsPath, handler.handleGetNavigationOperations)
 	mux.HandleFunc(navigationOperationsFeedPath, handler.handleGetNavigationOperationsFeed)
@@ -1024,6 +1029,11 @@ type approvalQueueEntryResponse struct {
 	DocumentTitle        string     `json:"document_title"`
 	DocumentNumber       *string    `json:"document_number,omitempty"`
 	DocumentStatus       string     `json:"document_status"`
+	RequestID            *string    `json:"request_id,omitempty"`
+	RequestReference     *string    `json:"request_reference,omitempty"`
+	RecommendationID     *string    `json:"recommendation_id,omitempty"`
+	RecommendationStatus *string    `json:"recommendation_status,omitempty"`
+	RunID                *string    `json:"run_id,omitempty"`
 	JournalEntryID       *string    `json:"journal_entry_id,omitempty"`
 	JournalEntryNumber   *int64     `json:"journal_entry_number,omitempty"`
 	JournalEntryPostedAt *time.Time `json:"journal_entry_posted_at,omitempty"`
@@ -1048,6 +1058,11 @@ type documentReviewResponse struct {
 	ApprovalQueueCode    *string    `json:"approval_queue_code,omitempty"`
 	ApprovalRequestedAt  *time.Time `json:"approval_requested_at,omitempty"`
 	ApprovalDecidedAt    *time.Time `json:"approval_decided_at,omitempty"`
+	RequestID            *string    `json:"request_id,omitempty"`
+	RequestReference     *string    `json:"request_reference,omitempty"`
+	RecommendationID     *string    `json:"recommendation_id,omitempty"`
+	RecommendationStatus *string    `json:"recommendation_status,omitempty"`
+	RunID                *string    `json:"run_id,omitempty"`
 	JournalEntryID       *string    `json:"journal_entry_id,omitempty"`
 	JournalEntryNumber   *int64     `json:"journal_entry_number,omitempty"`
 	JournalEntryPostedAt *time.Time `json:"journal_entry_posted_at,omitempty"`
@@ -1213,11 +1228,24 @@ type inventoryReconciliationResponse struct {
 	MovementCreatedAt       time.Time  `json:"movement_created_at"`
 }
 
+type inventoryMovementDetailResponse struct {
+	Review         inventoryMovementResponse         `json:"review"`
+	Reconciliation []inventoryReconciliationResponse `json:"reconciliation"`
+}
+
 type workOrderReviewResponse struct {
 	WorkOrderID              string     `json:"work_order_id"`
 	DocumentID               string     `json:"document_id"`
 	DocumentStatus           string     `json:"document_status"`
 	DocumentNumber           *string    `json:"document_number,omitempty"`
+	ApprovalID               *string    `json:"approval_id,omitempty"`
+	ApprovalStatus           *string    `json:"approval_status,omitempty"`
+	ApprovalQueueCode        *string    `json:"approval_queue_code,omitempty"`
+	RequestID                *string    `json:"request_id,omitempty"`
+	RequestReference         *string    `json:"request_reference,omitempty"`
+	RecommendationID         *string    `json:"recommendation_id,omitempty"`
+	RecommendationStatus     *string    `json:"recommendation_status,omitempty"`
+	RunID                    *string    `json:"run_id,omitempty"`
 	WorkOrderCode            string     `json:"work_order_code"`
 	Title                    string     `json:"title"`
 	Summary                  string     `json:"summary"`
@@ -1742,6 +1770,11 @@ func mapApprovalQueueEntry(entry reporting.ApprovalQueueEntry) approvalQueueEntr
 		DocumentTitle:        entry.DocumentTitle,
 		DocumentNumber:       stringPtr(entry.DocumentNumber),
 		DocumentStatus:       entry.DocumentStatus,
+		RequestID:            stringPtr(entry.RequestID),
+		RequestReference:     stringPtr(entry.RequestReference),
+		RecommendationID:     stringPtr(entry.RecommendationID),
+		RecommendationStatus: stringPtr(entry.RecommendationStatus),
+		RunID:                stringPtr(entry.RunID),
 		JournalEntryID:       stringPtr(entry.JournalEntryID),
 		JournalEntryNumber:   int64Ptr(entry.JournalEntryNumber),
 		JournalEntryPostedAt: timePtr(entry.JournalEntryPostedAt),
@@ -1768,6 +1801,11 @@ func mapDocumentReview(review reporting.DocumentReview) documentReviewResponse {
 		ApprovalQueueCode:    stringPtr(review.ApprovalQueueCode),
 		ApprovalRequestedAt:  timePtr(review.ApprovalRequestedAt),
 		ApprovalDecidedAt:    timePtr(review.ApprovalDecidedAt),
+		RequestID:            stringPtr(review.RequestID),
+		RequestReference:     stringPtr(review.RequestReference),
+		RecommendationID:     stringPtr(review.RecommendationID),
+		RecommendationStatus: stringPtr(review.RecommendationStatus),
+		RunID:                stringPtr(review.RunID),
 		JournalEntryID:       stringPtr(review.JournalEntryID),
 		JournalEntryNumber:   int64Ptr(review.JournalEntryNumber),
 		JournalEntryPostedAt: timePtr(review.JournalEntryPostedAt),
@@ -1952,6 +1990,14 @@ func mapWorkOrderReview(review reporting.WorkOrderReview) workOrderReviewRespons
 		DocumentID:               review.DocumentID,
 		DocumentStatus:           review.DocumentStatus,
 		DocumentNumber:           stringPtr(review.DocumentNumber),
+		ApprovalID:               stringPtr(review.ApprovalID),
+		ApprovalStatus:           stringPtr(review.ApprovalStatus),
+		ApprovalQueueCode:        stringPtr(review.ApprovalQueueCode),
+		RequestID:                stringPtr(review.RequestID),
+		RequestReference:         stringPtr(review.RequestReference),
+		RecommendationID:         stringPtr(review.RecommendationID),
+		RecommendationStatus:     stringPtr(review.RecommendationStatus),
+		RunID:                    stringPtr(review.RunID),
 		WorkOrderCode:            review.WorkOrderCode,
 		Title:                    review.Title,
 		Summary:                  review.Summary,

@@ -688,6 +688,176 @@ func TestHandleWebInboundRequestDetailAddsAnchoredExecutionSections(t *testing.T
 	}
 }
 
+func TestHandleGetProcessedProposalDetailReturnsJSON(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listProcessedProposals: func(_ context.Context, input reporting.ListProcessedProposalsInput) ([]reporting.ProcessedProposalReview, error) {
+				if input.RecommendationID != "rec-123" {
+					t.Fatalf("expected exact recommendation lookup, got %+v", input)
+				}
+				return []reporting.ProcessedProposalReview{{
+					RequestID:            "request-123",
+					RequestReference:     "REQ-000123",
+					RequestStatus:        "processed",
+					RecommendationID:     "rec-123",
+					RunID:                "run-123",
+					RecommendationType:   "draft_document",
+					RecommendationStatus: "approval_requested",
+					Summary:              "Draft invoice",
+					ApprovalID:           sql.NullString{String: "approval-123", Valid: true},
+					DocumentID:           sql.NullString{String: "doc-123", Valid: true},
+					CreatedAt:            time.Date(2026, 4, 4, 8, 0, 0, 0, time.UTC),
+				}}, nil
+			},
+		},
+		nil,
+		nil,
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/review/processed-proposals/rec-123", nil)
+	req.Header.Set(headerOrgID, "00000000-0000-4000-8000-000000000001")
+	req.Header.Set(headerUserID, "00000000-0000-4000-8000-000000000002")
+	req.Header.Set(headerSessionID, "00000000-0000-4000-8000-000000000003")
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `"recommendation_id":"rec-123"`) {
+		t.Fatalf("expected recommendation detail response, body=%s", body)
+	}
+	if !strings.Contains(body, `"request_reference":"REQ-000123"`) {
+		t.Fatalf("expected upstream request continuity in response, body=%s", body)
+	}
+}
+
+func TestHandleGetInventoryMovementDetailReturnsReconciliationJSON(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			listInventoryMovements: func(_ context.Context, input reporting.ListInventoryMovementsInput) ([]reporting.InventoryMovementReview, error) {
+				if input.MovementID != "movement-123" {
+					t.Fatalf("expected exact movement lookup, got %+v", input)
+				}
+				return []reporting.InventoryMovementReview{{
+					MovementID:          "movement-123",
+					MovementNumber:      42,
+					ItemID:              "item-123",
+					ItemSKU:             "MAT-123",
+					ItemName:            "Copper pipe",
+					ItemRole:            "material",
+					MovementType:        "issue",
+					MovementPurpose:     "execution",
+					UsageClassification: "billable",
+					QuantityMilli:       500,
+					ReferenceNote:       "WO issue",
+					CreatedByUserID:     "user-123",
+					CreatedAt:           time.Date(2026, 4, 4, 8, 0, 0, 0, time.UTC),
+				}}, nil
+			},
+			listInventoryReconciliation: func(_ context.Context, input reporting.ListInventoryReconciliationInput) ([]reporting.InventoryReconciliationItem, error) {
+				if input.MovementID != "movement-123" {
+					t.Fatalf("expected reconciliation movement lookup, got %+v", input)
+				}
+				return []reporting.InventoryReconciliationItem{{
+					DocumentID:          "doc-123",
+					DocumentTypeCode:    "inventory_issue",
+					DocumentTitle:       "Inventory issue",
+					DocumentStatus:      "posted",
+					DocumentLineID:      "line-123",
+					LineNumber:          1,
+					MovementID:          "movement-123",
+					MovementNumber:      42,
+					MovementType:        "issue",
+					MovementPurpose:     "execution",
+					UsageClassification: "billable",
+					ItemID:              "item-123",
+					ItemSKU:             "MAT-123",
+					ItemName:            "Copper pipe",
+					ItemRole:            "material",
+					QuantityMilli:       500,
+					MovementCreatedAt:   time.Date(2026, 4, 4, 8, 0, 0, 0, time.UTC),
+				}}, nil
+			},
+		},
+		nil,
+		nil,
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/review/inventory/movements/movement-123", nil)
+	req.Header.Set(headerOrgID, "00000000-0000-4000-8000-000000000001")
+	req.Header.Set(headerUserID, "00000000-0000-4000-8000-000000000002")
+	req.Header.Set(headerSessionID, "00000000-0000-4000-8000-000000000003")
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `"review":{"movement_id":"movement-123"`) {
+		t.Fatalf("expected movement detail review payload, body=%s", body)
+	}
+	if !strings.Contains(body, `"reconciliation":[{"document_id":"doc-123"`) {
+		t.Fatalf("expected movement reconciliation payload, body=%s", body)
+	}
+}
+
+func TestHandleGetDocumentReviewReturnsUpstreamContinuityJSON(t *testing.T) {
+	handler := NewAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		stubOperatorReviewReader{
+			getDocumentReview: func(_ context.Context, input reporting.GetDocumentReviewInput) (reporting.DocumentReview, error) {
+				if input.DocumentID != "doc-123" {
+					t.Fatalf("expected exact document lookup, got %+v", input)
+				}
+				return reporting.DocumentReview{
+					DocumentID:           "doc-123",
+					TypeCode:             "invoice",
+					Title:                "Invoice draft",
+					Status:               "approved",
+					CreatedByUserID:      "user-123",
+					CreatedAt:            time.Date(2026, 4, 4, 8, 0, 0, 0, time.UTC),
+					UpdatedAt:            time.Date(2026, 4, 4, 8, 5, 0, 0, time.UTC),
+					RequestReference:     sql.NullString{String: "REQ-000123", Valid: true},
+					RecommendationID:     sql.NullString{String: "rec-123", Valid: true},
+					RecommendationStatus: sql.NullString{String: "approved", Valid: true},
+					RunID:                sql.NullString{String: "run-123", Valid: true},
+				}, nil
+			},
+		},
+		nil,
+		nil,
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/review/documents/doc-123", nil)
+	req.Header.Set(headerOrgID, "00000000-0000-4000-8000-000000000001")
+	req.Header.Set(headerUserID, "00000000-0000-4000-8000-000000000002")
+	req.Header.Set(headerSessionID, "00000000-0000-4000-8000-000000000003")
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `"document_id":"doc-123"`) {
+		t.Fatalf("expected document detail response, body=%s", body)
+	}
+	if !strings.Contains(body, `"request_reference":"REQ-000123"`) {
+		t.Fatalf("expected document upstream continuity in response, body=%s", body)
+	}
+}
+
 func TestHandleWebWorkOrdersPassesExactWorkOrderFilter(t *testing.T) {
 	var captured reporting.ListWorkOrdersInput
 	handler := NewAgentAPIHandlerWithDependencies(

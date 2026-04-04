@@ -9,6 +9,7 @@ import type {
 	AuditEvent,
 	ControlAccountBalance,
 	DocumentReview,
+	InventoryMovementDetail,
 	InboundRequestDetail,
 	InboundRequestMessage,
 	InboundRequestReview,
@@ -79,6 +80,10 @@ export function listProcessedProposalStatusSummary(fetcher: typeof fetch = fetch
 	return apiRequest('/api/review/processed-proposal-status-summary', undefined, fetcher);
 }
 
+export function getProcessedProposalDetail(recommendationID: string, fetcher: typeof fetch = fetch): Promise<ProcessedProposalReview> {
+	return apiRequest(`/api/review/processed-proposals/${encodeURIComponent(recommendationID)}`, undefined, fetcher);
+}
+
 export function listProcessedProposals(
 	params: { status?: string; requestReference?: string; recommendationID?: string; limit?: number },
 	fetcher: typeof fetch = fetch
@@ -111,6 +116,10 @@ export function listApprovalQueue(
 	);
 }
 
+export function getApprovalQueueDetail(approvalID: string, fetcher: typeof fetch = fetch): Promise<ApprovalQueueEntry> {
+	return apiRequest(`/api/review/approval-queue/${encodeURIComponent(approvalID)}`, undefined, fetcher);
+}
+
 export function listDocuments(
 	params: { status?: string; typeCode?: string; documentID?: string; limit?: number },
 	fetcher: typeof fetch = fetch
@@ -125,6 +134,10 @@ export function listDocuments(
 		undefined,
 		fetcher
 	);
+}
+
+export function getDocumentReview(documentID: string, fetcher: typeof fetch = fetch): Promise<DocumentReview> {
+	return apiRequest(`/api/review/documents/${encodeURIComponent(documentID)}`, undefined, fetcher);
 }
 
 export function listJournalEntries(
@@ -142,6 +155,10 @@ export function listJournalEntries(
 		undefined,
 		fetcher
 	);
+}
+
+export function getJournalEntryDetail(entryID: string, fetcher: typeof fetch = fetch): Promise<JournalEntryReview> {
+	return apiRequest(`/api/review/accounting/journal-entries/${encodeURIComponent(entryID)}`, undefined, fetcher);
 }
 
 export function listControlAccountBalances(
@@ -208,6 +225,10 @@ export function listInventoryMovements(
 	);
 }
 
+export function getInventoryMovementDetail(movementID: string, fetcher: typeof fetch = fetch): Promise<InventoryMovementDetail> {
+	return apiRequest(`/api/review/inventory/movements/${encodeURIComponent(movementID)}`, undefined, fetcher);
+}
+
 export function listInventoryReconciliation(
 	params: { documentID?: string; onlyPendingAccounting?: boolean; onlyPendingExecution?: boolean; limit?: number },
 	fetcher: typeof fetch = fetch
@@ -240,6 +261,10 @@ export function listWorkOrders(
 	);
 }
 
+export function getWorkOrderReview(workOrderID: string, fetcher: typeof fetch = fetch): Promise<WorkOrderReview> {
+	return apiRequest(`/api/review/work-orders/${encodeURIComponent(workOrderID)}`, undefined, fetcher);
+}
+
 export function listAuditEvents(
 	params: { eventID?: string; entityType?: string; entityID?: string; limit?: number },
 	fetcher: typeof fetch = fetch
@@ -254,4 +279,8 @@ export function listAuditEvents(
 		undefined,
 		fetcher
 	);
+}
+
+export function getAuditEventDetail(eventID: string, fetcher: typeof fetch = fetch): Promise<AuditEvent> {
+	return apiRequest(`/api/review/audit-events/${encodeURIComponent(eventID)}`, undefined, fetcher);
 }

@@ -262,6 +262,11 @@ export interface ApprovalQueueEntry {
 	document_title: string;
 	document_number?: string;
 	document_status: string;
+	request_id?: string;
+	request_reference?: string;
+	recommendation_id?: string;
+	recommendation_status?: string;
+	run_id?: string;
 	journal_entry_id?: string;
 	journal_entry_number?: number;
 	journal_entry_posted_at?: string;
@@ -286,6 +291,11 @@ export interface DocumentReview {
 	approval_queue_code?: string;
 	approval_requested_at?: string;
 	approval_decided_at?: string;
+	request_id?: string;
+	request_reference?: string;
+	recommendation_id?: string;
+	recommendation_status?: string;
+	run_id?: string;
 	journal_entry_id?: string;
 	journal_entry_number?: number;
 	journal_entry_posted_at?: string;
@@ -451,11 +461,24 @@ export interface InventoryReconciliationItem {
 	movement_created_at: string;
 }
 
+export interface InventoryMovementDetail {
+	review: InventoryMovementReview;
+	reconciliation: InventoryReconciliationItem[];
+}
+
 export interface WorkOrderReview {
 	work_order_id: string;
 	document_id: string;
 	document_status: string;
 	document_number?: string;
+	approval_id?: string;
+	approval_status?: string;
+	approval_queue_code?: string;
+	request_id?: string;
+	request_reference?: string;
+	recommendation_id?: string;
+	recommendation_status?: string;
+	run_id?: string;
 	work_order_code: string;
 	title: string;
 	summary: string;

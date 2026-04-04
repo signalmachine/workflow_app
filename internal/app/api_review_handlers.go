@@ -166,6 +166,45 @@ func (h *AgentAPIHandler) handleListProcessedProposals(w http.ResponseWriter, r 
 	writeJSON(w, http.StatusOK, response)
 }
 
+func (h *AgentAPIHandler) handleGetProcessedProposalDetail(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+	if h.reviewService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "review service unavailable"})
+		return
+	}
+
+	recommendationID, ok := parseChildPath(reviewProposalListPath, r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	items, err := h.reviewService.ListProcessedProposals(r.Context(), reporting.ListProcessedProposalsInput{
+		RecommendationID: recommendationID,
+		Limit:            2,
+		Actor:            actor,
+	})
+	if err != nil {
+		handleReviewError(w, err, "failed to load processed proposal")
+		return
+	}
+	if len(items) == 0 {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "processed proposal not found"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, mapProcessedProposalReview(items[0]))
+}
+
 func (h *AgentAPIHandler) handleListProcessedProposalStatusSummary(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != reviewProposalSummaryPath {
 		http.NotFound(w, r)
@@ -248,6 +287,45 @@ func (h *AgentAPIHandler) handleListApprovalQueue(w http.ResponseWriter, r *http
 	writeJSON(w, http.StatusOK, response)
 }
 
+func (h *AgentAPIHandler) handleGetApprovalQueueDetail(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+	if h.reviewService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "review service unavailable"})
+		return
+	}
+
+	approvalID, ok := parseChildPath(reviewApprovalQueuePath, r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	items, err := h.reviewService.ListApprovalQueue(r.Context(), reporting.ListApprovalQueueInput{
+		ApprovalID: approvalID,
+		Limit:      2,
+		Actor:      actor,
+	})
+	if err != nil {
+		handleReviewError(w, err, "failed to load approval")
+		return
+	}
+	if len(items) == 0 {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "approval not found"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, mapApprovalQueueEntry(items[0]))
+}
+
 func (h *AgentAPIHandler) handleListDocuments(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != reviewDocumentsPath {
 		http.NotFound(w, r)
@@ -287,6 +365,40 @@ func (h *AgentAPIHandler) handleListDocuments(w http.ResponseWriter, r *http.Req
 		response.Items = append(response.Items, mapDocumentReview(item))
 	}
 	writeJSON(w, http.StatusOK, response)
+}
+
+func (h *AgentAPIHandler) handleGetDocumentReview(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+	if h.reviewService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "review service unavailable"})
+		return
+	}
+
+	documentID, ok := parseChildPath(reviewDocumentsPath, r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	item, err := h.reviewService.GetDocumentReview(r.Context(), reporting.GetDocumentReviewInput{
+		DocumentID: documentID,
+		Actor:      actor,
+	})
+	if err != nil {
+		handleReviewError(w, err, "failed to load document review")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, mapDocumentReview(item))
 }
 
 func (h *AgentAPIHandler) handleListJournalEntries(w http.ResponseWriter, r *http.Request) {
@@ -329,6 +441,45 @@ func (h *AgentAPIHandler) handleListJournalEntries(w http.ResponseWriter, r *htt
 		response.Items = append(response.Items, mapJournalEntryReview(item))
 	}
 	writeJSON(w, http.StatusOK, response)
+}
+
+func (h *AgentAPIHandler) handleGetJournalEntryDetail(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+	if h.reviewService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "review service unavailable"})
+		return
+	}
+
+	entryID, ok := parseChildPath(reviewJournalEntriesPath, r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	items, err := h.reviewService.ListJournalEntries(r.Context(), reporting.ListJournalEntriesInput{
+		EntryID: entryID,
+		Limit:   2,
+		Actor:   actor,
+	})
+	if err != nil {
+		handleReviewError(w, err, "failed to load journal entry")
+		return
+	}
+	if len(items) == 0 {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "journal entry not found"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, mapJournalEntryReview(items[0]))
 }
 
 func (h *AgentAPIHandler) handleListControlAccountBalances(w http.ResponseWriter, r *http.Request) {
@@ -497,6 +648,62 @@ func (h *AgentAPIHandler) handleListInventoryMovements(w http.ResponseWriter, r 
 	writeJSON(w, http.StatusOK, response)
 }
 
+func (h *AgentAPIHandler) handleGetInventoryMovementDetail(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+	if h.reviewService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "review service unavailable"})
+		return
+	}
+
+	movementID, ok := parseChildPath(reviewInventoryMovesPath, r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	items, err := h.reviewService.ListInventoryMovements(r.Context(), reporting.ListInventoryMovementsInput{
+		MovementID: movementID,
+		Limit:      2,
+		Actor:      actor,
+	})
+	if err != nil {
+		handleReviewError(w, err, "failed to load inventory movement")
+		return
+	}
+	if len(items) == 0 {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "inventory movement not found"})
+		return
+	}
+
+	reconciliation, err := h.reviewService.ListInventoryReconciliation(r.Context(), reporting.ListInventoryReconciliationInput{
+		MovementID: movementID,
+		Limit:      50,
+		Actor:      actor,
+	})
+	if err != nil {
+		handleReviewError(w, err, "failed to load inventory reconciliation")
+		return
+	}
+
+	response := inventoryMovementDetailResponse{
+		Review:         mapInventoryMovement(items[0]),
+		Reconciliation: make([]inventoryReconciliationResponse, 0, len(reconciliation)),
+	}
+	for _, item := range reconciliation {
+		response.Reconciliation = append(response.Reconciliation, mapInventoryReconciliation(item))
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
 func (h *AgentAPIHandler) handleListInventoryReconciliation(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != reviewInventoryReconPath {
 		http.NotFound(w, r)
@@ -654,4 +861,43 @@ func (h *AgentAPIHandler) handleLookupAuditEvents(w http.ResponseWriter, r *http
 		response.Items = append(response.Items, mapAuditEvent(item))
 	}
 	writeJSON(w, http.StatusOK, response)
+}
+
+func (h *AgentAPIHandler) handleGetAuditEventDetail(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+	if h.reviewService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "review service unavailable"})
+		return
+	}
+
+	eventID, ok := parseChildPath(reviewAuditEventsPath, r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	items, err := h.reviewService.LookupAuditEvents(r.Context(), reporting.LookupAuditEventsInput{
+		EventID: eventID,
+		Limit:   1,
+		Actor:   actor,
+	})
+	if err != nil {
+		handleReviewError(w, err, "failed to load audit event")
+		return
+	}
+	if len(items) == 0 {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "audit event not found"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, mapAuditEvent(items[0]))
 }

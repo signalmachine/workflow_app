@@ -1,7 +1,7 @@
 # workflow_app Milestone 13 Slice 3 Plan
 
 Date: 2026-04-04
-Status: In progress; admin-parity and inbound-request-detail checkpoints implemented in code on 2026-04-04 while the remaining detail-route parity and cutover work stay open
+Status: In progress; admin-parity, inbound-request detail, and promoted review-detail checkpoints implemented in code on 2026-04-04 while cutover and old-browser retirement stay open
 Purpose: define the third Milestone 13 implementation slice so detail surfaces, admin surfaces, parity closeout, cutover, and legacy browser retirement happen together instead of being left as an indefinite cleanup tail.
 
 ## 1. Slice role
@@ -61,7 +61,7 @@ Before closing this slice:
 
 ## 6. Current implementation checkpoint
 
-The first two active Slice 3 checkpoints are now landed in code.
+The first three active Slice 3 checkpoints are now landed in code.
 
 Landed result:
 
@@ -69,9 +69,11 @@ Landed result:
 2. the Svelte shell is now role-aware for privileged maintenance: admin destinations stay visible only to admin actors, while non-admin access attempts redirect back to `/app` with an explicit error message
 3. admin maintenance parity now includes ledger-account, tax-code, accounting-period, party, contact, org-user, role-assignment, inventory-item, and inventory-location flows on the same shared backend ownership boundaries already used by the old browser layer
 4. the promoted exact inbound-request detail route now runs in Svelte at `/app/inbound-requests/{request_reference_or_id}` with direct continuity for request-reference, run, step, and delegation lookups on the existing shared `/api/review/inbound-requests/{lookup}` seam, and the main Svelte request-entry surfaces now link to that exact detail route instead of stopping at filtered list views
-5. `npm --prefix web run check`, `npm --prefix web run test`, `npm --prefix web run build`, `mcp__svelte__svelte_autofixer` on the new inbound-request detail component, and the repository verification commands all completed cleanly for these checkpoints
+5. the remaining promoted exact review-detail family now also runs in Svelte at `/app/review/approvals/{approval_id}`, `/app/review/proposals/{recommendation_id}`, `/app/review/documents/{document_id}`, `/app/review/accounting/{entry_id}`, `/app/review/inventory/{movement_id}`, `/app/review/work-orders/{work_order_id}`, and `/app/review/audit/{event_id}` on explicit shared `/api/review/.../{id}` detail seams rather than handler-local HTML composition
+6. the migrated list routes now link into those exact Svelte detail routes instead of stopping at list-only continuity
+7. `npm --prefix web run check`, `npm --prefix web run test`, `npm --prefix web run build`, `mcp__svelte__svelte_autofixer` on the new inventory-movement detail component, `go build ./cmd/... ./internal/...`, and the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` verification all completed cleanly for these checkpoints
 
 Remaining Slice 3 work:
 
-1. exact review-detail parity still needs additive shared JSON detail endpoints plus migrated Svelte detail routes for approvals, proposals, documents, accounting, inventory, work orders, and audit instead of trying to recreate those remaining drill-down pages as client-only approximations
-2. final cutover from the old template-based `/app` serving path to the built Svelte frontend still remains gated behind that broader detail-route parity and the bounded post-cutover workflow validation pass
+1. final cutover from the old template-based `/app` serving path to the built Svelte frontend still remains gated behind bounded post-cutover workflow validation on the new detail-route family
+2. old template-browser retirement, dead-code cleanup, and any explicitly required temporary fallback documentation still remain open once that cutover lands

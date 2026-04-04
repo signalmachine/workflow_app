@@ -4,7 +4,7 @@
 	import PageHeader from '$lib/components/layout/PageHeader.svelte';
 	import SurfaceCard from '$lib/components/primitives/SurfaceCard.svelte';
 	import { formatDateTime } from '$lib/utils/format';
-	import { routes } from '$lib/utils/routes';
+	import { auditEventDetail, routes } from '$lib/utils/routes';
 
 	let { data }: PageProps = $props();
 </script>
@@ -31,7 +31,7 @@
 				<tbody>
 					{#each data.events as event (event.id)}
 						<tr>
-							<td>{event.event_type}</td>
+							<td><a href={auditEventDetail(event.id)}>{event.event_type}</a></td>
 							<td>{event.entity_type} · {event.entity_id}</td>
 							<td>{event.actor_user_id ?? '-'}</td>
 							<td>{formatDateTime(event.occurred_at)}</td>

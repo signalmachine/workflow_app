@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { APIClientError } from './client';
-import { getInboundRequestDetail } from './review';
+import { getInboundRequestDetail, getInventoryMovementDetail, getProcessedProposalDetail } from './review';
 
 describe('review api', () => {
 	afterEach(() => {
@@ -49,5 +49,62 @@ describe('review api', () => {
 		const fetchMock = vi.fn(async () => new Response(JSON.stringify({ error: 'record not found' }), { status: 404, headers: { 'Content-Type': 'application/json' } }));
 
 		await expect(getInboundRequestDetail('REQ-404', fetchMock as typeof fetch)).rejects.toEqual(new APIClientError(404, 'record not found'));
+	});
+
+	it('requests processed proposal detail by encoded id', async () => {
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			expect(String(input)).toBe('/api/review/processed-proposals/rec%3A123');
+			return new Response(
+				JSON.stringify({
+					request_id: 'req-1',
+					request_reference: 'REQ-1',
+					request_status: 'processed',
+					recommendation_id: 'rec:123',
+					run_id: 'run-1',
+					recommendation_type: 'draft_document',
+					recommendation_status: 'proposed',
+					summary: 'Draft invoice',
+					created_at: '2026-04-04T00:00:00Z'
+				}),
+				{ status: 200, headers: { 'Content-Type': 'application/json' } }
+			);
+		});
+
+		const detail = await getProcessedProposalDetail('rec:123', fetchMock as typeof fetch);
+
+		expect(detail.recommendation_id).toBe('rec:123');
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	it('requests inventory movement detail by encoded id', async () => {
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			expect(String(input)).toBe('/api/review/inventory/movements/move%2F123');
+			return new Response(
+				JSON.stringify({
+					review: {
+						movement_id: 'move/123',
+						movement_number: 42,
+						item_id: 'item-1',
+						item_sku: 'MAT-1',
+						item_name: 'Copper pipe',
+						item_role: 'material',
+						movement_type: 'issue',
+						movement_purpose: 'execution',
+						usage_classification: 'billable',
+						quantity_milli: 500,
+						reference_note: '',
+						created_by_user_id: 'user-1',
+						created_at: '2026-04-04T00:00:00Z'
+					},
+					reconciliation: []
+				}),
+				{ status: 200, headers: { 'Content-Type': 'application/json' } }
+			);
+		});
+
+		const detail = await getInventoryMovementDetail('move/123', fetchMock as typeof fetch);
+
+		expect(detail.review.movement_id).toBe('move/123');
+		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 });

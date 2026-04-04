@@ -16,6 +16,10 @@ func (h *AgentAPIHandler) handleProcessedProposalAction(w http.ResponseWriter, r
 		http.NotFound(w, r)
 		return
 	}
+	if r.Method == http.MethodGet {
+		h.handleGetProcessedProposalDetail(w, r)
+		return
+	}
 	if r.Method != http.MethodPost {
 		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
 		return

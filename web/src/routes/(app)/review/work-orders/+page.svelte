@@ -5,7 +5,7 @@
 	import StatusBadge from '$lib/components/primitives/StatusBadge.svelte';
 	import SurfaceCard from '$lib/components/primitives/SurfaceCard.svelte';
 	import { formatDateTime, formatMinorUnits } from '$lib/utils/format';
-	import { routes } from '$lib/utils/routes';
+	import { routes, workOrderDetail } from '$lib/utils/routes';
 
 	let { data }: PageProps = $props();
 </script>
@@ -32,7 +32,7 @@
 				<tbody>
 					{#each data.workOrders as item (item.work_order_id)}
 						<tr>
-							<td>{item.work_order_code}</td>
+							<td><a href={workOrderDetail(item.work_order_id)}>{item.work_order_code}</a></td>
 							<td><StatusBadge status={item.status} /></td>
 							<td>{item.open_task_count} open / {item.completed_task_count} done</td>
 							<td>{item.total_labor_minutes} min · {formatMinorUnits(item.total_labor_cost_minor)}</td>
