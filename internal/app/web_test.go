@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -73,6 +74,38 @@ func TestHandleSvelteAppServesIndexAtAppRoot(t *testing.T) {
 	}
 	if !strings.Contains(body, `import("./_app/immutable/entry/start.`) {
 		t.Fatalf("expected relative app-root entry import, got %s", body)
+	}
+}
+
+func TestLoadWebFrontendModeUsesProvidedDefault(t *testing.T) {
+	t.Setenv("WORKFLOW_WEB_FRONTEND", "")
+
+	if got := loadWebFrontendMode(webFrontendSvelte); got != webFrontendSvelte {
+		t.Fatalf("expected svelte default, got %q", got)
+	}
+	if got := loadWebFrontendMode(webFrontendTemplates); got != webFrontendTemplates {
+		t.Fatalf("expected templates default, got %q", got)
+	}
+}
+
+func TestLoadWebFrontendModeHonorsExplicitOverride(t *testing.T) {
+	originalValue, hadOriginal := os.LookupEnv("WORKFLOW_WEB_FRONTEND")
+	t.Cleanup(func() {
+		if hadOriginal {
+			_ = os.Setenv("WORKFLOW_WEB_FRONTEND", originalValue)
+			return
+		}
+		_ = os.Unsetenv("WORKFLOW_WEB_FRONTEND")
+	})
+
+	t.Setenv("WORKFLOW_WEB_FRONTEND", "templates")
+	if got := loadWebFrontendMode(webFrontendSvelte); got != webFrontendTemplates {
+		t.Fatalf("expected templates override, got %q", got)
+	}
+
+	t.Setenv("WORKFLOW_WEB_FRONTEND", "svelte")
+	if got := loadWebFrontendMode(webFrontendTemplates); got != webFrontendSvelte {
+		t.Fatalf("expected svelte override, got %q", got)
 	}
 }
 

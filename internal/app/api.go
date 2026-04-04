@@ -522,7 +522,7 @@ func NewAgentAPIHandler(db *sql.DB) http.Handler {
 	partiesService := parties.NewService(db)
 	return newAgentAPIHandlerWithDependencies(func() (ProcessNextQueuedInboundRequester, error) {
 		return NewOpenAIAgentProcessorFromEnv(db)
-	}, NewSubmissionService(db), reporting.NewService(db), workflow.NewService(db, documentService), newProcessedProposalApprovalService(db), accountingService, authService, partiesService, inventoryService)
+	}, NewSubmissionService(db), reporting.NewService(db), workflow.NewService(db, documentService), newProcessedProposalApprovalService(db), accountingService, authService, partiesService, inventoryService, webFrontendSvelte)
 }
 
 func NewAgentAPIHandlerWithProcessorLoader(loader queuedInboundRequestProcessorLoader) http.Handler {
@@ -534,18 +534,21 @@ func NewAgentAPIHandlerWithServices(loader queuedInboundRequestProcessorLoader, 
 }
 
 func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoader, submissionService inboundRequestSubmitter, reviewService operatorReviewReader, approvalService approvalDecisionService, authService browserSessionService) http.Handler {
-	return newAgentAPIHandlerWithDependencies(loader, submissionService, reviewService, approvalService, nil, nil, authService)
+	return newAgentAPIHandlerWithDependencies(loader, submissionService, reviewService, approvalService, nil, nil, authService, webFrontendTemplates)
 }
 
 func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoader, submissionService inboundRequestSubmitter, reviewService operatorReviewReader, approvalService approvalDecisionService, proposalApproval proposalApprovalService, accountingAdmin accountingAdminService, authService browserSessionService, optionalServices ...any) http.Handler {
 	var partyAdminService partiesAdminService
 	var inventoryAdmin inventoryAdminService
+	defaultWebFrontend := webFrontendTemplates
 	for _, svc := range optionalServices {
 		switch typed := svc.(type) {
 		case partiesAdminService:
 			partyAdminService = typed
 		case inventoryAdminService:
 			inventoryAdmin = typed
+		case webFrontendMode:
+			defaultWebFrontend = typed
 		}
 	}
 	var identityAdminService accessAdminService
@@ -565,7 +568,7 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 		accessAdmin:       identityAdminService,
 		inventoryAdmin:    inventoryAdmin,
 		authService:       authService,
-		webFrontend:       loadWebFrontendMode(),
+		webFrontend:       loadWebFrontendMode(defaultWebFrontend),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handler.handleRoot)
@@ -625,12 +628,14 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	return mux
 }
 
-func loadWebFrontendMode() webFrontendMode {
+func loadWebFrontendMode(defaultMode webFrontendMode) webFrontendMode {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("WORKFLOW_WEB_FRONTEND"))) {
+	case string(webFrontendTemplates):
+		return webFrontendTemplates
 	case string(webFrontendSvelte):
 		return webFrontendSvelte
 	default:
-		return webFrontendTemplates
+		return defaultMode
 	}
 }
 

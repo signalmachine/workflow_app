@@ -1,7 +1,7 @@
 # workflow_app Milestone 13 Slice 3 Plan
 
 Date: 2026-04-04
-Status: In progress; admin-parity, inbound-request detail, and promoted review-detail checkpoints implemented in code on 2026-04-04 while cutover and old-browser retirement stay open
+Status: In progress; admin-parity, inbound-request detail, promoted review-detail checkpoints, and default `/app` cutover to the built Svelte frontend are implemented in code on 2026-04-04 while bounded post-cutover workflow validation and final legacy-browser retirement stay open
 Purpose: define the third Milestone 13 implementation slice so detail surfaces, admin surfaces, parity closeout, cutover, and legacy browser retirement happen together instead of being left as an indefinite cleanup tail.
 
 ## 1. Slice role
@@ -75,5 +75,6 @@ Landed result:
 
 Remaining Slice 3 work:
 
-1. final cutover from the old template-based `/app` serving path to the built Svelte frontend still remains gated behind bounded post-cutover workflow validation on the new detail-route family
-2. old template-browser retirement, dead-code cleanup, and any explicitly required temporary fallback documentation still remain open once that cutover lands
+1. the Go binary now serves the built Svelte frontend at `/app` by default, while `WORKFLOW_WEB_FRONTEND=templates` remains the explicit temporary fallback seam for bounded legacy-browser checks during post-cutover validation
+2. bounded post-cutover workflow validation on the real `/app` plus `/api/...` seam still remains open on the `docs/workflows/` track before the temporary fallback can be retired
+3. old template-browser retirement and dead-code cleanup still remain open once that fallback is no longer needed
