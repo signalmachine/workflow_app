@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-//go:embed web_dist
+//go:embed all:web_dist
 var webDistFS embed.FS
 
 func (h *AgentAPIHandler) handleSvelteApp(w http.ResponseWriter, r *http.Request) {
@@ -33,9 +33,14 @@ func (h *AgentAPIHandler) handleSvelteApp(w http.ResponseWriter, r *http.Request
 
 	switch {
 	case relativePath == "":
-		serveEmbeddedDistFile(w, r, distFS, "index.html")
-	case looksLikeStaticAsset(relativePath) && embeddedDistFileExists(distFS, relativePath):
-		serveEmbeddedDistFile(w, r, distFS, relativePath)
+		// Serve the SPA fallback shell at /app so asset URLs stay rooted under /app
+		// even when the browser requests the base path without a trailing slash.
+		serveEmbeddedDistFile(w, r, distFS, "200.html")
+	case looksLikeStaticAsset(relativePath):
+		if serveEmbeddedDistFileIfExists(w, r, distFS, relativePath) {
+			return
+		}
+		serveEmbeddedDistFile(w, r, distFS, "200.html")
 	default:
 		serveEmbeddedDistFile(w, r, distFS, "200.html")
 	}
@@ -46,33 +51,31 @@ func looksLikeStaticAsset(name string) bool {
 	return strings.Contains(base, ".")
 }
 
-func embeddedDistFileExists(root fs.FS, name string) bool {
-	if root == nil || strings.TrimSpace(name) == "" {
-		return false
-	}
-	info, err := fs.Stat(root, name)
-	return err == nil && !info.IsDir()
-}
-
-func serveEmbeddedDistFile(w http.ResponseWriter, r *http.Request, root fs.FS, name string) {
+func serveEmbeddedDistFileIfExists(w http.ResponseWriter, r *http.Request, root fs.FS, name string) bool {
 	file, err := root.Open(name)
 	if err != nil {
-		http.NotFound(w, r)
-		return
+		return false
 	}
 	defer file.Close()
 
 	info, err := file.Stat()
 	if err != nil || info.IsDir() {
-		http.NotFound(w, r)
-		return
+		return false
 	}
 
 	readSeeker, ok := file.(io.ReadSeeker)
 	if !ok {
 		http.Error(w, "web bundle file is not seekable", http.StatusInternalServerError)
-		return
+		return true
 	}
 
 	http.ServeContent(w, r, info.Name(), info.ModTime(), readSeeker)
+	return true
+}
+
+func serveEmbeddedDistFile(w http.ResponseWriter, r *http.Request, root fs.FS, name string) {
+	if serveEmbeddedDistFileIfExists(w, r, root, name) {
+		return
+	}
+	http.NotFound(w, r)
 }

@@ -72,8 +72,35 @@ func TestHandleSvelteAppServesIndexAtAppRoot(t *testing.T) {
 	if !strings.Contains(body, `data-sveltekit-preload-data="hover"`) {
 		t.Fatalf("expected svelte app shell body, got %s", body)
 	}
-	if !strings.Contains(body, `import("./_app/immutable/entry/start.`) {
-		t.Fatalf("expected relative app-root entry import, got %s", body)
+	if !strings.Contains(body, `import("/app/_app/immutable/entry/start.`) {
+		t.Fatalf("expected app-root entry import with /app base, got %s", body)
+	}
+}
+
+func TestHandleSvelteAppServesEmbeddedJSAsset(t *testing.T) {
+	handler := &AgentAPIHandler{webFrontend: webFrontendSvelte}
+	req := httptest.NewRequest(http.MethodGet, "/app/_app/immutable/entry/start.B8wf3h5J.js", nil)
+	recorder := httptest.NewRecorder()
+
+	handler.handleSvelteApp(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	contentType := recorder.Header().Get("Content-Type")
+	if !strings.Contains(contentType, "javascript") && !strings.Contains(contentType, "text/plain") {
+		t.Fatalf("expected javascript-ish content type, got %q body=%s", contentType, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if strings.Contains(body, "<!doctype html>") {
+		t.Fatalf("expected JS asset body, got HTML shell")
+	}
+	if !strings.Contains(body, "import") && !strings.Contains(body, "export") {
+		snippet := body
+		if len(snippet) > 120 {
+			snippet = snippet[:120]
+		}
+		t.Fatalf("expected bundled JS module body, got %s", snippet)
 	}
 }
 

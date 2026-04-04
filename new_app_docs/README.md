@@ -96,9 +96,10 @@ For the active v2 planning surface, read these in order:
 9. `milestone_13_slice_1_svelte_foundation_and_shell_plan.md`
 10. `milestone_13_slice_2_svelte_workflow_surfaces_plan.md`
 11. `milestone_13_slice_3_svelte_detail_admin_and_cutover_plan.md`
-12. `../docs/svelte_web_guides/svelte_web_ui_migration_plan.md`
-13. `milestone_12_admin_maintenance_and_master_data_plan.md`
-14. `../docs/workflows/README.md` for the durable workflow-reference and validation-track layer after the active planning read
+12. `browser_testing_lessons.md`
+13. `../docs/svelte_web_guides/svelte_web_ui_migration_plan.md`
+14. `milestone_12_admin_maintenance_and_master_data_plan.md`
+15. `../docs/workflows/README.md` for the durable workflow-reference and validation-track layer after the active planning read
 
 Reference-only rule:
 
