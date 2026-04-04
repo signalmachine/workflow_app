@@ -1,7 +1,7 @@
 # workflow_app Milestone 13 Slice 3 Plan
 
 Date: 2026-04-04
-Status: In progress; admin-parity, inbound-request detail, promoted review-detail checkpoints, and default `/app` cutover to the built Svelte frontend are implemented in code on 2026-04-04 while bounded post-cutover workflow validation and final legacy-browser retirement stay open
+Status: In progress; settings continuity, admin-parity, inbound-request detail, promoted review-detail checkpoints, and default `/app` cutover to the built Svelte frontend are implemented in code on 2026-04-04 while bounded post-cutover workflow validation and final legacy-browser retirement stay open
 Purpose: define the third Milestone 13 implementation slice so detail surfaces, admin surfaces, parity closeout, cutover, and legacy browser retirement happen together instead of being left as an indefinite cleanup tail.
 
 ## 1. Slice role
@@ -61,20 +61,20 @@ Before closing this slice:
 
 ## 6. Current implementation checkpoint
 
-The first three active Slice 3 checkpoints are now landed in code.
+The active Slice 3 product checkpoints are now landed in code.
 
 Landed result:
 
-1. the Svelte admin route family now covers `/app/admin`, `/app/admin/accounting`, `/app/admin/parties`, `/app/admin/parties/{party_id}`, `/app/admin/access`, and `/app/admin/inventory` against the existing shared `/api/admin/...` seams
-2. the Svelte shell is now role-aware for privileged maintenance: admin destinations stay visible only to admin actors, while non-admin access attempts redirect back to `/app` with an explicit error message
-3. admin maintenance parity now includes ledger-account, tax-code, accounting-period, party, contact, org-user, role-assignment, inventory-item, and inventory-location flows on the same shared backend ownership boundaries already used by the old browser layer
-4. the promoted exact inbound-request detail route now runs in Svelte at `/app/inbound-requests/{request_reference_or_id}` with direct continuity for request-reference, run, step, and delegation lookups on the existing shared `/api/review/inbound-requests/{lookup}` seam, and the main Svelte request-entry surfaces now link to that exact detail route instead of stopping at filtered list views
-5. the remaining promoted exact review-detail family now also runs in Svelte at `/app/review/approvals/{approval_id}`, `/app/review/proposals/{recommendation_id}`, `/app/review/documents/{document_id}`, `/app/review/accounting/{entry_id}`, `/app/review/inventory/{movement_id}`, `/app/review/work-orders/{work_order_id}`, and `/app/review/audit/{event_id}` on explicit shared `/api/review/.../{id}` detail seams rather than handler-local HTML composition
-6. the migrated list routes now link into those exact Svelte detail routes instead of stopping at list-only continuity
-7. `npm --prefix web run check`, `npm --prefix web run test`, `npm --prefix web run build`, `mcp__svelte__svelte_autofixer` on the new inventory-movement detail component, `go build ./cmd/... ./internal/...`, and the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` verification all completed cleanly for these checkpoints
+1. `/app/settings` now has Svelte continuity parity for current session context, ownership guidance, workload-aware recommended routes, admin continuation for privileged actors, and personal utility shortcuts instead of remaining a placeholder shell checkpoint
+2. the Svelte admin route family now covers `/app/admin`, `/app/admin/accounting`, `/app/admin/parties`, `/app/admin/parties/{party_id}`, `/app/admin/access`, and `/app/admin/inventory` against the existing shared `/api/admin/...` seams
+3. the Svelte shell is now role-aware for privileged maintenance: admin destinations stay visible only to admin actors, while non-admin access attempts redirect back to `/app` with an explicit error message
+4. admin maintenance parity now includes ledger-account, tax-code, accounting-period, party, contact, org-user, role-assignment, inventory-item, and inventory-location flows on the same shared backend ownership boundaries already used by the old browser layer
+5. the promoted exact inbound-request detail route now runs in Svelte at `/app/inbound-requests/{request_reference_or_id}` with direct continuity for request-reference, run, step, and delegation lookups on the existing shared `/api/review/inbound-requests/{lookup}` seam, and the main Svelte request-entry surfaces now link to that exact detail route instead of stopping at filtered list views
+6. the remaining promoted exact review-detail family now also runs in Svelte at `/app/review/approvals/{approval_id}`, `/app/review/proposals/{recommendation_id}`, `/app/review/documents/{document_id}`, `/app/review/accounting/{entry_id}`, `/app/review/inventory/{movement_id}`, `/app/review/work-orders/{work_order_id}`, and `/app/review/audit/{event_id}` on explicit shared `/api/review/.../{id}` detail seams rather than handler-local HTML composition
+7. the migrated list routes now link into those exact Svelte detail routes instead of stopping at list-only continuity
+8. `npm --prefix web run check`, `npm --prefix web run test`, `npm --prefix web run build`, `mcp__svelte__svelte_autofixer` on the new settings component and the earlier inventory-movement detail component, `go build ./cmd/... ./internal/...`, and the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` verification all completed cleanly for these checkpoints
 
 Remaining Slice 3 work:
 
-1. the Go binary now serves the built Svelte frontend at `/app` by default, while `WORKFLOW_WEB_FRONTEND=templates` remains the explicit temporary fallback seam for bounded legacy-browser checks during post-cutover validation
-2. bounded post-cutover workflow validation on the real `/app` plus `/api/...` seam still remains open on the `docs/workflows/` track before the temporary fallback can be retired
-3. old template-browser retirement and dead-code cleanup still remain open once that fallback is no longer needed
+1. bounded post-cutover workflow validation on the real `/app` plus `/api/...` seam still remains open on the `docs/workflows/` track before the temporary `WORKFLOW_WEB_FRONTEND=templates` fallback can be retired
+2. old template-browser retirement and dead-code cleanup still remain open once that fallback is no longer needed
