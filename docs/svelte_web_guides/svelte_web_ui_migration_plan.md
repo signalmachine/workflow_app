@@ -440,14 +440,14 @@ export async function listInboundRequests(params: {
 
 ### 7.1 `AppShell.svelte`
 
-The application shell uses a **left sidebar layout** as defined in `docs/svelte_web_guides/web_ui_design_guide.md` §3. This is a fundamental departure from the current top nav-strip model.
+The application shell uses a **left sidebar plus contextual section-tab layout** as defined in `docs/svelte_web_guides/web_ui_design_guide.md` §3. This is a fundamental departure from the current top nav-strip model and from the earlier stricter "sidebar only" rule.
 
 Structure:
 ```
 ┌─────────────────────────────────────────────────────┐
 │ TopBar (48px fixed height, full width)               │
 ├──────────┬──────────────────────────────────────────┤
-│ SideNav  │ <slot> — page content                    │
+│ SideNav  │ Context tabs + page content              │
 │ (220px   │                                          │
 │  fixed)  │ max-width: var(--content-max-width)      │
 │          │ padding: var(--page-gutter)              │
@@ -455,15 +455,17 @@ Structure:
 ```
 
 Components:
-- **`TopBar.svelte`** — brand mark (left) + `UserMenu` (right). **No navigation in the top bar.**
-- **`SideNav.svelte`** — fixed 220px sidebar, dark background (`var(--shell-ink)`). Contains `SideNavItem` entries for: Home, Intake, Operations, Review, Inventory, then a separator, then Admin (collapsible group with sub-items), Settings.
+- **`TopBar.svelte`** — brand mark (left) + `UserMenu` (right). The top bar itself does not host the primary global navigation.
+- **`SideNav.svelte`** — fixed 220px sidebar, dark background (`var(--shell-ink)`). Contains major-area entries such as Agent, Accounting, Inventory, Operations, then a separator, then Admin (collapsible group with sub-items), Settings.
+- **`SectionTabs.svelte`** — contextual second-level tabs rendered beneath the top bar and derived from the active sidebar area.
 - **`SideNavItem.svelte`** — single item: optional 16px icon + text label. Active state from router match.
 - **`UserMenu.svelte`** — user display name + role pill in TopBar; dropdown with Settings link and Sign out.
 
-> **`NavBubbles.svelte` is not built.** The top nav-strip approach is replaced entirely by the sidebar. **`AdminLayout.svelte` is not built** — admin sub-navigation is a collapsible group within `SideNav`.
+> **`NavBubbles.svelte` is not built.** The old top nav-strip approach is replaced by a sidebar for major areas plus one restrained contextual tab row for the active area. **`AdminLayout.svelte` is not built** — admin sub-navigation is a collapsible group within `SideNav`.
 
 Props:
 - `activePath: string` — derived from router; passed to `SideNav` for active-state highlighting
+- `activeSection: string` — derived from router; passed to `SectionTabs` for contextual tab rendering and active-state highlighting
 
 Content:
 - Default children snippet: page content. In Svelte 5, render with `{@render children()}` inside the shell. Do not use `<slot />`.

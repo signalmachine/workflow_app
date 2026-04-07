@@ -472,6 +472,12 @@ Goal:
 
 1. turn the rebuilt browser surface into a calmer and more scalable operator application by replacing heavy global chrome with a lighter primary navigation model, bundle landing pages, searchable route discovery, and a personalized `/app` home
 
+Historical note:
+
+1. Milestone 11 captured an earlier operator-shell direction centered on top-bar primary navigation for the Go-template browser layer
+2. that milestone remains useful as browser-history context, but it is not the active forward shell rule for the Svelte implementation
+3. the active forward shell rule now lives in the Milestone 13 Svelte planning surface and the canonical Svelte design guide, which use a major-area sidebar plus contextual section tabs
+
 Scope:
 
 1. top-bar primary navigation for the true primary destinations

@@ -44,11 +44,13 @@ Every design decision in this guide addresses one or more of these problems.
 
 ---
 
-## 3. Navigation model: left sidebar
+## 3. Navigation model: sidebar plus contextual section tabs
 
 ### 3.1 Decision
 
-**Use a fixed left sidebar for primary navigation.** Do not use a horizontal top-strip of navigation bubbles or tabs as the primary navigation.
+**Use a fixed left sidebar for primary area navigation.** Do not use a horizontal top-strip of navigation bubbles or tabs as the primary global navigation.
+
+The application may also use a **contextual second-level tab row** tied to the currently selected sidebar area. That secondary tab row must change the operator's view within the current area. It must not become a second competing global navigation system.
 
 This is the single most impactful structural decision for enterprise feel.
 
@@ -63,7 +65,7 @@ This is the single most impactful structural decision for enterprise feel.
 | Admin sub-navigation | Requires a second nav strip | Admin items collapse/expand in the same sidebar |
 | Mobile | Nav pills overflow-scroll or wrap | Sidebar slides in as a drawer |
 
-The top-strip model was designed for narrow-section apps (4–6 top-level destinations). This application has 8+ primary destinations plus admin sub-sections; the sidebar scales better.
+The top-strip model was designed for narrow-section apps (4–6 top-level destinations). This application has enough primary areas, workflow modes, and admin sub-sections that the sidebar scales better for the global layer.
 
 ### 3.3 Sidebar layout spec
 
@@ -72,11 +74,10 @@ The top-strip model was designed for narrow-section apps (4–6 top-level destin
 │  [Brand mark]  Workflow App          [User menu ↓ ]  │  ← TopBar (48px fixed)
 ├──────────┬──────────────────────────────────────────┤
 │          │                                           │
-│  [Home]  │   [Page content — full height, full       │
-│  [Intake]│    width of right panel]                  │
-│  [Ops]   │                                           │
-│  [Review]│                                           │
-│  [Invet] │                                           │
+│ [Agent]  │   [Context tabs for active sidebar area]  │
+│ [Acct.]  │   [Page content — full height, full       │
+│ [Inv.]   │    width of right panel]                  │
+│ [Ops.]   │                                           │
 │  ───     │                                           │
 │  [Admin] │                                           │
 │  [Set.]  │                                           │
@@ -99,7 +100,15 @@ The top-strip model was designed for narrow-section apps (4–6 top-level destin
 - Full width, sits above both sidebar and content
 - Contains: brand mark (left), user menu (right)
 - Background: `var(--shell-ink-strong)`
-- No navigation in the top bar — navigation lives entirely in the sidebar
+- No primary global navigation in the top bar itself
+
+**Context tab row:**
+- Sits below the TopBar and above page content inside the main content column
+- Belongs to the currently selected sidebar area
+- Uses concise mode labels such as `Overview`, `Workflows`, `Actions`, `Lists`, `Reports`, `Search`
+- May vary by sidebar area; for example the `Agent` area can lead with `Messages` and `Requests`
+- Must remain a single restrained row, horizontally scrollable on narrow widths rather than wrapping into a heavy second header band
+- Must not duplicate the sidebar's major-area choices
 
 **Content area:**
 - Starts at `top: 48px` (below TopBar), `left: 220px` (right of sidebar)
@@ -107,7 +116,29 @@ The top-strip model was designed for narrow-section apps (4–6 top-level destin
 - Inner padding: `var(--space-8) var(--space-8)` (32px all sides) on desktop
 - Max content width within the content area: `1100px` — not 1320px (see §6.1)
 
-### 3.4 Admin and sub-navigation
+### 3.4 Major-area model
+
+The left sidebar should be reserved for the most stable major areas of the application. The intended forward model is:
+
+```
+  Agent
+  Accounting
+  Inventory
+  Operations
+  ───
+  Admin
+  Settings
+```
+
+Rules:
+
+1. sidebar items represent durable areas of responsibility, not one-off actions or page shortcuts
+2. action pages such as request submission, feeds, search, and grouped reports belong under contextual tabs within an area rather than as peer sidebar items
+3. `AR` and `AP` should remain under `Accounting` until they become real first-class route families with their own coherent operator surfaces
+4. `Agent` is an agent-observability and agent-control area, not a second owner of accounting, inventory, or execution truth
+5. contextual tabs may expose domain workflows through the selected area's lens, but they must not reassign canonical workflow ownership
+
+### 3.5 Admin and sub-navigation
 
 Admin sub-sections (Accounting setup, Party setup, Access controls, Inventory setup) are collapsible items under an "Admin" parent in the sidebar. There is **no second nav strip** for admin pages. The `AdminLayout.svelte` double-nav pattern from the original plan is replaced by sidebar expand/collapse.
 
@@ -122,13 +153,18 @@ The sidebar item for Admin expands to reveal:
 
 This eliminates the entire `AdminLayout.svelte` component — admin pages use the same `AppLayout.svelte` as all other pages.
 
-### 3.5 Mobile nav
+### 3.6 Mobile nav
 
 On viewport widths below `768px`:
 - The sidebar collapses to hidden
 - A hamburger button appears in the TopBar (left side)
 - Tapping it slides the sidebar in as a full-height drawer overlay
 - Tapping outside or a nav item closes it
+
+On desktop widths:
+- The sidebar may support a collapsible compact state
+- The collapsed state should reduce the rail to icon-only or narrow-label presentation rather than hiding the area model completely
+- The collapsed or expanded preference should persist per user where practical
 
 ---
 
