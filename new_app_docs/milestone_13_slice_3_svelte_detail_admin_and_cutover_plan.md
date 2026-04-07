@@ -73,8 +73,9 @@ Landed result:
 6. the remaining promoted exact review-detail family now also runs in Svelte at `/app/review/approvals/{approval_id}`, `/app/review/proposals/{recommendation_id}`, `/app/review/documents/{document_id}`, `/app/review/accounting/{entry_id}`, `/app/review/inventory/{movement_id}`, `/app/review/work-orders/{work_order_id}`, and `/app/review/audit/{event_id}` on explicit shared `/api/review/.../{id}` detail seams rather than handler-local HTML composition
 7. the migrated list routes now link into those exact Svelte detail routes instead of stopping at list-only continuity
 8. `npm --prefix web run check`, `npm --prefix web run test`, `npm --prefix web run build`, `mcp__svelte__svelte_autofixer` on the new settings component and the earlier inventory-movement detail component, `go build ./cmd/... ./internal/...`, and the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` verification all completed cleanly for these checkpoints
+9. focused Go integration coverage now also clears `WORKFLOW_WEB_FRONTEND` and asserts the promoted `/app` route family serves the embedded Svelte shell by default at `/app`, `/app/login`, the promoted utility and landing routes, and the promoted detail-route family, so the default-cutover serving path has explicit code-level coverage beyond the narrower unit checks in `internal/app/web_test.go`
 
 Remaining Slice 3 work:
 
 1. bounded post-cutover workflow validation on the real `/app` plus `/api/...` seam still remains open on the `docs/workflows/` track before the temporary `WORKFLOW_WEB_FRONTEND=templates` fallback can be retired
-2. old template-browser retirement and dead-code cleanup still remain open once that fallback is no longer needed
+2. the black-box integration suite still carries legacy template-HTML continuity assertions behind `WORKFLOW_WEB_FRONTEND=templates`, so those assertions need to move onto the shared API seam or other Svelte-compatible coverage before old template-browser retirement and dead-code cleanup can finish cleanly

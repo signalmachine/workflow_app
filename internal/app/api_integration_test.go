@@ -122,6 +122,58 @@ func TestAgentAPISessionLoginCurrentSessionAndLogoutIntegration(t *testing.T) {
 	}
 }
 
+func TestAgentAPIDefaultSvelteFrontendServesPromotedRoutesIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+
+	t.Setenv("WORKFLOW_WEB_FRONTEND", "")
+
+	handler := app.NewAgentAPIHandler(db)
+	routes := []string{
+		"/app",
+		"/app/login",
+		"/app/routes",
+		"/app/settings",
+		"/app/admin",
+		"/app/admin/accounting",
+		"/app/admin/parties/party-123",
+		"/app/admin/access",
+		"/app/admin/inventory",
+		"/app/operations",
+		"/app/review",
+		"/app/inventory",
+		"/app/submit-inbound-request",
+		"/app/operations-feed",
+		"/app/agent-chat",
+		"/app/inbound-requests/REQ-000123",
+		"/app/review/inbound-requests",
+		"/app/review/approvals/approval-123",
+		"/app/review/proposals/recommendation-123",
+		"/app/review/documents/document-123",
+		"/app/review/accounting/entry-123",
+		"/app/review/inventory/movement-123",
+		"/app/review/work-orders/work-order-123",
+		"/app/review/audit/event-123",
+	}
+
+	for _, route := range routes {
+		t.Run(route, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, route, nil)
+			recorder := httptest.NewRecorder()
+
+			handler.ServeHTTP(recorder, req)
+
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("unexpected status for %s: got %d body=%s", route, recorder.Code, recorder.Body.String())
+			}
+
+			body := recorder.Body.String()
+			requireContains(t, body, `data-sveltekit-preload-data="hover"`)
+			requireContains(t, body, `/app/_app/immutable/entry/start.`)
+		})
+	}
+}
+
 func TestAgentAPIAdminAccountingMaintenanceIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()
