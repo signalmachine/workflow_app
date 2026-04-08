@@ -133,9 +133,9 @@ Routes:
 
 Assertions:
 
-1. each landing page behaves as a compact route directory first
-2. grouped links are easier to scan than the older card-mosaic posture
-3. summary content stays subordinate to route selection
+1. `/app/operations` and `/app/review` behave as compact route directories first, while `/app/inventory` behaves as a thin domain landing with stock, movement, and handoff-entry snapshots
+2. grouped links and filtered follow-through actions are easier to scan than the older card-mosaic posture
+3. summary content stays subordinate to route selection or the next workflow-follow-through action
 4. the sidebar plus contextual-tab composition makes route discovery easier without turning the shell into a flat site map
 
 ### 3.3.3 Review workbench family
