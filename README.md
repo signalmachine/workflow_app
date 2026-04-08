@@ -159,18 +159,14 @@ http://127.0.0.1:8080/app/review/documents
 http://127.0.0.1:8080/app/review/documents/<document-uuid>
 http://127.0.0.1:8080/app/review/accounting
 http://127.0.0.1:8080/app/review/accounting/<journal-entry-uuid>
-http://127.0.0.1:8080/app/review/accounting/control-accounts/<account-uuid>
-http://127.0.0.1:8080/app/review/accounting/tax-summaries/<tax-code>
 http://127.0.0.1:8080/app/review/approvals
 http://127.0.0.1:8080/app/review/approvals/<approval-uuid>
 http://127.0.0.1:8080/app/review/proposals
 http://127.0.0.1:8080/app/review/proposals/<recommendation-uuid>
 http://127.0.0.1:8080/app/review/inventory
 http://127.0.0.1:8080/app/review/inventory/<movement-uuid>
-http://127.0.0.1:8080/app/review/inventory/items/<item-uuid>
-http://127.0.0.1:8080/app/review/inventory/locations/<location-uuid>
 http://127.0.0.1:8080/app/review/work-orders
-http://127.0.0.1:8080/app/review/work-orders?work_order_id=<work-order-uuid>
+http://127.0.0.1:8080/app/review/work-orders/<work-order-uuid>
 http://127.0.0.1:8080/app/review/audit
 http://127.0.0.1:8080/app/review/audit/<audit-event-uuid>
 http://127.0.0.1:8080/app/inbound-requests/step:<agent-step-uuid>
@@ -430,7 +426,7 @@ Implemented:
 23. the official OpenAI Go SDK plus a Responses-API-backed coordinator provider in `internal/ai`, with a queued inbound-request execution path that claims one request, assembles request, attachment, and derived-text context, runs a hard-capped tool loop, enforces per-capability tool policy, auto-executes the first reporting read tool when allowed, can optionally persist one allowlisted specialist child run plus delegation record, persists coordinator or specialist step, artifact, and recommendation tool-execution metadata, and marks the request `processed` or `failed` according to the provider-backed outcome
 24. a shared backend-facing `internal/app` agent-processing contract that drives the queued coordinator path outside direct package wiring, plus an opt-in `cmd/verify-agent` live-provider verification command and integration coverage built on that shared seam
 25. the first widened HTTP API contract set over that seam at `POST /api/session/login`, `GET /api/session`, `POST /api/session/logout`, `POST /api/agent/process-next-queued-inbound-request`, `POST /api/inbound-requests`, `GET /api/attachments/{attachment_id}/content`, `GET /api/review/inbound-requests`, `GET /api/review/inbound-request-status-summary`, `GET /api/review/inbound-requests/{request_reference_or_id}`, `GET /api/review/processed-proposals`, `GET /api/review/processed-proposal-status-summary`, `GET /api/review/approval-queue`, and `POST /api/approvals/{approval_id}/decision`, including browser-session cookies, bearer-session auth, explicit active-org session promotion from org slug plus user email plus password, one-workflow request submission with optional inline attachments, attachment download, reporting-backed operator review reads, approval decisions routed through the existing workflow boundary, provider-not-configured and queue-empty handling, and a minimal `cmd/app` server entrypoint for browser or API-driven testing
-26. the first real browser application slice at `/app`, including server-rendered browser sign-in, inbound-request submission with file attachments, process-next queue execution, recent inbound-request and pending-approval review, inbound-request detail with attachment, AI, and proposal inspection, and browser-driven approval decisions on the same shared backend foundation
+26. the first real browser application slice at `/app`, including browser sign-in on the shared session seam, inbound-request submission with file attachments, process-next queue execution, recent inbound-request and pending-approval review, inbound-request detail with attachment, AI, and proposal inspection, and browser-driven approval decisions on the same shared backend foundation
 27. the next downstream browser review slice at `/app/review/documents` and `/app/review/accounting`, plus shared backend review endpoints at `GET /api/review/documents`, `GET /api/review/accounting/journal-entries`, `GET /api/review/accounting/control-account-balances`, and `GET /api/review/accounting/tax-summaries`, all available through the same browser session-cookie auth path so operators can continue from approvals into document and accounting review without leaving the app
 28. the next widened browser review slice at `/app/review/inventory`, `/app/review/work-orders`, `/app/review/work-orders/{work_order_id}`, and `/app/review/audit`, plus shared backend review endpoints at `GET /api/review/inventory/stock`, `GET /api/review/inventory/movements`, `GET /api/review/inventory/reconciliation`, `GET /api/review/work-orders`, `GET /api/review/work-orders/{work_order_id}`, and `GET /api/review/audit-events`, all available through the same browser session-cookie auth path so operators can continue from financial review into stock, execution, and audit inspection without leaving the app
 29. the latest browser continuity slice adds `/app/review/proposals`, driven by the existing `GET /api/review/processed-proposals` and `GET /api/review/processed-proposal-status-summary` backend reads, so operators can filter processed proposals by request reference, inspect proposal-status summary, and continue cleanly between inbound requests, approvals, and downstream documents without dropping back to the dashboard
