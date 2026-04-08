@@ -33,7 +33,6 @@ const (
 	sessionLogoutPath            = "/api/session/logout"
 	webAppPath                   = "/app"
 	webLoginPath                 = "/app/login"
-	webLogoutPath                = "/app/logout"
 	webRouteCatalogPath          = "/app/routes"
 	webSettingsPath              = "/app/settings"
 	webAdminPath                 = "/app/admin"
@@ -54,12 +53,8 @@ const (
 	webAgentChatPath             = "/app/agent-chat"
 	webReviewPath                = "/app/review"
 	webSubmitInboundPagePath     = "/app/submit-inbound-request"
-	webSubmitInboundPath         = "/app/inbound-requests"
-	webInboundActionsPrefix      = "/app/inbound-requests/"
-	webProcessNextQueuedPath     = "/app/agent/process-next-queued-inbound-request"
 	webInboundDetailPrefix       = "/app/inbound-requests/"
 	webInboundRequestsPath       = "/app/review/inbound-requests"
-	webApprovalDecisionPrefix    = "/app/approvals/"
 	webDocumentsPath             = "/app/review/documents"
 	webDocumentDetailPrefix      = "/app/review/documents/"
 	webAccountingPath            = "/app/review/accounting"
@@ -124,13 +119,6 @@ var uuidPattern = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]
 
 const browserSessionDuration = 24 * time.Hour
 const accessTokenDuration = 15 * time.Minute
-
-type webFrontendMode string
-
-const (
-	webFrontendTemplates webFrontendMode = "templates"
-	webFrontendSvelte    webFrontendMode = "svelte"
-)
 
 type ProcessNextQueuedInboundRequester interface {
 	ProcessNextQueuedInboundRequest(ctx context.Context, input ProcessNextQueuedInboundRequestInput) (ProcessNextQueuedInboundRequestResult, error)
@@ -510,25 +498,17 @@ type AgentAPIHandler struct {
 	accessAdmin       accessAdminService
 	inventoryAdmin    inventoryAdminService
 	authService       browserSessionService
-	webFrontend       webFrontendMode
 }
 
-// NewAgentAPIHandler is retained for legacy template-backed browser coverage during
-// the post-cutover migration period. Prefer NewServedAgentAPIHandler for runtime
-// wiring and new Svelte-compatible test coverage.
 func NewAgentAPIHandler(db *sql.DB) http.Handler {
-	return NewTemplateAgentAPIHandler(db)
+	return newAgentAPIHandler(db)
 }
 
 func NewServedAgentAPIHandler(db *sql.DB) http.Handler {
-	return newAgentAPIHandler(db, webFrontendSvelte)
+	return newAgentAPIHandler(db)
 }
 
-func NewTemplateAgentAPIHandler(db *sql.DB) http.Handler {
-	return newAgentAPIHandler(db, webFrontendTemplates)
-}
-
-func newAgentAPIHandler(db *sql.DB, frontend webFrontendMode) http.Handler {
+func newAgentAPIHandler(db *sql.DB) http.Handler {
 	documentService := documents.NewService(db)
 	authService := identityaccess.NewService(db)
 	accountingService := accounting.NewService(db, documentService)
@@ -536,7 +516,7 @@ func newAgentAPIHandler(db *sql.DB, frontend webFrontendMode) http.Handler {
 	partiesService := parties.NewService(db)
 	return newAgentAPIHandlerWithDependencies(func() (ProcessNextQueuedInboundRequester, error) {
 		return NewOpenAIAgentProcessorFromEnv(db)
-	}, NewSubmissionService(db), reporting.NewService(db), workflow.NewService(db, documentService), newProcessedProposalApprovalService(db), accountingService, authService, partiesService, inventoryService, frontend)
+	}, NewSubmissionService(db), reporting.NewService(db), workflow.NewService(db, documentService), newProcessedProposalApprovalService(db), accountingService, authService, partiesService, inventoryService)
 }
 
 func NewAgentAPIHandlerWithProcessorLoader(loader queuedInboundRequestProcessorLoader) http.Handler {
@@ -547,33 +527,23 @@ func NewAgentAPIHandlerWithServices(loader queuedInboundRequestProcessorLoader, 
 	return NewAgentAPIHandlerWithDependencies(loader, submissionService, nil, nil, nil)
 }
 
-// NewAgentAPIHandlerWithDependencies is retained for legacy template-backed browser
-// coverage during the post-cutover migration period. Prefer
-// NewServedAgentAPIHandlerWithDependencies for runtime-shape Svelte coverage.
 func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoader, submissionService inboundRequestSubmitter, reviewService operatorReviewReader, approvalService approvalDecisionService, authService browserSessionService) http.Handler {
-	return NewTemplateAgentAPIHandlerWithDependencies(loader, submissionService, reviewService, approvalService, authService)
-}
-
-func NewTemplateAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoader, submissionService inboundRequestSubmitter, reviewService operatorReviewReader, approvalService approvalDecisionService, authService browserSessionService) http.Handler {
-	return newAgentAPIHandlerWithDependencies(loader, submissionService, reviewService, approvalService, nil, nil, authService, webFrontendTemplates)
+	return newAgentAPIHandlerWithDependencies(loader, submissionService, reviewService, approvalService, nil, nil, authService)
 }
 
 func NewServedAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoader, submissionService inboundRequestSubmitter, reviewService operatorReviewReader, approvalService approvalDecisionService, authService browserSessionService) http.Handler {
-	return newAgentAPIHandlerWithDependencies(loader, submissionService, reviewService, approvalService, nil, nil, authService, webFrontendSvelte)
+	return newAgentAPIHandlerWithDependencies(loader, submissionService, reviewService, approvalService, nil, nil, authService)
 }
 
 func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoader, submissionService inboundRequestSubmitter, reviewService operatorReviewReader, approvalService approvalDecisionService, proposalApproval proposalApprovalService, accountingAdmin accountingAdminService, authService browserSessionService, optionalServices ...any) http.Handler {
 	var partyAdminService partiesAdminService
 	var inventoryAdmin inventoryAdminService
-	defaultWebFrontend := webFrontendTemplates
 	for _, svc := range optionalServices {
 		switch typed := svc.(type) {
 		case partiesAdminService:
 			partyAdminService = typed
 		case inventoryAdminService:
 			inventoryAdmin = typed
-		case webFrontendMode:
-			defaultWebFrontend = typed
 		}
 	}
 	var identityAdminService accessAdminService
@@ -593,7 +563,6 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 		accessAdmin:       identityAdminService,
 		inventoryAdmin:    inventoryAdmin,
 		authService:       authService,
-		webFrontend:       defaultWebFrontend,
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handler.handleRoot)
@@ -657,63 +626,16 @@ func registerWebRoutes(mux *http.ServeMux, handler *AgentAPIHandler) {
 	if mux == nil || handler == nil {
 		return
 	}
-	if handler.webFrontend == webFrontendSvelte {
-		mux.HandleFunc(webAppPath, handler.handleSvelteApp)
-		mux.HandleFunc(webAppPath+"/", handler.handleSvelteApp)
+	mux.HandleFunc(webAppPath, handler.handleSvelteApp)
+	mux.HandleFunc(webAppPath+"/", handler.handleSvelteApp)
+}
+
+func (handler *AgentAPIHandler) handleRoot(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
 		return
 	}
-	mux.HandleFunc(webAppPath, handler.handleWebAppDashboard)
-	mux.HandleFunc(webLoginPath, handler.handleWebLogin)
-	mux.HandleFunc(webLogoutPath, handler.handleWebLogout)
-	mux.HandleFunc(webRouteCatalogPath, handler.handleWebRouteCatalog)
-	mux.HandleFunc(webSettingsPath, handler.handleWebSettings)
-	mux.HandleFunc(webAdminPath, handler.handleWebAdmin)
-	mux.HandleFunc(webAdminAccountingPath, handler.handleWebAdminAccounting)
-	mux.HandleFunc(webAdminPartiesPath, handler.handleWebAdminParties)
-	mux.HandleFunc(webAdminAccessPath, handler.handleWebAdminAccess)
-	mux.HandleFunc(webAdminInventoryPath, handler.handleWebAdminInventory)
-	mux.HandleFunc(webAdminLedgerAccountsPath, handler.handleWebCreateLedgerAccount)
-	mux.HandleFunc(webAdminTaxCodesPath, handler.handleWebCreateTaxCode)
-	mux.HandleFunc(webAdminPeriodsPath, handler.handleWebAccountingPeriods)
-	mux.HandleFunc(webAdminAccessUsersPath, handler.handleWebAdminAccessUsers)
-	mux.HandleFunc(webAdminInventoryItemsPath, handler.handleWebAdminInventoryItems)
-	mux.HandleFunc(webAdminInventoryLocsPath, handler.handleWebAdminInventoryLocations)
-	mux.HandleFunc(webAdminPartiesPath+"/", handler.handleWebAdminPartyDetail)
-	mux.HandleFunc(webAdminLedgerAccountsPath+"/", handler.handleWebLedgerAccountAction)
-	mux.HandleFunc(webAdminTaxCodesPath+"/", handler.handleWebTaxCodeAction)
-	mux.HandleFunc(webAdminPeriodsPath+"/", handler.handleWebAccountingPeriodAction)
-	mux.HandleFunc(webAdminAccessUsersPath+"/", handler.handleWebAdminMembershipAction)
-	mux.HandleFunc(webAdminInventoryItemsPath+"/", handler.handleWebAdminInventoryItemAction)
-	mux.HandleFunc(webAdminInventoryLocsPath+"/", handler.handleWebAdminInventoryLocationAction)
-	mux.HandleFunc(webOperationsPath, handler.handleWebOperationsLanding)
-	mux.HandleFunc(webOperationsFeedPath, handler.handleWebOperationsFeed)
-	mux.HandleFunc(webAgentChatPath, handler.handleWebAgentChat)
-	mux.HandleFunc(webReviewPath, handler.handleWebReviewLanding)
-	mux.HandleFunc(webSubmitInboundPagePath, handler.handleWebSubmitInboundRequestPage)
-	mux.HandleFunc(webSubmitInboundPath, handler.handleWebSubmitInboundRequest)
-	mux.HandleFunc(webProcessNextQueuedPath, handler.handleWebProcessNextQueuedInboundRequest)
-	mux.HandleFunc(webInboundDetailPrefix, handler.handleWebInboundRequestDetail)
-	mux.HandleFunc(webInboundRequestsPath, handler.handleWebInboundRequests)
-	mux.HandleFunc(webApprovalDecisionPrefix, handler.handleWebApprovalDecision)
-	mux.HandleFunc(webDocumentsPath, handler.handleWebDocuments)
-	mux.HandleFunc(webDocumentDetailPrefix, handler.handleWebDocumentDetail)
-	mux.HandleFunc(webAccountingPath, handler.handleWebAccounting)
-	mux.HandleFunc(webAccountingControlsPath+"/", handler.handleWebControlAccountDetail)
-	mux.HandleFunc(webAccountingTaxesPath+"/", handler.handleWebTaxSummaryDetail)
-	mux.HandleFunc(webAccountingDetailPrefix, handler.handleWebAccountingDetail)
-	mux.HandleFunc(webApprovalsPath, handler.handleWebApprovals)
-	mux.HandleFunc(webApprovalDetailPrefix, handler.handleWebApprovalDetail)
-	mux.HandleFunc(webProposalsPath, handler.handleWebProposals)
-	mux.HandleFunc(webProposalDetailPrefix, handler.handleWebProposalDetail)
-	mux.HandleFunc(webInventoryHubPath, handler.handleWebInventoryLanding)
-	mux.HandleFunc(webInventoryPath, handler.handleWebInventory)
-	mux.HandleFunc(webInventoryItemsPath+"/", handler.handleWebInventoryItemDetail)
-	mux.HandleFunc(webInventoryLocationsPath+"/", handler.handleWebInventoryLocationDetail)
-	mux.HandleFunc(webInventoryDetailPrefix, handler.handleWebInventoryDetail)
-	mux.HandleFunc(webWorkOrdersPath, handler.handleWebWorkOrders)
-	mux.HandleFunc(webWorkOrdersPath+"/", handler.handleWebWorkOrderDetail)
-	mux.HandleFunc(webAuditPath, handler.handleWebAudit)
-	mux.HandleFunc(webAuditDetailPrefix, handler.handleWebAuditDetail)
+	http.Redirect(w, r, webAppPath, http.StatusSeeOther)
 }
 
 func populateInboundRequestDetailLookup(input *reporting.GetInboundRequestDetailInput, lookup string) {

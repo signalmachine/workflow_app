@@ -1,7 +1,7 @@
 # workflow_app Milestone 13 Slice 3 Plan
 
 Date: 2026-04-08
-Status: In progress; settings continuity, admin-parity, inbound-request detail, promoted review-detail checkpoints, and the served-app cutover to the built Svelte frontend are implemented in code, the handler-constructor surface now also exposes explicit served-versus-template test wiring for post-cutover migration, while bounded workflow validation and the final legacy browser-code cleanup still stay open
+Status: In progress; settings continuity, admin-parity, inbound-request detail, promoted review-detail checkpoints, the served-app cutover to the built Svelte frontend, and deletion of the retired Go-template `/app` layer are implemented in code, while bounded workflow validation and remaining workflow-evidence cleanup still stay open
 Purpose: define the third Milestone 13 implementation slice so detail surfaces, admin surfaces, parity closeout, cutover, and legacy browser retirement happen together instead of being left as an indefinite cleanup tail.
 
 ## 1. Slice role
@@ -75,9 +75,10 @@ Landed result:
 8. `npm --prefix web run check`, `npm --prefix web run test`, `npm --prefix web run build`, `mcp__svelte__svelte_autofixer` on the new settings component and the earlier inventory-movement detail component, `go build ./cmd/... ./internal/...`, and the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` verification all completed cleanly for these checkpoints
 9. `cmd/app` now serves the embedded Svelte shell directly through `app.NewServedAgentAPIHandler`, so the promoted runtime no longer depends on a browser-cutover environment toggle to select the new frontend
 10. focused Go integration coverage now asserts the promoted `/app` route family serves the embedded Svelte shell at `/app`, `/app/login`, the promoted utility and landing routes, and the promoted detail-route family, so the served cutover path has explicit code-level coverage beyond the narrower unit checks in `internal/app/web_test.go`
+11. the generic `internal/app` handler constructors now default to the served Svelte runtime shape, and the retired template-browser constructors and route handlers have now been deleted from the active codebase rather than kept as a compatibility branch
 
 Remaining Slice 3 work:
 
 1. bounded post-cutover workflow validation on the real `/app` plus `/api/...` seam still remains open on the `docs/workflows/` track before Milestone 13 can be closed
-2. some older handler-level and browser-flow tests still rely on the legacy template constructor path, so those assertions need to move onto the shared API seam or other Svelte-compatible coverage before old template-browser dead-code cleanup can finish cleanly
-3. the exported handler-constructor surface now makes that migration explicit: use `NewServedAgentAPIHandler` or `NewServedAgentAPIHandlerWithDependencies` for runtime-shape coverage, and use the template constructors only for the shrinking residual legacy-browser assertions that have not yet moved
+2. any remaining older assertions that still assume server-rendered HTML continuity need to move onto the shared API seam or the served-Svelte shell assertions so the workflow-validation track reflects the new runtime truth cleanly
+3. follow-up cleanup should target docs, workflow evidence, and validation checklists that still describe the retired template browser as if it remains an active compatibility surface
