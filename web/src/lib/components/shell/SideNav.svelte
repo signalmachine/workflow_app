@@ -1,77 +1,32 @@
 <script lang="ts">
-	import { routes } from '$lib/utils/routes';
-
-	interface NavItem {
-		label: string;
-		href: string;
-		match: (pathname: string) => boolean;
-	}
+	import type { NavigationArea } from '$lib/utils/navigation';
+	import { isNavigationItemActive } from '$lib/utils/navigation';
 
 	interface Props {
+		areas: NavigationArea[];
 		currentPath: string;
 		isOpen: boolean;
 		onClose: () => void;
-		roleCode: string;
 	}
 
-	let { currentPath, isOpen, onClose, roleCode }: Props = $props();
-
-	const primaryItems: NavItem[] = [
-		{ label: 'Home', href: routes.home, match: (pathname) => pathname === routes.home },
-		{ label: 'Operations', href: routes.operations, match: (pathname) => pathname.startsWith(routes.operations) },
-		{ label: 'Review', href: routes.review, match: (pathname) => pathname.startsWith(routes.review) },
-		{ label: 'Inventory', href: routes.inventory, match: (pathname) => pathname.startsWith(routes.inventory) }
-	];
-
-	const utilityItems: NavItem[] = [
-		{ label: 'Routes', href: routes.routeCatalog, match: (pathname) => pathname.startsWith(routes.routeCatalog) },
-		{ label: 'Settings', href: routes.settings, match: (pathname) => pathname.startsWith(routes.settings) }
-	];
-
-	const adminItems: NavItem[] = [
-		{ label: 'Admin', href: routes.admin, match: (pathname) => pathname.startsWith(routes.admin) }
-	];
-
-	function active(item: NavItem): boolean {
-		return item.match(currentPath);
-	}
+	let { areas, currentPath, isOpen, onClose }: Props = $props();
 </script>
 
 <div aria-hidden={!isOpen} class:open={isOpen} class="sidebar-backdrop" onclick={onClose}></div>
 <aside class:open={isOpen} class="sidebar">
 	<nav>
+		<p class="nav-label">Major areas</p>
 		<div class="nav-group">
-			{#each primaryItems as item (item.href)}
-				<a aria-current={active(item) ? 'page' : undefined} class:active={active(item)} href={item.href}>
-					{item.label}
+			{#each areas as area (area.id)}
+				<a
+					aria-current={isNavigationItemActive(currentPath, area.matchers) ? 'page' : undefined}
+					class:active={isNavigationItemActive(currentPath, area.matchers)}
+					href={area.href}
+				>
+					<span class="area-label">{area.label}</span>
+					<span class="area-copy">{area.description}</span>
 				</a>
 			{/each}
-			<div class="nav-subgroup">
-				<a href={routes.submitInboundRequest}>Submit request</a>
-				<a href={routes.operationsFeed}>Operations feed</a>
-				<a href={routes.agentChat}>Agent chat</a>
-			</div>
-		</div>
-		<div class="nav-divider"></div>
-		<div class="nav-group">
-			{#each utilityItems as item (item.href)}
-				<a aria-current={active(item) ? 'page' : undefined} class:active={active(item)} href={item.href}>
-					{item.label}
-				</a>
-			{/each}
-			{#if roleCode === 'admin'}
-				{#each adminItems as item (item.href)}
-					<a aria-current={active(item) ? 'page' : undefined} class:active={active(item)} href={item.href}>
-						{item.label}
-					</a>
-				{/each}
-				<div class="nav-subgroup">
-					<a href={routes.adminAccounting}>Accounting setup</a>
-					<a href={routes.adminParties}>Party setup</a>
-					<a href={routes.adminAccess}>Access controls</a>
-					<a href={routes.adminInventory}>Inventory setup</a>
-				</div>
-			{/if}
 		</div>
 	</nav>
 </aside>
@@ -84,52 +39,70 @@
 		color: #e8eff4;
 		left: 0;
 		overflow-y: auto;
-		padding: 1rem 0.85rem 1.5rem;
+		padding: 1.1rem 0.85rem 1.5rem;
 		position: fixed;
 		top: 48px;
-		width: 220px;
+		width: 240px;
+	}
+
+	.nav-label {
+		color: rgba(255, 255, 255, 0.52);
+		font-size: var(--text-2xs);
+		font-weight: 700;
+		letter-spacing: 0.12em;
+		margin: 0 0 0.75rem;
+		padding: 0 0.8rem;
+		text-transform: uppercase;
 	}
 
 	.nav-group {
 		display: grid;
-		gap: 0.25rem;
+		gap: 0.45rem;
 	}
 
 	.sidebar a {
-		border-radius: 12px;
+		border: 1px solid rgba(255, 255, 255, 0.04);
+		border-radius: 16px;
 		color: inherit;
 		display: block;
-		font-size: var(--text-sm);
-		padding: 0.7rem 0.85rem;
+		padding: 0.8rem 0.9rem;
 		text-decoration: none;
 	}
 
 	.sidebar a:hover {
-		background: var(--shell-nav-hover);
+		background: rgba(255, 255, 255, 0.045);
+		border-color: rgba(255, 255, 255, 0.08);
 		text-decoration: none;
 	}
 
 	.sidebar a.active {
-		background: var(--shell-nav-active-bg);
-		color: var(--shell-nav-active-text);
+		background:
+			linear-gradient(180deg, rgba(205, 224, 236, 0.16), rgba(205, 224, 236, 0.1)),
+			var(--shell-nav-active-bg);
+		border-color: rgba(205, 224, 236, 0.14);
+		color: #f5fbff;
+		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 	}
 
-	.nav-subgroup {
-		display: grid;
-		gap: 0.125rem;
-		margin-left: 0.5rem;
-		margin-top: 0.35rem;
+	.area-label,
+	.area-copy {
+		display: block;
 	}
 
-	.nav-subgroup a {
-		color: rgba(255, 255, 255, 0.74);
-		font-size: var(--text-xs);
-		padding: 0.5rem 0.75rem;
+	.area-label {
+		font-size: var(--text-sm);
+		font-weight: 600;
 	}
 
-	.nav-divider {
-		border-top: 1px solid rgba(255, 255, 255, 0.08);
-		margin: 1rem 0;
+	.area-copy {
+		color: rgba(255, 255, 255, 0.62);
+		font-size: var(--text-2xs);
+		line-height: 1.45;
+		margin-top: 0.24rem;
+	}
+
+	.sidebar a.active .area-copy {
+		color: rgba(245, 251, 255, 0.78);
 	}
 
 	.sidebar-backdrop {

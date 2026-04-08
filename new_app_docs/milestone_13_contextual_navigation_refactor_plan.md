@@ -1,8 +1,8 @@
 # workflow_app Milestone 13 Contextual Navigation Refactor Plan
 
 Date: 2026-04-07
-Status: Planned
-Purpose: define the forward information architecture and implementation sequence for refactoring the Svelte shell from the current route-family sidebar into a major-area sidebar with contextual section tabs.
+Status: First implementation pass landed in code on 2026-04-07
+Purpose: define and now track the forward information architecture for refactoring the Svelte shell from the earlier route-family sidebar into a major-area sidebar with contextual section tabs.
 
 ## 1. Why this slice exists
 
@@ -173,3 +173,20 @@ Before closing implementation for this slice:
 5. verify that agent, accounting, inventory, operations, settings, and admin each preserve continuity into existing routes
 6. verify that no route loses access because of the new shell model
 7. update `docs/workflows/` validation material when operator-visible browser behavior changes materially
+
+## 10. Current implementation checkpoint
+
+The first pass of this refactor is now landed in code.
+
+Landed result:
+
+1. the Svelte shell no longer treats the sidebar as one flat route-family list with mixed task links and utility destinations
+2. the sidebar now exposes the planned major application areas: Agent, Accounting, Inventory, Operations, Settings, and Admin for privileged actors
+3. the shell now renders a contextual section-tab row beneath the top bar so each major area owns its own second-level navigation
+4. active-state logic now comes from one declarative navigation registry in the frontend rather than being duplicated across shell components
+5. the first-pass area mapping now keeps inbound-request detail and proposal continuity under `Agent`, accounting review surfaces under `Accounting`, inventory review surfaces under `Inventory`, operational workflow entry plus route discovery under `Operations`, and privileged maintenance under `Admin`
+6. focused frontend verification now covers the navigation-model mapping logic directly, while `npm --prefix web run check`, `npm --prefix web run test`, `npm --prefix web run build`, and `go build ./cmd/... ./internal/...` all passed after the refactor
+
+Follow-up still open:
+
+1. later passes may still add desktop sidebar collapse persistence, new area landing routes where the current mapping remains thin, and broader live browser validation evidence on the workflow track

@@ -87,7 +87,7 @@ Review these routes first on desktop:
 
 For each route, check:
 
-1. the shell renders cleanly and the active destination is obvious
+1. the shell renders cleanly, the active major area is obvious, and the contextual section tabs match the current page
 2. the primary page action or main work surface is visible without excessive decorative framing
 3. explanatory copy does not dominate the page above the real work surface
 4. tables, filters, grouped route links, and continuity actions remain visually primary

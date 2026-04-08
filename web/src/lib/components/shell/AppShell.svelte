@@ -1,8 +1,10 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
+	import ContextTabs from '$lib/components/shell/ContextTabs.svelte';
 	import SideNav from '$lib/components/shell/SideNav.svelte';
 	import TopBar from '$lib/components/shell/TopBar.svelte';
+	import { getNavigationModel } from '$lib/utils/navigation';
 
 	interface Props {
 		children: Snippet;
@@ -16,6 +18,7 @@
 	let { children, currentPath, orgName, roleCode, userDisplayName, onLogout }: Props = $props();
 
 	let navOpen = $state(false);
+	let navigation = $derived(getNavigationModel(currentPath, roleCode));
 
 	function toggleNav(): void {
 		navOpen = !navOpen;
@@ -27,7 +30,8 @@
 </script>
 
 <TopBar {onLogout} {orgName} {roleCode} {userDisplayName} onToggleNav={toggleNav} />
-<SideNav currentPath={currentPath} isOpen={navOpen} onClose={closeNav} {roleCode} />
+<ContextTabs currentPath={currentPath} tabs={navigation.activeArea.tabs} />
+<SideNav areas={navigation.areas} currentPath={currentPath} isOpen={navOpen} onClose={closeNav} />
 
 <div class="shell">
 	<main class="content">
@@ -37,13 +41,13 @@
 
 <style>
 	.shell {
-		padding-left: 220px;
+		padding-left: 240px;
 	}
 
 	.content {
 		margin: 0 auto;
 		max-width: 1100px;
-		min-height: calc(100vh - 48px);
+		min-height: calc(100vh - 102px);
 		padding: var(--space-8);
 	}
 

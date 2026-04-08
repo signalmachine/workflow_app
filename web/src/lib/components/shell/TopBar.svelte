@@ -40,10 +40,11 @@
 		height: 48px;
 		justify-content: space-between;
 		left: 0;
-		padding: 0 var(--space-4);
+		padding: 0 1.15rem;
 		position: sticky;
 		top: 0;
 		z-index: 20;
+		box-shadow: 0 10px 24px rgba(7, 18, 26, 0.14);
 	}
 
 	.brand-row,
@@ -56,6 +57,8 @@
 	.brand-mark {
 		font-size: var(--text-sm);
 		font-weight: 600;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
 	}
 
 	.org-name,
@@ -86,7 +89,8 @@
 	}
 
 	.logout-button {
-		padding: 0.45rem 0.75rem;
+		background: rgba(255, 255, 255, 0.06);
+		padding: 0.45rem 0.82rem;
 	}
 
 	.user-copy {
