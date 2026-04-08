@@ -513,12 +513,19 @@ type AgentAPIHandler struct {
 	webFrontend       webFrontendMode
 }
 
+// NewAgentAPIHandler is retained for legacy template-backed browser coverage during
+// the post-cutover migration period. Prefer NewServedAgentAPIHandler for runtime
+// wiring and new Svelte-compatible test coverage.
 func NewAgentAPIHandler(db *sql.DB) http.Handler {
-	return newAgentAPIHandler(db, webFrontendTemplates)
+	return NewTemplateAgentAPIHandler(db)
 }
 
 func NewServedAgentAPIHandler(db *sql.DB) http.Handler {
 	return newAgentAPIHandler(db, webFrontendSvelte)
+}
+
+func NewTemplateAgentAPIHandler(db *sql.DB) http.Handler {
+	return newAgentAPIHandler(db, webFrontendTemplates)
 }
 
 func newAgentAPIHandler(db *sql.DB, frontend webFrontendMode) http.Handler {
@@ -540,8 +547,19 @@ func NewAgentAPIHandlerWithServices(loader queuedInboundRequestProcessorLoader, 
 	return NewAgentAPIHandlerWithDependencies(loader, submissionService, nil, nil, nil)
 }
 
+// NewAgentAPIHandlerWithDependencies is retained for legacy template-backed browser
+// coverage during the post-cutover migration period. Prefer
+// NewServedAgentAPIHandlerWithDependencies for runtime-shape Svelte coverage.
 func NewAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoader, submissionService inboundRequestSubmitter, reviewService operatorReviewReader, approvalService approvalDecisionService, authService browserSessionService) http.Handler {
+	return NewTemplateAgentAPIHandlerWithDependencies(loader, submissionService, reviewService, approvalService, authService)
+}
+
+func NewTemplateAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoader, submissionService inboundRequestSubmitter, reviewService operatorReviewReader, approvalService approvalDecisionService, authService browserSessionService) http.Handler {
 	return newAgentAPIHandlerWithDependencies(loader, submissionService, reviewService, approvalService, nil, nil, authService, webFrontendTemplates)
+}
+
+func NewServedAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoader, submissionService inboundRequestSubmitter, reviewService operatorReviewReader, approvalService approvalDecisionService, authService browserSessionService) http.Handler {
+	return newAgentAPIHandlerWithDependencies(loader, submissionService, reviewService, approvalService, nil, nil, authService, webFrontendSvelte)
 }
 
 func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoader, submissionService inboundRequestSubmitter, reviewService operatorReviewReader, approvalService approvalDecisionService, proposalApproval proposalApprovalService, accountingAdmin accountingAdminService, authService browserSessionService, optionalServices ...any) http.Handler {

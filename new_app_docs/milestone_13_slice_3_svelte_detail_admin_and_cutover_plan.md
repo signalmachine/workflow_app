@@ -1,7 +1,7 @@
 # workflow_app Milestone 13 Slice 3 Plan
 
 Date: 2026-04-08
-Status: In progress; settings continuity, admin-parity, inbound-request detail, promoted review-detail checkpoints, and the served-app cutover to the built Svelte frontend are implemented in code while bounded post-cutover workflow validation and the final legacy browser-code cleanup stay open
+Status: In progress; settings continuity, admin-parity, inbound-request detail, promoted review-detail checkpoints, and the served-app cutover to the built Svelte frontend are implemented in code, the handler-constructor surface now also exposes explicit served-versus-template test wiring for post-cutover migration, while bounded workflow validation and the final legacy browser-code cleanup still stay open
 Purpose: define the third Milestone 13 implementation slice so detail surfaces, admin surfaces, parity closeout, cutover, and legacy browser retirement happen together instead of being left as an indefinite cleanup tail.
 
 ## 1. Slice role
@@ -80,3 +80,4 @@ Remaining Slice 3 work:
 
 1. bounded post-cutover workflow validation on the real `/app` plus `/api/...` seam still remains open on the `docs/workflows/` track before Milestone 13 can be closed
 2. some older handler-level and browser-flow tests still rely on the legacy template constructor path, so those assertions need to move onto the shared API seam or other Svelte-compatible coverage before old template-browser dead-code cleanup can finish cleanly
+3. the exported handler-constructor surface now makes that migration explicit: use `NewServedAgentAPIHandler` or `NewServedAgentAPIHandlerWithDependencies` for runtime-shape coverage, and use the template constructors only for the shrinking residual legacy-browser assertions that have not yet moved

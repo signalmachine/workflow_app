@@ -144,6 +144,50 @@ func TestRegisterWebRoutesAlwaysServesSvelteShell(t *testing.T) {
 	}
 }
 
+func TestNewServedAgentAPIHandlerWithDependenciesServesSvelteShell(t *testing.T) {
+	handler := NewServedAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/review/documents/document-123", nil)
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `data-sveltekit-preload-data="hover"`) {
+		t.Fatalf("expected svelte shell body, got %s", recorder.Body.String())
+	}
+}
+
+func TestNewTemplateAgentAPIHandlerWithDependenciesServesLegacyLogin(t *testing.T) {
+	handler := NewTemplateAgentAPIHandlerWithDependencies(
+		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/login", nil)
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), "Start browser session") {
+		t.Fatalf("expected legacy login body, got %s", recorder.Body.String())
+	}
+}
+
 func TestHandleWebDocumentDetailFallsBackToDocumentScopedAccountingLink(t *testing.T) {
 	handler := NewAgentAPIHandlerWithDependencies(
 		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },

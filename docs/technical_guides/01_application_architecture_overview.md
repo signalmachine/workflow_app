@@ -35,7 +35,7 @@ Example:
 ```go
 server := &http.Server{
 	Addr:    listenAddr,
-	Handler: app.NewAgentAPIHandler(db),
+	Handler: app.NewServedAgentAPIHandler(db),
 }
 ```
 
@@ -92,7 +92,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:    listenAddr,
-		Handler: app.NewAgentAPIHandler(db),
+		Handler: app.NewServedAgentAPIHandler(db),
 	}
 }
 ```
@@ -153,4 +153,3 @@ If you are new to the codebase, read in this order:
 5. the web and API seam guide
 6. the auth guide
 7. the testing guide
-
