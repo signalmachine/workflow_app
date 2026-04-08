@@ -44,7 +44,7 @@ func TestAgentAPISessionLoginCurrentSessionAndLogoutIntegration(t *testing.T) {
 	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
 	orgSlug, userEmail := loadOrgSlugAndUserEmail(t, ctx, db, orgID, operatorUserID)
 
-	handler := app.NewAgentAPIHandler(db)
+	handler := app.NewServedAgentAPIHandler(db)
 
 	loginReq := httptest.NewRequest(http.MethodPost, "/api/session/login", bytes.NewBufferString(`{
 		"org_slug":"`+orgSlug+`",
@@ -126,9 +126,7 @@ func TestAgentAPIDefaultSvelteFrontendServesPromotedRoutesIntegration(t *testing
 	db := dbtest.Open(t)
 	defer db.Close()
 
-	t.Setenv("WORKFLOW_WEB_FRONTEND", "")
-
-	handler := app.NewAgentAPIHandler(db)
+	handler := app.NewServedAgentAPIHandler(db)
 	routes := []string{
 		"/app",
 		"/app/login",

@@ -51,7 +51,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:         listenAddr,
-		Handler:      app.NewAgentAPIHandler(db),
+		Handler:      app.NewServedAgentAPIHandler(db),
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,
 		IdleTimeout:  idleTimeout,

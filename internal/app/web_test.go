@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -59,7 +58,7 @@ func TestRegisterWebRoutesSvelteModeServesSPAFallback(t *testing.T) {
 }
 
 func TestHandleSvelteAppServesIndexAtAppRoot(t *testing.T) {
-	handler := &AgentAPIHandler{webFrontend: webFrontendSvelte}
+	handler := &AgentAPIHandler{}
 	req := httptest.NewRequest(http.MethodGet, "/app", nil)
 	recorder := httptest.NewRecorder()
 
@@ -78,8 +77,29 @@ func TestHandleSvelteAppServesIndexAtAppRoot(t *testing.T) {
 }
 
 func TestHandleSvelteAppServesEmbeddedJSAsset(t *testing.T) {
-	handler := &AgentAPIHandler{webFrontend: webFrontendSvelte}
-	req := httptest.NewRequest(http.MethodGet, "/app/_app/immutable/entry/start.B8wf3h5J.js", nil)
+	handler := &AgentAPIHandler{}
+
+	indexReq := httptest.NewRequest(http.MethodGet, "/app", nil)
+	indexRecorder := httptest.NewRecorder()
+	handler.handleSvelteApp(indexRecorder, indexReq)
+	if indexRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected index status: got %d body=%s", indexRecorder.Code, indexRecorder.Body.String())
+	}
+
+	const assetPrefix = `import("/app/_app/immutable/entry/start.`
+	indexBody := indexRecorder.Body.String()
+	start := strings.Index(indexBody, assetPrefix)
+	if start == -1 {
+		t.Fatalf("expected svelte start asset in index body, got %s", indexBody)
+	}
+	start += len(`import("`)
+	end := strings.Index(indexBody[start:], `.js")`)
+	if end == -1 {
+		t.Fatalf("expected js asset suffix in index body, got %s", indexBody)
+	}
+	assetPath := indexBody[start : start+end+len(".js")]
+
+	req := httptest.NewRequest(http.MethodGet, assetPath, nil)
 	recorder := httptest.NewRecorder()
 
 	handler.handleSvelteApp(recorder, req)
@@ -104,35 +124,23 @@ func TestHandleSvelteAppServesEmbeddedJSAsset(t *testing.T) {
 	}
 }
 
-func TestLoadWebFrontendModeUsesProvidedDefault(t *testing.T) {
-	t.Setenv("WORKFLOW_WEB_FRONTEND", "")
+func TestRegisterWebRoutesAlwaysServesSvelteShell(t *testing.T) {
+	handler := &AgentAPIHandler{webFrontend: webFrontendSvelte}
+	mux := http.NewServeMux()
+	registerWebRoutes(mux, handler)
 
-	if got := loadWebFrontendMode(webFrontendSvelte); got != webFrontendSvelte {
-		t.Fatalf("expected svelte default, got %q", got)
-	}
-	if got := loadWebFrontendMode(webFrontendTemplates); got != webFrontendTemplates {
-		t.Fatalf("expected templates default, got %q", got)
-	}
-}
+	for _, route := range []string{"/app", "/app/login", "/app/review/accounting/entry-123"} {
+		req := httptest.NewRequest(http.MethodGet, route, nil)
+		recorder := httptest.NewRecorder()
 
-func TestLoadWebFrontendModeHonorsExplicitOverride(t *testing.T) {
-	originalValue, hadOriginal := os.LookupEnv("WORKFLOW_WEB_FRONTEND")
-	t.Cleanup(func() {
-		if hadOriginal {
-			_ = os.Setenv("WORKFLOW_WEB_FRONTEND", originalValue)
-			return
+		mux.ServeHTTP(recorder, req)
+
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("unexpected status for %s: got %d body=%s", route, recorder.Code, recorder.Body.String())
 		}
-		_ = os.Unsetenv("WORKFLOW_WEB_FRONTEND")
-	})
-
-	t.Setenv("WORKFLOW_WEB_FRONTEND", "templates")
-	if got := loadWebFrontendMode(webFrontendSvelte); got != webFrontendTemplates {
-		t.Fatalf("expected templates override, got %q", got)
-	}
-
-	t.Setenv("WORKFLOW_WEB_FRONTEND", "svelte")
-	if got := loadWebFrontendMode(webFrontendTemplates); got != webFrontendSvelte {
-		t.Fatalf("expected svelte override, got %q", got)
+		if !strings.Contains(recorder.Body.String(), `data-sveltekit-preload-data="hover"`) {
+			t.Fatalf("expected svelte shell for %s, got %s", route, recorder.Body.String())
+		}
 	}
 }
 

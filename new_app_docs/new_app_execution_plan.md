@@ -582,7 +582,7 @@ Current planning checkpoint:
 5. `milestone_13_slice_3_svelte_detail_admin_and_cutover_plan.md`
 6. the implementation-planning correction from the source guides is explicit: use SvelteKit SPA mode on the shared Go backend rather than a plain hash-router SPA architecture
 7. the existing Go-template `/app` layer should now be treated as migration source material and validation reference rather than the forward browser implementation stack
-8. Slice 1 is now implemented in code: `web/` contains the SvelteKit scaffold plus protected-route and login foundation, the built SPA now emits directly into `internal/app/web_dist`, and `internal/app` can serve that bundle under `/app` behind `WORKFLOW_WEB_FRONTEND=svelte` without forcing full browser cutover yet
+8. Slice 1 is now implemented in code: `web/` contains the SvelteKit scaffold plus protected-route and login foundation, the built SPA now emits directly into `internal/app/web_dist`, and the embedded Svelte bundle now serves under `/app` on the promoted Go runtime path
 9. Slice 1 verification is now complete through `npm --prefix web run check`, `npm --prefix web run test`, `npm --prefix web run build`, focused `internal/app` coverage on the new SPA serving seam, `go build ./cmd/... ./internal/...`, and `gopls` diagnostics on the edited Go files
 10. the next browser implementation step is now Slice 2 workflow-surface migration on top of this landed foundation
 

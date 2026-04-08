@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -515,6 +514,14 @@ type AgentAPIHandler struct {
 }
 
 func NewAgentAPIHandler(db *sql.DB) http.Handler {
+	return newAgentAPIHandler(db, webFrontendTemplates)
+}
+
+func NewServedAgentAPIHandler(db *sql.DB) http.Handler {
+	return newAgentAPIHandler(db, webFrontendSvelte)
+}
+
+func newAgentAPIHandler(db *sql.DB, frontend webFrontendMode) http.Handler {
 	documentService := documents.NewService(db)
 	authService := identityaccess.NewService(db)
 	accountingService := accounting.NewService(db, documentService)
@@ -522,7 +529,7 @@ func NewAgentAPIHandler(db *sql.DB) http.Handler {
 	partiesService := parties.NewService(db)
 	return newAgentAPIHandlerWithDependencies(func() (ProcessNextQueuedInboundRequester, error) {
 		return NewOpenAIAgentProcessorFromEnv(db)
-	}, NewSubmissionService(db), reporting.NewService(db), workflow.NewService(db, documentService), newProcessedProposalApprovalService(db), accountingService, authService, partiesService, inventoryService, webFrontendSvelte)
+	}, NewSubmissionService(db), reporting.NewService(db), workflow.NewService(db, documentService), newProcessedProposalApprovalService(db), accountingService, authService, partiesService, inventoryService, frontend)
 }
 
 func NewAgentAPIHandlerWithProcessorLoader(loader queuedInboundRequestProcessorLoader) http.Handler {
@@ -568,7 +575,7 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 		accessAdmin:       identityAdminService,
 		inventoryAdmin:    inventoryAdmin,
 		authService:       authService,
-		webFrontend:       loadWebFrontendMode(defaultWebFrontend),
+		webFrontend:       defaultWebFrontend,
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handler.handleRoot)
@@ -628,28 +635,15 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	return mux
 }
 
-func loadWebFrontendMode(defaultMode webFrontendMode) webFrontendMode {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("WORKFLOW_WEB_FRONTEND"))) {
-	case string(webFrontendTemplates):
-		return webFrontendTemplates
-	case string(webFrontendSvelte):
-		return webFrontendSvelte
-	default:
-		return defaultMode
-	}
-}
-
 func registerWebRoutes(mux *http.ServeMux, handler *AgentAPIHandler) {
 	if mux == nil || handler == nil {
 		return
 	}
-
 	if handler.webFrontend == webFrontendSvelte {
 		mux.HandleFunc(webAppPath, handler.handleSvelteApp)
 		mux.HandleFunc(webAppPath+"/", handler.handleSvelteApp)
 		return
 	}
-
 	mux.HandleFunc(webAppPath, handler.handleWebAppDashboard)
 	mux.HandleFunc(webLoginPath, handler.handleWebLogin)
 	mux.HandleFunc(webLogoutPath, handler.handleWebLogout)

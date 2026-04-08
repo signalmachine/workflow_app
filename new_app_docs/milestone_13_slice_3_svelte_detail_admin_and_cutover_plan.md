@@ -1,7 +1,7 @@
 # workflow_app Milestone 13 Slice 3 Plan
 
-Date: 2026-04-04
-Status: In progress; settings continuity, admin-parity, inbound-request detail, promoted review-detail checkpoints, and default `/app` cutover to the built Svelte frontend are implemented in code on 2026-04-04 while bounded post-cutover workflow validation and final legacy-browser retirement stay open
+Date: 2026-04-08
+Status: In progress; settings continuity, admin-parity, inbound-request detail, promoted review-detail checkpoints, and the served-app cutover to the built Svelte frontend are implemented in code while bounded post-cutover workflow validation and the final legacy browser-code cleanup stay open
 Purpose: define the third Milestone 13 implementation slice so detail surfaces, admin surfaces, parity closeout, cutover, and legacy browser retirement happen together instead of being left as an indefinite cleanup tail.
 
 ## 1. Slice role
@@ -73,9 +73,10 @@ Landed result:
 6. the remaining promoted exact review-detail family now also runs in Svelte at `/app/review/approvals/{approval_id}`, `/app/review/proposals/{recommendation_id}`, `/app/review/documents/{document_id}`, `/app/review/accounting/{entry_id}`, `/app/review/inventory/{movement_id}`, `/app/review/work-orders/{work_order_id}`, and `/app/review/audit/{event_id}` on explicit shared `/api/review/.../{id}` detail seams rather than handler-local HTML composition
 7. the migrated list routes now link into those exact Svelte detail routes instead of stopping at list-only continuity
 8. `npm --prefix web run check`, `npm --prefix web run test`, `npm --prefix web run build`, `mcp__svelte__svelte_autofixer` on the new settings component and the earlier inventory-movement detail component, `go build ./cmd/... ./internal/...`, and the canonical `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` verification all completed cleanly for these checkpoints
-9. focused Go integration coverage now also clears `WORKFLOW_WEB_FRONTEND` and asserts the promoted `/app` route family serves the embedded Svelte shell by default at `/app`, `/app/login`, the promoted utility and landing routes, and the promoted detail-route family, so the default-cutover serving path has explicit code-level coverage beyond the narrower unit checks in `internal/app/web_test.go`
+9. `cmd/app` now serves the embedded Svelte shell directly through `app.NewServedAgentAPIHandler`, so the promoted runtime no longer depends on a browser-cutover environment toggle to select the new frontend
+10. focused Go integration coverage now asserts the promoted `/app` route family serves the embedded Svelte shell at `/app`, `/app/login`, the promoted utility and landing routes, and the promoted detail-route family, so the served cutover path has explicit code-level coverage beyond the narrower unit checks in `internal/app/web_test.go`
 
 Remaining Slice 3 work:
 
-1. bounded post-cutover workflow validation on the real `/app` plus `/api/...` seam still remains open on the `docs/workflows/` track before the temporary `WORKFLOW_WEB_FRONTEND=templates` fallback can be retired
-2. the black-box integration suite still carries legacy template-HTML continuity assertions behind `WORKFLOW_WEB_FRONTEND=templates`, so those assertions need to move onto the shared API seam or other Svelte-compatible coverage before old template-browser retirement and dead-code cleanup can finish cleanly
+1. bounded post-cutover workflow validation on the real `/app` plus `/api/...` seam still remains open on the `docs/workflows/` track before Milestone 13 can be closed
+2. some older handler-level and browser-flow tests still rely on the legacy template constructor path, so those assertions need to move onto the shared API seam or other Svelte-compatible coverage before old template-browser dead-code cleanup can finish cleanly

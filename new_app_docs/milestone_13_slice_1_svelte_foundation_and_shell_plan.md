@@ -89,6 +89,6 @@ Landed result:
 
 1. `web/` now contains a SvelteKit + Svelte 5 + TypeScript application scaffold with route groups for protected app routes and the public login route
 2. the shared frontend foundation now includes design-token CSS, a sidebar-plus-topbar app shell, shared page-header and feedback primitives, placeholder route surfaces for the promoted browser families, and a minimal API client plus session bootstrap path against `/api/session`
-3. `internal/app` now includes embedded static SPA serving for the built frontend, controlled by `WORKFLOW_WEB_FRONTEND=svelte` so the Svelte shell can be exercised under `/app` without forcing the final cutover in this slice
+3. `internal/app` now includes embedded static SPA serving for the built frontend, establishing the promoted Svelte shell path under `/app`
 4. `npm --prefix web run check`, `npm --prefix web run test`, `npm --prefix web run build`, focused `go test ./internal/app -run 'Test(RegisterWebRoutesSvelteModeServesSPAFallback|HandleSvelteAppServesIndexAtAppRoot|RenderWebPageRejectsUnmappedTemplateData)' -count=1`, `go build ./cmd/... ./internal/...`, and `gopls` diagnostics on the edited Go files all completed cleanly for this slice
 5. the next promoted browser implementation step is now Milestone 13 Slice 2 workflow-surface migration rather than additional shell or scaffold work on the old Go-template stack
