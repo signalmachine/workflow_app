@@ -1,7 +1,7 @@
 # workflow_app Application Workflow Catalog
 
-Date: 2026-04-02
-Status: Active durable workflow catalog updated for the grouped landing pages at `/app/operations`, `/app/review`, and `/app/inventory`, the searchable route catalog at `/app/routes`, the utility surfaces at `/app/settings` plus access-scoped `/app/admin`, the admin accounting, party, access-control, and inventory setup surfaces at `/app/admin/accounting`, `/app/admin/parties`, `/app/admin/access`, and `/app/admin/inventory`, and the role-aware operator home on `/app`
+Date: 2026-04-08
+Status: Active durable workflow catalog updated for the current served Svelte runtime at `/app`, including the contextual-navigation shell, the grouped landing pages at `/app/operations`, `/app/review`, and `/app/inventory`, the searchable route catalog at `/app/routes`, the utility surfaces at `/app/settings` plus access-scoped `/app/admin`, the admin accounting, party, access-control, and inventory setup surfaces at `/app/admin/accounting`, `/app/admin/parties`, `/app/admin/access`, and `/app/admin/inventory`, and the role-aware operator home on `/app`
 Purpose: capture the application workflows and related feature continuity in one durable reference document for implementation review, testing, onboarding, and later user-guide preparation.
 
 ## 1. How to read this document

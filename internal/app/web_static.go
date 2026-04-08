@@ -40,7 +40,7 @@ func (h *AgentAPIHandler) handleSvelteApp(w http.ResponseWriter, r *http.Request
 		if serveEmbeddedDistFileIfExists(w, r, distFS, relativePath) {
 			return
 		}
-		serveEmbeddedDistFile(w, r, distFS, "200.html")
+		http.NotFound(w, r)
 	default:
 		serveEmbeddedDistFile(w, r, distFS, "200.html")
 	}

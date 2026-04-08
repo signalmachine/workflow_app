@@ -1,7 +1,7 @@
 # workflow_app Workflow Validation Track
 
-Date: 2026-04-04
-Status: Active validation track, separate from implementation planning; Milestone 10 Slice 1 through Slice 3 remain in code on the rebuilt modular browser bundle, the grouped render-baseline corrective slice now also enforces the modular bundle as the only active render path, Milestone 11 Slice 1 through Slice 3 have now shifted the promoted shell to the lighter grouped top-bar plus landing-page model with route catalog and utility surfaces, Milestone 12 Slice 2 added the admin-only accounting setup surface at `/app/admin/accounting` plus shared `/api/admin/accounting/...` maintenance seams, Milestone 12 Slice 3 added the admin-only party setup surface at `/app/admin/parties` plus shared `/api/admin/parties` maintenance seams and exact-detail contact creation, Milestone 12 Slice 4 now also adds the admin-only access-control surface at `/app/admin/access` plus shared `/api/admin/access/users` maintenance seams, Milestone 12 Slice 5 now also adds the admin-only inventory setup surface at `/app/admin/inventory` plus shared `/api/admin/inventory/items` and `/api/admin/inventory/locations` maintenance seams, Milestone 12 Slice 6 now also adds bounded active or inactive controls for ledger accounts, tax codes, parties, inventory items, and inventory locations on those same admin routes, Milestone 13 now also carries the Svelte admin-parity checkpoint across `/app/admin`, `/app/admin/accounting`, `/app/admin/parties`, `/app/admin/parties/{party_id}`, `/app/admin/access`, and `/app/admin/inventory`, and the remaining Milestone 10 closeout work should now run as one larger browser-review plus workflow-continuity sweep with one grouped corrective follow-up only if that sweep finds tightly related defects
+Date: 2026-04-08
+Status: Active validation track, separate from implementation planning; the current browser runtime is the Milestone 13 served Svelte frontend with the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families now run on that one Go-served `/app` surface, and the remaining open work is bounded post-cutover browser and workflow validation evidence plus any tightly grouped corrective follow-up discovered on the real seam
 Purpose: keep workflow testing, live review, and readiness evidence on a workflow-validation track in `docs/workflows/` rather than inside the normal product-implementation planning stream in `new_app_docs/`.
 
 ## 1. Why this document exists
@@ -35,17 +35,17 @@ Do not use this folder for:
 
 ## 3. Current deferred validation order
 
-The implementation track is currently prioritized ahead of resumed live workflow review while the rebuilt Milestone 10 route family settles.
+The implementation track is currently prioritized ahead of resumed live workflow review while the post-cutover Milestone 13 served browser surface settles.
 
 Current order:
 
-1. run one larger Milestone 10 closeout sweep that covers desktop browser review, narrow-width browser review, and focused workflow continuity across the full promoted route family using the current lighter grouped top-bar shell, landing pages, route catalog, and utility surfaces
-2. if that sweep is clean, mark the Milestone 10 closeout evidence complete and resume the deferred live workflow validation on the real seam with the rebuilt browser baseline
+1. run one larger post-cutover Milestone 13 browser-review sweep that covers desktop browser review, narrow-width browser review, and focused workflow continuity across the full promoted route family using the current major-area sidebar plus contextual-section-tab shell
+2. if that sweep is clean, mark the promoted served-Svelte browser evidence complete and resume the deferred live workflow validation on the real seam
 3. if that sweep finds real defects, group tightly related findings into one bounded corrective fix plan in `new_app_docs/` rather than scattering many tiny follow-up slices across the browser surface
 
-## 3.1 Milestone 10 closeout checklist
+## 3.1 Milestone 13 post-cutover checklist
 
-Milestone 10 should be treated as closed only when the larger closeout sweep below has explicit pass or blocker evidence recorded on this workflow track.
+Milestone 13 should be treated as ready for closeout only when the larger post-cutover sweep below has explicit pass or blocker evidence recorded on this workflow track.
 
 Closeout sweep:
 
@@ -53,14 +53,14 @@ Closeout sweep:
 2. browser-review pass on a narrow-width viewport for that same promoted route family
 3. focused continuity pass from exact request detail into proposal detail, approval detail, and document detail
 4. focused continuity pass from exact request detail or proposal detail into one downstream accounting or inventory or work-order drill-down surface
-5. explicit confirmation that no promoted Milestone 10 route still depends on the retired legacy active template baseline; the code path now enforces this by rejecting unmapped web page data instead of falling back to the old monolithic template, so the remaining work is route-family review evidence rather than render-path ambiguity
+5. explicit confirmation that no promoted route still depends on the retired template browser path and that missing static-asset requests return a real asset result or a `404` rather than silently falling back to the SPA shell
 6. explicit confirmation that any defect found during this review is either fixed and revalidated or recorded as a blocker before milestone closeout
 
 Evidence rule:
 
 1. a short pass or fail note per checklist item is sufficient
 2. if the sweep finds defects, record the failing route family or workflow edge and the promoted grouped fix-plan reference in `new_app_docs/`
-3. do not mark Milestone 10 complete in `new_app_docs/` until all six items above have pass evidence
+3. do not mark Milestone 13 workflow-validation closeout complete in `new_app_docs/` until all six items above have pass evidence
 
 ## 3.2 Browser-review execution plan
 
@@ -92,7 +92,7 @@ For every reviewed route, confirm:
 
 ## 3.3 Route-family assertions
 
-Use the following assertions during the section 3.1 sweep.
+Use the following assertions during the section 3.1 sweep on the current served Svelte runtime.
 
 ### 3.3.1 Operator entry and utility surfaces
 
@@ -117,10 +117,11 @@ Assertions:
 1. login is visibly simple and thin, with no promotional split-layout posture
 2. home behaves like an operator start surface with clear next actions, not a generic dashboard mosaic
 3. route catalog search returns useful route matches for operator-intent queries such as `pending approvals` and `failed requests`
-4. settings, admin, admin accounting setup including status controls, admin party setup plus the exact party-detail contact surface, admin access controls, and admin inventory setup including status controls feel secondary to workflow destinations and do not compete with the main shell
-5. the access-maintenance page keeps provisioning and role updates bounded to shared identity control rather than reading like a broad identity console
-6. the inventory-maintenance page stays bounded to item and location setup rather than drifting into generic stock editing or movement correction
-7. intake, operations-feed, and agent-chat each present one clear primary action without burying it under supporting copy
+4. the major-area sidebar and contextual section tabs make the current area and local view obvious without reintroducing one flat global route list
+5. settings, admin, admin accounting setup including status controls, admin party setup plus the exact party-detail contact surface, admin access controls, and admin inventory setup including status controls feel secondary to workflow destinations and do not compete with the main shell
+6. the access-maintenance page keeps provisioning and role updates bounded to shared identity control rather than reading like a broad identity console
+7. the inventory-maintenance page stays bounded to item and location setup rather than drifting into generic stock editing or movement correction
+8. intake, operations-feed, and agent-chat each present one clear primary action without burying it under supporting copy
 
 ### 3.3.2 Landing pages and navigation scaling
 
@@ -135,7 +136,7 @@ Assertions:
 1. each landing page behaves as a compact route directory first
 2. grouped links are easier to scan than the older card-mosaic posture
 3. summary content stays subordinate to route selection
-4. the top shell plus landing-page composition makes route discovery easier without turning the shell into a flat site map
+4. the sidebar plus contextual-tab composition makes route discovery easier without turning the shell into a flat site map
 
 ### 3.3.3 Review workbench family
 
@@ -202,10 +203,10 @@ Deferred live workflow validation should resume with:
 2. processed proposal -> request approval -> approval decision -> downstream approval and document continuity
 3. failed provider or failed processing path -> failure visibility -> operator troubleshooting continuity
 
-Immediate Milestone 10-first order before the broader backlog resumes:
+Immediate Milestone 13-first order before the broader backlog resumes:
 
-1. complete the larger Milestone 10 closeout sweep in section 3.1
-2. if the sweep passes, mark Milestone 10 complete in the canonical planning docs
+1. complete the larger Milestone 13 post-cutover sweep in section 3.1
+2. if the sweep passes, mark the Milestone 13 browser-validation closeout complete in the canonical planning docs
 3. if the sweep fails, promote one grouped corrective slice for the related defects and then rerun the affected parts of the sweep
 4. then resume the broader deferred workflow-validation backlog listed above
 

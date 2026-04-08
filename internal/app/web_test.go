@@ -94,6 +94,21 @@ func TestHandleSvelteAppServesEmbeddedJSAsset(t *testing.T) {
 	}
 }
 
+func TestHandleSvelteAppDoesNotFallbackForMissingStaticAsset(t *testing.T) {
+	handler := &AgentAPIHandler{}
+	req := httptest.NewRequest(http.MethodGet, "/app/_app/immutable/entry/missing.js", nil)
+	recorder := httptest.NewRecorder()
+
+	handler.handleSvelteApp(recorder, req)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("expected missing asset to return 404, got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if strings.Contains(strings.ToLower(recorder.Body.String()), "<!doctype html>") {
+		t.Fatalf("expected missing asset response to avoid SPA shell fallback, got %s", recorder.Body.String())
+	}
+}
+
 func TestNewAgentAPIHandlerWithDependenciesServesSvelteShell(t *testing.T) {
 	handler := NewAgentAPIHandlerWithDependencies(
 		func() (ProcessNextQueuedInboundRequester, error) { return nil, nil },

@@ -87,7 +87,8 @@ Prevention rule:
 
 1. tests must cover both sides of SPA serving behavior:
 2. non-asset application routes should fall back to the SPA shell
-3. real static assets should never fall back to the SPA shell when the file exists
+3. real static assets should never fall back to the SPA shell
+4. missing asset-like requests should return `404` so routing bugs or broken bundles do not get disguised as HTML fallback
 
 ### 3.5 Browser smoke checks still matter after focused handler tests
 

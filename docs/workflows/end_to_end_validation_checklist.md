@@ -1,7 +1,7 @@
 # workflow_app End-to-End Validation Checklist
 
 Date: 2026-04-08
-Status: Durable checklist with pre-validation browser-review precheck for the rebuilt Milestone 10 route family plus the full Milestone 11 shell, landing-page, route-catalog, utility-surface, ERP-style density-correction slice, the landed Milestone 12 admin accounting, party including exact-detail contact creation, access-control, inventory setup, and master-data status-governance surfaces, and the Milestone 13 Svelte cutover now served by default at `/app` before broader live workflow validation resumes
+Status: Durable checklist with a pre-validation browser-review precheck for the current Milestone 13 served Svelte runtime at `/app`, including the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families, before broader live workflow validation resumes
 Purpose: provide a reusable bounded checklist for live review and testing of application end-to-end workflows on the real `/app` plus `/api/...` seam.
 
 ## 1. Use of this checklist
@@ -14,7 +14,7 @@ Use this checklist for:
 
 This checklist complements, but does not replace:
 
-1. `new_app_docs/post_checkpoint_validation_and_user_testing_plan.md`
+1. `docs/workflows/workflow_validation_track.md`
 2. repository verification commands
 
 Policy:
@@ -25,23 +25,24 @@ Policy:
 ## 2. Session-start checks
 
 1. review `new_app_docs/new_app_tracker.md`
-2. review `new_app_docs/post_checkpoint_validation_and_user_testing_plan.md`
+2. review `docs/workflows/workflow_validation_track.md`
 3. review `docs/workflows/application_workflow_catalog.md`
 4. rerun `set -a; source .env; set +a; go run ./cmd/verify-agent`
 5. run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
-6. if the rebuilt Milestone 10 browser family, the Milestone 11 shell changes, the ERP-style density correction, the landed Milestone 12 admin accounting, party, access-control, inventory, or master-data status-governance slices, or the Milestone 13 Svelte cutover are newly landed and not yet closed, review `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/admin/parties/{party_id}` for exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat`, plus `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit` on desktop and a narrow-width viewport and record pass or blocker evidence before resuming live workflow validation
+6. if the served Svelte runtime, the contextual-navigation shell, or any promoted workflow, utility, admin, or detail-route family is newly landed and not yet closed, review `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/admin/parties/{party_id}` for exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat`, plus `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit` on desktop and a narrow-width viewport and record pass or blocker evidence before resuming live workflow validation
 
-## 2.1 Milestone 10 closeout precheck
+## 2.1 Milestone 13 post-cutover precheck
 
-Before broader end-to-end workflow validation resumes, use this bounded Milestone 10 closeout precheck:
+Before broader end-to-end workflow validation resumes, use this bounded post-cutover precheck:
 
 1. confirm `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/admin/parties/{party_id}` including exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat` render cleanly and preserve their primary navigation actions, including multi-term route-catalog searches such as `pending approvals` or `failed requests`, plus visible active or inactive status controls on the promoted admin master-data pages
 2. confirm `/app/inbound-requests/{request_reference_or_id}` renders request controls, evidence, execution trace, and downstream continuity links
 3. confirm `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit` render cleanly with filters, contained tables, and exact drill-down links
 4. confirm one exact drill-down chain across request -> proposal -> approval -> document
 5. confirm one exact drill-down chain from request or proposal into accounting or inventory or work-order detail
-6. record pass or blocker evidence in `workflow_validation_track.md` before treating Milestone 10 as complete
-7. confirm the promoted shell now reads as a thin blue-gray operator application: route-directory landing pages instead of hero-card mosaics, simpler login, and single-column workflow pages where those surfaces are the active default
+6. confirm the served runtime returns real static assets under `/app/_app/...` and returns `404` for missing asset requests instead of silently falling back to the SPA shell
+7. record pass or blocker evidence in `workflow_validation_track.md` before treating the Milestone 13 browser-validation closeout as complete
+8. confirm the promoted shell now reads as a thin blue-gray operator application with a major-area sidebar, contextual section tabs, route-directory landing pages instead of hero-card mosaics, simpler login, and single-column workflow pages where those surfaces are the active default
 
 ## 2.2 Browser-review runbook
 
@@ -183,5 +184,5 @@ Preferred workflow-critical review and testing sequence:
 1. run `go build ./...`
 2. run `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./...`
 3. update `new_app_docs/new_app_tracker.md` with explicit results
-4. update `new_app_docs/post_checkpoint_validation_and_user_testing_plan.md` with workflow pass or fail evidence
+4. update `docs/workflows/workflow_validation_track.md` with workflow pass or fail evidence
 5. update `docs/workflows/application_workflow_catalog.md` if durable workflow status or support depth changed
