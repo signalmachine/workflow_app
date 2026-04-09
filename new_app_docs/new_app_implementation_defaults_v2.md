@@ -37,5 +37,6 @@ Purpose: record the defaults that active implementation should preserve unless t
 
 1. use verification appropriate to the actual risk of the change
 2. workflow-critical changes need real `/app` plus `/api/...` continuity validation, not only package tests
-3. when a durable workflow or validation checklist exists in `docs/workflows/`, use it and update it when workflow truth changes
-4. when implementation reveals drift or weak architecture, fix it or record an explicit active plan rather than leaving silent debt
+3. when workflow-critical validation exercises AI-provider behavior and `.env` provides OpenAI credentials, use the real OpenAI-backed verification path rather than treating mock-only or offline checks as sufficient closeout evidence
+4. when a durable workflow or validation checklist exists in `docs/workflows/`, use it and update it when workflow truth changes
+5. when implementation reveals drift or weak architecture, fix it or record an explicit active plan rather than leaving silent debt

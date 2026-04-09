@@ -28,9 +28,10 @@ Policy:
 1. review `new_app_docs/new_app_tracker_v2.md`
 2. review `docs/workflows/workflow_validation_track.md`
 3. review `docs/workflows/application_workflow_catalog.md`
-4. rerun `set -a; source .env; set +a; go run ./cmd/verify-agent`
-5. run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
-6. if the served Svelte runtime, the contextual-navigation shell, or any promoted workflow, utility, admin, or detail-route family is newly landed and not yet closed, review `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/admin/parties/{party_id}` for exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat`, plus `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit` on desktop, and only add a narrow-width compatibility pass when a concrete concern justifies it, before resuming live workflow validation
+4. when the workflow depends on AI-provider behavior and `.env` provides OpenAI credentials, rerun `set -a; source .env; set +a; go run ./cmd/verify-agent` before treating the validation session as production-shaped
+5. when the workflow depends on the app-level live provider seam, also rerun `set -a; source .env; set +a; go test -tags integration -count=1 ./internal/app -run TestOpenAIAgentProcessorLiveIntegration -v`
+6. run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
+7. if the served Svelte runtime, the contextual-navigation shell, or any promoted workflow, utility, admin, or detail-route family is newly landed and not yet closed, review `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/admin/parties/{party_id}` for exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat`, plus `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit` on desktop, and only add a narrow-width compatibility pass when a concrete concern justifies it, before resuming live workflow validation
 
 ## 2.1 Milestone 13 post-cutover precheck
 
@@ -136,7 +137,7 @@ Keep the notes short. The goal is explicit evidence, not a narrative test diary.
 2. submit a new inbound request from `/app/submit-inbound-request`
 3. process the next queued inbound request
 4. verify request status continuity
-5. verify AI run, step, artifact, and recommendation continuity
+5. verify AI run, step, artifact, and recommendation continuity, using the real OpenAI-backed path when `.env` provides the credentials
 6. verify exact request and proposal review continuity in both `/api/review/...` and `/app/...`
 
 ### 3.2 Draft-amend lifecycle
@@ -145,7 +146,7 @@ Keep the notes short. The goal is explicit evidence, not a narrative test diary.
 2. continue editing the same draft
 3. queue the draft
 4. process the queued request
-5. verify request continuity from draft through processed state
+5. verify request continuity from draft through processed state, using the real OpenAI-backed path when `.env` provides the credentials
 6. verify proposal continuity after processing
 
 ### 3.3 Proposal to approval workflow
@@ -162,7 +163,7 @@ Keep the notes short. The goal is explicit evidence, not a narrative test diary.
 1. reproduce or trigger one failed provider or failed-processing path
 2. verify failed request state
 3. verify failure reason and failed timestamp
-4. verify failed run or step visibility
+4. verify failed run or step visibility, preferring the real OpenAI-backed provider path when `.env` provides the credentials
 5. verify exact request-detail troubleshooting continuity
 
 ## 4. Boundary assertions for every workflow

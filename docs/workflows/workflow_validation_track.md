@@ -56,7 +56,9 @@ Implementation note recorded on 2026-04-09:
 8. the OpenAI coordinator-provider path needed one bounded corrective slice before the live provider seam was stable again: after three read-tool executions the coordinator now disables further tool availability and forces the next turn to return the structured brief, which prevents repeated read-loop drift without reopening open-ended autonomy
 9. `cmd/verify-agent` now creates its verification actor through the shared browser-session auth path, which removes one verification-harness-only auth mismatch from the live provider check
 10. the canonical repo verification, `cmd/verify-agent`, and the dedicated `TestOpenAIAgentProcessorLiveIntegration` live-provider test all passed again on 2026-04-09 after that corrective slice
-11. the later focused verification for the exact downstream-accounting detail pass succeeded through `npm --prefix web run check`, focused Svelte route tests, `go build ./cmd/... ./internal/...`, compile coverage for `./internal/reporting`, and focused non-DB `internal/app` tests, while the broader DB-backed `./internal/reporting` plus `./internal/app` rerun exposed preexisting environment or fixture blockers outside this slice (`create tax code: unauthorized` and one `reset test database: deadlock detected`)
+11. the later focused verification for the exact downstream-accounting detail pass succeeded through `npm --prefix web run check`, focused Svelte route tests, `go build ./cmd/... ./internal/...`, compile coverage for `./internal/reporting`, and focused non-DB `internal/app` tests
+12. the full canonical DB-backed suite `set -a; source .env; set +a; timeout 300s go test -p 1 ./cmd/... ./internal/...` also passed cleanly on 2026-04-09, so the earlier `create tax code: unauthorized` and `reset test database: deadlock detected` failures did not reproduce and should currently be treated as transient environment or test-state noise rather than active Milestone 13 blockers
+13. a follow-up real-seam validation run on 2026-04-09 also confirmed that `/app` returns the served Svelte shell, `/app/_app/version.json` returns a real static asset, missing `/app/_app/...` assets return `404`, browser-session login still works through `/api/session/login`, route-catalog search still returns `Approval review` for `pending approvals`, and one live request (`REQ-000001`) now successfully moved through submit -> queue -> provider-backed processing -> exact request detail -> exact proposal detail on the shared browser-session seam
 
 ## 3.1 Milestone 13 post-cutover checklist
 
@@ -70,6 +72,16 @@ Closeout sweep:
 4. focused continuity pass from exact request detail or proposal detail into one downstream accounting or inventory or work-order drill-down surface, preferring a direct accounting-entry route when the linked document already has a posted journal entry
 5. explicit confirmation that no promoted route still depends on the retired template browser path and that missing static-asset requests return a real asset result or a `404` rather than silently falling back to the SPA shell
 6. explicit confirmation that any defect found during this review is either fixed and revalidated or recorded as a blocker before milestone closeout
+
+Current evidence recorded on 2026-04-09:
+
+1. `pass: served /app shell - HTTP 200 with the embedded Svelte runtime and /app-based asset imports on the real app server`
+2. `pass: static asset handling - /app/_app/version.json returned JSON and missing /app/_app/immutable/entry/missing.js returned HTTP 404 instead of the SPA shell`
+3. `pass: browser-session auth - /api/session/login and /api/session both succeeded for a bootstrapped admin actor on the shared auth seam`
+4. `pass: route catalog search - /api/navigation/routes?q=pending%20approvals returned the exact Approval review destination`
+5. `pass: request to proposal continuity - REQ-000001 submitted through /api/inbound-requests, processed through /api/agent/process-next-queued-inbound-request, and remained review-visible through exact /api/review/inbound-requests/REQ-000001 plus exact processed-proposal detail`
+6. `blocker: browser-review sweep - desktop visual and shell-state evidence still needs a real browser pass across the promoted route family`
+7. `blocker: request -> approval -> document chain - the 2026-04-09 live validation request produced an operator-review proposal only, so one deeper approval/document continuity run still needs explicit evidence`
 
 Evidence rule:
 

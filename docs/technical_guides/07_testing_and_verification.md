@@ -43,13 +43,25 @@ For live AI-provider verification when credentials are available:
 set -a; source .env; set +a; go run ./cmd/verify-agent
 ```
 
-These are not interchangeable. The build verifies compilation, the test command verifies the DB-backed suite, and the verify-agent command exercises the live provider seam.
+For focused live provider integration in the app seam:
+
+```bash
+set -a; source .env; set +a; go test -tags integration -count=1 ./internal/app -run TestOpenAIAgentProcessorLiveIntegration -v
+```
+
+These are not interchangeable. The build verifies compilation, the test command verifies the DB-backed suite, and the live-provider commands exercise the real provider seam.
 
 `cmd/verify-agent` needs both a database URL and OpenAI credentials:
 
 1. `TEST_DATABASE_URL` or `DATABASE_URL`
 2. `OPENAI_API_KEY`
 3. `OPENAI_MODEL`
+
+Repository rule for workflow-critical AI validation:
+
+1. if the workflow under test depends on real provider behavior and `.env` supplies valid OpenAI credentials, run the live OpenAI-backed verification path as part of closeout
+2. do not treat mock-only, fake-provider, or offline verification as sufficient production-shape evidence for those workflow-critical paths
+3. document an explicit blocker if live OpenAI-backed verification cannot be run
 
 For focused reruns, use repository-shaped commands rather than ad hoc shortcuts:
 
@@ -108,6 +120,8 @@ Examples:
 4. browser detail pages that must preserve exact request continuity
 
 For those cases, use the workflow-reference docs in `docs/workflows/` and validate the real seam instead of assuming the service layer is enough.
+
+If the workflow depends on AI-provider behavior, validate it against the actual OpenAI API when `.env` provides the required credentials instead of relying only on mocked or offline provider paths.
 
 For each workflow, assert boundary by boundary:
 
