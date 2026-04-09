@@ -566,6 +566,8 @@ type ProcessedProposalReview struct {
 	DocumentTitle        sql.NullString
 	DocumentNumber       sql.NullString
 	DocumentStatus       sql.NullString
+	JournalEntryID       sql.NullString
+	JournalEntryNumber   sql.NullInt64
 	CreatedAt            time.Time
 }
 
@@ -3335,6 +3337,8 @@ SELECT
 	d.title,
 	d.number_value,
 	d.status,
+	je.id,
+	je.entry_number,
 	rec.created_at
 FROM ai.inbound_requests r
 JOIN ai.agent_runs ar
@@ -3353,6 +3357,9 @@ LEFT JOIN documents.documents d
 			ELSE NULL
 		END
 	)
+LEFT JOIN accounting.journal_entries je
+	ON je.org_id = r.org_id
+ AND je.source_document_id = d.id
 WHERE r.org_id = $1
   AND ($2 = '' OR r.id = NULLIF($2, '')::uuid)
   AND ($3 = '' OR rec.id = NULLIF($3, '')::uuid)
@@ -3387,6 +3394,8 @@ LIMIT 200;`
 			&proposal.DocumentTitle,
 			&proposal.DocumentNumber,
 			&proposal.DocumentStatus,
+			&proposal.JournalEntryID,
+			&proposal.JournalEntryNumber,
 			&proposal.CreatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan processed proposal review: %w", err)

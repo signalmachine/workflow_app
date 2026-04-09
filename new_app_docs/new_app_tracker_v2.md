@@ -1,7 +1,7 @@
 # workflow_app Tracker V2
 
 Date: 2026-04-09
-Status: Thin-v1 is complete, Milestones 10 through 12 are implemented history, Milestone 13 Slice 1 and Slice 2 are implemented, and the active work is now Milestone 13 Slice 3 browser-validation closeout after a bounded coordinator-provider corrective pass and verification rerun
+Status: Thin-v1 is complete, Milestones 10 through 12 are implemented history, Milestone 13 Slice 1 and Slice 2 are implemented, and the active work is now Milestone 13 Slice 3 browser-validation closeout after a bounded coordinator-provider corrective pass, a downstream-accounting exact-detail continuity pass, and verification reruns
 Purpose: track the active implementation state, current sequencing, and immediate next steps without carrying full milestone history in the default context.
 
 ## 1. Current state
@@ -13,8 +13,9 @@ Purpose: track the active implementation state, current sequencing, and immediat
 5. Milestone 13 Slice 1 foundation and Slice 2 workflow-surface migration are implemented
 6. Milestone 13 Slice 3 code checkpoints are largely landed: settings continuity, admin continuity, exact detail-route continuity, served-runtime cutover, and old-template retirement are implemented
 7. the coordinator-provider seam needed one bounded corrective pass on 2026-04-09: the OpenAI coordinator now stops offering read tools after the bounded read budget is consumed, and `cmd/verify-agent` now creates its verification actor through the real browser-session auth path
-8. canonical repo verification plus live provider verification passed again on 2026-04-09 after that corrective slice
-9. workflow-validation and browser-review evidence in `docs/workflows/` still needs to catch up to the implemented runtime before Milestone 13 closeout can be treated as complete
+8. request detail and processed-proposal detail now also prefer exact downstream accounting-entry drill-down when the linked document already has a posted journal entry, instead of stopping at filtered accounting-review continuity
+9. focused frontend checks, focused Svelte route tests, `go build ./cmd/... ./internal/...`, focused non-DB Go tests in `internal/app`, and `gopls` diagnostics passed on 2026-04-09 for that exact-detail continuity pass
+10. the broader DB-backed `./internal/reporting` plus `./internal/app` suite rerun reached the real test database on 2026-04-09 but exposed preexisting environment or fixture blockers outside this slice (`create tax code: unauthorized` in the reporting integration setup path and one `reset test database: deadlock detected` failure in `internal/app`), so workflow-validation and browser-review evidence in `docs/workflows/` still needs to catch up to the implemented runtime before Milestone 13 closeout can be treated as complete
 
 ## 2. Active implementation order
 
@@ -34,6 +35,7 @@ The next session should assume this active Slice 3 baseline is already landed:
 4. the served Go runtime already embeds and serves the Svelte frontend at `/app`
 5. the retired template-browser `/app` layer has already been removed from the active codebase
 6. the main remaining work is real-seam browser and workflow validation plus any narrowly grouped corrective follow-up that that validation proves necessary
+7. the promoted request and proposal detail surfaces already include exact downstream accounting-entry continuity when the shared reporting seam exposes a posted journal entry for the linked document
 
 Use these supporting docs for the remaining closeout:
 

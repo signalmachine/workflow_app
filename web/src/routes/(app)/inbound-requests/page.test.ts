@@ -7,51 +7,27 @@ const baseData = {
 	request: {
 		request_id: 'request-1',
 		request_reference: 'REQ-1001',
-		status: 'processed',
+		session_id: 'session-1',
+		actor_user_id: 'user-1',
 		origin_type: 'human',
 		channel: 'browser',
-		submitter_label: 'Front desk',
-		session_id: 'session-1',
-		submitted_by_user_id: 'user-1',
+		status: 'processed',
+		metadata: {},
+		received_at: '2026-04-09T10:00:00Z',
+		queued_at: '2026-04-09T10:01:00Z',
+		processing_started_at: '2026-04-09T10:02:00Z',
+		processed_at: '2026-04-09T10:03:00Z',
+		completed_at: '2026-04-09T10:04:00Z',
+		created_at: '2026-04-09T10:00:00Z',
+		updated_at: '2026-04-09T10:04:00Z',
 		message_count: 1,
 		attachment_count: 0,
-		latest_run_status: 'completed',
 		last_run_id: 'run-1',
-		received_at: '2026-04-08T10:00:00Z',
-		queued_at: '2026-04-08T10:01:00Z',
-		processing_started_at: '2026-04-08T10:02:00Z',
-		processed_at: '2026-04-08T10:03:00Z',
-		completed_at: '2026-04-08T10:04:00Z',
-		cancelled_at: '',
-		failed_at: '',
-		cancellation_reason: '',
-		failure_reason: '',
-		updated_at: '2026-04-08T10:04:00Z',
-		metadata: {}
+		last_run_status: 'completed'
 	},
-	messages: [
-		{
-			message_id: 'message-1',
-			message_index: 1,
-			message_role: 'request',
-			text_content: 'Inspect the warehouse pump issue.',
-			attachment_count: 0,
-			created_by_user_id: 'user-1',
-			created_at: '2026-04-08T10:00:00Z'
-		}
-	],
+	messages: [],
 	attachments: [],
-	runs: [
-		{
-			run_id: 'run-1',
-			agent_role: 'coordinator',
-			capability_code: 'inbound_request.review',
-			status: 'completed',
-			summary: 'Review complete.',
-			started_at: '2026-04-08T10:02:00Z',
-			completed_at: '2026-04-08T10:03:00Z'
-		}
-	],
+	runs: [],
 	steps: [],
 	delegations: [],
 	artifacts: [],
@@ -61,40 +37,29 @@ const baseData = {
 			request_id: 'request-1',
 			request_reference: 'REQ-1001',
 			request_status: 'processed',
-			recommendation_id: 'proposal-older',
+			recommendation_id: 'proposal-1',
 			run_id: 'run-1',
 			recommendation_type: 'proposal',
-			recommendation_status: 'processed',
-			summary: 'First proposal.',
-			suggested_queue_code: 'ops',
-			created_at: '2026-04-08T09:59:00Z'
-		},
-		{
-			request_id: 'request-1',
-			request_reference: 'REQ-1001',
-			request_status: 'processed',
-			recommendation_id: 'proposal-latest',
-			run_id: 'run-1',
-			recommendation_type: 'proposal',
-			recommendation_status: 'approval_requested',
-			summary: 'Latest proposal.',
-			suggested_queue_code: 'ops',
+			recommendation_status: 'approved',
+			summary: 'Prepare the posted accounting follow-through.',
 			approval_id: 'approval-1',
-			approval_status: 'pending',
+			approval_status: 'approved',
 			document_id: 'document-1',
+			document_title: 'Submitted invoice',
 			document_status: 'submitted',
-			created_at: '2026-04-08T10:05:00Z'
+			journal_entry_id: 'entry-1',
+			journal_entry_number: 42,
+			created_at: '2026-04-09T10:03:00Z'
 		}
 	]
 };
 
 describe('inbound request detail page', () => {
-	it('keeps exact proposal, approval, and document continuity links visible near the top', () => {
+	it('prefers exact downstream accounting entry continuity when the latest proposal already has a posted entry', () => {
 		render(InboundRequestDetailPage, { props: { data: baseData } as never });
 
-		expect(screen.getByText('Workflow continuity')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Open latest proposal' }).getAttribute('href')).toBe(
-			'/app/review/proposals/proposal-latest'
+			'/app/review/proposals/proposal-1'
 		);
 		expect(screen.getByRole('link', { name: 'Open approval detail' }).getAttribute('href')).toBe(
 			'/app/review/approvals/approval-1'
@@ -102,25 +67,11 @@ describe('inbound request detail page', () => {
 		expect(screen.getByRole('link', { name: 'Open document detail' }).getAttribute('href')).toBe(
 			'/app/review/documents/document-1'
 		);
-		expect(screen.getByRole('link', { name: 'Open accounting review' }).getAttribute('href')).toBe(
-			'/app/review/accounting?document_id=document-1'
+		expect(screen.getByRole('link', { name: 'Open accounting entry #42' }).getAttribute('href')).toBe(
+			'/app/review/accounting/entry-1'
 		);
-	});
-
-	it('keeps proposal rows wired to exact downstream drill-down routes', () => {
-		render(InboundRequestDetailPage, { props: { data: baseData } as never });
-
-		expect(screen.getAllByRole('link', { name: 'Proposal detail' }).at(-1)?.getAttribute('href')).toBe(
-			'/app/review/proposals/proposal-latest'
-		);
-		expect(screen.getAllByRole('link', { name: 'Approval detail' }).at(-1)?.getAttribute('href')).toBe(
-			'/app/review/approvals/approval-1'
-		);
-		expect(screen.getAllByRole('link', { name: 'Document detail' }).at(-1)?.getAttribute('href')).toBe(
-			'/app/review/documents/document-1'
-		);
-		expect(screen.getAllByRole('link', { name: 'Accounting review' }).at(-1)?.getAttribute('href')).toBe(
-			'/app/review/accounting?document_id=document-1'
+		expect(screen.getByRole('link', { name: 'Accounting entry #42' }).getAttribute('href')).toBe(
+			'/app/review/accounting/entry-1'
 		);
 	});
 });

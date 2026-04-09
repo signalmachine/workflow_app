@@ -5,7 +5,7 @@
 	import StatusBadge from '$lib/components/primitives/StatusBadge.svelte';
 	import SurfaceCard from '$lib/components/primitives/SurfaceCard.svelte';
 	import { formatDateTime } from '$lib/utils/format';
-	import { approvalDetail, documentDetail, inboundRequestDetail, proposalDetail, routes, withQuery } from '$lib/utils/routes';
+	import { accountingEntryDetail, approvalDetail, documentDetail, inboundRequestDetail, proposalDetail, routes, withQuery } from '$lib/utils/routes';
 	import type { ProcessedProposalReview } from '$lib/api/types';
 
 	let { data }: PageProps = $props();
@@ -121,7 +121,15 @@
 				{/if}
 				{#if latestProposal.document_id}
 					<a href={documentDetail(latestProposal.document_id)}>Open document detail</a>
-					<a href={withQuery(routes.reviewAccounting, { document_id: latestProposal.document_id })}>Open accounting review</a>
+					{#if latestProposal.journal_entry_id}
+						<a href={accountingEntryDetail(latestProposal.journal_entry_id)}>
+							Open accounting entry{#if latestProposal.journal_entry_number}
+								{` #${latestProposal.journal_entry_number}`}
+							{/if}
+						</a>
+					{:else}
+						<a href={withQuery(routes.reviewAccounting, { document_id: latestProposal.document_id })}>Open accounting review</a>
+					{/if}
 				{/if}
 			</div>
 		</SurfaceCard>
@@ -230,7 +238,15 @@
 						{/if}
 						{#if proposal.document_id}
 							<a href={documentDetail(proposal.document_id)}>Document detail</a>
-							<a href={withQuery(routes.reviewAccounting, { document_id: proposal.document_id })}>Accounting review</a>
+							{#if proposal.journal_entry_id}
+								<a href={accountingEntryDetail(proposal.journal_entry_id)}>
+									Accounting entry{#if proposal.journal_entry_number}
+										{` #${proposal.journal_entry_number}`}
+									{/if}
+								</a>
+							{:else}
+								<a href={withQuery(routes.reviewAccounting, { document_id: proposal.document_id })}>Accounting review</a>
+							{/if}
 						{/if}
 					</div>
 				</section>

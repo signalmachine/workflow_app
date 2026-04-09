@@ -5,7 +5,7 @@
 	import StatusBadge from '$lib/components/primitives/StatusBadge.svelte';
 	import SurfaceCard from '$lib/components/primitives/SurfaceCard.svelte';
 	import { formatDateTime } from '$lib/utils/format';
-	import { approvalDetail, documentDetail, inboundRequestDetail, routes, withQuery } from '$lib/utils/routes';
+	import { accountingEntryDetail, approvalDetail, documentDetail, inboundRequestDetail, routes, withQuery } from '$lib/utils/routes';
 
 	let { data }: PageProps = $props();
 </script>
@@ -35,7 +35,15 @@
 			{/if}
 			{#if data.proposal.document_id}
 				<a href={documentDetail(data.proposal.document_id)}>Document detail</a>
-				<a href={withQuery(routes.reviewAccounting, { document_id: data.proposal.document_id })}>Accounting review</a>
+				{#if data.proposal.journal_entry_id}
+					<a href={accountingEntryDetail(data.proposal.journal_entry_id)}>
+						Accounting entry{#if data.proposal.journal_entry_number}
+							{` #${data.proposal.journal_entry_number}`}
+						{/if}
+					</a>
+				{:else}
+					<a href={withQuery(routes.reviewAccounting, { document_id: data.proposal.document_id })}>Accounting review</a>
+				{/if}
 			{/if}
 		</div>
 	</SurfaceCard>

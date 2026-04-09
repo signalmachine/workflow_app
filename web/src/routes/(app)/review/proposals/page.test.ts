@@ -21,6 +21,8 @@ const baseData = {
 		document_title: 'Submitted invoice',
 		document_number: 'INV-1001',
 		document_status: 'submitted',
+		journal_entry_id: 'entry-1',
+		journal_entry_number: 42,
 		created_at: '2026-04-09T12:00:00Z'
 	}
 };
@@ -38,8 +40,8 @@ describe('proposal detail page', () => {
 		expect(screen.getByRole('link', { name: 'Document detail' }).getAttribute('href')).toBe(
 			'/app/review/documents/document-1'
 		);
-		expect(screen.getByRole('link', { name: 'Accounting review' }).getAttribute('href')).toBe(
-			'/app/review/accounting?document_id=document-1'
+		expect(screen.getByRole('link', { name: 'Accounting entry #42' }).getAttribute('href')).toBe(
+			'/app/review/accounting/entry-1'
 		);
 	});
 });

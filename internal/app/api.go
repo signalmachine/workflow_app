@@ -1431,6 +1431,8 @@ type processedProposalReviewResponse struct {
 	DocumentTitle        *string   `json:"document_title,omitempty"`
 	DocumentNumber       *string   `json:"document_number,omitempty"`
 	DocumentStatus       *string   `json:"document_status,omitempty"`
+	JournalEntryID       *string   `json:"journal_entry_id,omitempty"`
+	JournalEntryNumber   *int64    `json:"journal_entry_number,omitempty"`
 	CreatedAt            time.Time `json:"created_at"`
 }
 
@@ -2152,6 +2154,8 @@ func mapProcessedProposalReview(item reporting.ProcessedProposalReview) processe
 		DocumentTitle:        stringPtr(item.DocumentTitle),
 		DocumentNumber:       stringPtr(item.DocumentNumber),
 		DocumentStatus:       stringPtr(item.DocumentStatus),
+		JournalEntryID:       stringPtr(item.JournalEntryID),
+		JournalEntryNumber:   int64Ptr(item.JournalEntryNumber),
 		CreatedAt:            item.CreatedAt,
 	}
 }

@@ -242,6 +242,8 @@ export interface ProcessedProposalReview {
 	document_title?: string;
 	document_number?: string;
 	document_status?: string;
+	journal_entry_id?: string;
+	journal_entry_number?: number;
 	created_at: string;
 }
 
