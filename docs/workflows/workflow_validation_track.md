@@ -172,7 +172,7 @@ Routes:
 Assertions:
 
 1. the detail page remains single-column and readable rather than collapsing into equal-weight panels
-2. request evidence, execution trace, and downstream continuity links remain easy to find
+2. request evidence, execution trace, and downstream continuity links remain easy to find, with request detail keeping the latest proposal plus direct approval and document drill-down actions near the top of the page
 3. upstream and downstream exact links can be followed without losing context
 4. no detail section becomes unreadable on narrow width because of inline metadata density or uncontained content
 
@@ -193,7 +193,7 @@ Example pass notes:
 Example blocker notes:
 
 1. `blocker: /app/review/accounting narrow - table action links wrap into unreadable stacks - promote one grouped review-table corrective slice`
-2. `blocker: request detail to proposal detail continuity - proposal link visually buried below AI trace sections - investigate detail-page hierarchy follow-up`
+2. `blocker: request detail to proposal detail continuity - top continuity actions missing or still buried below AI trace sections - promote one grouped detail-page hierarchy corrective slice`
 
 ## 4. Current workflow-validation backlog
 

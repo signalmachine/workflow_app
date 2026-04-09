@@ -36,7 +36,7 @@ Policy:
 Before broader end-to-end workflow validation resumes, use this bounded post-cutover precheck:
 
 1. confirm `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/admin/parties/{party_id}` including exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat` render cleanly and preserve their primary navigation actions, including multi-term route-catalog searches such as `pending approvals` or `failed requests`, visible active or inactive status controls on the promoted admin master-data pages, and the inventory landing snapshot links for stock, movement history, and pending execution or accounting handoffs
-2. confirm `/app/inbound-requests/{request_reference_or_id}` renders request controls, evidence, execution trace, and downstream continuity links
+2. confirm `/app/inbound-requests/{request_reference_or_id}` renders request controls, evidence, execution trace, and top-level downstream continuity links for the latest proposal plus any approval or document follow-through
 3. confirm `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit` render cleanly with filters, contained tables, and exact drill-down links
 4. confirm one exact drill-down chain across request -> proposal -> approval -> document
 5. confirm one exact drill-down chain from request or proposal into accounting or inventory or work-order detail
@@ -112,7 +112,7 @@ After the route review, run these exact continuity chains:
 
 For each chain, check:
 
-1. the next exact link is easy to find
+1. the next exact link is easy to find, ideally from the top continuity actions on request detail before scrolling deep into supporting trace sections
 2. the destination page preserves the expected identifiers and workflow context
 3. returning or continuing deeper does not lose the operator's place in the workflow
 

@@ -5,9 +5,19 @@
 	import StatusBadge from '$lib/components/primitives/StatusBadge.svelte';
 	import SurfaceCard from '$lib/components/primitives/SurfaceCard.svelte';
 	import { formatDateTime } from '$lib/utils/format';
-	import { inboundRequestDetail, routes } from '$lib/utils/routes';
+	import { approvalDetail, documentDetail, inboundRequestDetail, proposalDetail, routes } from '$lib/utils/routes';
+	import type { ProcessedProposalReview } from '$lib/api/types';
 
 	let { data }: PageProps = $props();
+
+	const latestProposal = $derived.by(() =>
+		data.proposals.reduce<ProcessedProposalReview | null>((latest, proposal) => {
+			if (latest === null) {
+				return proposal;
+			}
+			return new Date(proposal.created_at).getTime() > new Date(latest.created_at).getTime() ? proposal : latest;
+		}, null)
+	);
 
 	function formatJSON(value: Record<string, unknown>): string {
 		return JSON.stringify(value, null, 2);
@@ -77,6 +87,44 @@
 			<div><strong>Failure reason</strong><div>{data.request.failure_reason ?? '-'}</div></div>
 		</div>
 	</SurfaceCard>
+
+	{#if latestProposal}
+		<SurfaceCard>
+			<p class="eyebrow">Workflow continuity</p>
+			<div class="detail-grid continuity-summary">
+				<div>
+					<strong>Latest proposal</strong>
+					<div>
+						<a href={proposalDetail(latestProposal.recommendation_id)}>{latestProposal.recommendation_id}</a>
+					</div>
+				</div>
+				<div>
+					<strong>Proposal status</strong>
+					<div><StatusBadge status={latestProposal.recommendation_status} /></div>
+				</div>
+				<div>
+					<strong>Approval</strong>
+					<div>{latestProposal.approval_status ?? '-'}</div>
+				</div>
+				<div>
+					<strong>Document</strong>
+					<div>{latestProposal.document_status ?? '-'}</div>
+				</div>
+			</div>
+			<p class="muted-copy">
+				Keep the next exact workflow surfaces close to the request evidence so request, proposal, approval, and document continuity stay on one readable path.
+			</p>
+			<div class="action-row">
+				<a href={proposalDetail(latestProposal.recommendation_id)}>Open latest proposal</a>
+				{#if latestProposal.approval_id}
+					<a href={approvalDetail(latestProposal.approval_id)}>Open approval detail</a>
+				{/if}
+				{#if latestProposal.document_id}
+					<a href={documentDetail(latestProposal.document_id)}>Open document detail</a>
+				{/if}
+			</div>
+		</SurfaceCard>
+	{/if}
 
 	<SurfaceCard>
 		<p class="eyebrow">Messages</p>
@@ -165,7 +213,7 @@
 				<section class="timeline-item">
 					<div class="timeline-head">
 						<div>
-							<strong>Processed proposal</strong>
+							<a href={proposalDetail(proposal.recommendation_id)}>Processed proposal</a>
 							<span class="muted-copy">{proposal.recommendation_id}</span>
 						</div>
 						<StatusBadge status={proposal.recommendation_status} />
@@ -174,6 +222,15 @@
 					<p class="muted-copy">
 						Approval: {proposal.approval_status ?? '-'} | Document: {proposal.document_status ?? '-'} | Created {formatDateTime(proposal.created_at)}
 					</p>
+					<div class="action-row action-row--tight">
+						<a href={proposalDetail(proposal.recommendation_id)}>Proposal detail</a>
+						{#if proposal.approval_id}
+							<a href={approvalDetail(proposal.approval_id)}>Approval detail</a>
+						{/if}
+						{#if proposal.document_id}
+							<a href={documentDetail(proposal.document_id)}>Document detail</a>
+						{/if}
+					</div>
 				</section>
 			{/each}
 		</div>
@@ -247,6 +304,15 @@
 		gap: 0.75rem;
 		justify-content: space-between;
 		margin-top: 1rem;
+	}
+
+	.action-row--tight {
+		justify-content: flex-start;
+		margin-top: 0.75rem;
+	}
+
+	.continuity-summary {
+		margin-bottom: 0.75rem;
 	}
 
 	.timeline-item {

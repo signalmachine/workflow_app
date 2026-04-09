@@ -76,6 +76,7 @@ Landed result:
 9. `cmd/app` now serves the embedded Svelte shell directly through `app.NewServedAgentAPIHandler`, so the promoted runtime no longer depends on a browser-cutover environment toggle to select the new frontend
 10. focused Go integration coverage now asserts the promoted `/app` route family serves the embedded Svelte shell at `/app`, `/app/login`, the promoted utility and landing routes, and the promoted detail-route family, so the served cutover path has explicit code-level coverage beyond the narrower unit checks in `internal/app/web_test.go`
 11. the generic `internal/app` handler constructors now default to the served Svelte runtime shape, and the retired template-browser constructors and route handlers have now been deleted from the active codebase rather than kept as a compatibility branch
+12. the exact inbound-request detail route now also promotes the latest proposal plus direct approval and document drill-down actions near the top of the page, and each processed-proposal row exposes those exact continuity links inline so the post-cutover request -> proposal -> approval -> document chain is no longer visually buried below the AI trace sections
 
 Remaining Slice 3 work:
 
