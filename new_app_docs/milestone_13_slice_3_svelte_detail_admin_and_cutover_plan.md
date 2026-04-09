@@ -1,7 +1,7 @@
 # workflow_app Milestone 13 Slice 3 Plan
 
 Date: 2026-04-09
-Status: In progress; settings continuity, admin-parity, inbound-request detail, promoted review-detail checkpoints, the served-app cutover to the built Svelte frontend, deletion of the retired Go-template `/app` layer, the grouped inventory-review scope corrective pass, the landing-surface exact-drill-down continuity corrective pass, and the first workflow-evidence cleanup pass are implemented, while bounded real-seam workflow validation still stays open
+Status: In progress; settings continuity, admin-parity, inbound-request detail, promoted review-detail checkpoints, the served-app cutover to the built Svelte frontend, deletion of the retired Go-template `/app` layer, the grouped inventory-review scope corrective pass, the landing-surface exact-drill-down continuity corrective pass, the grouped downstream-accounting continuity corrective pass, and the first workflow-evidence cleanup pass are implemented, while bounded real-seam workflow validation still stays open
 Purpose: define the third Milestone 13 implementation slice so detail surfaces, admin surfaces, parity closeout, cutover, and legacy browser retirement happen together instead of being left as an indefinite cleanup tail.
 
 ## 1. Slice role
@@ -79,6 +79,7 @@ Landed result:
 12. the exact inbound-request detail route now also promotes the latest proposal plus direct approval and document drill-down actions near the top of the page, and each processed-proposal row exposes those exact continuity links inline so the post-cutover request -> proposal -> approval -> document chain is no longer visually buried below the AI trace sections
 13. `/app/review/inventory` now exposes and preserves the `only_pending_execution` plus `only_pending_accounting` scope controls in the Svelte UI, shows the active reconciliation scope explicitly, and adds focused frontend regression coverage so the inventory landing handoff links remain a meaningful operator follow-through path instead of a hidden query-only seam
 14. the operator home, coordinator chat, and review landing pages now send known proposal and approval rows directly to the promoted exact detail routes instead of bouncing operators through filtered list views when the exact `recommendation_id` or `approval_id` is already available, and focused frontend regression coverage now locks that continuity in place
+15. exact inbound-request detail and exact proposal detail now also expose direct downstream accounting-review follow-through when the proposal already has a linked document, so the post-cutover request -> proposal -> accounting control path no longer requires an extra document-detail stop before operators can continue
 
 Remaining Slice 3 work:
 

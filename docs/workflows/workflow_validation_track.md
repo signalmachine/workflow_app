@@ -1,7 +1,7 @@
 # workflow_app Workflow Validation Track
 
 Date: 2026-04-09
-Status: Active validation track, separate from implementation planning; the current browser runtime is the Milestone 13 served Svelte frontend with the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families now run on that one Go-served `/app` surface, the inventory landing now hands off into an explicit scoped inventory-review UI for pending execution and accounting follow-through, the operator home plus coordinator chat plus review landing snapshots now also route known proposal and approval rows directly into exact detail pages, focused automated coverage now also asserts that the served handler returns real `/app/_app/...` assets and `404` for missing bundle paths, and the remaining open work is bounded post-cutover browser and workflow validation evidence plus any tightly grouped corrective follow-up discovered on the real seam
+Status: Active validation track, separate from implementation planning; the current browser runtime is the Milestone 13 served Svelte frontend with the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families now run on that one Go-served `/app` surface, the inventory landing now hands off into an explicit scoped inventory-review UI for pending execution and accounting follow-through, the operator home plus coordinator chat plus review landing snapshots now also route known proposal and approval rows directly into exact detail pages, exact inbound-request detail plus exact proposal detail now also expose direct downstream accounting review when a linked proposal document already exists, focused automated coverage now also asserts that the served handler returns real `/app/_app/...` assets and `404` for missing bundle paths, and the remaining open work is bounded post-cutover browser and workflow validation evidence plus any tightly grouped corrective follow-up discovered on the real seam
 Purpose: keep workflow testing, live review, and readiness evidence on a workflow-validation track in `docs/workflows/` rather than inside the normal product-implementation planning stream in `new_app_docs/`.
 
 ## 1. Why this document exists
@@ -48,7 +48,8 @@ Implementation note recorded on 2026-04-09:
 
 1. the codebase now has explicit full-handler integration coverage for `/app/_app/version.json` plus missing `/app/_app/...` asset `404` behavior on top of the earlier unit-level shell tests
 2. the operator home plus coordinator chat plus review landing snapshots now also use exact proposal and approval drill-down routes when the exact record is already known, which reduces one source of post-cutover continuity friction before the larger real-seam sweep runs
-3. this implementation work reduces serving-path and drill-down ambiguity, but it does not replace the remaining browser-review and workflow-continuity evidence required in section 3.1
+3. exact inbound-request detail plus exact proposal detail now also keep direct downstream accounting follow-through visible when a linked proposal document already exists, which reduces one more source of continuity friction before the larger real-seam sweep runs
+4. this implementation work reduces serving-path and drill-down ambiguity, but it does not replace the remaining browser-review and workflow-continuity evidence required in section 3.1
 
 ## 3.1 Milestone 13 post-cutover checklist
 

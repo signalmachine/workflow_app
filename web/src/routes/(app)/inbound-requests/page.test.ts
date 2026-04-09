@@ -102,6 +102,9 @@ describe('inbound request detail page', () => {
 		expect(screen.getByRole('link', { name: 'Open document detail' }).getAttribute('href')).toBe(
 			'/app/review/documents/document-1'
 		);
+		expect(screen.getByRole('link', { name: 'Open accounting review' }).getAttribute('href')).toBe(
+			'/app/review/accounting?document_id=document-1'
+		);
 	});
 
 	it('keeps proposal rows wired to exact downstream drill-down routes', () => {
@@ -115,6 +118,9 @@ describe('inbound request detail page', () => {
 		);
 		expect(screen.getAllByRole('link', { name: 'Document detail' }).at(-1)?.getAttribute('href')).toBe(
 			'/app/review/documents/document-1'
+		);
+		expect(screen.getAllByRole('link', { name: 'Accounting review' }).at(-1)?.getAttribute('href')).toBe(
+			'/app/review/accounting?document_id=document-1'
 		);
 	});
 });

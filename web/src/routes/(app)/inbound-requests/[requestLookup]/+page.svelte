@@ -5,7 +5,7 @@
 	import StatusBadge from '$lib/components/primitives/StatusBadge.svelte';
 	import SurfaceCard from '$lib/components/primitives/SurfaceCard.svelte';
 	import { formatDateTime } from '$lib/utils/format';
-	import { approvalDetail, documentDetail, inboundRequestDetail, proposalDetail, routes } from '$lib/utils/routes';
+	import { approvalDetail, documentDetail, inboundRequestDetail, proposalDetail, routes, withQuery } from '$lib/utils/routes';
 	import type { ProcessedProposalReview } from '$lib/api/types';
 
 	let { data }: PageProps = $props();
@@ -121,6 +121,7 @@
 				{/if}
 				{#if latestProposal.document_id}
 					<a href={documentDetail(latestProposal.document_id)}>Open document detail</a>
+					<a href={withQuery(routes.reviewAccounting, { document_id: latestProposal.document_id })}>Open accounting review</a>
 				{/if}
 			</div>
 		</SurfaceCard>
@@ -229,6 +230,7 @@
 						{/if}
 						{#if proposal.document_id}
 							<a href={documentDetail(proposal.document_id)}>Document detail</a>
+							<a href={withQuery(routes.reviewAccounting, { document_id: proposal.document_id })}>Accounting review</a>
 						{/if}
 					</div>
 				</section>

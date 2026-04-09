@@ -35,8 +35,8 @@
 			{/if}
 			{#if data.proposal.document_id}
 				<a href={documentDetail(data.proposal.document_id)}>Document detail</a>
+				<a href={withQuery(routes.reviewAccounting, { document_id: data.proposal.document_id })}>Accounting review</a>
 			{/if}
 		</div>
 	</SurfaceCard>
 </div>
-
