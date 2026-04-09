@@ -103,6 +103,18 @@ OPENAI_API_KEY=...
 OPENAI_MODEL=...
 ```
 
+Run the live provider verifier:
+
+```bash
+set -a; source .env; set +a; go run ./cmd/verify-agent
+```
+
+Run the deeper shared-session request -> proposal -> approval -> document continuity verifier:
+
+```bash
+set -a; source .env; set +a; go run ./cmd/verify-agent -approval-flow
+```
+
 Run the first application API surface:
 
 ```bash

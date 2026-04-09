@@ -43,13 +43,19 @@ For live AI-provider verification when credentials are available:
 set -a; source .env; set +a; go run ./cmd/verify-agent
 ```
 
+For one deeper exact request -> proposal -> approval -> document continuity pass on the shared session plus `/api/...` seam:
+
+```bash
+set -a; source .env; set +a; go run ./cmd/verify-agent -approval-flow
+```
+
 For focused live provider integration in the app seam:
 
 ```bash
 set -a; source .env; set +a; go test -tags integration -count=1 ./internal/app -run TestOpenAIAgentProcessorLiveIntegration -v
 ```
 
-These are not interchangeable. The build verifies compilation, the test command verifies the DB-backed suite, and the live-provider commands exercise the real provider seam.
+These are not interchangeable. The build verifies compilation, the test command verifies the DB-backed suite, `cmd/verify-agent` exercises the real provider seam, and `cmd/verify-agent -approval-flow` extends that live verification by creating one deterministic approval-ready proposal on the processed verification request and confirming exact continuity through the shared session plus `/api/...` path.
 
 `cmd/verify-agent` needs both a database URL and OpenAI credentials:
 

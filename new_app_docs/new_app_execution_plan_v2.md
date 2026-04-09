@@ -1,7 +1,7 @@
 # workflow_app Execution Plan V2
 
 Date: 2026-04-09
-Status: Active execution order after archive reset, with the 2026-04-09 coordinator-provider corrective slice and verification rerun completed ahead of the remaining browser-validation closeout
+Status: Active execution order after archive reset, with the 2026-04-09 coordinator-provider corrective slice, approval-continuity verification pass, and verification reruns completed ahead of the remaining browser-review closeout
 Purpose: define the current execution order without carrying the full completed milestone narrative in the default context.
 
 ## 1. Completed baseline
@@ -33,15 +33,16 @@ The implemented Slice 3 baseline already includes:
 
 Remaining Slice 3 closeout is intentionally narrow:
 
-1. bounded real-seam browser and workflow validation on the current `/app` plus `/api/...` runtime
+1. bounded real-seam desktop browser review on the current `/app` runtime
 2. workflow-checklist and evidence updates in `docs/workflows/`
-3. one grouped corrective slice only if that real-seam sweep exposes a real defect or missing support seam
+3. one grouped corrective slice only if that browser sweep exposes a real defect or missing support seam
 
 Completed prerequisite recorded on 2026-04-09:
 
 1. the OpenAI coordinator-provider loop now disables additional read tools after the bounded read budget is consumed instead of spinning on repeated reads
 2. `cmd/verify-agent` now creates its verification actor through the shared browser-session auth path instead of only the lower-level session bootstrap
-3. `go build ./cmd/... ./internal/...`, `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...`, `set -a; source .env; set +a; go run ./cmd/verify-agent`, and `set -a; source .env; set +a; go test -tags integration -count=1 ./internal/app -run TestOpenAIAgentProcessorLiveIntegration -v` all passed after that corrective slice
+3. `cmd/verify-agent` now also supports `-approval-flow`, which creates one deterministic approval-ready proposal on the processed verification request and confirms request -> proposal -> approval -> document continuity through the shared session plus `/api/...` seam
+4. `go build ./cmd/... ./internal/...`, `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...`, `set -a; source .env; set +a; go run ./cmd/verify-agent`, `set -a; source .env; set +a; go run ./cmd/verify-agent -approval-flow`, and `set -a; source .env; set +a; go test -tags integration -count=1 ./internal/app -run TestOpenAIAgentProcessorLiveIntegration -v` all passed after that corrective slice
 
 ## 3. Promotion rule for the next milestone
 

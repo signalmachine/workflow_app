@@ -1,7 +1,7 @@
 # workflow_app Workflow Validation Track
 
 Date: 2026-04-09
-Status: Active validation track, separate from implementation planning; the current browser runtime is the Milestone 13 served Svelte frontend with the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families now run on that one Go-served `/app` surface, the inventory landing now hands off into an explicit scoped inventory-review UI for pending execution and accounting follow-through, the operator home plus coordinator chat plus review landing snapshots now also route known proposal and approval rows directly into exact detail pages, exact inbound-request detail plus exact proposal detail now also prefer direct downstream accounting-entry drill-down when a linked proposal document already has a posted journal entry, the desktop shell now also keeps a persisted collapsed-sidebar preference while the mobile drawer model stays as secondary compatibility rather than an active optimization target, focused automated coverage now also asserts that the served handler returns real `/app/_app/...` assets and `404` for missing bundle paths, the live provider seam has been reconfirmed after the 2026-04-09 bounded coordinator corrective pass, and the remaining open work is bounded post-cutover browser and workflow validation evidence plus any tightly grouped corrective follow-up discovered on the real seam
+Status: Active validation track, separate from implementation planning; the current browser runtime is the Milestone 13 served Svelte frontend with the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families now run on that one Go-served `/app` surface, the inventory landing now hands off into an explicit scoped inventory-review UI for pending execution and accounting follow-through, the operator home plus coordinator chat plus review landing snapshots now also route known proposal and approval rows directly into exact detail pages, exact inbound-request detail plus exact proposal detail now also prefer direct downstream accounting-entry drill-down when a linked proposal document already has a posted journal entry, the desktop shell now also keeps a persisted collapsed-sidebar preference while the mobile drawer model stays as secondary compatibility rather than an active optimization target, focused automated coverage now also asserts that the served handler returns real `/app/_app/...` assets and `404` for missing bundle paths, the live provider seam has been reconfirmed after the 2026-04-09 bounded coordinator corrective pass, `cmd/verify-agent -approval-flow` now also confirms one exact request -> proposal -> approval -> document chain on the shared session plus `/api/...` seam, and the remaining open work is bounded desktop browser-review evidence plus any tightly grouped corrective follow-up discovered on the real seam
 Purpose: keep workflow testing, live review, and readiness evidence on a workflow-validation track in `docs/workflows/` rather than inside the normal product-implementation planning stream in `new_app_docs/`.
 
 ## 1. Why this document exists
@@ -59,6 +59,7 @@ Implementation note recorded on 2026-04-09:
 11. the later focused verification for the exact downstream-accounting detail pass succeeded through `npm --prefix web run check`, focused Svelte route tests, `go build ./cmd/... ./internal/...`, compile coverage for `./internal/reporting`, and focused non-DB `internal/app` tests
 12. the full canonical DB-backed suite `set -a; source .env; set +a; timeout 300s go test -p 1 ./cmd/... ./internal/...` also passed cleanly on 2026-04-09, so the earlier `create tax code: unauthorized` and `reset test database: deadlock detected` failures did not reproduce and should currently be treated as transient environment or test-state noise rather than active Milestone 13 blockers
 13. a follow-up real-seam validation run on 2026-04-09 also confirmed that `/app` returns the served Svelte shell, `/app/_app/version.json` returns a real static asset, missing `/app/_app/...` assets return `404`, browser-session login still works through `/api/session/login`, route-catalog search still returns `Approval review` for `pending approvals`, and one live request (`REQ-000001`) now successfully moved through submit -> queue -> provider-backed processing -> exact request detail -> exact proposal detail on the shared browser-session seam
+14. `cmd/verify-agent -approval-flow` also passed on 2026-04-09 and confirmed that the same live verification request (`REQ-000001`) can continue through one deterministic exact proposal -> approval request -> approval decision -> exact approval detail -> exact document detail chain on the shared browser-session plus `/api/...` seam
 
 ## 3.1 Milestone 13 post-cutover checklist
 
@@ -81,7 +82,7 @@ Current evidence recorded on 2026-04-09:
 4. `pass: route catalog search - /api/navigation/routes?q=pending%20approvals returned the exact Approval review destination`
 5. `pass: request to proposal continuity - REQ-000001 submitted through /api/inbound-requests, processed through /api/agent/process-next-queued-inbound-request, and remained review-visible through exact /api/review/inbound-requests/REQ-000001 plus exact processed-proposal detail`
 6. `blocker: browser-review sweep - desktop visual and shell-state evidence still needs a real browser pass across the promoted route family`
-7. `blocker: request -> approval -> document chain - the 2026-04-09 live validation request produced an operator-review proposal only, so one deeper approval/document continuity run still needs explicit evidence`
+7. `pass: request -> approval -> document chain - cmd/verify-agent -approval-flow created a deterministic approval-ready proposal on REQ-000001 and confirmed exact request, proposal, approval, and document continuity through the shared session plus /api/... seam`
 
 Evidence rule:
 
@@ -214,7 +215,7 @@ Example pass notes:
 
 1. `pass: /app/review/inbound-requests desktop - filters and contained table stay visually primary`
 2. `pass: /app/login compatibility - narrow-width fallback still avoids obvious overlap or blocked sign-in`
-3. `pass: live provider seam 2026-04-09 - cmd/verify-agent and TestOpenAIAgentProcessorLiveIntegration both completed after the bounded coordinator read-loop and verify-agent auth-path corrective pass`
+3. `pass: live provider seam 2026-04-09 - cmd/verify-agent, cmd/verify-agent -approval-flow, and TestOpenAIAgentProcessorLiveIntegration all completed after the bounded coordinator read-loop and verify-agent auth-path corrective pass`
 
 Example blocker notes:
 
@@ -226,8 +227,7 @@ Example blocker notes:
 Deferred live workflow validation should resume with:
 
 1. draft request -> continue editing -> queue -> process -> downstream request and proposal continuity
-2. processed proposal -> request approval -> approval decision -> downstream approval and document continuity
-3. failed provider or failed processing path -> failure visibility -> operator troubleshooting continuity
+2. failed provider or failed processing path -> failure visibility -> operator troubleshooting continuity
 
 Immediate Milestone 13-first order before the broader backlog resumes:
 
