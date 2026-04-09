@@ -7,6 +7,17 @@ import (
 	"testing"
 )
 
+func requireSvelteShell(t *testing.T, body string) {
+	t.Helper()
+
+	if !strings.Contains(body, `data-sveltekit-preload-data="hover"`) {
+		t.Fatalf("expected svelte shell body, got %s", body)
+	}
+	if !strings.Contains(body, `import("/app/_app/immutable/entry/start.`) {
+		t.Fatalf("expected app-root entry import with /app base, got %s", body)
+	}
+}
+
 func TestRegisterWebRoutesServesSPAFallback(t *testing.T) {
 	handler := &AgentAPIHandler{}
 	mux := http.NewServeMux()
@@ -21,9 +32,7 @@ func TestRegisterWebRoutesServesSPAFallback(t *testing.T) {
 		if recorder.Code != http.StatusOK {
 			t.Fatalf("unexpected status for %s: got %d body=%s", route, recorder.Code, recorder.Body.String())
 		}
-		if !strings.Contains(recorder.Body.String(), `data-sveltekit-preload-data="hover"`) {
-			t.Fatalf("expected svelte shell for %s, got %s", route, recorder.Body.String())
-		}
+		requireSvelteShell(t, recorder.Body.String())
 	}
 }
 
@@ -37,12 +46,21 @@ func TestHandleSvelteAppServesIndexAtAppRoot(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
 	}
-	body := recorder.Body.String()
-	if !strings.Contains(body, `data-sveltekit-preload-data="hover"`) {
-		t.Fatalf("expected svelte app shell body, got %s", body)
+	requireSvelteShell(t, recorder.Body.String())
+}
+
+func TestHandleSvelteAppServesHeadRequests(t *testing.T) {
+	handler := &AgentAPIHandler{}
+	req := httptest.NewRequest(http.MethodHead, "/app/review/documents/document-123", nil)
+	recorder := httptest.NewRecorder()
+
+	handler.handleSvelteApp(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
 	}
-	if !strings.Contains(body, `import("/app/_app/immutable/entry/start.`) {
-		t.Fatalf("expected app-root entry import with /app base, got %s", body)
+	if got := recorder.Body.Len(); got != 0 {
+		t.Fatalf("expected head response without body, got %d bytes", got)
 	}
 }
 
@@ -126,7 +144,5 @@ func TestNewAgentAPIHandlerWithDependenciesServesSvelteShell(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("unexpected status: got %d body=%s", recorder.Code, recorder.Body.String())
 	}
-	if !strings.Contains(recorder.Body.String(), `data-sveltekit-preload-data="hover"`) {
-		t.Fatalf("expected svelte shell body, got %s", recorder.Body.String())
-	}
+	requireSvelteShell(t, recorder.Body.String())
 }

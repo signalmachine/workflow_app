@@ -1,6 +1,6 @@
 # Browser Operator Getting Started
 
-Date: 2026-03-31
+Date: 2026-04-09
 Status: Active
 Purpose: explain the first browser path into `workflow_app` and the main pages an operator uses after sign-in.
 
@@ -24,7 +24,7 @@ Sign in with:
 
 If you used the default local bootstrap values, the org slug is `north-harbor` and the email is `admin@northharbor.local`.
 
-After sign-in, the app should place you on the main dashboard for that org context.
+After sign-in, the app should place you on the operator home for that org context.
 
 ## 3. What to use next
 
@@ -59,7 +59,7 @@ If you land back on sign-in unexpectedly:
 2. confirm the org slug and email are correct
 3. confirm you signed in through the same browser session you are using for the app
 
-If the dashboard is not showing the expected workflow links:
+If the operator home is not showing the expected workflow links:
 
 1. refresh the page once
 2. confirm the session is still active through the sign-in flow

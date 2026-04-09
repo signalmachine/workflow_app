@@ -21,6 +21,7 @@ Policy:
 
 1. this checklist exists to prevent broad exploratory manual testing without a documented workflow list and explicit assertions
 2. use it when the real testing question is workflow reliability on the actual shared operator seam, not merely compile success or isolated service correctness
+3. treat the served Svelte shell plus shared `/api/...` contracts as the active runtime truth; do not expect the retired Go-template browser path to remain available as a fallback seam
 
 ## 2. Session-start checks
 
@@ -43,6 +44,7 @@ Before broader end-to-end workflow validation resumes, use this bounded post-cut
 6. confirm the served runtime returns real static assets under `/app/_app/...` and returns `404` for missing asset requests instead of silently falling back to the SPA shell
 7. record pass or blocker evidence in `workflow_validation_track.md` before treating the Milestone 13 browser-validation closeout as complete
 8. confirm the promoted shell now reads as a thin blue-gray operator application with a major-area sidebar, contextual section tabs, route-directory landing pages instead of hero-card mosaics, simpler login, and single-column workflow pages where those surfaces are the active default
+9. confirm route review, workflow continuity, and defect notes are written against the current served Svelte runtime rather than older server-rendered HTML expectations
 
 ## 2.2 Browser-review runbook
 

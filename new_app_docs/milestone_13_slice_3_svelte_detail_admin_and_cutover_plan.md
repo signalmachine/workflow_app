@@ -1,7 +1,7 @@
 # workflow_app Milestone 13 Slice 3 Plan
 
 Date: 2026-04-08
-Status: In progress; settings continuity, admin-parity, inbound-request detail, promoted review-detail checkpoints, the served-app cutover to the built Svelte frontend, and deletion of the retired Go-template `/app` layer are implemented in code, while bounded workflow validation and remaining workflow-evidence cleanup still stay open
+Status: In progress; settings continuity, admin-parity, inbound-request detail, promoted review-detail checkpoints, the served-app cutover to the built Svelte frontend, deletion of the retired Go-template `/app` layer, and the first workflow-evidence cleanup pass are implemented, while bounded real-seam workflow validation still stays open
 Purpose: define the third Milestone 13 implementation slice so detail surfaces, admin surfaces, parity closeout, cutover, and legacy browser retirement happen together instead of being left as an indefinite cleanup tail.
 
 ## 1. Slice role
@@ -81,5 +81,4 @@ Landed result:
 Remaining Slice 3 work:
 
 1. bounded post-cutover workflow validation on the real `/app` plus `/api/...` seam still remains open on the `docs/workflows/` track before Milestone 13 can be closed
-2. any remaining older assertions that still assume server-rendered HTML continuity need to move onto the shared API seam or the served-Svelte shell assertions so the workflow-validation track reflects the new runtime truth cleanly
-3. follow-up cleanup should target docs, workflow evidence, and validation checklists that still describe the retired template browser as if it remains an active compatibility surface
+2. if that sweep finds a real defect or missing support seam, promote one grouped corrective slice rather than reopening broad browser migration work

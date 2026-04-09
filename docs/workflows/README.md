@@ -1,6 +1,6 @@
 # workflow_app Workflows
 
-Date: 2026-03-28
+Date: 2026-04-09
 Status: Active durable workflow reference
 Purpose: provide a durable operator-workflow and feature-reference layer that survives beyond the thin-v1 implementation phase and supports testing, review, onboarding, and later user-guide preparation.
 
@@ -33,7 +33,7 @@ Keep the document roles distinct.
 
 1. workflows that exist or are intentionally documented
 2. supported operator paths and review surfaces
-3. workflow-level validation checklists
+3. workflow-level validation checklists for the current Go-served Svelte runtime at `/app`
 4. workflow-validation and live-review tracking
 5. feature continuity that should remain understandable after implementation planning moves on
 

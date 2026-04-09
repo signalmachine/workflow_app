@@ -1,6 +1,6 @@
 # workflow_app Workflow Validation Track
 
-Date: 2026-04-08
+Date: 2026-04-09
 Status: Active validation track, separate from implementation planning; the current browser runtime is the Milestone 13 served Svelte frontend with the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families now run on that one Go-served `/app` surface, and the remaining open work is bounded post-cutover browser and workflow validation evidence plus any tightly grouped corrective follow-up discovered on the real seam
 Purpose: keep workflow testing, live review, and readiness evidence on a workflow-validation track in `docs/workflows/` rather than inside the normal product-implementation planning stream in `new_app_docs/`.
 
@@ -42,6 +42,7 @@ Current order:
 1. run one larger post-cutover Milestone 13 browser-review sweep that covers desktop browser review, narrow-width browser review, and focused workflow continuity across the full promoted route family using the current major-area sidebar plus contextual-section-tab shell
 2. if that sweep is clean, mark the promoted served-Svelte browser evidence complete and resume the deferred live workflow validation on the real seam
 3. if that sweep finds real defects, group tightly related findings into one bounded corrective fix plan in `new_app_docs/` rather than scattering many tiny follow-up slices across the browser surface
+4. record evidence against the current served Svelte runtime and shared API seams, not against the retired template-browser behavior
 
 ## 3.1 Milestone 13 post-cutover checklist
 
@@ -175,6 +176,7 @@ Assertions:
 2. request evidence, execution trace, and downstream continuity links remain easy to find, with request detail keeping the latest proposal plus direct approval and document drill-down actions near the top of the page
 3. upstream and downstream exact links can be followed without losing context
 4. no detail section becomes unreadable on narrow width because of inline metadata density or uncontained content
+5. any validation note that still refers to server-rendered page composition is rewritten in terms of the served Svelte shell, shared `/api/...` data seams, or explicit workflow continuity behavior
 
 ## 3.4 Evidence format
 
