@@ -174,6 +174,36 @@ func TestAgentAPIDefaultSvelteFrontendServesPromotedRoutesIntegration(t *testing
 	}
 }
 
+func TestAgentAPIDefaultSvelteFrontendServesStaticAssetsAndDoesNotFallbackMissingAssetsIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+
+	handler := app.NewServedAgentAPIHandler(db)
+
+	versionReq := httptest.NewRequest(http.MethodGet, "/app/_app/version.json", nil)
+	versionRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(versionRecorder, versionReq)
+
+	if versionRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected version asset status: got %d body=%s", versionRecorder.Code, versionRecorder.Body.String())
+	}
+	if got := versionRecorder.Header().Get("Content-Type"); !strings.Contains(got, "application/json") && !strings.Contains(got, "text/plain") {
+		t.Fatalf("expected json-ish version asset content type, got %q body=%s", got, versionRecorder.Body.String())
+	}
+	requireContains(t, versionRecorder.Body.String(), `"version":`)
+
+	missingReq := httptest.NewRequest(http.MethodGet, "/app/_app/immutable/entry/missing.js", nil)
+	missingRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(missingRecorder, missingReq)
+
+	if missingRecorder.Code != http.StatusNotFound {
+		t.Fatalf("expected missing asset to return 404, got %d body=%s", missingRecorder.Code, missingRecorder.Body.String())
+	}
+	if strings.Contains(strings.ToLower(missingRecorder.Body.String()), "<!doctype html>") {
+		t.Fatalf("expected missing asset response to avoid SPA shell fallback, got %s", missingRecorder.Body.String())
+	}
+}
+
 func TestAgentAPIAdminAccountingMaintenanceIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()

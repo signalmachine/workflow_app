@@ -1,7 +1,7 @@
 # workflow_app Workflow Validation Track
 
 Date: 2026-04-09
-Status: Active validation track, separate from implementation planning; the current browser runtime is the Milestone 13 served Svelte frontend with the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families now run on that one Go-served `/app` surface, the inventory landing now hands off into an explicit scoped inventory-review UI for pending execution and accounting follow-through, and the remaining open work is bounded post-cutover browser and workflow validation evidence plus any tightly grouped corrective follow-up discovered on the real seam
+Status: Active validation track, separate from implementation planning; the current browser runtime is the Milestone 13 served Svelte frontend with the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families now run on that one Go-served `/app` surface, the inventory landing now hands off into an explicit scoped inventory-review UI for pending execution and accounting follow-through, focused automated coverage now also asserts that the served handler returns real `/app/_app/...` assets and `404` for missing bundle paths, and the remaining open work is bounded post-cutover browser and workflow validation evidence plus any tightly grouped corrective follow-up discovered on the real seam
 Purpose: keep workflow testing, live review, and readiness evidence on a workflow-validation track in `docs/workflows/` rather than inside the normal product-implementation planning stream in `new_app_docs/`.
 
 ## 1. Why this document exists
@@ -43,6 +43,11 @@ Current order:
 2. if that sweep is clean, mark the promoted served-Svelte browser evidence complete and resume the deferred live workflow validation on the real seam
 3. if that sweep finds real defects, group tightly related findings into one bounded corrective fix plan in `new_app_docs/` rather than scattering many tiny follow-up slices across the browser surface
 4. record evidence against the current served Svelte runtime and shared API seams, not against the retired template-browser behavior
+
+Implementation note recorded on 2026-04-09:
+
+1. the codebase now has explicit full-handler integration coverage for `/app/_app/version.json` plus missing `/app/_app/...` asset `404` behavior on top of the earlier unit-level shell tests
+2. this reduces serving-path ambiguity, but it does not replace the remaining browser-review and workflow-continuity evidence required in section 3.1
 
 ## 3.1 Milestone 13 post-cutover checklist
 
