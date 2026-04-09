@@ -1,7 +1,7 @@
 # workflow_app Milestone 13 Contextual Navigation Refactor Plan
 
-Date: 2026-04-07
-Status: First implementation pass landed in code on 2026-04-07
+Date: 2026-04-09
+Status: Second implementation pass landed in code on 2026-04-09 with persisted desktop sidebar collapse on top of the 2026-04-07 navigation-model refactor
 Purpose: define and now track the forward information architecture for refactoring the Svelte shell from the earlier route-family sidebar into a major-area sidebar with contextual section tabs.
 
 ## 1. Why this slice exists
@@ -176,7 +176,7 @@ Before closing implementation for this slice:
 
 ## 10. Current implementation checkpoint
 
-The first pass of this refactor is now landed in code.
+The first pass of this refactor is now landed in code, and one follow-on shell pass is now landed as well.
 
 Landed result:
 
@@ -186,7 +186,8 @@ Landed result:
 4. active-state logic now comes from one declarative navigation registry in the frontend rather than being duplicated across shell components
 5. the first-pass area mapping now keeps inbound-request detail and proposal continuity under `Agent`, accounting review surfaces under `Accounting`, inventory review surfaces under `Inventory`, operational workflow entry plus route discovery under `Operations`, and privileged maintenance under `Admin`
 6. focused frontend verification now covers the navigation-model mapping logic directly, while `npm --prefix web run check`, `npm --prefix web run test`, `npm --prefix web run build`, and `go build ./cmd/... ./internal/...` all passed after the refactor
+7. the desktop shell now also supports a narrower collapsed sidebar state without changing the current area mapping, and that preference now persists across reloads in the served Svelte runtime while the mobile drawer behavior remains unchanged
 
 Follow-up still open:
 
-1. later passes may still add desktop sidebar collapse persistence, new area landing routes where the current mapping remains thin, and broader live browser validation evidence on the workflow track
+1. later passes may still add new area landing routes where the current mapping remains thin and broader live browser validation evidence on the workflow track

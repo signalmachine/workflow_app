@@ -3,16 +3,23 @@
 		userDisplayName: string;
 		orgName: string;
 		roleCode: string;
+		navExpanded: boolean;
 		onToggleNav: () => void;
 		onLogout: () => void;
 	}
 
-	let { userDisplayName, orgName, roleCode, onToggleNav, onLogout }: Props = $props();
+	let { userDisplayName, orgName, roleCode, navExpanded, onToggleNav, onLogout }: Props = $props();
 </script>
 
 <header class="topbar">
 	<div class="brand-row">
-		<button aria-label="Toggle navigation" class="menu-button" onclick={onToggleNav} type="button">
+		<button
+			aria-label={navExpanded ? 'Collapse navigation' : 'Expand navigation'}
+			aria-pressed={navExpanded}
+			class="menu-button"
+			onclick={onToggleNav}
+			type="button"
+		>
 			<span></span>
 			<span></span>
 			<span></span>
@@ -76,7 +83,6 @@
 	}
 
 	.menu-button {
-		display: none;
 		padding: 0.45rem 0.55rem;
 	}
 
@@ -98,10 +104,6 @@
 	}
 
 	@media (max-width: 767px) {
-		.menu-button {
-			display: inline-block;
-		}
-
 		.user-copy {
 			display: none;
 		}

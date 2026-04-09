@@ -4,16 +4,17 @@
 
 	interface Props {
 		areas: NavigationArea[];
+		collapsed: boolean;
 		currentPath: string;
 		isOpen: boolean;
 		onClose: () => void;
 	}
 
-	let { areas, currentPath, isOpen, onClose }: Props = $props();
+	let { areas, collapsed, currentPath, isOpen, onClose }: Props = $props();
 </script>
 
 <div aria-hidden={!isOpen} class:open={isOpen} class="sidebar-backdrop" onclick={onClose}></div>
-<aside class:open={isOpen} class="sidebar">
+<aside class:collapsed class:open={isOpen} class="sidebar">
 	<nav>
 		<p class="nav-label">Major areas</p>
 		<div class="nav-group">
@@ -42,7 +43,13 @@
 		padding: 1.1rem 0.85rem 1.5rem;
 		position: fixed;
 		top: 48px;
+		transition: width 160ms ease, padding 160ms ease;
 		width: 240px;
+	}
+
+	.sidebar.collapsed {
+		padding-inline: 0.7rem;
+		width: 132px;
 	}
 
 	.nav-label {
@@ -67,6 +74,10 @@
 		display: block;
 		padding: 0.8rem 0.9rem;
 		text-decoration: none;
+	}
+
+	.sidebar.collapsed a {
+		padding-inline: 0.75rem;
 	}
 
 	.sidebar a:hover {
@@ -109,11 +120,27 @@
 		display: none;
 	}
 
+	.sidebar.collapsed .nav-label,
+	.sidebar.collapsed .area-copy {
+		display: none;
+	}
+
 	@media (max-width: 767px) {
 		.sidebar {
+			padding-inline: 0.85rem;
 			transform: translateX(-100%);
 			transition: transform 160ms ease;
+			width: 240px;
 			z-index: 25;
+		}
+
+		.sidebar.collapsed {
+			width: 240px;
+		}
+
+		.sidebar.collapsed .nav-label,
+		.sidebar.collapsed .area-copy {
+			display: block;
 		}
 
 		.sidebar.open {

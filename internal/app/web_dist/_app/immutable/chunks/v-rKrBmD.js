@@ -1,0 +1,1 @@
+import{af as o,ad as t,al as c,$ as a}from"./CQ3wpSbg.js";function l(n){throw new Error("https://svelte.dev/e/lifecycle_outside_component")}function i(n){t===null&&l(),c&&t.l!==null?u(t).m.push(n):o(()=>{const e=a(n);if(typeof e=="function")return e})}function u(n){var e=n.l;return e.u??(e.u={a:[],b:[],m:[]})}export{i as o};

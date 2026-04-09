@@ -1,7 +1,7 @@
 # workflow_app End-to-End Validation Checklist
 
 Date: 2026-04-08
-Status: Durable checklist with a pre-validation browser-review precheck for the current Milestone 13 served Svelte runtime at `/app`, including the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families, before broader live workflow validation resumes
+Status: Durable checklist with a pre-validation browser-review precheck for the current Milestone 13 served Svelte runtime at `/app`, including the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families, plus the persisted desktop sidebar collapse state, before broader live workflow validation resumes
 Purpose: provide a reusable bounded checklist for live review and testing of application end-to-end workflows on the real `/app` plus `/api/...` seam.
 
 ## 1. Use of this checklist
@@ -36,7 +36,7 @@ Policy:
 
 Before broader end-to-end workflow validation resumes, use this bounded post-cutover precheck:
 
-1. confirm `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/admin/parties/{party_id}` including exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat` render cleanly and preserve their primary navigation actions, including multi-term route-catalog searches such as `pending approvals` or `failed requests`, visible active or inactive status controls on the promoted admin master-data pages, and the inventory landing snapshot links for stock, movement history, and pending execution or accounting handoffs
+1. confirm `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/admin/parties/{party_id}` including exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat` render cleanly and preserve their primary navigation actions, including multi-term route-catalog searches such as `pending approvals` or `failed requests`, visible active or inactive status controls on the promoted admin master-data pages, the inventory landing snapshot links for stock, movement history, and pending execution or accounting handoffs, and the expanded-versus-collapsed desktop sidebar state
 2. confirm `/app/inbound-requests/{request_reference_or_id}` renders request controls, evidence, execution trace, and top-level downstream continuity links for the latest proposal plus any approval or document follow-through, and confirm the operator home plus coordinator chat plus review landing snapshots now take known proposal and approval rows straight into exact detail routes instead of filtered lists
 3. confirm `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit` render cleanly with filters, contained tables, and exact drill-down links
 4. confirm one exact drill-down chain across request -> proposal -> approval -> document
@@ -56,6 +56,7 @@ When section 2.1 applies, run the browser review in this order.
 2. sign in as an admin actor so `/app/admin` and the broader route family are reachable
 3. prepare one desktop viewport around 1280 to 1440 pixels wide
 4. prepare one narrow-width viewport around 390 to 430 pixels wide
+5. for the desktop pass, review the promoted route family once with the sidebar expanded and once with the persisted collapsed state
 
 ### 2.2.2 Desktop pass
 

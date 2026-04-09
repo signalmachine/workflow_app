@@ -1,7 +1,7 @@
 # workflow_app Workflow Validation Track
 
 Date: 2026-04-09
-Status: Active validation track, separate from implementation planning; the current browser runtime is the Milestone 13 served Svelte frontend with the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families now run on that one Go-served `/app` surface, the inventory landing now hands off into an explicit scoped inventory-review UI for pending execution and accounting follow-through, the operator home plus coordinator chat plus review landing snapshots now also route known proposal and approval rows directly into exact detail pages, exact inbound-request detail plus exact proposal detail now also expose direct downstream accounting review when a linked proposal document already exists, focused automated coverage now also asserts that the served handler returns real `/app/_app/...` assets and `404` for missing bundle paths, and the remaining open work is bounded post-cutover browser and workflow validation evidence plus any tightly grouped corrective follow-up discovered on the real seam
+Status: Active validation track, separate from implementation planning; the current browser runtime is the Milestone 13 served Svelte frontend with the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families now run on that one Go-served `/app` surface, the inventory landing now hands off into an explicit scoped inventory-review UI for pending execution and accounting follow-through, the operator home plus coordinator chat plus review landing snapshots now also route known proposal and approval rows directly into exact detail pages, exact inbound-request detail plus exact proposal detail now also expose direct downstream accounting review when a linked proposal document already exists, the desktop shell now also keeps a persisted collapsed-sidebar preference while the mobile drawer model stays unchanged, focused automated coverage now also asserts that the served handler returns real `/app/_app/...` assets and `404` for missing bundle paths, and the remaining open work is bounded post-cutover browser and workflow validation evidence plus any tightly grouped corrective follow-up discovered on the real seam
 Purpose: keep workflow testing, live review, and readiness evidence on a workflow-validation track in `docs/workflows/` rather than inside the normal product-implementation planning stream in `new_app_docs/`.
 
 ## 1. Why this document exists
@@ -50,6 +50,7 @@ Implementation note recorded on 2026-04-09:
 2. the operator home plus coordinator chat plus review landing snapshots now also use exact proposal and approval drill-down routes when the exact record is already known, which reduces one source of post-cutover continuity friction before the larger real-seam sweep runs
 3. exact inbound-request detail plus exact proposal detail now also keep direct downstream accounting follow-through visible when a linked proposal document already exists, which reduces one more source of continuity friction before the larger real-seam sweep runs
 4. this implementation work reduces serving-path and drill-down ambiguity, but it does not replace the remaining browser-review and workflow-continuity evidence required in section 3.1
+5. the desktop shell now also supports a persisted collapsed-sidebar preference, so the post-cutover browser sweep should explicitly review both expanded and collapsed desktop states instead of only the default expanded view
 
 ## 3.1 Milestone 13 post-cutover checklist
 
@@ -93,10 +94,11 @@ For every reviewed route, confirm:
 
 1. the page renders without clipped chrome, overlapping controls, or obvious spacing collapse
 2. the active top-bar shell remains readable and the current destination is visually clear
-3. the primary page action or workflow start point is visible without hunting through decorative framing
-4. tables, filters, route-directory links, and continuity actions remain visually primary over supporting copy
-5. no table, code block, metadata row, or inline link band forces unreadable horizontal overflow beyond the intended contained scroll areas
-6. the route still reads like an operator application surface rather than a card-heavy editorial page
+3. the desktop review should be checked once with the sidebar expanded and once with the persisted collapsed state so the narrower shell still preserves clear major-area navigation
+4. the primary page action or workflow start point is visible without hunting through decorative framing
+5. tables, filters, route-directory links, and continuity actions remain visually primary over supporting copy
+6. no table, code block, metadata row, or inline link band forces unreadable horizontal overflow beyond the intended contained scroll areas
+7. the route still reads like an operator application surface rather than a card-heavy editorial page
 
 ## 3.3 Route-family assertions
 
