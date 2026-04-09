@@ -6,7 +6,7 @@
 	import StatusBadge from '$lib/components/primitives/StatusBadge.svelte';
 	import SurfaceCard from '$lib/components/primitives/SurfaceCard.svelte';
 	import { formatDateTime } from '$lib/utils/format';
-	import { routes, withQuery } from '$lib/utils/routes';
+	import { approvalDetail, routes, withQuery } from '$lib/utils/routes';
 
 	let { data }: PageProps = $props();
 </script>
@@ -54,7 +54,7 @@
 				<tbody>
 					{#each data.snapshot.pending_approvals as item (item.approval_id)}
 						<tr>
-							<td><a href={withQuery(routes.reviewApprovals, { approval_id: item.approval_id })}>{item.approval_id}</a></td>
+							<td><a href={approvalDetail(item.approval_id)}>{item.approval_id}</a></td>
 							<td><StatusBadge status={item.approval_status} /></td>
 							<td>{item.queue_code}</td>
 							<td>{item.document_title}</td>
