@@ -18,7 +18,7 @@ Treat these as reference-only by default unless the task specifically needs them
 3. `docs/implementation_objectives/implementation_principles.md`
 4. everything under `examples/`
 
-Use `docs/workflows/` for durable workflow-reference material, reusable validation checklists, and live-review evidence. It is not the canonical implementation-planning surface.
+Use `docs/workflows/` for durable workflow-reference material, reusable validation checklists, and live-review evidence. It is not the canonical implementation-planning surface, but it is the canonical workflow-documentation source for downstream user guides and workflow-facing technical documentation.
 
 `docs/implementation_objectives/implementation_objectives.md` is a companion summary, not a replacement for the canonical planning set.
 
@@ -34,6 +34,12 @@ After every implementation change:
 4. update `README.md` when setup, commands, architecture shape, or user-visible capabilities changed materially
 
 Keep implementation planning in the active top-level `new_app_docs/` surface. Keep workflow validation and evidence in `docs/workflows/`. Do not silently mix those tracks.
+
+Workflow-doc source rule:
+
+1. when supported operator workflows, workflow continuity, or workflow validation status change, update `docs/workflows/` first
+2. then update `docs/user_guides/` and any workflow-facing `docs/technical_guides/` material that derives from that workflow truth
+3. do not let downstream guides become independent sources of workflow truth
 
 ## Go Session Rules
 

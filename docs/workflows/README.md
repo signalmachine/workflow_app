@@ -17,6 +17,11 @@ Use it for:
 3. reusable workflow checklists for live review and testing
 4. source material for later user guides, onboarding guides, and release-readiness review
 
+Canonical-source rule:
+
+1. `docs/workflows/` is the canonical workflow-documentation source for supported operator workflows, workflow continuity, and validation status
+2. downstream workflow-facing material in `docs/user_guides/` and workflow-semantics references in `docs/technical_guides/` should derive from this folder rather than restating independent workflow truth
+
 ## 2. Boundary with `new_app_docs/`
 
 Keep the document roles distinct.
@@ -36,6 +41,7 @@ Keep the document roles distinct.
 3. workflow-level validation checklists for the current Go-served Svelte runtime at `/app`
 4. workflow-validation and live-review tracking
 5. feature continuity that should remain understandable after implementation planning moves on
+6. the canonical workflow-documentation source used by downstream user and technical documentation
 
 Operational policy:
 
@@ -78,4 +84,5 @@ When user-visible workflow behavior, workflow status, or review-surface continui
 
 1. update the relevant canonical planning docs in `new_app_docs/`
 2. update the relevant workflow-reference docs in this folder when the durable workflow reference has drifted
-3. if the change came from a workflow-review finding, keep the fix-plan details in `new_app_docs/` and keep only workflow-level status and evidence here
+3. update downstream `docs/user_guides/` or workflow-facing `docs/technical_guides/` only after the workflow truth in this folder is current
+4. if the change came from a workflow-review finding, keep the fix-plan details in `new_app_docs/` and keep only workflow-level status and evidence here

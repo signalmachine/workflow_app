@@ -33,6 +33,8 @@ Keep document roles distinct.
 
 This folder should capture stable technical understanding of the application as built, not replace the canonical planning set.
 
+`docs/workflows/` is the canonical workflow-documentation source for supported operator workflows, workflow continuity, and workflow-validation status. Workflow-facing technical guidance in this folder should derive from that source rather than restating independent workflow truth.
+
 These guides are intended to become part of the durable technical context that both humans and AI coding agents can use during implementation, review, debugging, and extension work.
 
 ## 3. Reading order

@@ -24,11 +24,17 @@ Keep document roles distinct.
 
 `new_app_docs/` remains the canonical planning source for scope, sequencing, status, and next steps.
 
-`docs/workflows/` remains the durable workflow-reference layer for supported workflow definitions and validation checklists.
+`docs/workflows/` remains the durable workflow-reference layer for supported workflow definitions and validation checklists, and it is the canonical workflow-documentation source for this folder.
 
 This folder should translate the supported application behavior into user-consumable guidance without becoming the live implementation plan.
 
 The primary source material for these guides should be the workflow catalog and related durable workflow documents in `docs/workflows/`.
+
+Workflow-doc source rule:
+
+1. define or update workflow truth in `docs/workflows/` first
+2. then translate that approved workflow truth into operator-facing guidance here
+3. do not let user guides become an independent source of workflow truth
 
 When a supported operator workflow is added or materially changed, review whether one or more focused user guides in this folder should be created or updated.
 
