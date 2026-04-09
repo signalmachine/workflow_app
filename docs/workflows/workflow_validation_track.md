@@ -1,7 +1,7 @@
 # workflow_app Workflow Validation Track
 
 Date: 2026-04-09
-Status: Active validation track, separate from implementation planning; the current browser runtime is the Milestone 13 served Svelte frontend with the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families now run on that one Go-served `/app` surface, and the remaining open work is bounded post-cutover browser and workflow validation evidence plus any tightly grouped corrective follow-up discovered on the real seam
+Status: Active validation track, separate from implementation planning; the current browser runtime is the Milestone 13 served Svelte frontend with the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families now run on that one Go-served `/app` surface, the inventory landing now hands off into an explicit scoped inventory-review UI for pending execution and accounting follow-through, and the remaining open work is bounded post-cutover browser and workflow validation evidence plus any tightly grouped corrective follow-up discovered on the real seam
 Purpose: keep workflow testing, live review, and readiness evidence on a workflow-validation track in `docs/workflows/` rather than inside the normal product-implementation planning stream in `new_app_docs/`.
 
 ## 1. Why this document exists

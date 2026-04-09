@@ -1,7 +1,7 @@
 # workflow_app Milestone 13 Slice 3 Plan
 
 Date: 2026-04-08
-Status: In progress; settings continuity, admin-parity, inbound-request detail, promoted review-detail checkpoints, the served-app cutover to the built Svelte frontend, deletion of the retired Go-template `/app` layer, and the first workflow-evidence cleanup pass are implemented, while bounded real-seam workflow validation still stays open
+Status: In progress; settings continuity, admin-parity, inbound-request detail, promoted review-detail checkpoints, the served-app cutover to the built Svelte frontend, deletion of the retired Go-template `/app` layer, the grouped inventory-review scope corrective pass, and the first workflow-evidence cleanup pass are implemented, while bounded real-seam workflow validation still stays open
 Purpose: define the third Milestone 13 implementation slice so detail surfaces, admin surfaces, parity closeout, cutover, and legacy browser retirement happen together instead of being left as an indefinite cleanup tail.
 
 ## 1. Slice role
@@ -77,6 +77,7 @@ Landed result:
 10. focused Go integration coverage now asserts the promoted `/app` route family serves the embedded Svelte shell at `/app`, `/app/login`, the promoted utility and landing routes, and the promoted detail-route family, so the served cutover path has explicit code-level coverage beyond the narrower unit checks in `internal/app/web_test.go`
 11. the generic `internal/app` handler constructors now default to the served Svelte runtime shape, and the retired template-browser constructors and route handlers have now been deleted from the active codebase rather than kept as a compatibility branch
 12. the exact inbound-request detail route now also promotes the latest proposal plus direct approval and document drill-down actions near the top of the page, and each processed-proposal row exposes those exact continuity links inline so the post-cutover request -> proposal -> approval -> document chain is no longer visually buried below the AI trace sections
+13. `/app/review/inventory` now exposes and preserves the `only_pending_execution` plus `only_pending_accounting` scope controls in the Svelte UI, shows the active reconciliation scope explicitly, and adds focused frontend regression coverage so the inventory landing handoff links remain a meaningful operator follow-through path instead of a hidden query-only seam
 
 Remaining Slice 3 work:
 

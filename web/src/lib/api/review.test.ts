@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { APIClientError } from './client';
-import { getInboundRequestDetail, getInventoryMovementDetail, getProcessedProposalDetail } from './review';
+import {
+	getInboundRequestDetail,
+	getInventoryMovementDetail,
+	getProcessedProposalDetail,
+	listInventoryReconciliation
+} from './review';
 
 describe('review api', () => {
 	afterEach(() => {
@@ -105,6 +110,31 @@ describe('review api', () => {
 		const detail = await getInventoryMovementDetail('move/123', fetchMock as typeof fetch);
 
 		expect(detail.review.movement_id).toBe('move/123');
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	it('preserves pending handoff filters for inventory reconciliation review', async () => {
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			expect(String(input)).toBe(
+				'/api/review/inventory/reconciliation?document_id=doc-1&only_pending_accounting=true&only_pending_execution=true&limit=25'
+			);
+			return new Response(JSON.stringify({ items: [] }), {
+				status: 200,
+				headers: { 'Content-Type': 'application/json' }
+			});
+		});
+
+		const response = await listInventoryReconciliation(
+			{
+				documentID: 'doc-1',
+				onlyPendingAccounting: true,
+				onlyPendingExecution: true,
+				limit: 25
+			},
+			fetchMock as typeof fetch
+		);
+
+		expect(response.items).toEqual([]);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 });
