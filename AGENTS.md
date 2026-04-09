@@ -107,6 +107,8 @@ For the promoted web layer, the active direction is now a Svelte-based web appli
 
 The promoted web layer and the later mobile client should continue to share one backend foundation and auth model rather than splitting into web-specific versus mobile-specific backends.
 
+The promoted web UI should now be treated as desktop-first. Keep the web surface strong for desktop operator use, avoid spending active implementation effort on mobile-web optimization unless a shared correctness issue requires it, and treat future mobile-specific UX depth as the responsibility of the separate mobile client rather than the served web runtime.
+
 Shared foundation entities should have one canonical identity reused across modules. Do not let accounting, inventory, execution, CRM-style support flows, or later features create duplicate module-local truth models when they should reference the same underlying record.
 
 The primary app working model is persist-first and queue-oriented. Inbound requests should be stored durably before AI processing begins, AI processing should usually run asynchronously from that queue, and humans should review resulting proposals or actions from explicit review surfaces rather than depending on immediate AI response as the default path.

@@ -1,7 +1,7 @@
 # workflow_app End-to-End Validation Checklist
 
-Date: 2026-04-08
-Status: Durable checklist with a pre-validation browser-review precheck for the current Milestone 13 served Svelte runtime at `/app`, including the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families, plus the persisted desktop sidebar collapse state, before broader live workflow validation resumes
+Date: 2026-04-09
+Status: Durable checklist with a desktop-first pre-validation browser-review precheck for the current Milestone 13 served Svelte runtime at `/app`, including the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families, plus the persisted desktop sidebar collapse state, before broader live workflow validation resumes
 Purpose: provide a reusable bounded checklist for live review and testing of application end-to-end workflows on the real `/app` plus `/api/...` seam.
 
 ## 1. Use of this checklist
@@ -30,7 +30,7 @@ Policy:
 3. review `docs/workflows/application_workflow_catalog.md`
 4. rerun `set -a; source .env; set +a; go run ./cmd/verify-agent`
 5. run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
-6. if the served Svelte runtime, the contextual-navigation shell, or any promoted workflow, utility, admin, or detail-route family is newly landed and not yet closed, review `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/admin/parties/{party_id}` for exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat`, plus `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit` on desktop and a narrow-width viewport and record pass or blocker evidence before resuming live workflow validation
+6. if the served Svelte runtime, the contextual-navigation shell, or any promoted workflow, utility, admin, or detail-route family is newly landed and not yet closed, review `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/admin/parties/{party_id}` for exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat`, plus `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit` on desktop, and only add a narrow-width compatibility pass when a concrete concern justifies it, before resuming live workflow validation
 
 ## 2.1 Milestone 13 post-cutover precheck
 
@@ -43,7 +43,7 @@ Before broader end-to-end workflow validation resumes, use this bounded post-cut
 5. confirm one exact drill-down chain from request or proposal into accounting or inventory or work-order detail
 6. confirm the served runtime returns real static assets under `/app/_app/...` and returns `404` for missing asset requests instead of silently falling back to the SPA shell
 7. record pass or blocker evidence in `workflow_validation_track.md` before treating the Milestone 13 browser-validation closeout as complete
-8. confirm the promoted shell now reads as a thin blue-gray operator application with a major-area sidebar, contextual section tabs, route-directory landing pages instead of hero-card mosaics, simpler login, and single-column workflow pages where those surfaces are the active default
+8. confirm the promoted shell now reads as a thin blue-gray desktop-first operator application with a major-area sidebar, contextual section tabs, route-directory landing pages instead of hero-card mosaics, simpler login, and single-column workflow pages where those surfaces are the active default
 9. confirm route review, workflow continuity, and defect notes are written against the current served Svelte runtime rather than older server-rendered HTML expectations
 
 ## 2.2 Browser-review runbook
@@ -55,7 +55,7 @@ When section 2.1 applies, run the browser review in this order.
 1. start the real app with the shared browser seam
 2. sign in as an admin actor so `/app/admin` and the broader route family are reachable
 3. prepare one desktop viewport around 1280 to 1440 pixels wide
-4. prepare one narrow-width viewport around 390 to 430 pixels wide
+4. if needed for a compatibility check, prepare one narrow-width viewport around 390 to 430 pixels wide
 5. for the desktop pass, review the promoted route family once with the sidebar expanded and once with the persisted collapsed state
 
 ### 2.2.2 Desktop pass
@@ -95,16 +95,16 @@ For each route, check:
 3. explanatory copy does not dominate the page above the real work surface
 4. tables, filters, grouped route links, and continuity actions remain visually primary
 
-### 2.2.3 Narrow-width pass
+### 2.2.3 Optional narrow-width compatibility pass
 
-Rerun the same route family on a narrow-width viewport.
+Run this pass only when a concrete concern justifies it.
 
-For each route, check:
+For each affected route, check:
 
-1. navigation remains readable and reachable
+1. navigation remains reachable enough to avoid obvious operator blockage
 2. no panel, form, metadata row, or action band overlaps or collapses into unreadable content
-3. table overflow stays contained inside intended scroll wrappers
-4. continuity links and key actions remain tappable and understandable
+3. table overflow stays contained inside intended scroll wrappers well enough to avoid obvious breakage
+4. continuity links and key actions remain usable enough for fallback access, without treating mobile-web polish as the target outcome
 
 ### 2.2.4 Continuity pass
 

@@ -1,7 +1,7 @@
 # workflow_app Workflow Validation Track
 
 Date: 2026-04-09
-Status: Active validation track, separate from implementation planning; the current browser runtime is the Milestone 13 served Svelte frontend with the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families now run on that one Go-served `/app` surface, the inventory landing now hands off into an explicit scoped inventory-review UI for pending execution and accounting follow-through, the operator home plus coordinator chat plus review landing snapshots now also route known proposal and approval rows directly into exact detail pages, exact inbound-request detail plus exact proposal detail now also expose direct downstream accounting review when a linked proposal document already exists, the desktop shell now also keeps a persisted collapsed-sidebar preference while the mobile drawer model stays unchanged, focused automated coverage now also asserts that the served handler returns real `/app/_app/...` assets and `404` for missing bundle paths, and the remaining open work is bounded post-cutover browser and workflow validation evidence plus any tightly grouped corrective follow-up discovered on the real seam
+Status: Active validation track, separate from implementation planning; the current browser runtime is the Milestone 13 served Svelte frontend with the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families now run on that one Go-served `/app` surface, the inventory landing now hands off into an explicit scoped inventory-review UI for pending execution and accounting follow-through, the operator home plus coordinator chat plus review landing snapshots now also route known proposal and approval rows directly into exact detail pages, exact inbound-request detail plus exact proposal detail now also expose direct downstream accounting review when a linked proposal document already exists, the desktop shell now also keeps a persisted collapsed-sidebar preference while the mobile drawer model stays as secondary compatibility rather than an active optimization target, focused automated coverage now also asserts that the served handler returns real `/app/_app/...` assets and `404` for missing bundle paths, and the remaining open work is bounded post-cutover browser and workflow validation evidence plus any tightly grouped corrective follow-up discovered on the real seam
 Purpose: keep workflow testing, live review, and readiness evidence on a workflow-validation track in `docs/workflows/` rather than inside the normal product-implementation planning stream in `new_app_docs/`.
 
 ## 1. Why this document exists
@@ -39,7 +39,7 @@ The implementation track is currently prioritized ahead of resumed live workflow
 
 Current order:
 
-1. run one larger post-cutover Milestone 13 browser-review sweep that covers desktop browser review, narrow-width browser review, and focused workflow continuity across the full promoted route family using the current major-area sidebar plus contextual-section-tab shell
+1. run one larger post-cutover Milestone 13 browser-review sweep that centers desktop browser review plus focused workflow continuity across the full promoted route family using the current major-area sidebar plus contextual-section-tab shell
 2. if that sweep is clean, mark the promoted served-Svelte browser evidence complete and resume the deferred live workflow validation on the real seam
 3. if that sweep finds real defects, group tightly related findings into one bounded corrective fix plan in `new_app_docs/` rather than scattering many tiny follow-up slices across the browser surface
 4. record evidence against the current served Svelte runtime and shared API seams, not against the retired template-browser behavior
@@ -51,6 +51,7 @@ Implementation note recorded on 2026-04-09:
 3. exact inbound-request detail plus exact proposal detail now also keep direct downstream accounting follow-through visible when a linked proposal document already exists, which reduces one more source of continuity friction before the larger real-seam sweep runs
 4. this implementation work reduces serving-path and drill-down ambiguity, but it does not replace the remaining browser-review and workflow-continuity evidence required in section 3.1
 5. the desktop shell now also supports a persisted collapsed-sidebar preference, so the post-cutover browser sweep should explicitly review both expanded and collapsed desktop states instead of only the default expanded view
+6. narrow-width review may still be used as a bounded compatibility check when warranted, but it is no longer an equal-priority optimization target for the served web runtime because future mobile-first UX belongs to the separate mobile client
 
 ## 3.1 Milestone 13 post-cutover checklist
 
@@ -59,7 +60,7 @@ Milestone 13 should be treated as ready for closeout only when the larger post-c
 Closeout sweep:
 
 1. browser-review pass on desktop for `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/admin/parties/{party_id}` for exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, `/app/agent-chat`, `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit`
-2. browser-review pass on a narrow-width viewport for that same promoted route family
+2. optional narrow-width compatibility pass only where a real concern exists for navigation reachability, contained overflow, or obvious operator blockage on the served web surface
 3. focused continuity pass from exact request detail into proposal detail, approval detail, and document detail
 4. focused continuity pass from exact request detail or proposal detail into one downstream accounting or inventory or work-order drill-down surface
 5. explicit confirmation that no promoted route still depends on the retired template browser path and that missing static-asset requests return a real asset result or a `404` rather than silently falling back to the SPA shell
@@ -78,17 +79,13 @@ Use one bounded browser-review pass instead of broad exploratory clicking.
 Review posture:
 
 1. run the real app on the shared `/app` seam with a real admin actor available
-2. review every promoted route family on desktop first, then rerun the same family on a narrow-width viewport
+2. review every promoted route family on desktop first and treat that as the primary browser judgment path
 3. treat this as a presentation and operator-continuity review, not just a route-smoke check
 4. record short pass or blocker evidence as you go instead of waiting for one summary at the end
 
 Desktop viewport target:
 
 1. use a full desktop browser window around 1280 to 1440 pixels wide
-
-Narrow-width viewport target:
-
-1. use one narrow responsive width around 390 to 430 pixels wide
 
 For every reviewed route, confirm:
 
@@ -165,7 +162,7 @@ Assertions:
 
 1. filters appear early enough on the page to support scanning and narrowing without excess scrolling
 2. summary bands do not overpower the main review table
-3. table headers, status pills, and exact drill-down links remain readable at desktop and narrow width
+3. table headers, status pills, and exact drill-down links remain readable on desktop, and any optional narrow-width compatibility check should confirm only that the page does not become obviously unusable
 4. any horizontal overflow is contained inside the intended table wrapper rather than breaking the page
 5. the page hierarchy still makes the exact continuity link obvious for the next operator step
 
@@ -184,7 +181,7 @@ Assertions:
 1. the detail page remains single-column and readable rather than collapsing into equal-weight panels
 2. request evidence, execution trace, and downstream continuity links remain easy to find, with request detail keeping the latest proposal plus direct approval and document drill-down actions near the top of the page
 3. upstream and downstream exact links can be followed without losing context
-4. no detail section becomes unreadable on narrow width because of inline metadata density or uncontained content
+4. no detail section becomes unreadable on desktop because of inline metadata density or uncontained content, and any optional narrow-width compatibility check should only guard against obvious breakage
 5. any validation note that still refers to server-rendered page composition is rewritten in terms of the served Svelte shell, shared `/api/...` data seams, or explicit workflow continuity behavior
 
 ## 3.4 Evidence format
@@ -199,7 +196,7 @@ Preferred format:
 Example pass notes:
 
 1. `pass: /app/review/inbound-requests desktop - filters and contained table stay visually primary`
-2. `pass: /app/login narrow - login remains thin and readable without promotional framing`
+2. `pass: /app/login compatibility - narrow-width fallback still avoids obvious overlap or blocked sign-in`
 
 Example blocker notes:
 
