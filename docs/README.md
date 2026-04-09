@@ -25,7 +25,7 @@ Keep document roles distinct.
 `new_app_docs/` remains the canonical planning source for:
 
 1. scope
-2. principles
+2. architecture guardrails and implementation defaults
 3. execution order
 4. active implementation slices
 5. implementation status and next steps

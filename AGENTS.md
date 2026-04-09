@@ -4,19 +4,20 @@
 
 This repository is the active `workflow_app` implementation codebase.
 
-The canonical planning set lives in `new_app_docs/`. Start with `new_app_docs/README.md`, then use `new_app_docs/new_app_tracker.md` for current status and next implementation steps. Core doctrine, scope, defaults, and execution order live in:
+The canonical planning set lives in `new_app_docs/`. Start with `new_app_docs/README.md`, then use `new_app_docs/new_app_tracker_v2.md` for current status and next implementation steps. The active thin v2 control docs are:
 
-1. `new_app_docs/new_app_v1_principles.md`
-2. `new_app_docs/new_app_v1_scope.md`
-3. `new_app_docs/new_app_implementation_defaults.md`
-4. `new_app_docs/new_app_execution_plan.md`
+1. `new_app_docs/new_app_scope_v2.md`
+2. `new_app_docs/new_app_architecture_v2.md`
+3. `new_app_docs/new_app_implementation_defaults_v2.md`
+4. `new_app_docs/new_app_execution_plan_v2.md`
 
 Treat these as reference-only by default unless the task specifically needs them:
 
 1. `new_app_docs/thin_v1_archive/`
 2. `new_app_docs/app_v2_plans/`
-3. `docs/implementation_objectives/implementation_principles.md`
-4. everything under `examples/`
+3. `new_app_docs/v2_archive/`
+4. `docs/implementation_objectives/implementation_principles.md`
+5. everything under `examples/`
 
 Use `docs/workflows/` for durable workflow-reference material, reusable validation checklists, and live-review evidence. It is not the canonical implementation-planning surface, but it is the canonical workflow-documentation source for downstream user guides and workflow-facing technical documentation.
 
@@ -46,7 +47,7 @@ Workflow-doc source rule:
 For every Go implementation session:
 
 1. start with Go workspace context plus the relevant canonical docs in `new_app_docs/`
-2. use `new_app_docs/new_app_tracker.md` as the live implementation-status reference
+2. use `new_app_docs/new_app_tracker_v2.md` as the live implementation-status reference
 3. use `gopls` MCP as the default path for workspace summary, symbol discovery, references, diagnostics, and safe refactors
 4. use the dedicated `mcp__gopls__...` tools such as `mcp__gopls__go_workspace` rather than assuming `workspace://...` resources
 5. run diagnostics on edited Go files before completion
@@ -62,7 +63,7 @@ Prefer a local disposable PostgreSQL instance for `TEST_DATABASE_URL` during DB-
 
 ## Svelte Session Rules
 
-When working on the planned Svelte-based web replacement:
+When working on the promoted Svelte-based web application and its remaining migration or follow-on work:
 
 1. use the Svelte MCP server as the default documentation source for Svelte 5 and SvelteKit work
 2. start Svelte or SvelteKit research with `mcp__svelte__list_sections`
@@ -73,7 +74,7 @@ When working on the planned Svelte-based web replacement:
 
 ## Writing Style & Naming Conventions
 
-Write concise Markdown with clear headings and short paragraphs or numbered rules. Follow the existing lowercase snake-case filename pattern, for example `new_app_execution_plan.md` or `v2_scope_overview.md`. Use date-stamped filenames only when the date is materially part of the record. Keep terminology aligned with the planning set: documents, ledgers, execution context, approvals, reports, completed thin v1, and active v2.
+Write concise Markdown with clear headings and short paragraphs or numbered rules. Follow the existing lowercase snake_case filename pattern, for example `new_app_execution_plan_v2.md` or `v2_scope_overview.md`. Use date-stamped filenames only when the date is materially part of the record. Keep terminology aligned with the planning set: documents, ledgers, execution context, approvals, reports, completed thin v1, and active v2.
 
 Keep milestone, slice, and checkpoint labels in planning docs, tracker rows, commits, and review notes rather than in long-lived production source filenames or exported identifiers. Name code by owned domain responsibility, route family, or technical role instead of implementation phase labels.
 

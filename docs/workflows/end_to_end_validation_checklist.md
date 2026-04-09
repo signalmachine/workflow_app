@@ -25,7 +25,7 @@ Policy:
 
 ## 2. Session-start checks
 
-1. review `new_app_docs/new_app_tracker.md`
+1. review `new_app_docs/new_app_tracker_v2.md`
 2. review `docs/workflows/workflow_validation_track.md`
 3. review `docs/workflows/application_workflow_catalog.md`
 4. rerun `set -a; source .env; set +a; go run ./cmd/verify-agent`
@@ -186,6 +186,6 @@ Preferred workflow-critical review and testing sequence:
 
 1. run `go build ./...`
 2. run `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./...`
-3. update `new_app_docs/new_app_tracker.md` with explicit results
+3. update `new_app_docs/new_app_tracker_v2.md` with explicit results
 4. update `docs/workflows/workflow_validation_track.md` with workflow pass or fail evidence
 5. update `docs/workflows/application_workflow_catalog.md` if durable workflow status or support depth changed

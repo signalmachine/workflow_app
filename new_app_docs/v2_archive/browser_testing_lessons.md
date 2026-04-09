@@ -1,12 +1,12 @@
 # workflow_app Browser Testing Lessons
 
 Date: 2026-04-04
-Status: Active small lessons log
-Purpose: capture concrete browser-testing failures, root causes, and durable prevention rules so the repository catches these issues earlier in future slices.
+Status: Archived reference log for browser-serving lessons still relevant to future validation
+Purpose: preserve concrete browser-testing failures, root causes, and durable prevention rules discovered during the Svelte cutover and related browser-serving work.
 
 ## 1. How to use this document
 
-Use this document to record small but important testing lessons from real browser failures.
+Use this document as archived reference when future browser-serving or cutover work needs past failure lessons.
 
 Keep entries:
 
@@ -15,7 +15,7 @@ Keep entries:
 3. tied to one real failure mode
 4. written as prevention rules, not just postmortem notes
 
-This document starts small on purpose. Add to it when a real browser-facing failure reveals a meaningful testing gap.
+If future work uncovers another durable lesson of the same kind, either update this archived log deliberately or promote a more permanent workflow-testing home under `docs/workflows/`.
 
 ## 2. Update rule
 

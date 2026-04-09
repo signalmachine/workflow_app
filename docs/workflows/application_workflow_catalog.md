@@ -28,7 +28,7 @@ Status meanings used here:
 
 For live planning and next steps, use:
 
-1. `new_app_docs/new_app_tracker.md`
+1. `new_app_docs/new_app_tracker_v2.md`
 2. `workflow_validation_track.md`
 
 Workflow-review policy:

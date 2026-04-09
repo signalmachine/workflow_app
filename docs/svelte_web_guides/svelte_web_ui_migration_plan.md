@@ -939,17 +939,17 @@ The existing `docs/workflows/end_to_end_validation_checklist.md` should be updat
 
 ## 14. Canonical doc updates required
 
-These documents must be updated **after** the migration is complete (not before — changes are not yet implemented):
+This section recorded the canonical-doc changes required once the migration crossed from planning into implemented state.
+
+That transition has now happened, so treat the active thin v2 docs in `new_app_docs/` as the canonical planning surface and this section as historical reference for what needed to be synchronized.
 
 | Document | Required change |
 |---|---|
-| `new_app_docs/new_app_implementation_defaults.md` | Update rules 2.9.6, 2.9.10, 2.9.11 to reflect Svelte SPA as the new canonical web stack |
-| `new_app_docs/new_app_tracker.md` | Add new milestone entry for Svelte migration |
+| `new_app_docs/new_app_implementation_defaults_v2.md` | Reflect Svelte as the canonical promoted web stack in the active thin v2 defaults |
+| `new_app_docs/new_app_tracker_v2.md` | Track the remaining Milestone 13 closeout work and post-cutover follow-through |
 | `AGENTS.md` | Update Architecture & Scope Guardrails; remove Go html/template preference |
 | `README.md` | Update setup instructions, build commands, architecture description |
 | `docs/workflows/end_to_end_validation_checklist.md` | Update browser validation steps to reflect Svelte SPA |
-
-**Do not update the canonical planning docs before implementation is complete.** The current defaults remain authoritative until the migration is verified in production.
 
 ---
 
