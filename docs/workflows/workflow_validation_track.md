@@ -1,7 +1,7 @@
 # workflow_app Workflow Validation Track
 
 Date: 2026-04-09
-Status: Active validation track, separate from implementation planning; the current browser runtime is the Milestone 13 served Svelte frontend with the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families now run on that one Go-served `/app` surface, the inventory landing now hands off into an explicit scoped inventory-review UI for pending execution and accounting follow-through, the operator home plus coordinator chat plus review landing snapshots now also route known proposal and approval rows directly into exact detail pages, exact inbound-request detail plus exact proposal detail now also expose direct downstream accounting review when a linked proposal document already exists, the desktop shell now also keeps a persisted collapsed-sidebar preference while the mobile drawer model stays as secondary compatibility rather than an active optimization target, focused automated coverage now also asserts that the served handler returns real `/app/_app/...` assets and `404` for missing bundle paths, and the remaining open work is bounded post-cutover browser and workflow validation evidence plus any tightly grouped corrective follow-up discovered on the real seam
+Status: Active validation track, separate from implementation planning; the current browser runtime is the Milestone 13 served Svelte frontend with the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families now run on that one Go-served `/app` surface, the inventory landing now hands off into an explicit scoped inventory-review UI for pending execution and accounting follow-through, the operator home plus coordinator chat plus review landing snapshots now also route known proposal and approval rows directly into exact detail pages, exact inbound-request detail plus exact proposal detail now also expose direct downstream accounting review when a linked proposal document already exists, the desktop shell now also keeps a persisted collapsed-sidebar preference while the mobile drawer model stays as secondary compatibility rather than an active optimization target, focused automated coverage now also asserts that the served handler returns real `/app/_app/...` assets and `404` for missing bundle paths, the live provider seam has been reconfirmed after the 2026-04-09 bounded coordinator corrective pass, and the remaining open work is bounded post-cutover browser and workflow validation evidence plus any tightly grouped corrective follow-up discovered on the real seam
 Purpose: keep workflow testing, live review, and readiness evidence on a workflow-validation track in `docs/workflows/` rather than inside the normal product-implementation planning stream in `new_app_docs/`.
 
 ## 1. Why this document exists
@@ -52,6 +52,9 @@ Implementation note recorded on 2026-04-09:
 4. this implementation work reduces serving-path and drill-down ambiguity, but it does not replace the remaining browser-review and workflow-continuity evidence required in section 3.1
 5. the desktop shell now also supports a persisted collapsed-sidebar preference, so the post-cutover browser sweep should explicitly review both expanded and collapsed desktop states instead of only the default expanded view
 6. narrow-width review may still be used as a bounded compatibility check when warranted, but it is no longer an equal-priority optimization target for the served web runtime because future mobile-first UX belongs to the separate mobile client
+7. the OpenAI coordinator-provider path needed one bounded corrective slice before the live provider seam was stable again: after three read-tool executions the coordinator now disables further tool availability and forces the next turn to return the structured brief, which prevents repeated read-loop drift without reopening open-ended autonomy
+8. `cmd/verify-agent` now creates its verification actor through the shared browser-session auth path, which removes one verification-harness-only auth mismatch from the live provider check
+9. the canonical repo verification, `cmd/verify-agent`, and the dedicated `TestOpenAIAgentProcessorLiveIntegration` live-provider test all passed again on 2026-04-09 after that corrective slice
 
 ## 3.1 Milestone 13 post-cutover checklist
 
@@ -197,6 +200,7 @@ Example pass notes:
 
 1. `pass: /app/review/inbound-requests desktop - filters and contained table stay visually primary`
 2. `pass: /app/login compatibility - narrow-width fallback still avoids obvious overlap or blocked sign-in`
+3. `pass: live provider seam 2026-04-09 - cmd/verify-agent and TestOpenAIAgentProcessorLiveIntegration both completed after the bounded coordinator read-loop and verify-agent auth-path corrective pass`
 
 Example blocker notes:
 

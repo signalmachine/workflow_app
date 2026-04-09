@@ -20,6 +20,7 @@ import (
 )
 
 const verifyTimeout = 2 * time.Minute
+const verifyPassword = "verify-agent-password"
 
 func main() {
 	if err := envload.LoadDefaultIfPresent(); err != nil {
@@ -154,21 +155,30 @@ func createVerificationActor(ctx context.Context, db *sql.DB) (identityaccess.Ac
 		return identityaccess.Actor{}, fmt.Errorf("insert membership: %w", err)
 	}
 
-	session, err := identityaccess.NewService(db).StartSession(ctx, identityaccess.StartSessionInput{
-		OrgID:            orgID,
-		UserID:           userID,
-		DeviceLabel:      "verify-agent",
-		RefreshTokenHash: "verify-agent-token-" + time.Now().UTC().Format("150405.000000000"),
-		ExpiresAt:        time.Now().Add(24 * time.Hour),
+	authService := identityaccess.NewService(db)
+	if err := authService.SetUserPassword(ctx, identityaccess.SetUserPasswordInput{
+		UserID:    userID,
+		Password:  verifyPassword,
+		UpdatedAt: time.Now().UTC(),
+	}); err != nil {
+		return identityaccess.Actor{}, fmt.Errorf("set verification password: %w", err)
+	}
+
+	session, err := authService.StartBrowserSession(ctx, identityaccess.StartBrowserSessionInput{
+		OrgSlug:     orgSlug,
+		Email:       email,
+		Password:    verifyPassword,
+		DeviceLabel: "verify-agent",
+		ExpiresAt:   time.Now().Add(24 * time.Hour),
 	})
 	if err != nil {
-		return identityaccess.Actor{}, fmt.Errorf("start session: %w", err)
+		return identityaccess.Actor{}, fmt.Errorf("start browser session: %w", err)
 	}
 
 	return identityaccess.Actor{
 		OrgID:     orgID,
 		UserID:    userID,
-		SessionID: session.ID,
+		SessionID: session.Session.ID,
 	}, nil
 }
 

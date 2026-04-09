@@ -18,7 +18,7 @@ import (
 
 const (
 	openAIProviderTimeout             = 45 * time.Second
-	openAIMaxCoordinatorToolLoops     = 3
+	openAIMaxCoordinatorToolLoops     = 4
 	openAICoordinatorSummaryToolName  = "reporting_list_inbound_request_status_summary"
 	openAICurrentRequestDetailTool    = "reporting_get_current_inbound_request_detail"
 	openAICurrentRequestProposalsTool = "reporting_list_current_processed_proposals"
@@ -82,6 +82,11 @@ func (p *OpenAIProvider) ExecuteInboundRequest(ctx context.Context, input Coordi
 
 	for iteration := 1; iteration <= p.normalizedMaxToolIterations(); iteration++ {
 		params.Input = pendingInput
+		if coordinatorReadToolBudgetExhausted(toolDefs, toolExecutions) {
+			params.Tools = nil
+		} else {
+			params.Tools = coordinatorResponseTools(toolDefs)
+		}
 
 		resp, err := p.responsesAPI.New(requestCtx, params)
 		if err != nil {
@@ -218,6 +223,9 @@ Do not propose direct writes, approval decisions, postings, or autonomous follow
 If a tool call is denied or unavailable, continue without it and produce the best safe review possible.
 Focus on a safe summary, priority, rationale, and next actions for a human operator.
 Prefer request-scoped tools that inspect the current request or its existing proposal continuity before using org-wide queue summary.
+At most three read-tool rounds are useful here: current request detail, current processed proposals, and optional org queue summary.
+Do not call the same read tool repeatedly once you already have its result in the current review.
+After you have the request-scoped detail and any optional extra context you need, stop calling tools and return the structured brief.
 If the request clearly needs deeper review framing, you may delegate to exactly one specialist by filling specialist_delegation with an allowlisted capability and a concrete reason.
 Allowed specialist capabilities:
 - inbound_request.operations_triage
@@ -280,6 +288,26 @@ func coordinatorResponseTools(toolDefs map[string]coordinatorToolDefinition) []r
 		})
 	}
 	return tools
+}
+
+func coordinatorReadToolBudgetExhausted(toolDefs map[string]coordinatorToolDefinition, executions []CoordinatorToolExecution) bool {
+	if len(toolDefs) == 0 || len(executions) == 0 {
+		return false
+	}
+
+	readToolCalls := 0
+	for _, execution := range executions {
+		name := strings.TrimSpace(execution.ToolName)
+		if name == "" {
+			continue
+		}
+		if _, ok := toolDefs[name]; !ok {
+			continue
+		}
+		readToolCalls++
+	}
+
+	return readToolCalls >= len(toolDefs)
 }
 
 func (p *OpenAIProvider) executeInboundRequestStatusSummaryTool(ctx context.Context, input CoordinatorProviderInput) (string, string, error) {

@@ -1,7 +1,7 @@
 # workflow_app Tracker V2
 
 Date: 2026-04-09
-Status: Thin-v1 is complete, Milestones 10 through 12 are implemented history, Milestone 13 Slice 1 and Slice 2 are implemented, and the active work is Milestone 13 Slice 3 closeout plus workflow-validation catch-up
+Status: Thin-v1 is complete, Milestones 10 through 12 are implemented history, Milestone 13 Slice 1 and Slice 2 are implemented, and the active work is now Milestone 13 Slice 3 browser-validation closeout after a bounded coordinator-provider corrective pass and verification rerun
 Purpose: track the active implementation state, current sequencing, and immediate next steps without carrying full milestone history in the default context.
 
 ## 1. Current state
@@ -12,14 +12,16 @@ Purpose: track the active implementation state, current sequencing, and immediat
 4. Milestone 12 admin-maintenance depth is implemented enough to stop being the active planning focus
 5. Milestone 13 Slice 1 foundation and Slice 2 workflow-surface migration are implemented
 6. Milestone 13 Slice 3 code checkpoints are largely landed: settings continuity, admin continuity, exact detail-route continuity, served-runtime cutover, and old-template retirement are implemented
-7. workflow-validation and browser-review evidence in `docs/workflows/` still needs to catch up to the implemented runtime
+7. the coordinator-provider seam needed one bounded corrective pass on 2026-04-09: the OpenAI coordinator now stops offering read tools after the bounded read budget is consumed, and `cmd/verify-agent` now creates its verification actor through the real browser-session auth path
+8. canonical repo verification plus live provider verification passed again on 2026-04-09 after that corrective slice
+9. workflow-validation and browser-review evidence in `docs/workflows/` still needs to catch up to the implemented runtime before Milestone 13 closeout can be treated as complete
 
 ## 2. Active implementation order
 
 1. keep this doc cleanup as the completed prerequisite for the next implementation session
-2. complete the remaining Milestone 13 Slice 3 closeout work on the shared Svelte plus Go seam
-3. run the required verification for the Slice 3 change set
-4. bring `docs/workflows/` up to date with explicit workflow-validation evidence and any revised reusable checklists
+2. complete the remaining Milestone 13 Slice 3 browser-review and workflow-validation closeout work on the shared Svelte plus Go seam
+3. keep the 2026-04-09 coordinator-provider corrective slice and verification rerun as the latest prerequisite already completed for that closeout
+4. bring `docs/workflows/` up to date with explicit browser-review and workflow-validation evidence
 5. after Milestone 13 closeout, decide the next bounded v2 milestone instead of reopening completed milestone buckets broadly
 
 ## 2.1 Active Slice 3 detail now kept in this tracker
@@ -31,7 +33,7 @@ The next session should assume this active Slice 3 baseline is already landed:
 3. migrated list, home, review-landing, and coordinator-chat surfaces already deep-link to exact detail routes where known identifiers exist
 4. the served Go runtime already embeds and serves the Svelte frontend at `/app`
 5. the retired template-browser `/app` layer has already been removed from the active codebase
-6. the main remaining work is real-seam workflow validation and any narrowly grouped corrective follow-up that validation proves necessary
+6. the main remaining work is real-seam browser and workflow validation plus any narrowly grouped corrective follow-up that that validation proves necessary
 
 Use these supporting docs for the remaining closeout:
 

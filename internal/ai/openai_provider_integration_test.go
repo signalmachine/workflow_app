@@ -703,6 +703,275 @@ func TestOpenAIProviderExecutesCurrentRequestReadToolsIntegration(t *testing.T) 
 	}
 }
 
+func TestOpenAIProviderAllowsThreeReadToolRoundsBeforeFinalOutputIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedAIOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	session := startAISession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: session.ID}
+
+	provider := &OpenAIProvider{
+		responsesAPI: &fakeOpenAIResponsesAPI{responses: []*responses.Response{
+			mustResponseFromJSON(t, `{
+				"id":"resp_loop_1",
+				"created_at":1,
+				"error":{},
+				"incomplete_details":{},
+				"instructions":"coordinator",
+				"metadata":{},
+				"model":"gpt-5.2",
+				"object":"response",
+				"output":[{"id":"fc_1","type":"function_call","status":"completed","call_id":"call_1","name":"reporting_get_current_inbound_request_detail","arguments":"{}"}],
+				"parallel_tool_calls":false,
+				"temperature":0.1,
+				"tool_choice":"auto",
+				"tools":[],
+				"top_p":1,
+				"status":"completed",
+				"text":{"format":{"type":"json_schema","name":"inbound_request_review","schema":{"type":"object"}}},
+				"usage":{"input_tokens":18,"input_tokens_details":{"cached_tokens":0},"output_tokens":9,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":27}
+			}`),
+			mustResponseFromJSON(t, `{
+				"id":"resp_loop_2",
+				"created_at":2,
+				"error":{},
+				"incomplete_details":{},
+				"instructions":"coordinator",
+				"metadata":{},
+				"model":"gpt-5.2",
+				"object":"response",
+				"output":[{"id":"fc_2","type":"function_call","status":"completed","call_id":"call_2","name":"reporting_list_current_processed_proposals","arguments":"{}"}],
+				"parallel_tool_calls":false,
+				"temperature":0.1,
+				"tool_choice":"auto",
+				"tools":[],
+				"top_p":1,
+				"status":"completed",
+				"text":{"format":{"type":"json_schema","name":"inbound_request_review","schema":{"type":"object"}}},
+				"usage":{"input_tokens":16,"input_tokens_details":{"cached_tokens":0},"output_tokens":8,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":24}
+			}`),
+			mustResponseFromJSON(t, `{
+				"id":"resp_loop_3",
+				"created_at":3,
+				"error":{},
+				"incomplete_details":{},
+				"instructions":"coordinator",
+				"metadata":{},
+				"model":"gpt-5.2",
+				"object":"response",
+				"output":[{"id":"fc_3","type":"function_call","status":"completed","call_id":"call_3","name":"reporting_list_inbound_request_status_summary","arguments":"{}"}],
+				"parallel_tool_calls":false,
+				"temperature":0.1,
+				"tool_choice":"auto",
+				"tools":[],
+				"top_p":1,
+				"status":"completed",
+				"text":{"format":{"type":"json_schema","name":"inbound_request_review","schema":{"type":"object"}}},
+				"usage":{"input_tokens":14,"input_tokens_details":{"cached_tokens":0},"output_tokens":8,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":22}
+			}`),
+			mustResponseFromJSON(t, `{
+				"id":"resp_loop_4",
+				"created_at":4,
+				"error":{},
+				"incomplete_details":{},
+				"instructions":"coordinator",
+				"metadata":{},
+				"model":"gpt-5.2",
+				"object":"response",
+				"output":[{"id":"msg_4","type":"message","status":"completed","role":"assistant","content":[{"type":"output_text","text":"{\"summary\":\"Operator review is required for the warehouse pump failure with current request, proposal, and queue context considered.\",\"priority\":\"high\",\"artifact_title\":\"Inbound request review brief\",\"artifact_body\":\"The warehouse pump failure remains the primary issue, while the request-scoped detail, proposal continuity, and queue summary provide enough context for controlled operator follow-up.\",\"rationale\":[\"The request evidence describes a warehouse pump failure.\",\"Current processed proposals and queue context support prioritizing the operator review without changing business truth.\"],\"next_actions\":[\"Review the current request detail and confirm the affected site.\",\"Decide whether to continue into the existing controlled follow-up path.\"],\"specialist_delegation\":null}","annotations":[]}]}],
+				"parallel_tool_calls":false,
+				"temperature":0.1,
+				"tool_choice":"auto",
+				"tools":[],
+				"top_p":1,
+				"status":"completed",
+				"text":{"format":{"type":"json_schema","name":"inbound_request_review","schema":{"type":"object"}}},
+				"usage":{"input_tokens":20,"input_tokens_details":{"cached_tokens":0},"output_tokens":18,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":38}
+			}`),
+		}},
+		aiService:         NewService(db),
+		reportingService:  reporting.NewService(db),
+		model:             "gpt-5.2",
+		maxToolIterations: openAIMaxCoordinatorToolLoops,
+	}
+
+	output, err := provider.ExecuteInboundRequest(ctx, CoordinatorProviderInput{
+		CapabilityCode:   DefaultCoordinatorCapabilityCode,
+		Actor:            operator,
+		RequestReference: "REQ-000777",
+		Channel:          "browser",
+		OriginType:       intake.OriginHuman,
+		Metadata:         json.RawMessage(`{"submitter_label":"verify-agent"}`),
+		Messages: []CoordinatorMessage{
+			{Role: intake.MessageRoleRequest, TextContent: "Warehouse pump failure needs urgent operator review."},
+		},
+		DerivedTexts: []CoordinatorDerivedText{
+			{DerivativeType: attachments.DerivativeTranscription, ContentText: "The warehouse pump is failing intermittently and needs urgent inspection."},
+		},
+	})
+	if err != nil {
+		t.Fatalf("execute inbound request: %v", err)
+	}
+
+	if output.ToolLoopIterations != 4 {
+		t.Fatalf("unexpected tool loop iterations: %d", output.ToolLoopIterations)
+	}
+	if len(output.ToolExecutions) != 3 {
+		t.Fatalf("unexpected tool execution count: %d", len(output.ToolExecutions))
+	}
+	if output.ToolExecutions[0].ToolName != openAICurrentRequestDetailTool {
+		t.Fatalf("unexpected first tool execution: %+v", output.ToolExecutions[0])
+	}
+	if output.ToolExecutions[1].ToolName != openAICurrentRequestProposalsTool {
+		t.Fatalf("unexpected second tool execution: %+v", output.ToolExecutions[1])
+	}
+	if output.ToolExecutions[2].ToolName != openAICoordinatorSummaryToolName {
+		t.Fatalf("unexpected third tool execution: %+v", output.ToolExecutions[2])
+	}
+	if !strings.Contains(strings.ToLower(output.Summary), "warehouse") {
+		t.Fatalf("expected request-centered summary, got %+v", output)
+	}
+
+	fakeAPI := provider.responsesAPI.(*fakeOpenAIResponsesAPI)
+	if len(fakeAPI.seenParams) != 4 {
+		t.Fatalf("unexpected response call count: %d", len(fakeAPI.seenParams))
+	}
+	fourthCallJSON := mustMarshalResponseNewParamsJSON(t, fakeAPI.seenParams[3])
+	if tools, ok := fourthCallJSON["tools"].([]any); ok && len(tools) > 0 {
+		t.Fatalf("expected fourth call to disable tools after the bounded read budget, got %+v", fourthCallJSON["tools"])
+	}
+}
+
+func TestOpenAIProviderDisablesToolsAfterRepeatedReadCallsIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedAIOrgAndUser(t, ctx, db, identityaccess.RoleOperator, "")
+	session := startAISession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: session.ID}
+
+	provider := &OpenAIProvider{
+		responsesAPI: &fakeOpenAIResponsesAPI{responses: []*responses.Response{
+			mustResponseFromJSON(t, `{
+				"id":"resp_repeat_1",
+				"created_at":1,
+				"error":{},
+				"incomplete_details":{},
+				"instructions":"coordinator",
+				"metadata":{},
+				"model":"gpt-5.2",
+				"object":"response",
+				"output":[{"id":"fc_1","type":"function_call","status":"completed","call_id":"call_1","name":"reporting_get_current_inbound_request_detail","arguments":"{}"}],
+				"parallel_tool_calls":false,
+				"temperature":0.1,
+				"tool_choice":"auto",
+				"tools":[],
+				"top_p":1,
+				"status":"completed",
+				"text":{"format":{"type":"json_schema","name":"inbound_request_review","schema":{"type":"object"}}},
+				"usage":{"input_tokens":18,"input_tokens_details":{"cached_tokens":0},"output_tokens":9,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":27}
+			}`),
+			mustResponseFromJSON(t, `{
+				"id":"resp_repeat_2",
+				"created_at":2,
+				"error":{},
+				"incomplete_details":{},
+				"instructions":"coordinator",
+				"metadata":{},
+				"model":"gpt-5.2",
+				"object":"response",
+				"output":[{"id":"fc_2","type":"function_call","status":"completed","call_id":"call_2","name":"reporting_get_current_inbound_request_detail","arguments":"{}"}],
+				"parallel_tool_calls":false,
+				"temperature":0.1,
+				"tool_choice":"auto",
+				"tools":[],
+				"top_p":1,
+				"status":"completed",
+				"text":{"format":{"type":"json_schema","name":"inbound_request_review","schema":{"type":"object"}}},
+				"usage":{"input_tokens":16,"input_tokens_details":{"cached_tokens":0},"output_tokens":8,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":24}
+			}`),
+			mustResponseFromJSON(t, `{
+				"id":"resp_repeat_3",
+				"created_at":3,
+				"error":{},
+				"incomplete_details":{},
+				"instructions":"coordinator",
+				"metadata":{},
+				"model":"gpt-5.2",
+				"object":"response",
+				"output":[{"id":"fc_3","type":"function_call","status":"completed","call_id":"call_3","name":"reporting_get_current_inbound_request_detail","arguments":"{}"}],
+				"parallel_tool_calls":false,
+				"temperature":0.1,
+				"tool_choice":"auto",
+				"tools":[],
+				"top_p":1,
+				"status":"completed",
+				"text":{"format":{"type":"json_schema","name":"inbound_request_review","schema":{"type":"object"}}},
+				"usage":{"input_tokens":14,"input_tokens_details":{"cached_tokens":0},"output_tokens":8,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":22}
+			}`),
+			mustResponseFromJSON(t, `{
+				"id":"resp_repeat_4",
+				"created_at":4,
+				"error":{},
+				"incomplete_details":{},
+				"instructions":"coordinator",
+				"metadata":{},
+				"model":"gpt-5.2",
+				"object":"response",
+				"output":[{"id":"msg_4","type":"message","status":"completed","role":"assistant","content":[{"type":"output_text","text":"{\"summary\":\"Operator review is required for the warehouse pump failure.\",\"priority\":\"high\",\"artifact_title\":\"Inbound request review brief\",\"artifact_body\":\"After repeated request-detail reads, the coordinator still returns a request-centered brief about the warehouse pump failure.\",\"rationale\":[\"The request evidence repeatedly points to the same warehouse pump failure.\"],\"next_actions\":[\"Review the request detail and confirm the next controlled follow-up.\"],\"specialist_delegation\":null}","annotations":[]}]}],
+				"parallel_tool_calls":false,
+				"temperature":0.1,
+				"tool_choice":"auto",
+				"tools":[],
+				"top_p":1,
+				"status":"completed",
+				"text":{"format":{"type":"json_schema","name":"inbound_request_review","schema":{"type":"object"}}},
+				"usage":{"input_tokens":20,"input_tokens_details":{"cached_tokens":0},"output_tokens":18,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":38}
+			}`),
+		}},
+		aiService:         NewService(db),
+		reportingService:  reporting.NewService(db),
+		model:             "gpt-5.2",
+		maxToolIterations: openAIMaxCoordinatorToolLoops,
+	}
+
+	output, err := provider.ExecuteInboundRequest(ctx, CoordinatorProviderInput{
+		CapabilityCode:   DefaultCoordinatorCapabilityCode,
+		Actor:            operator,
+		RequestReference: "REQ-000778",
+		Channel:          "browser",
+		OriginType:       intake.OriginHuman,
+		Metadata:         json.RawMessage(`{"submitter_label":"verify-agent"}`),
+		Messages: []CoordinatorMessage{
+			{Role: intake.MessageRoleRequest, TextContent: "Warehouse pump failure needs urgent operator review."},
+		},
+	})
+	if err != nil {
+		t.Fatalf("execute inbound request: %v", err)
+	}
+
+	if output.ToolLoopIterations != 4 {
+		t.Fatalf("unexpected tool loop iterations: %d", output.ToolLoopIterations)
+	}
+	if len(output.ToolExecutions) != 3 {
+		t.Fatalf("unexpected tool execution count: %d", len(output.ToolExecutions))
+	}
+	fakeAPI := provider.responsesAPI.(*fakeOpenAIResponsesAPI)
+	fourthCallJSON := mustMarshalResponseNewParamsJSON(t, fakeAPI.seenParams[3])
+	if tools, ok := fourthCallJSON["tools"].([]any); ok && len(tools) > 0 {
+		t.Fatalf("expected fourth call to disable tools after repeated reads, got %+v", fourthCallJSON["tools"])
+	}
+}
+
 type fakeOpenAIResponsesAPI struct {
 	responses  []*responses.Response
 	seenParams []responses.ResponseNewParams
