@@ -36,6 +36,61 @@ func TestRegisterWebRoutesServesSPAFallback(t *testing.T) {
 	}
 }
 
+func TestRegisterWebRoutesServesSPAFallbackAcrossPromotedRouteFamilies(t *testing.T) {
+	handler := &AgentAPIHandler{}
+	mux := http.NewServeMux()
+	registerWebRoutes(mux, handler)
+
+	routes := []string{
+		webAppPath,
+		webLoginPath,
+		webRouteCatalogPath,
+		webSettingsPath,
+		webAdminPath,
+		webAdminAccountingPath,
+		webAdminPartiesPath,
+		webAdminPartiesPath + "/party-123",
+		webAdminAccessPath,
+		webAdminInventoryPath,
+		webOperationsPath,
+		webReviewPath,
+		webInventoryHubPath,
+		webSubmitInboundPagePath,
+		webOperationsFeedPath,
+		webAgentChatPath,
+		"/app/inbound-requests/REQ-000123",
+		webInboundRequestsPath,
+		webApprovalsPath,
+		webApprovalsPath + "/approval-123",
+		webProposalsPath,
+		webProposalsPath + "/proposal-123",
+		webDocumentsPath,
+		webDocumentsPath + "/document-123",
+		webAccountingPath,
+		webAccountingPath + "/entry-123",
+		webInventoryPath,
+		webInventoryPath + "/movement-123",
+		webWorkOrdersPath,
+		webWorkOrdersPath + "/work-order-123",
+		webAuditPath,
+		webAuditPath + "/event-123",
+	}
+
+	for _, route := range routes {
+		t.Run(route, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, route, nil)
+			recorder := httptest.NewRecorder()
+
+			mux.ServeHTTP(recorder, req)
+
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("unexpected status for %s: got %d body=%s", route, recorder.Code, recorder.Body.String())
+			}
+			requireSvelteShell(t, recorder.Body.String())
+		})
+	}
+}
+
 func TestHandleSvelteAppServesIndexAtAppRoot(t *testing.T) {
 	handler := &AgentAPIHandler{}
 	req := httptest.NewRequest(http.MethodGet, "/app", nil)

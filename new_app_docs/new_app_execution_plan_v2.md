@@ -47,7 +47,8 @@ Completed prerequisite recorded on 2026-04-09:
 Completed prerequisite recorded on 2026-04-10:
 
 1. focused Svelte component coverage now asserts multi-term route-catalog search continuity, promoted admin accounting and inventory status controls, and exact accounting-entry drill-down from request and proposal detail when the journal entry is already known
-2. `npm --prefix web test -- page.test.ts page_detail.test.ts navigation.test.ts inventory/page.test.ts agent-chat/page.test.ts review/page.test.ts admin/accounting/page.test.ts admin/inventory/page.test.ts routes/page.test.ts`, `npm --prefix web run check`, and `git diff --check` all passed for that closeout-coverage slice
+2. focused Go web-serving coverage now asserts SPA fallback across the full promoted `/app` route family and exact detail routes instead of relying on only a few shell-path checks
+3. `npm --prefix web test -- page.test.ts page_detail.test.ts navigation.test.ts inventory/page.test.ts agent-chat/page.test.ts review/page.test.ts admin/accounting/page.test.ts admin/inventory/page.test.ts routes/page.test.ts`, focused `go test ./internal/app -run '^(TestRegisterWebRoutesServesSPAFallback|TestRegisterWebRoutesServesSPAFallbackAcrossPromotedRouteFamilies|TestHandleSvelteAppServesIndexAtAppRoot|TestHandleSvelteAppServesHeadRequests|TestHandleSvelteAppServesEmbeddedJSAsset|TestHandleSvelteAppDoesNotFallbackForMissingStaticAsset|TestNewAgentAPIHandlerWithDependenciesServesSvelteShell)$'`, `npm --prefix web run check`, and `git diff --check` all passed for that closeout-coverage slice
 
 ## 3. Promotion rule for the next milestone
 

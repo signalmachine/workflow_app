@@ -19,7 +19,8 @@ Purpose: track the active implementation state, current sequencing, and immediat
 11. an additional real-seam validation pass on 2026-04-09 confirmed the served Svelte shell and asset behavior at `/app`, browser-session login through `/api/session/login`, route-catalog search for `pending approvals`, and one live request submission plus queue processing chain through exact request and proposal review continuity on the shared `/api/...` seam
 12. `cmd/verify-agent` now also supports `-approval-flow`, and a 2026-04-09 live run used that shared-session API path to confirm one exact request -> proposal -> approval -> document continuity chain on the same verification request
 13. focused Svelte route and component tests added on 2026-04-10 now assert multi-term route-catalog continuity, promoted admin accounting and inventory status controls, and exact accounting-entry drill-down from request and proposal detail before the final live browser sweep
-14. Milestone 13 closeout is still not complete because the live desktop browser-review sweep still needs explicit evidence in `docs/workflows/`
+14. focused Go web-serving coverage added on 2026-04-10 now asserts SPA-shell fallback across the full promoted `/app` route family and exact detail routes so cutover regressions do not hide behind only a few shell-path checks
+15. Milestone 13 closeout is still not complete because the live desktop browser-review sweep still needs explicit evidence in `docs/workflows/`
 
 ## 2. Active implementation order
 
@@ -38,7 +39,7 @@ The next session should assume this active Slice 3 baseline is already landed:
 3. migrated list, home, review-landing, and coordinator-chat surfaces already deep-link to exact detail routes where known identifiers exist
 4. the served Go runtime already embeds and serves the Svelte frontend at `/app`
 5. the retired template-browser `/app` layer has already been removed from the active codebase
-6. focused automated closeout coverage now exists for route discovery, admin status controls, and exact accounting-entry continuity, so the main remaining work is the real-seam desktop browser-review sweep plus any narrowly grouped corrective follow-up that that validation proves necessary
+6. focused automated closeout coverage now exists for route discovery, admin status controls, exact accounting-entry continuity, and promoted-route SPA fallback coverage, so the main remaining work is the real-seam desktop browser-review sweep plus any narrowly grouped corrective follow-up that that validation proves necessary
 7. the promoted request and proposal detail surfaces already include exact downstream accounting-entry continuity when the shared reporting seam exposes a posted journal entry for the linked document
 
 Use these supporting docs for the remaining closeout:

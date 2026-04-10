@@ -61,6 +61,7 @@ Implementation note recorded on 2026-04-09:
 13. a follow-up real-seam validation run on 2026-04-09 also confirmed that `/app` returns the served Svelte shell, `/app/_app/version.json` returns a real static asset, missing `/app/_app/...` assets return `404`, browser-session login still works through `/api/session/login`, route-catalog search still returns `Approval review` for `pending approvals`, and one live request (`REQ-000001`) now successfully moved through submit -> queue -> provider-backed processing -> exact request detail -> exact proposal detail on the shared browser-session seam
 14. `cmd/verify-agent -approval-flow` also passed on 2026-04-09 and confirmed that the same live verification request (`REQ-000001`) can continue through one deterministic exact proposal -> approval request -> approval decision -> exact approval detail -> exact document detail chain on the shared browser-session plus `/api/...` seam
 15. focused Svelte component coverage added on 2026-04-10 now asserts multi-term route-catalog continuity for `pending approvals`, visible promoted admin accounting and inventory status controls, and exact accounting-entry drill-down from request and proposal detail when the posted journal entry is already known
+16. focused Go web-serving coverage added on 2026-04-10 now asserts SPA fallback across the full promoted `/app` route family and exact detail routes, which reduces one more cutover-regression blind spot before the remaining desktop browser sweep
 
 ## 3.1 Milestone 13 post-cutover checklist
 
@@ -85,6 +86,7 @@ Current evidence recorded on 2026-04-09:
 6. `blocker: browser-review sweep - desktop visual and shell-state evidence still needs a real browser pass across the promoted route family`
 7. `pass: request -> approval -> document chain - cmd/verify-agent -approval-flow created a deterministic approval-ready proposal on REQ-000001 and confirmed exact request, proposal, approval, and document continuity through the shared session plus /api/... seam`
 8. `pass: focused Svelte closeout coverage 2026-04-10 - route catalog intent search, promoted admin accounting and inventory status controls, and request/proposal exact accounting-entry continuity all have explicit automated assertions`
+9. `pass: focused Go route-family coverage 2026-04-10 - promoted /app route families and exact detail routes now all return the served Svelte shell through the shared SPA fallback handler`
 
 Evidence rule:
 
