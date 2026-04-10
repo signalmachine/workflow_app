@@ -2,7 +2,7 @@
 
 Date: 2026-04-10
 Status: Active canonical defaults
-Purpose: record the defaults that active implementation should preserve unless the thin v2 planning surface is intentionally updated.
+Purpose: record the defaults that active implementation should preserve unless the active v2 planning surface is intentionally updated.
 
 ## 1. General defaults
 
@@ -45,3 +45,4 @@ Purpose: record the defaults that active implementation should preserve unless t
 8. when browser continuity proof depends on seeded records in a dedicated verification org, the seed command should emit the exact org slug, actor credentials, and continuity ids needed by Playwright rather than expecting reviewers to infer them
 9. when the served Go runtime embeds `internal/app/web_dist`, rebuild the frontend artifact and restart the app before treating a browser failure as a product defect
 10. prefer stable browser assertions based on route contracts, headings, bounded actions, and exact drill-down ids over brittle copy-only markers that are likely to drift during normal UX refinement
+11. when a doc claims supported browser workflow behavior, the promoted Svelte runtime is the source implementation to verify against, not archived template-era behavior or backend-only capability

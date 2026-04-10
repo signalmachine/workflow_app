@@ -1,7 +1,7 @@
 # workflow_app Tracker V2
 
 Date: 2026-04-10
-Status: Thin-v1 is complete, Milestones 10 through 12 are implemented history, and Milestone 13 including Slice 3 browser-review closeout is now complete after the bounded coordinator-provider corrective pass, the downstream-accounting exact-detail continuity pass, the shared-session approval-continuity verification pass, the real-browser Playwright sweep on the served `/app` runtime, the admin-accounting corrective slice for tax-control selection, and the verify-agent continuity-seeding correction that now emits a posted document plus exact journal-entry continuity on the same browser-reviewed org
+Status: Thin-v1 is complete, Milestones 10 through 13 are implemented history, and Milestone 14 is now the active bounded v2 milestone to close the code-review gaps, strengthen production-readiness testing, execute deferred workflow validation, realign the documentation set with the current promoted runtime truth, make the promoted application ready for bounded user testing, add the first baseline accounting reports plus other clearly similar readiness-improving capability discovered during implementation review, restructure the most crowded promoted navigation families around grouped directory pages plus dedicated destinations, and seed `North Harbor Works` with a realistic minimum chart of accounts and master-data baseline
 Purpose: track the active implementation state, current sequencing, and immediate next steps without carrying full milestone history in the default context.
 
 ## 1. Current state
@@ -10,8 +10,8 @@ Purpose: track the active implementation state, current sequencing, and immediat
 2. the earlier Go-template browser rebuild and follow-on browser correction work are implemented history, not the forward planning surface
 3. the promoted web direction is the Svelte-based web application on the shared Go backend
 4. Milestone 12 admin-maintenance depth is implemented enough to stop being the active planning focus
-5. Milestone 13 Slice 1 foundation and Slice 2 workflow-surface migration are implemented
-6. Milestone 13 Slice 3 code checkpoints are largely landed: settings continuity, admin continuity, exact detail-route continuity, served-runtime cutover, and old-template retirement are implemented
+5. Milestone 13 Slice 1 foundation, Slice 2 workflow-surface migration, and Slice 3 cutover or browser-closeout work are implemented history
+6. the promoted Svelte runtime, the shared Go `/api/...` seam, the embedded `/app` serving path, the bounded admin family, and the exact detail-route family remain the current delivered baseline
 7. the coordinator-provider seam needed one bounded corrective pass on 2026-04-09: the OpenAI coordinator now stops offering read tools after the bounded read budget is consumed, and `cmd/verify-agent` now creates its verification actor through the real browser-session auth path
 8. request detail and processed-proposal detail now also prefer exact downstream accounting-entry drill-down when the linked document already has a posted journal entry, instead of stopping at filtered accounting-review continuity
 9. focused frontend checks, focused Svelte route tests, `go build ./cmd/... ./internal/...`, focused non-DB Go tests in `internal/app`, and `gopls` diagnostics passed on 2026-04-09 for that exact-detail continuity pass
@@ -24,16 +24,33 @@ Purpose: track the active implementation state, current sequencing, and immediat
 16. Playwright browser automation is now available in the local environment and is the default tool for future browser-rendered `/app` verification work
 17. the Milestone 13 desktop browser-review closeout passed on 2026-04-10 with four real-browser Playwright checks on the served `/app` seam covering desktop shell persistence, route-catalog continuity, admin maintenance and exact party detail, promoted route-family rendering, and exact request -> proposal -> approval -> document -> accounting continuity
 18. the real-browser closeout also exposed and closed two verification-support gaps on 2026-04-10: admin accounting tax-code creation now uses bounded control-account selectors instead of raw account-id text fields, and `cmd/verify-agent -approval-flow` now emits verification-org credentials and seeds a real posted invoice plus journal entry when run against `DATABASE_URL`, which removed the earlier test-db and throwaway-org mismatch from browser continuity proof
+19. the post-closeout codebase review then found one active product gap and two active documentation gaps that should now be treated as Milestone 14 work rather than as silent drift:
+20. the backend still supports parked-request draft update, queue, cancel, amend, and delete actions, but the promoted Svelte runtime currently exposes only new-request creation plus read-only request detail continuity
+21. the inbound-request user guide still points at a nonexistent browser path for queue processing instead of the current operations-page action
+22. route and workflow docs still mix `/app/inbound-requests` and `/app/review/inbound-requests` in ways that no longer reflect the current promoted route family cleanly
+23. the shared desktop shell still needs one bounded layout correction so the sidebar starts directly under the top app bar and the contextual tabs begin over the main content column instead of across the far-left edge
+24. the promoted accounting area still lacks baseline operator financial statements such as trial balance, balance sheet, and income statement
+25. Milestone 14 should also review the application for nearby production-shape gaps and add clearly similar bounded capability where those additions materially improve readiness, correctness, or operator continuity
+26. the current contextual-tab and admin/accounting information architecture is still too noisy on several promoted pages, so Milestone 14 should move those areas toward grouped directory pages such as `Master Data`, `Lists`, and `Reports` with dedicated destination pages behind them
+27. the demo entity `North Harbor Works` still needs a standard chart of accounts and other essential master data so user testing and report review do not begin from an unrealistically empty org
+28. the first strong future milestone after Milestone 14 should be structured data exchange: CSV-first bulk master-data import plus CSV/Excel-compatible export for promoted lists and reports
 
 ## 2. Active implementation order
 
-1. treat Milestone 13 closeout as complete and keep `docs/workflows/` as the evidence source for that browser-review finish
-2. use the updated Playwright plus `cmd/verify-agent -database-url "$DATABASE_URL" -approval-flow` pattern as the default real-browser continuity proof for any future workflow-critical Svelte changes
-3. decide the next bounded v2 milestone instead of reopening completed milestone buckets broadly
+1. treat Milestone 13 implementation as delivered baseline and Milestone 14 as the active next bounded milestone
+2. start Milestone 14 with the review-gap corrective pass on inbound-request lifecycle support and documentation truth
+3. include the bounded shared-shell desktop layout correction in that first Milestone 14 corrective pass
+4. then apply the grouped-directory and dedicated-destination navigation model in the most crowded promoted areas, starting with Admin and then Accounting
+5. then land baseline accounting reports for trial balance, balance sheet, and income statement on the shared reporting seam and add similarly justified adjacent reporting capability when it is exposed as an obvious gap during implementation
+6. then seed `North Harbor Works` with the minimum realistic chart of accounts and master-data baseline needed for reports, lists, and bounded user testing
+7. then expand production-readiness verification where current tests are still too narrow for the real risk
+8. then execute the deferred live workflow-validation backlog against the corrected promoted runtime
+9. then make user-testing readiness explicit by documenting the supported testing posture, any remaining exclusions, and the workflow guidance testers should rely on
+10. use the updated Playwright plus `cmd/verify-agent -database-url "$DATABASE_URL" -approval-flow` pattern as the default real-browser continuity proof for future workflow-critical Svelte changes
 
-## 2.1 Active Slice 3 detail now kept in this tracker
+## 2.1 Current delivered baseline
 
-The next session should assume this Milestone 13 baseline is already landed:
+The next session should assume this pre-Milestone-14 baseline is already landed:
 
 1. `/app/settings` and the bounded admin family already have promoted Svelte continuity on shared backend seams
 2. exact Svelte detail routes already exist for inbound requests, approvals, proposals, documents, accounting, inventory, work orders, and audit
@@ -49,18 +66,32 @@ Use these supporting docs for the remaining closeout:
 1. `../docs/workflows/end_to_end_validation_checklist.md` for bounded real-seam validation steps
 2. `../docs/workflows/workflow_validation_track.md` for explicit validation evidence and blocker tracking
 
+## 2.2 Next future milestone candidate
+
+After Milestone 14, the next planned milestone candidate is Milestone 15:
+
+1. start with CSV-first bulk master-data import rather than native Excel workbook import
+2. use CSV upload for bounded bulk creation of records such as chart-of-accounts rows, parties, inventory items, and locations
+3. support export of promoted lists and reports in CSV
+4. support Excel-compatible export for key reports and lists where justified
+5. keep import validation, persistence, and auditability on the shared backend seam
+
 ## 3. Current decision gate
 
 The next implementation session should answer this in code and verification, not in more planning expansion:
 
-1. what bounded v2 milestone should follow Milestone 13 now that the served Svelte cutover and browser closeout are complete
-2. what backend or workflow-support seams deserve the next production-strength push
-3. what new workflow-validation evidence will be required for that next bounded milestone
+1. does the promoted Svelte runtime regain full parked-request lifecycle support, or is the browser contract intentionally narrowed and documented as such
+2. does the shared desktop shell land the bounded sidebar-versus-contextual-tab layout correction cleanly on the promoted runtime
+3. does the new grouped-directory contextual-tab model land cleanly in the crowded Admin and Accounting areas and improve operator clarity without creating unnecessary depth
+4. do baseline accounting reports land in a production-shape form on the shared reporting seam, and what adjacent similar report gaps should be closed in the same milestone
+5. does `North Harbor Works` gain the minimum realistic chart of accounts and master-data baseline needed for bounded user testing and meaningful report review
+6. what new tests are still required to move the delivered runtime closer to a production-ready and user-testing-ready quality bar
+7. what workflow-validation evidence and documentation updates are required to close Milestone 14 cleanly
 
 ## 4. Working rules
 
 1. treat completed milestones as historical context unless a real defect forces a bounded corrective slice
 2. keep new planning bounded to one coherent active concern at a time
 3. prefer implementation and verification over planning expansion when the next step is already clear
-4. keep the default active reading surface limited to the thin v2 docs in the root of `new_app_docs/`
+4. keep the default active reading surface limited to the v2 docs in the root of `new_app_docs/`
 5. if a detail is needed often during active work, keep it in the thin root docs rather than relying on repeated archive lookup

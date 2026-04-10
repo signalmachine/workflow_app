@@ -1,7 +1,7 @@
 # workflow_app Planning README
 
-Date: 2026-04-09
-Status: Canonical thin v2 planning surface for active implementation
+Date: 2026-04-10
+Status: Canonical v2 planning surface for active implementation
 Purpose: keep the active `new_app_docs/` working set small, directive, and focused on pending work.
 
 ## Why this folder exists
@@ -30,6 +30,8 @@ Read these in order for active implementation work:
 3. `new_app_architecture_v2.md`
 4. `new_app_implementation_defaults_v2.md`
 5. `new_app_execution_plan_v2.md`
+6. `milestone_14_production_readiness_and_workflow_validation_plan.md` when working on the current active milestone
+7. `milestone_15_data_exchange_and_bulk_import_plan.md` for the current future milestone candidate after Milestone 14
 
 Then use:
 
