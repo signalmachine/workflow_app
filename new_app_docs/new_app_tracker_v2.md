@@ -1,7 +1,7 @@
 # workflow_app Tracker V2
 
-Date: 2026-04-09
-Status: Thin-v1 is complete, Milestones 10 through 12 are implemented history, Milestone 13 Slice 1 and Slice 2 are implemented, and the active work is now the final Milestone 13 Slice 3 live desktop browser-review closeout after a bounded coordinator-provider corrective pass, a downstream-accounting exact-detail continuity pass, a shared-session approval-continuity verification pass, focused Svelte closeout coverage for route discovery, admin status controls, exact accounting-entry continuity, broader operator-entry plus utility plus detail-route browser-review component coverage, Playwright readiness for real browser-rendered route verification, and verification reruns
+Date: 2026-04-10
+Status: Thin-v1 is complete, Milestones 10 through 12 are implemented history, and Milestone 13 including Slice 3 browser-review closeout is now complete after the bounded coordinator-provider corrective pass, the downstream-accounting exact-detail continuity pass, the shared-session approval-continuity verification pass, the real-browser Playwright sweep on the served `/app` runtime, the admin-accounting corrective slice for tax-control selection, and the verify-agent continuity-seeding correction that now emits a posted document plus exact journal-entry continuity on the same browser-reviewed org
 Purpose: track the active implementation state, current sequencing, and immediate next steps without carrying full milestone history in the default context.
 
 ## 1. Current state
@@ -21,29 +21,28 @@ Purpose: track the active implementation state, current sequencing, and immediat
 13. focused Svelte route and component tests added on 2026-04-10 now assert multi-term route-catalog continuity, promoted admin accounting and inventory status controls, and exact accounting-entry drill-down from request and proposal detail before the final live browser sweep
 14. focused Go web-serving coverage added on 2026-04-10 now asserts SPA-shell fallback across the full promoted `/app` route family and exact detail routes so cutover regressions do not hide behind only a few shell-path checks
 15. additional focused Svelte route coverage added on 2026-04-10 now asserts the promoted login, settings, admin hub, admin access, admin party setup, operations landing, submit-inbound-request, operations feed, and exact approval, document, and accounting detail surfaces
-16. Playwright browser automation is now available in the local environment and should be treated as the default tool for the remaining browser-rendered `/app` verification work in the next implementation session
-17. Milestone 13 closeout is still not complete because the live desktop browser-review sweep still needs explicit evidence in `docs/workflows/`
+16. Playwright browser automation is now available in the local environment and is the default tool for future browser-rendered `/app` verification work
+17. the Milestone 13 desktop browser-review closeout passed on 2026-04-10 with four real-browser Playwright checks on the served `/app` seam covering desktop shell persistence, route-catalog continuity, admin maintenance and exact party detail, promoted route-family rendering, and exact request -> proposal -> approval -> document -> accounting continuity
+18. the real-browser closeout also exposed and closed two verification-support gaps on 2026-04-10: admin accounting tax-code creation now uses bounded control-account selectors instead of raw account-id text fields, and `cmd/verify-agent -approval-flow` now emits verification-org credentials and seeds a real posted invoice plus journal entry when run against `DATABASE_URL`, which removed the earlier test-db and throwaway-org mismatch from browser continuity proof
 
 ## 2. Active implementation order
 
-1. keep this doc cleanup as the completed prerequisite for the next implementation session
-2. complete the remaining Milestone 13 Slice 3 live desktop browser-review and workflow-validation closeout work on the shared Svelte plus Go seam, using Playwright as the default browser-review path in the next session
-3. keep the 2026-04-09 coordinator-provider corrective slice and verification rerun as the latest prerequisite already completed for that closeout
-4. keep `docs/workflows/` up to date with explicit browser-review and workflow-validation evidence
-5. after Milestone 13 closeout, decide the next bounded v2 milestone instead of reopening completed milestone buckets broadly
+1. treat Milestone 13 closeout as complete and keep `docs/workflows/` as the evidence source for that browser-review finish
+2. use the updated Playwright plus `cmd/verify-agent -database-url "$DATABASE_URL" -approval-flow` pattern as the default real-browser continuity proof for any future workflow-critical Svelte changes
+3. decide the next bounded v2 milestone instead of reopening completed milestone buckets broadly
 
 ## 2.1 Active Slice 3 detail now kept in this tracker
 
-The next session should assume this active Slice 3 baseline is already landed:
+The next session should assume this Milestone 13 baseline is already landed:
 
 1. `/app/settings` and the bounded admin family already have promoted Svelte continuity on shared backend seams
 2. exact Svelte detail routes already exist for inbound requests, approvals, proposals, documents, accounting, inventory, work orders, and audit
 3. migrated list, home, review-landing, and coordinator-chat surfaces already deep-link to exact detail routes where known identifiers exist
 4. the served Go runtime already embeds and serves the Svelte frontend at `/app`
 5. the retired template-browser `/app` layer has already been removed from the active codebase
-6. focused automated closeout coverage now exists for route discovery, admin status controls, exact accounting-entry continuity, promoted operator-entry plus utility plus detail-route browser-review component coverage, and promoted-route SPA fallback coverage, so the main remaining work is the real-seam desktop browser-review sweep plus any narrowly grouped corrective follow-up that that validation proves necessary
+6. focused automated closeout coverage now exists for route discovery, admin status controls, exact accounting-entry continuity, promoted operator-entry plus utility plus detail-route browser-review component coverage, promoted-route SPA fallback coverage, and the real-seam desktop browser-review sweep
 7. the promoted request and proposal detail surfaces already include exact downstream accounting-entry continuity when the shared reporting seam exposes a posted journal entry for the linked document
-8. the next session should prefer Playwright-driven browser review on the served `/app` runtime over adding more indirect HTTP-only or component-only evidence for Milestone 13 closeout
+8. Playwright-driven browser review on the served `/app` runtime should remain the preferred closeout path over adding more indirect HTTP-only or component-only evidence when future workflow-critical UI slices land
 
 Use these supporting docs for the remaining closeout:
 
@@ -54,9 +53,9 @@ Use these supporting docs for the remaining closeout:
 
 The next implementation session should answer this in code and verification, not in more planning expansion:
 
-1. what exact Slice 3 parity or cutover gaps still remain on `/app` and `/api/...`
-2. what bounded backend or workflow-support seams are still required to close those gaps cleanly
-3. what workflow-validation evidence is still missing once that code lands
+1. what bounded v2 milestone should follow Milestone 13 now that the served Svelte cutover and browser closeout are complete
+2. what backend or workflow-support seams deserve the next production-strength push
+3. what new workflow-validation evidence will be required for that next bounded milestone
 
 ## 4. Working rules
 

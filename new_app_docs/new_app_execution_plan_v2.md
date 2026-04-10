@@ -1,7 +1,7 @@
 # workflow_app Execution Plan V2
 
-Date: 2026-04-09
-Status: Active execution order after archive reset, with the 2026-04-09 coordinator-provider corrective slice, approval-continuity verification pass, the 2026-04-10 focused Svelte closeout coverage passes, Playwright readiness for real browser-rendered route verification, and verification reruns completed ahead of the remaining live browser-review closeout
+Date: 2026-04-10
+Status: Active execution order after archive reset, with the 2026-04-09 coordinator-provider corrective slice, the approval-continuity verification pass, the 2026-04-10 focused Svelte closeout coverage passes, the real-browser Playwright closeout, and the verify-agent posted-accounting continuity seed now completed for Milestone 13
 Purpose: define the current execution order without carrying the full completed milestone narrative in the default context.
 
 ## 1. Completed baseline
@@ -14,9 +14,9 @@ Purpose: define the current execution order without carrying the full completed 
 
 ## 2. Active execution order
 
-1. complete the remaining Milestone 13 Slice 3 implementation work
-2. verify the resulting Svelte cutover and shared backend continuity
-3. update durable workflow-validation material in `docs/workflows/`
+1. treat Milestone 13 as closed with real-browser evidence and posted-accounting continuity proof
+2. preserve the closeout lessons below as the default verification shape for the next workflow-critical browser slice
+3. update durable workflow-validation material in `docs/workflows/` whenever that next slice changes supported operator truth
 4. then promote one next bounded v2 milestone based on real remaining product or architecture need
 
 ## 2.1 Milestone 13 Slice 3 active checkpoint
@@ -31,11 +31,11 @@ The implemented Slice 3 baseline already includes:
 6. Go serving of the embedded Svelte runtime at `/app`
 7. retirement of the old template-based `/app` serving path and its compatibility branch
 
-Remaining Slice 3 closeout is intentionally narrow:
+Milestone 13 Slice 3 closeout was intentionally narrow and is now complete:
 
-1. bounded real-seam desktop browser review on the current `/app` runtime, with Playwright now treated as the default execution path for that sweep in the next session
+1. bounded real-seam desktop browser review on the current `/app` runtime, with Playwright used as the default execution path
 2. workflow-checklist and evidence updates in `docs/workflows/`
-3. one grouped corrective slice only if that browser sweep exposes a real defect or missing support seam
+3. one grouped corrective slice where the browser sweep exposed a real defect or missing support seam
 
 Completed prerequisite recorded on 2026-04-09:
 
@@ -51,6 +51,11 @@ Completed prerequisite recorded on 2026-04-10:
 3. an additional focused Svelte route pass now asserts the promoted login, settings, admin hub, admin access, admin party setup, operations landing, submit-inbound-request, operations feed, and exact approval, document, and accounting detail surfaces
 4. Playwright browser automation is now available locally, so the next closeout session should spend its browser-validation effort on the real served runtime instead of widening indirect coverage again unless the Playwright sweep exposes a concrete new gap
 5. `npm --prefix web test -- page.test.ts page_detail.test.ts navigation.test.ts inventory/page.test.ts agent-chat/page.test.ts review/page.test.ts admin/accounting/page.test.ts admin/inventory/page.test.ts routes/page.test.ts`, `npm --prefix web test -- 'src/routes/(public)/login/page.test.ts' 'src/routes/(app)/settings/page.test.ts' 'src/routes/(app)/admin/page.test.ts' 'src/routes/(app)/admin/access/page.test.ts' 'src/routes/(app)/admin/parties/page.test.ts' 'src/routes/(app)/operations/page.test.ts' 'src/routes/(app)/submit-inbound-request/page.test.ts' 'src/routes/(app)/operations-feed/page.test.ts' 'src/routes/(app)/review/approvals/page_detail.test.ts' 'src/routes/(app)/review/documents/page_detail.test.ts' 'src/routes/(app)/review/accounting/page_detail.test.ts'`, focused `go test ./internal/app -run '^(TestRegisterWebRoutesServesSPAFallback|TestRegisterWebRoutesServesSPAFallbackAcrossPromotedRouteFamilies|TestHandleSvelteAppServesIndexAtAppRoot|TestHandleSvelteAppServesHeadRequests|TestHandleSvelteAppServesEmbeddedJSAsset|TestHandleSvelteAppDoesNotFallbackForMissingStaticAsset|TestNewAgentAPIHandlerWithDependenciesServesSvelteShell)$'`, `npm --prefix web run check`, and `git diff --check` all passed for that closeout-coverage slice
+6. the final Playwright closeout also established four durable rules for future sessions:
+   a. run the served app and any verification seed command against the same backend explicitly, especially when `cmd/verify-agent` would otherwise prefer `TEST_DATABASE_URL`
+   b. rebuild `web/` into `internal/app/web_dist` and restart `cmd/app` before diagnosing stale-browser failures on the embedded runtime
+   c. seed commands that create dedicated verification orgs must print the exact browser credentials and continuity ids needed for the browser proof
+   d. browser route sweeps should assert stable page contracts and exact ids rather than overfitting to editable copy
 
 ## 3. Promotion rule for the next milestone
 
@@ -65,3 +70,4 @@ Completed prerequisite recorded on 2026-04-10:
 3. for Milestone 13 closeout, verification must include frontend checks, canonical Go verification, and bounded end-to-end validation on the real served Svelte runtime
 4. browser-serving changes must be checked for real asset serving, correct SPA fallback behavior, and one bounded browser smoke pass on `/app`
 5. when Playwright is available locally, prefer it for the Milestone 13 real browser-review sweep rather than treating manual route clicking as the default first path
+6. for future workflow-critical browser closeout, record the exact seed command, backend target, org slug, actor credentials, and continuity ids used for the pass in the same change that records the evidence

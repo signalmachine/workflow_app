@@ -16,6 +16,7 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"workflow_app/internal/accounting"
 	"workflow_app/internal/ai"
 	"workflow_app/internal/app"
 	"workflow_app/internal/attachments"
@@ -118,6 +119,13 @@ func main() {
 	fmt.Printf("artifact_id=%s\n", result.Artifact.ID)
 	fmt.Printf("recommendation_id=%s\n", result.Recommendation.ID)
 	fmt.Printf("recommendation_summary=%s\n", result.Recommendation.Summary)
+	fmt.Printf("verification_org_slug=%s\n", identity.OrgSlug)
+	fmt.Printf("verification_admin_email=%s\n", identity.Admin.Email)
+	fmt.Printf("verification_admin_password=%s\n", identity.Admin.Password)
+	fmt.Printf("verification_operator_email=%s\n", identity.Operator.Email)
+	fmt.Printf("verification_operator_password=%s\n", identity.Operator.Password)
+	fmt.Printf("verification_approver_email=%s\n", identity.Approver.Email)
+	fmt.Printf("verification_approver_password=%s\n", identity.Approver.Password)
 
 	if approvalFlow {
 		continuity, err := verifyApprovalContinuity(ctx, db, identity, request)
@@ -130,6 +138,7 @@ func main() {
 		fmt.Printf("continuity_approval_id=%s\n", continuity.ApprovalID)
 		fmt.Printf("continuity_approval_status=%s\n", continuity.ApprovalStatus)
 		fmt.Printf("continuity_document_status=%s\n", continuity.DocumentStatus)
+		fmt.Printf("continuity_journal_entry_id=%s\n", continuity.JournalEntryID)
 	}
 }
 
@@ -145,6 +154,7 @@ type verificationRequestInput struct {
 type verificationIdentity struct {
 	OrgID    string
 	OrgSlug  string
+	Admin    verificationUser
 	Operator verificationUser
 	Approver verificationUser
 }
@@ -166,6 +176,7 @@ type continuityResult struct {
 	ApprovalID       string
 	ApprovalStatus   string
 	DocumentStatus   string
+	JournalEntryID   string
 }
 
 func createVerificationIdentity(ctx context.Context, db *sql.DB) (verificationIdentity, error) {
@@ -182,6 +193,18 @@ func createVerificationIdentity(ctx context.Context, db *sql.DB) (verificationId
 	}
 
 	authService := identityaccess.NewService(db)
+
+	admin, err := createVerificationUser(ctx, db, authService, createVerificationUserInput{
+		OrgID:       orgID,
+		OrgSlug:     orgSlug,
+		EmailPrefix: "verify-agent-admin",
+		DisplayName: "Verify Agent Admin",
+		RoleCode:    identityaccess.RoleAdmin,
+		DeviceLabel: "verify-agent-admin",
+	})
+	if err != nil {
+		return verificationIdentity{}, err
+	}
 
 	operator, err := createVerificationUser(ctx, db, authService, createVerificationUserInput{
 		OrgID:       orgID,
@@ -210,6 +233,7 @@ func createVerificationIdentity(ctx context.Context, db *sql.DB) (verificationId
 	return verificationIdentity{
 		OrgID:    orgID,
 		OrgSlug:  orgSlug,
+		Admin:    admin,
 		Operator: operator,
 		Approver: approver,
 	}, nil
@@ -467,23 +491,93 @@ func verifyApprovalContinuity(ctx context.Context, db *sql.DB, identity verifica
 		return continuityResult{}, fmt.Errorf("document detail did not expose the expected upstream request/proposal continuity")
 	}
 
+	documentService := documents.NewService(db)
+	accountingService := accounting.NewService(db, documentService)
+
+	receivable, err := accountingService.CreateLedgerAccount(ctx, accounting.CreateLedgerAccountInput{
+		Code:                "1100",
+		Name:                "Accounts Receivable",
+		AccountClass:        accounting.AccountClassAsset,
+		ControlType:         accounting.ControlTypeReceivable,
+		AllowsDirectPosting: false,
+		Actor:               identity.Admin.Actor,
+	})
+	if err != nil {
+		return continuityResult{}, fmt.Errorf("create receivable account: %w", err)
+	}
+
+	revenue, err := accountingService.CreateLedgerAccount(ctx, accounting.CreateLedgerAccountInput{
+		Code:         "4000",
+		Name:         "Service Revenue",
+		AccountClass: accounting.AccountClassRevenue,
+		Actor:        identity.Admin.Actor,
+	})
+	if err != nil {
+		return continuityResult{}, fmt.Errorf("create revenue account: %w", err)
+	}
+
+	entry, _, postedDocument, err := accountingService.PostDocument(ctx, accounting.PostDocumentInput{
+		DocumentID:   proposal.DocumentID,
+		Summary:      "Post verify-agent continuity document",
+		CurrencyCode: "INR",
+		TaxScopeCode: accounting.TaxScopeNone,
+		Lines: []accounting.PostingLineInput{
+			{AccountID: receivable.ID, Description: "Customer receivable", DebitMinor: 150000},
+			{AccountID: revenue.ID, Description: "Recognized revenue", CreditMinor: 150000},
+		},
+		Actor: identity.Admin.Actor,
+	})
+	if err != nil {
+		return continuityResult{}, fmt.Errorf("post continuity document: %w", err)
+	}
+	if postedDocument.Status != documents.StatusPosted {
+		return continuityResult{}, fmt.Errorf("posted continuity document did not reach posted status")
+	}
+
+	var journalDetail struct {
+		EntryID          string  `json:"entry_id"`
+		DocumentID       *string `json:"source_document_id"`
+		RequestReference *string `json:"request_reference"`
+		RecommendationID *string `json:"recommendation_id"`
+		ApprovalID       *string `json:"approval_id"`
+	}
+	if err := performJSON(handler, operatorCookies, http.MethodGet, "/api/review/accounting/journal-entries/"+entry.ID, nil, http.StatusOK, &journalDetail); err != nil {
+		return continuityResult{}, fmt.Errorf("load journal detail: %w", err)
+	}
+	if journalDetail.EntryID != entry.ID || journalDetail.DocumentID == nil || *journalDetail.DocumentID != proposal.DocumentID {
+		return continuityResult{}, fmt.Errorf("journal detail did not expose the expected document continuity")
+	}
+	if journalDetail.RequestReference == nil || *journalDetail.RequestReference != request.RequestReference {
+		return continuityResult{}, fmt.Errorf("journal detail did not expose the expected request continuity")
+	}
+	if journalDetail.RecommendationID == nil || *journalDetail.RecommendationID != proposal.RecommendationID {
+		return continuityResult{}, fmt.Errorf("journal detail did not expose the expected recommendation continuity")
+	}
+	if journalDetail.ApprovalID == nil || *journalDetail.ApprovalID != approvalResponse.ApprovalID {
+		return continuityResult{}, fmt.Errorf("journal detail did not expose the expected approval continuity")
+	}
+
 	return continuityResult{
 		RecommendationID: proposal.RecommendationID,
 		DocumentID:       proposal.DocumentID,
 		ApprovalID:       approvalResponse.ApprovalID,
 		ApprovalStatus:   approvalDetail.ApprovalStatus,
-		DocumentStatus:   decisionResponse.DocumentStatus,
+		DocumentStatus:   string(postedDocument.Status),
+		JournalEntryID:   entry.ID,
 	}, nil
 }
 
 func createApprovalContinuityProposal(ctx context.Context, db *sql.DB, actor identityaccess.Actor, request intake.InboundRequest) (continuityProposal, error) {
+	accountingService := accounting.NewService(db, documents.NewService(db))
 	documentService := documents.NewService(db)
 	aiService := ai.NewService(db)
 
-	doc, err := documentService.CreateDraft(ctx, documents.CreateDraftInput{
-		TypeCode: "invoice",
-		Title:    "Verify agent continuity document",
-		Actor:    actor,
+	doc, _, err := accountingService.CreateInvoice(ctx, accounting.CreateInvoiceInput{
+		Title:        "Verify agent continuity document",
+		InvoiceRole:  accounting.InvoiceRoleSales,
+		CurrencyCode: "INR",
+		Summary:      "Verify agent continuity document",
+		Actor:        actor,
 	})
 	if err != nil {
 		return continuityProposal{}, fmt.Errorf("create continuity document: %w", err)

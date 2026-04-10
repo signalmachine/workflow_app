@@ -45,6 +45,32 @@
 		end_on: ''
 	});
 
+	const receivableControlTypeByTaxType = {
+		gst: 'gst_input',
+		tds: 'tds_receivable'
+	} as const;
+
+	const payableControlTypeByTaxType = {
+		gst: 'gst_output',
+		tds: 'tds_payable'
+	} as const;
+
+	const receivableAccountOptions = $derived.by(() =>
+		data.ledgerAccounts.filter(
+			(account) =>
+				account.status === 'active' &&
+				account.control_type === receivableControlTypeByTaxType[taxForm.tax_type]
+		)
+	);
+
+	const payableAccountOptions = $derived.by(() =>
+		data.ledgerAccounts.filter(
+			(account) =>
+				account.status === 'active' &&
+				account.control_type === payableControlTypeByTaxType[taxForm.tax_type]
+		)
+	);
+
 	function setErrorMessage(value: unknown, fallback: string): void {
 		error = value instanceof Error ? value.message : fallback;
 		notice = '';
@@ -84,10 +110,16 @@
 		event.preventDefault();
 		submitting = true;
 		try {
+			const receivableAccountID = taxForm.receivable_account_id.trim() || undefined;
+			const payableAccountID = taxForm.payable_account_id.trim() || undefined;
+			if (!receivableAccountID && !payableAccountID) {
+				throw new Error('Select at least one matching control account before creating a tax code.');
+			}
+
 			await createTaxCode({
 				...taxForm,
-				receivable_account_id: taxForm.receivable_account_id.trim() || undefined,
-				payable_account_id: taxForm.payable_account_id.trim() || undefined
+				receivable_account_id: receivableAccountID,
+				payable_account_id: payableAccountID
 			});
 			taxForm = {
 				code: '',
@@ -103,6 +135,11 @@
 		} finally {
 			submitting = false;
 		}
+	}
+
+	function resetTaxControlSelections(): void {
+		taxForm.receivable_account_id = '';
+		taxForm.payable_account_id = '';
 	}
 
 	async function submitAccountingPeriod(event: SubmitEvent): Promise<void> {
@@ -188,14 +225,29 @@
 			<form class="admin-form" onsubmit={submitTaxCode}>
 				<input bind:value={taxForm.code} placeholder="Code" required />
 				<input bind:value={taxForm.name} placeholder="Name" required />
-				<select bind:value={taxForm.tax_type}>
+				<select bind:value={taxForm.tax_type} onchange={resetTaxControlSelections}>
 					{#each taxTypeOptions as option (option)}
 						<option value={option}>{option}</option>
 					{/each}
 				</select>
 				<input bind:value={taxForm.rate_basis_points} min="0" placeholder="Rate basis points" required type="number" />
-				<input bind:value={taxForm.receivable_account_id} placeholder="Receivable account id" />
-				<input bind:value={taxForm.payable_account_id} placeholder="Payable account id" />
+				<select bind:value={taxForm.receivable_account_id}>
+					<option value="">Optional receivable control account</option>
+					{#each receivableAccountOptions as account (account.id)}
+						<option value={account.id}>{account.code} · {account.name}</option>
+					{/each}
+				</select>
+				<select bind:value={taxForm.payable_account_id}>
+					<option value="">Optional payable control account</option>
+					{#each payableAccountOptions as account (account.id)}
+						<option value={account.id}>{account.code} · {account.name}</option>
+					{/each}
+				</select>
+				{#if receivableAccountOptions.length === 0 && payableAccountOptions.length === 0}
+					<p class="muted-copy">
+						Create an active {taxForm.tax_type === 'gst' ? 'GST input or GST output' : 'TDS receivable or TDS payable'} ledger account first so the tax code can link to a valid control account.
+					</p>
+				{/if}
 				<button disabled={submitting} type="submit">Create tax code</button>
 			</form>
 		</SurfaceCard>

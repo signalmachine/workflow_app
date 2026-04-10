@@ -49,19 +49,31 @@ For one deeper exact request -> proposal -> approval -> document continuity pass
 set -a; source .env; set +a; go run ./cmd/verify-agent -approval-flow
 ```
 
+For one deeper exact request -> proposal -> approval -> document -> accounting continuity pass on the same backend the served app is using:
+
+```bash
+set -a; source .env; set +a; go run ./cmd/verify-agent -database-url "$DATABASE_URL" -approval-flow
+```
+
 For focused live provider integration in the app seam:
 
 ```bash
 set -a; source .env; set +a; go test -tags integration -count=1 ./internal/app -run TestOpenAIAgentProcessorLiveIntegration -v
 ```
 
-These are not interchangeable. The build verifies compilation, the test command verifies the DB-backed suite, `cmd/verify-agent` exercises the real provider seam, and `cmd/verify-agent -approval-flow` extends that live verification by creating one deterministic approval-ready proposal on the processed verification request and confirming exact continuity through the shared session plus `/api/...` path.
+These are not interchangeable. The build verifies compilation, the test command verifies the DB-backed suite, `cmd/verify-agent` exercises the real provider seam, `cmd/verify-agent -approval-flow` confirms exact request -> proposal -> approval -> document continuity, and `cmd/verify-agent -database-url "$DATABASE_URL" -approval-flow` is the canonical path when the browser proof must continue through one exact posted journal-entry route on the same backend the served app is using.
 
 `cmd/verify-agent` needs both a database URL and OpenAI credentials:
 
 1. `TEST_DATABASE_URL` or `DATABASE_URL`
 2. `OPENAI_API_KEY`
 3. `OPENAI_MODEL`
+
+Important backend-target rule learned during the 2026-04-10 browser closeout:
+
+1. `cmd/verify-agent` prefers `TEST_DATABASE_URL` over `DATABASE_URL` when no explicit `-database-url` flag is passed
+2. `cmd/app` serves against its normal runtime database, so browser proof and verify-agent proof can silently diverge if the seed command is allowed to default to the test database
+3. when Playwright or manual browser review must validate seeded continuity on the served app, pass `-database-url "$DATABASE_URL"` explicitly or otherwise prove that both commands are hitting the same backend
 
 Repository rule for workflow-critical AI validation:
 
@@ -126,6 +138,14 @@ Examples:
 4. browser detail pages that must preserve exact request continuity
 
 For those cases, use the workflow-reference docs in `docs/workflows/` and validate the real seam instead of assuming the service layer is enough.
+
+For workflow-critical browser closeout on the served Svelte runtime:
+
+1. prefer Playwright when available
+2. if the served Go app embeds `internal/app/web_dist`, rebuild the frontend artifact and restart the app before diagnosing apparent browser regressions
+3. if the continuity proof uses a dedicated verification org instead of the default admin org, log in with the exact credentials emitted by the seed command instead of assuming one long-lived local admin actor can see the same records
+4. prefer route assertions based on stable headings, bounded primary actions, exact ids, and review-link contracts over brittle text markers that are likely to drift during UI copy cleanup
+5. record the exact seed command, org slug, user email, request reference, and continuity ids used for the pass so the proof can be repeated without rediscovery
 
 If the workflow depends on AI-provider behavior, validate it against the actual OpenAI API when `.env` provides the required credentials instead of relying only on mocked or offline provider paths.
 

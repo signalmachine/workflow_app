@@ -13,6 +13,15 @@ const baseData = {
 			control_type: 'receivable',
 			status: 'active',
 			updated_at: '2026-04-09T12:00:00Z'
+		},
+		{
+			id: 'ledger-2',
+			code: 'GST2000',
+			name: 'GST Payable',
+			account_class: 'liability',
+			control_type: 'gst_output',
+			status: 'active',
+			updated_at: '2026-04-09T12:00:00Z'
 		}
 	],
 	taxCodes: [
@@ -43,8 +52,10 @@ describe('admin accounting page', () => {
 		render(AdminAccountingPage, { props: { data: baseData } as never });
 
 		expect(screen.getByText('Accounting setup')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Mark inactive' })).toBeTruthy();
+		expect(screen.getAllByRole('button', { name: 'Mark inactive' })).toHaveLength(2);
 		expect(screen.getByRole('button', { name: 'Mark active' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Close period' })).toBeTruthy();
+		expect(screen.getByRole('option', { name: 'GST2000 · GST Payable' })).toBeTruthy();
+		expect(screen.queryByPlaceholderText('Payable account id')).toBeNull();
 	});
 });

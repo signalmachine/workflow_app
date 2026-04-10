@@ -1,6 +1,6 @@
 # workflow_app Implementation Defaults V2
 
-Date: 2026-04-09
+Date: 2026-04-10
 Status: Active canonical defaults
 Purpose: record the defaults that active implementation should preserve unless the thin v2 planning surface is intentionally updated.
 
@@ -41,3 +41,7 @@ Purpose: record the defaults that active implementation should preserve unless t
 4. when a durable workflow or validation checklist exists in `docs/workflows/`, use it and update it when workflow truth changes
 5. when implementation reveals drift or weak architecture, fix it or record an explicit active plan rather than leaving silent debt
 6. when Playwright is available locally and the open risk is actual browser-rendered behavior on `/app`, prefer Playwright-driven verification over adding more indirect HTTP-only or component-only evidence first
+7. when the served app and a verification seed command both participate in one browser closeout, make them target the same backend explicitly; do not rely on implicit `TEST_DATABASE_URL` versus `DATABASE_URL` precedence
+8. when browser continuity proof depends on seeded records in a dedicated verification org, the seed command should emit the exact org slug, actor credentials, and continuity ids needed by Playwright rather than expecting reviewers to infer them
+9. when the served Go runtime embeds `internal/app/web_dist`, rebuild the frontend artifact and restart the app before treating a browser failure as a product defect
+10. prefer stable browser assertions based on route contracts, headings, bounded actions, and exact drill-down ids over brittle copy-only markers that are likely to drift during normal UX refinement
