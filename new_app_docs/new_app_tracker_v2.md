@@ -34,12 +34,14 @@ Purpose: track the active implementation state, current sequencing, and immediat
 26. the current contextual-tab and admin/accounting information architecture is still too noisy on several promoted pages, so Milestone 14 should move those areas toward grouped directory pages such as `Master Data`, `Lists`, and `Reports` with dedicated destination pages behind them
 27. the demo entity `North Harbor Works` still needs a standard chart of accounts and other essential master data so user testing and report review do not begin from an unrealistically empty org
 28. the first strong future milestone after Milestone 14 should be structured data exchange: CSV-first bulk master-data import plus CSV/Excel-compatible export for promoted lists and reports
+29. the first Milestone 14 Slice 1 checkpoint is now landed on 2026-04-10: exact inbound-request detail exposes draft save plus queue plus delete controls and queued cancel plus amend controls through the existing shared `/api/inbound-requests/{request_id}/{action}` seam, the desktop shell now places contextual tabs over the main content column instead of across the far-left edge, and focused Svelte checks for those new browser contracts now pass
+30. the remainder of Slice 1 is still open and should resume with documentation-truth cleanup plus any list-surface or grouped-destination follow-through needed to make the inbound-request lifecycle guidance and promoted Admin or Accounting navigation contracts match the current runtime cleanly
 
 ## 2. Active implementation order
 
 1. treat Milestone 13 implementation as delivered baseline and Milestone 14 as the active next bounded milestone
-2. start Milestone 14 with the review-gap corrective pass on inbound-request lifecycle support and documentation truth
-3. include the bounded shared-shell desktop layout correction in that first Milestone 14 corrective pass
+2. continue Milestone 14 Slice 1 from the now-landed request-detail lifecycle plus shell-layout checkpoint and finish the remaining documentation-truth and navigation-cleanup work for that slice
+3. complete the inbound-request lifecycle documentation truth pass and any remaining list-surface continuity corrections before broadening Slice 1 further
 4. then apply the grouped-directory and dedicated-destination navigation model in the most crowded promoted areas, starting with Admin and then Accounting
 5. then land baseline accounting reports for trial balance, balance sheet, and income statement on the shared reporting seam and add similarly justified adjacent reporting capability when it is exposed as an obvious gap during implementation
 6. then seed `North Harbor Works` with the minimum realistic chart of accounts and master-data baseline needed for reports, lists, and bounded user testing

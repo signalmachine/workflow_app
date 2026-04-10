@@ -37,7 +37,7 @@ Open the request detail page for the stable `REQ-...` reference, for example:
 From the draft detail view, you should be able to:
 
 1. continue editing the same draft
-2. add or replace draft content
+2. add more draft content and attachments from the same detail page
 3. keep the request parked until it is ready
 
 The request reference should stay stable while the request remains in draft, queued, or processed states.
@@ -48,7 +48,8 @@ From the request detail page:
 
 1. queue the draft when it is ready for AI processing
 2. cancel the request if it should not be processed
-3. delete the request only if it is still an unprocessed draft and the UI allows hard deletion
+3. amend a queued, cancelled, or failed pre-processing request back to draft when the UI offers that control
+4. delete the request only if it is still an unprocessed draft and the UI allows hard deletion
 
 If a request has already moved into processing or has been processed, do not expect the draft-only delete action to remain available.
 
@@ -56,10 +57,8 @@ If a request has already moved into processing or has been processed, do not exp
 
 Use the processing action when you want the next queued request handled by the coordinator:
 
-1. browser path: `/app/agent/process-next-queued-inbound-request`
+1. browser surface: `/app/operations`, using the `Process next queued request` action
 2. API path: `POST /api/agent/process-next-queued-inbound-request`
-
-The browser route is a POST trigger, not a browsable GET page.
 
 After processing, check the request record for:
 

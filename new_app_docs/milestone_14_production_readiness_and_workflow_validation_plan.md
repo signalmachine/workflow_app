@@ -102,6 +102,12 @@ Stop rule:
 1. stop once the promoted browser contract and the documentation contract match again for inbound-request lifecycle support
 2. carry the first bounded navigation-structure correction far enough that the promoted shell direction is explicit and ready for the broader Milestone 14 information-architecture pass
 
+Current checkpoint recorded on 2026-04-10:
+
+1. the exact inbound-request detail route now exposes the shared backend-owned parked-request lifecycle controls directly in Svelte: draft save plus queue plus delete, and queued cancel plus amend-back-to-draft
+2. the bounded shared-shell desktop layout correction is also landed: the sidebar remains directly under the top app bar while the contextual tabs now begin over the main content column
+3. focused frontend verification for the new mutation clients, request-detail lifecycle controls, and shell layout contract passed, but Slice 1 remains open until the workflow and user-guide truth pass plus the next grouped navigation cleanup step are completed
+
 ### 5.2 Slice 2: production-readiness test expansion
 
 Goal:

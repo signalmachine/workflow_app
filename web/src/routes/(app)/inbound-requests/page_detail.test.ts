@@ -1,10 +1,15 @@
-import { render, screen } from '@testing-library/svelte';
-import { describe, expect, it } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/svelte';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import InboundRequestDetailPage from './[requestLookup]/+page.svelte';
 
+afterEach(() => {
+	cleanup();
+});
+
 const baseData = {
 	request: {
+		request_id: 'req-1',
 		request_reference: 'REQ-1001',
 		status: 'processed',
 		channel: 'browser',
@@ -67,12 +72,45 @@ const baseData = {
 };
 
 describe('inbound request detail page', () => {
+	it('shows draft lifecycle controls when the request is still editable', () => {
+		render(InboundRequestDetailPage, {
+			props: {
+				data: {
+					...baseData,
+					request: {
+						...baseData.request,
+						status: 'draft'
+					}
+				}
+			} as never
+		});
+
+		expect(screen.getByRole('button', { name: 'Save draft changes' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Queue updated draft' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Delete draft' })).toBeTruthy();
+	});
+
+	it('shows queued-request cancellation and amendment controls', () => {
+		render(InboundRequestDetailPage, {
+			props: {
+				data: {
+					...baseData,
+					request: {
+						...baseData.request,
+						status: 'queued'
+					}
+				}
+			} as never
+		});
+
+		expect(screen.getByRole('button', { name: 'Cancel queued request' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Amend back to draft' })).toBeTruthy();
+	});
+
 	it('prefers exact accounting-entry drill-down when the journal entry is already known', () => {
 		render(InboundRequestDetailPage, { props: { data: baseData } as never });
 
-		expect(screen.getByRole('link', { name: 'Open latest proposal' }).getAttribute('href')).toBe(
-			'/app/review/proposals/proposal-1'
-		);
+		expect(screen.getAllByRole('link', { name: 'Open latest proposal' }).at(-1)?.getAttribute('href')).toBe('/app/review/proposals/proposal-1');
 		expect(
 			screen.getByRole('link', { name: 'Open accounting entry #912' }).getAttribute('href')
 		).toBe('/app/review/accounting/entry-1');

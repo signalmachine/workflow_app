@@ -1,14 +1,37 @@
 <script lang="ts">
+	import { goto, invalidateAll } from '$app/navigation';
 	import type { PageProps } from './$types';
 
+	import {
+		amendInboundRequest,
+		cancelInboundRequest,
+		deleteInboundDraft,
+		queueInboundRequest,
+		saveInboundDraft
+	} from '$lib/api/inbound';
+	import type { InboundRequestMessage, ProcessedProposalReview } from '$lib/api/types';
 	import PageHeader from '$lib/components/layout/PageHeader.svelte';
 	import StatusBadge from '$lib/components/primitives/StatusBadge.svelte';
 	import SurfaceCard from '$lib/components/primitives/SurfaceCard.svelte';
+	import { fileToBase64 } from '$lib/utils/files';
 	import { formatDateTime } from '$lib/utils/format';
-	import { accountingEntryDetail, approvalDetail, documentDetail, inboundRequestDetail, proposalDetail, routes, withQuery } from '$lib/utils/routes';
-	import type { ProcessedProposalReview } from '$lib/api/types';
+	import {
+		accountingEntryDetail,
+		approvalDetail,
+		documentDetail,
+		inboundRequestDetail,
+		proposalDetail,
+		routes,
+		withQuery
+	} from '$lib/utils/routes';
 
 	let { data }: PageProps = $props();
+
+	let savingDraft = $state(false);
+	let mutatingLifecycle = $state(false);
+	let mutationError = $state('');
+	let mutationNotice = $state('');
+	let newAttachments = $state<FileList | null>(null);
 
 	const latestProposal = $derived.by(() =>
 		data.proposals.reduce<ProcessedProposalReview | null>((latest, proposal) => {
@@ -19,8 +42,147 @@
 		}, null)
 	);
 
+	const latestMessage = $derived.by<InboundRequestMessage | null>(() =>
+		data.messages.reduce<InboundRequestMessage | null>((latest, message) => {
+			if (latest === null) {
+				return message;
+			}
+			return message.message_index > latest.message_index ? message : latest;
+		}, null)
+	);
+
+	const canEditDraft = $derived(data.request.status === 'draft');
+	const canCancelQueued = $derived(data.request.status === 'queued');
+	const canDeleteDraft = $derived(data.request.status === 'draft');
+	const canAmendRequest = $derived(['queued', 'cancelled', 'failed'].includes(data.request.status));
+	const currentSubmitterLabel = $derived(
+		typeof data.request.metadata.submitter_label === 'string' ? data.request.metadata.submitter_label : ''
+	);
+	const currentDraftMessageText = $derived(latestMessage?.text_content ?? '');
+	const currentCancelReason = $derived(data.request.cancellation_reason ?? '');
+
+	type RequestFieldOverride = { requestID: string; value: string } | null;
+
+	let submitterLabelOverride = $state<RequestFieldOverride>(null);
+	let draftMessageTextOverride = $state<RequestFieldOverride>(null);
+	let cancelReasonOverride = $state<RequestFieldOverride>(null);
+
+	const submitterLabel = $derived(
+		submitterLabelOverride?.requestID === data.request.request_id
+			? submitterLabelOverride.value
+			: currentSubmitterLabel
+	);
+	const draftMessageText = $derived(
+		draftMessageTextOverride?.requestID === data.request.request_id
+			? draftMessageTextOverride.value
+			: currentDraftMessageText
+	);
+	const cancelReason = $derived(
+		cancelReasonOverride?.requestID === data.request.request_id
+			? cancelReasonOverride.value
+			: currentCancelReason
+	);
+
 	function formatJSON(value: Record<string, unknown>): string {
 		return JSON.stringify(value, null, 2);
+	}
+
+	async function buildAttachments() {
+		const files = Array.from(newAttachments ?? []);
+		return Promise.all(
+			files.map(async (file) => ({
+				original_file_name: file.name,
+				media_type: file.type || 'application/octet-stream',
+				content_base64: await fileToBase64(file),
+				link_role: 'evidence'
+			}))
+		);
+	}
+
+	async function refreshDetail(notice: string): Promise<void> {
+		mutationNotice = notice;
+		submitterLabelOverride = null;
+		draftMessageTextOverride = null;
+		cancelReasonOverride = null;
+		newAttachments = null;
+		await invalidateAll();
+	}
+
+	async function handleSaveDraft(queueAfterSave: boolean): Promise<void> {
+		if (!canEditDraft) {
+			return;
+		}
+		savingDraft = true;
+		mutationError = '';
+		mutationNotice = '';
+		try {
+			await saveInboundDraft(data.request.request_id, {
+				message_id: latestMessage?.message_id,
+				origin_type: data.request.origin_type,
+				channel: data.request.channel,
+				metadata: {
+					...data.request.metadata,
+					submitter_label: submitterLabel
+				},
+				message: {
+					message_role: latestMessage?.message_role ?? 'request',
+					text_content: draftMessageText
+				},
+				attachments: await buildAttachments()
+			});
+			if (queueAfterSave) {
+				await queueInboundRequest(data.request.request_id);
+				await refreshDetail('Draft saved and queued for review.');
+				return;
+			}
+			await refreshDetail('Draft changes saved.');
+		} catch (error) {
+			mutationError = error instanceof Error ? error.message : 'Failed to save draft changes.';
+		} finally {
+			savingDraft = false;
+		}
+	}
+
+	async function handleCancelRequest(): Promise<void> {
+		mutatingLifecycle = true;
+		mutationError = '';
+		mutationNotice = '';
+		try {
+			await cancelInboundRequest(data.request.request_id, cancelReason);
+			await refreshDetail('Queued request cancelled.');
+		} catch (error) {
+			mutationError = error instanceof Error ? error.message : 'Failed to cancel the request.';
+		} finally {
+			mutatingLifecycle = false;
+		}
+	}
+
+	async function handleAmendRequest(): Promise<void> {
+		mutatingLifecycle = true;
+		mutationError = '';
+		mutationNotice = '';
+		try {
+			await amendInboundRequest(data.request.request_id);
+			await refreshDetail('Request moved back to draft for amendment.');
+		} catch (error) {
+			mutationError = error instanceof Error ? error.message : 'Failed to amend the request.';
+		} finally {
+			mutatingLifecycle = false;
+		}
+	}
+
+	async function handleDeleteDraft(): Promise<void> {
+		mutatingLifecycle = true;
+		mutationError = '';
+		mutationNotice = '';
+		try {
+			await deleteInboundDraft(data.request.request_id);
+			await goto(`${routes.reviewInboundRequests}?notice=${encodeURIComponent(`${data.request.request_reference} deleted.`)}`);
+		} catch (error) {
+			mutationError = error instanceof Error ? error.message : 'Failed to delete the draft.';
+		} finally {
+			mutatingLifecycle = false;
+		}
 	}
 </script>
 
@@ -65,6 +227,105 @@
 			{/if}
 		</div>
 	</SurfaceCard>
+
+	{#if mutationError}
+		<SurfaceCard tone="muted">
+			<p>{mutationError}</p>
+		</SurfaceCard>
+	{:else if mutationNotice}
+		<SurfaceCard tone="muted">
+			<p>{mutationNotice}</p>
+		</SurfaceCard>
+	{/if}
+
+	{#if canEditDraft}
+		<SurfaceCard>
+			<p class="eyebrow">Draft controls</p>
+			<div class="page-stack">
+				<label>
+					<span>Submitter label</span>
+					<input
+						oninput={(event) => {
+							submitterLabelOverride = {
+								requestID: data.request.request_id,
+								value: event.currentTarget.value
+							};
+						}}
+						placeholder="front desk, dispatch, field tech"
+						value={submitterLabel}
+					/>
+				</label>
+				<label>
+					<span>Request message</span>
+					<textarea
+						oninput={(event) => {
+							draftMessageTextOverride = {
+								requestID: data.request.request_id,
+								value: event.currentTarget.value
+							};
+						}}
+						placeholder="Describe the issue or requested work..."
+						value={draftMessageText}
+					></textarea>
+				</label>
+				<label>
+					<span>Add attachments</span>
+					<input bind:files={newAttachments} multiple type="file" />
+				</label>
+				<div class="filter-actions">
+					<button disabled={savingDraft || mutatingLifecycle} onclick={() => handleSaveDraft(false)} type="button">
+						{savingDraft ? 'Saving...' : 'Save draft changes'}
+					</button>
+					<button class="secondary" disabled={savingDraft || mutatingLifecycle} onclick={() => handleSaveDraft(true)} type="button">
+						{savingDraft ? 'Saving...' : 'Queue updated draft'}
+					</button>
+					{#if canDeleteDraft}
+						<button class="danger" disabled={savingDraft || mutatingLifecycle} onclick={handleDeleteDraft} type="button">
+							{mutatingLifecycle ? 'Deleting...' : 'Delete draft'}
+						</button>
+					{/if}
+				</div>
+			</div>
+		</SurfaceCard>
+	{:else if canCancelQueued || canAmendRequest}
+		<SurfaceCard>
+			<p class="eyebrow">Lifecycle controls</p>
+			<div class="page-stack">
+				{#if canCancelQueued}
+					<label>
+						<span>Cancellation reason</span>
+						<textarea
+							oninput={(event) => {
+								cancelReasonOverride = {
+									requestID: data.request.request_id,
+									value: event.currentTarget.value
+								};
+							}}
+							placeholder="Explain why this queued request should stop before processing."
+							value={cancelReason}
+						></textarea>
+					</label>
+					<div class="filter-actions">
+						<button class="danger" disabled={mutatingLifecycle} onclick={handleCancelRequest} type="button">
+							{mutatingLifecycle ? 'Updating...' : 'Cancel queued request'}
+						</button>
+						<button class="secondary" disabled={mutatingLifecycle} onclick={handleAmendRequest} type="button">
+							{mutatingLifecycle ? 'Updating...' : 'Amend back to draft'}
+						</button>
+					</div>
+				{:else if canAmendRequest}
+					<p class="muted-copy">
+						This request can move back to draft so operators can update the persisted intake record before re-queueing it.
+					</p>
+					<div class="filter-actions">
+						<button disabled={mutatingLifecycle} onclick={handleAmendRequest} type="button">
+							{mutatingLifecycle ? 'Updating...' : 'Amend back to draft'}
+						</button>
+					</div>
+				{/if}
+			</div>
+		</SurfaceCard>
+	{/if}
 
 	{#if Object.keys(data.request.metadata).length > 0}
 		<SurfaceCard>
@@ -360,5 +621,9 @@
 		padding: 0.9rem;
 		white-space: pre-wrap;
 		word-break: break-word;
+	}
+
+	button.danger {
+		background: var(--bad);
 	}
 </style>

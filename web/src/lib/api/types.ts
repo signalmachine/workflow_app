@@ -43,6 +43,18 @@ export interface SubmitInboundRequestPayload {
 	queue_for_review?: boolean;
 }
 
+export interface SaveInboundDraftPayload {
+	message_id?: string;
+	origin_type: string;
+	channel: string;
+	metadata: Record<string, unknown>;
+	message: {
+		message_role: string;
+		text_content: string;
+	};
+	attachments: SubmitInboundRequestAttachment[];
+}
+
 export interface SubmitInboundRequestResponse {
 	request_id: string;
 	request_reference: string;
@@ -61,6 +73,10 @@ export interface SubmitInboundRequestResponse {
 	cancelled_at?: string;
 	created_at: string;
 	updated_at: string;
+}
+
+export interface DeleteInboundDraftResponse {
+	deleted: boolean;
 }
 
 export interface ProcessNextQueuedResponse {

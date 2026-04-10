@@ -69,29 +69,35 @@
 	navExpanded={mobileViewport ? mobileNavOpen : !desktopSidebarCollapsed}
 	onToggleNav={toggleNav}
 />
-<ContextTabs currentPath={currentPath} tabs={navigation.activeArea.tabs} />
-<SideNav
-	areas={navigation.areas}
-	collapsed={desktopSidebarCollapsed}
-	currentPath={currentPath}
-	isOpen={mobileNavOpen}
-	onClose={closeNav}
-/>
-
-<div class:collapsed={desktopSidebarCollapsed} class="shell">
-	<main class="content">
-		{@render children()}
-	</main>
+<div class="shell">
+	<SideNav
+		areas={navigation.areas}
+		collapsed={desktopSidebarCollapsed}
+		currentPath={currentPath}
+		isOpen={mobileNavOpen}
+		onClose={closeNav}
+	/>
+	<div class:collapsed={desktopSidebarCollapsed} class="main-column">
+		<ContextTabs currentPath={currentPath} tabs={navigation.activeArea.tabs} />
+		<main class="content">
+			{@render children()}
+		</main>
+	</div>
 </div>
 
 <style>
 	.shell {
-		padding-left: 240px;
-		transition: padding-left 160ms ease;
+		min-height: calc(100vh - 48px);
 	}
 
-	.shell.collapsed {
-		padding-left: 132px;
+	.main-column {
+		margin-left: 240px;
+		min-height: calc(100vh - 48px);
+		transition: margin-left 160ms ease;
+	}
+
+	.main-column.collapsed {
+		margin-left: 132px;
 	}
 
 	.content {
@@ -102,12 +108,9 @@
 	}
 
 	@media (max-width: 767px) {
-		.shell {
-			padding-left: 0;
-		}
-
-		.shell.collapsed {
-			padding-left: 0;
+		.main-column,
+		.main-column.collapsed {
+			margin-left: 0;
 		}
 
 		.content {
