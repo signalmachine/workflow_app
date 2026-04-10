@@ -40,3 +40,4 @@ Purpose: record the defaults that active implementation should preserve unless t
 3. when workflow-critical validation exercises AI-provider behavior and `.env` provides OpenAI credentials, use the real OpenAI-backed verification path rather than treating mock-only or offline checks as sufficient closeout evidence
 4. when a durable workflow or validation checklist exists in `docs/workflows/`, use it and update it when workflow truth changes
 5. when implementation reveals drift or weak architecture, fix it or record an explicit active plan rather than leaving silent debt
+6. when Playwright is available locally and the open risk is actual browser-rendered behavior on `/app`, prefer Playwright-driven verification over adding more indirect HTTP-only or component-only evidence first

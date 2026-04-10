@@ -1,7 +1,7 @@
 # workflow_app Execution Plan V2
 
 Date: 2026-04-09
-Status: Active execution order after archive reset, with the 2026-04-09 coordinator-provider corrective slice, approval-continuity verification pass, the 2026-04-10 focused Svelte closeout coverage pass, and verification reruns completed ahead of the remaining live browser-review closeout
+Status: Active execution order after archive reset, with the 2026-04-09 coordinator-provider corrective slice, approval-continuity verification pass, the 2026-04-10 focused Svelte closeout coverage passes, Playwright readiness for real browser-rendered route verification, and verification reruns completed ahead of the remaining live browser-review closeout
 Purpose: define the current execution order without carrying the full completed milestone narrative in the default context.
 
 ## 1. Completed baseline
@@ -33,7 +33,7 @@ The implemented Slice 3 baseline already includes:
 
 Remaining Slice 3 closeout is intentionally narrow:
 
-1. bounded real-seam desktop browser review on the current `/app` runtime
+1. bounded real-seam desktop browser review on the current `/app` runtime, with Playwright now treated as the default execution path for that sweep in the next session
 2. workflow-checklist and evidence updates in `docs/workflows/`
 3. one grouped corrective slice only if that browser sweep exposes a real defect or missing support seam
 
@@ -48,7 +48,9 @@ Completed prerequisite recorded on 2026-04-10:
 
 1. focused Svelte component coverage now asserts multi-term route-catalog search continuity, promoted admin accounting and inventory status controls, and exact accounting-entry drill-down from request and proposal detail when the journal entry is already known
 2. focused Go web-serving coverage now asserts SPA fallback across the full promoted `/app` route family and exact detail routes instead of relying on only a few shell-path checks
-3. `npm --prefix web test -- page.test.ts page_detail.test.ts navigation.test.ts inventory/page.test.ts agent-chat/page.test.ts review/page.test.ts admin/accounting/page.test.ts admin/inventory/page.test.ts routes/page.test.ts`, focused `go test ./internal/app -run '^(TestRegisterWebRoutesServesSPAFallback|TestRegisterWebRoutesServesSPAFallbackAcrossPromotedRouteFamilies|TestHandleSvelteAppServesIndexAtAppRoot|TestHandleSvelteAppServesHeadRequests|TestHandleSvelteAppServesEmbeddedJSAsset|TestHandleSvelteAppDoesNotFallbackForMissingStaticAsset|TestNewAgentAPIHandlerWithDependenciesServesSvelteShell)$'`, `npm --prefix web run check`, and `git diff --check` all passed for that closeout-coverage slice
+3. an additional focused Svelte route pass now asserts the promoted login, settings, admin hub, admin access, admin party setup, operations landing, submit-inbound-request, operations feed, and exact approval, document, and accounting detail surfaces
+4. Playwright browser automation is now available locally, so the next closeout session should spend its browser-validation effort on the real served runtime instead of widening indirect coverage again unless the Playwright sweep exposes a concrete new gap
+5. `npm --prefix web test -- page.test.ts page_detail.test.ts navigation.test.ts inventory/page.test.ts agent-chat/page.test.ts review/page.test.ts admin/accounting/page.test.ts admin/inventory/page.test.ts routes/page.test.ts`, `npm --prefix web test -- 'src/routes/(public)/login/page.test.ts' 'src/routes/(app)/settings/page.test.ts' 'src/routes/(app)/admin/page.test.ts' 'src/routes/(app)/admin/access/page.test.ts' 'src/routes/(app)/admin/parties/page.test.ts' 'src/routes/(app)/operations/page.test.ts' 'src/routes/(app)/submit-inbound-request/page.test.ts' 'src/routes/(app)/operations-feed/page.test.ts' 'src/routes/(app)/review/approvals/page_detail.test.ts' 'src/routes/(app)/review/documents/page_detail.test.ts' 'src/routes/(app)/review/accounting/page_detail.test.ts'`, focused `go test ./internal/app -run '^(TestRegisterWebRoutesServesSPAFallback|TestRegisterWebRoutesServesSPAFallbackAcrossPromotedRouteFamilies|TestHandleSvelteAppServesIndexAtAppRoot|TestHandleSvelteAppServesHeadRequests|TestHandleSvelteAppServesEmbeddedJSAsset|TestHandleSvelteAppDoesNotFallbackForMissingStaticAsset|TestNewAgentAPIHandlerWithDependenciesServesSvelteShell)$'`, `npm --prefix web run check`, and `git diff --check` all passed for that closeout-coverage slice
 
 ## 3. Promotion rule for the next milestone
 
@@ -62,3 +64,4 @@ Completed prerequisite recorded on 2026-04-10:
 2. use `../docs/technical_guides/07_testing_and_verification.md` for exact verification commands and workflow
 3. for Milestone 13 closeout, verification must include frontend checks, canonical Go verification, and bounded end-to-end validation on the real served Svelte runtime
 4. browser-serving changes must be checked for real asset serving, correct SPA fallback behavior, and one bounded browser smoke pass on `/app`
+5. when Playwright is available locally, prefer it for the Milestone 13 real browser-review sweep rather than treating manual route clicking as the default first path
