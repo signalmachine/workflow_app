@@ -1,6 +1,6 @@
 # workflow_app Scope V2
 
-Date: 2026-04-09
+Date: 2026-04-10
 Status: Active scope guardrail for post-thin-v1 implementation
 Purpose: define the current scope boundaries for active implementation after thin-v1 completion.
 
@@ -28,6 +28,6 @@ Purpose: define the current scope boundaries for active implementation after thi
 
 ## 4. Current scope focus
 
-1. the active implementation focus is Milestone 13 completion on the promoted Svelte runtime
-2. the active non-code follow-through focus is workflow-validation and browser-review documentation sync in `docs/workflows/`
-3. completed Milestone 10, Milestone 11, and Milestone 12 planning detail is now archive material rather than active default context
+1. the active implementation focus is Milestone 14 production-readiness, workflow-validation, navigation cleanup, reporting baseline, and user-testing readiness on the promoted Svelte runtime
+2. the active workflow follow-through focus is keeping `docs/workflows/` and downstream user guides aligned with the current served `/app` route family and supported browser actions
+3. completed Milestone 10, Milestone 11, Milestone 12, and Milestone 13 planning detail is now archive material rather than active default context

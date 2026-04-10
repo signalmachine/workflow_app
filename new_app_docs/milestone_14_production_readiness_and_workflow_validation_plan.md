@@ -106,7 +106,9 @@ Current checkpoint recorded on 2026-04-10:
 
 1. the exact inbound-request detail route now exposes the shared backend-owned parked-request lifecycle controls directly in Svelte: draft save plus queue plus delete, and queued cancel plus amend-back-to-draft
 2. the bounded shared-shell desktop layout correction is also landed: the sidebar remains directly under the top app bar while the contextual tabs now begin over the main content column
-3. focused frontend verification for the new mutation clients, request-detail lifecycle controls, and shell layout contract passed, but Slice 1 remains open until the workflow and user-guide truth pass plus the next grouped navigation cleanup step are completed
+3. focused frontend verification for the new mutation clients, request-detail lifecycle controls, and shell layout contract passed
+4. a follow-up documentation-truth checkpoint on 2026-04-10 realigned the workflow catalog, inbound-request lifecycle guide, agent-chat guide, inbound-request technical guide, and active scope note with the current route contract
+5. Slice 1 remains open until the next grouped navigation cleanup step is completed in Admin and Accounting
 
 ### 5.2 Slice 2: production-readiness test expansion
 

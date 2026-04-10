@@ -1,6 +1,6 @@
 # Inbound Request Lifecycle And Queue Processing
 
-Date: 2026-03-31
+Date: 2026-04-10
 Status: Active technical guide
 Purpose: explain the durable intake model, the request lifecycle states, and how queued requests flow into AI processing.
 
@@ -129,6 +129,14 @@ The browser layer exposes the intake lifecycle as operator actions:
 5. amend a queued or cancelled request back to draft
 6. hard-delete an unprocessed draft
 
+The current promoted Svelte route shape is:
+
+1. `/app/submit-inbound-request` for new request creation
+2. `/app/review/inbound-requests` for the request list and filtering surface
+3. `/app/inbound-requests/{request_reference_or_id}` for exact request detail and parked-request lifecycle actions
+4. `/app/operations` for the browser action that processes the next queued request
+5. `/api/inbound-requests/{request_id}/{action}` and `/api/agent/process-next-queued-inbound-request` for the backend-owned mutation seams
+
 Those actions are deliberate and bounded. They exist to support a controlled operator workflow, not a generic record editor.
 
 ## 10. What to be careful about
@@ -143,4 +151,3 @@ When changing request lifecycle code, be careful with:
 6. queue claim behavior
 
 These are the edges where a seemingly small edit can create a workflow regression.
-

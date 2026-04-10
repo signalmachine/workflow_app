@@ -1,7 +1,7 @@
 # workflow_app Application Workflow Catalog
 
-Date: 2026-04-08
-Status: Active durable workflow catalog updated for the current served Svelte runtime at `/app`, including the contextual-navigation shell, the grouped landing pages at `/app/operations`, `/app/review`, and `/app/inventory`, the searchable route catalog at `/app/routes`, the utility surfaces at `/app/settings` plus access-scoped `/app/admin`, the admin accounting, party, access-control, and inventory setup surfaces at `/app/admin/accounting`, `/app/admin/parties`, `/app/admin/access`, and `/app/admin/inventory`, and the role-aware operator home on `/app`
+Date: 2026-04-10
+Status: Active durable workflow catalog updated for the current served Svelte runtime at `/app`, including the contextual-navigation shell, the grouped landing pages at `/app/operations`, `/app/review`, and `/app/inventory`, the searchable route catalog at `/app/routes`, the utility surfaces at `/app/settings` plus access-scoped `/app/admin`, the admin accounting, party, access-control, and inventory setup surfaces at `/app/admin/accounting`, `/app/admin/parties`, `/app/admin/access`, and `/app/admin/inventory`, the role-aware operator home on `/app`, the `/app/review/inbound-requests` list route, and the exact `/app/inbound-requests/{request_reference_or_id}` detail route with parked-request lifecycle controls
 Purpose: capture the application workflows and related feature continuity in one durable reference document for implementation review, testing, onboarding, and later user-guide preparation.
 
 ## 1. How to read this document
@@ -193,9 +193,8 @@ Entry points:
 
 1. `POST /api/inbound-requests`
 2. `/app/submit-inbound-request`
-3. `POST /app/inbound-requests`
+3. `/app/operations`, using the process-next queued request action
 4. `POST /api/agent/process-next-queued-inbound-request`
-5. `/app/agent/process-next-queued-inbound-request`
 
 Expected outputs:
 
@@ -219,10 +218,11 @@ allow pre-processing request parking, revision, queueing, cancellation, amendmen
 
 Entry points:
 
-1. `/app/inbound-requests`
-2. `/app/inbound-requests/{request_reference}`
-3. `POST /api/inbound-requests`
-4. `POST /api/inbound-requests/{request_id}/{action}`
+1. `/app/submit-inbound-request`
+2. `/app/review/inbound-requests`
+3. `/app/inbound-requests/{request_reference_or_id}`
+4. `POST /api/inbound-requests`
+5. `POST /api/inbound-requests/{request_id}/{action}`
 
 Expected outputs:
 
@@ -235,7 +235,8 @@ Current status:
 1. implemented
 2. repo_verified
 3. exact draft save and edit -> queue -> process continuity is now repo_verified on 2026-03-29 through `internal/app` integration coverage across both `/api/...` and `/app/...`
-4. pending_live_validation
+4. exact parked-request lifecycle controls on the promoted Svelte request-detail route are repo_verified on 2026-04-10 through focused frontend coverage
+5. pending_live_validation
 
 ### 2.4 Processed proposal review and continuity
 
@@ -369,7 +370,7 @@ Entry points:
 
 1. `/app/operations-feed`
 2. `/app/agent-chat`
-3. `POST /app/inbound-requests` with the dedicated `agent_chat` browser path
+3. `POST /api/inbound-requests` from the dedicated `agent_chat` browser path
 
 Expected outputs:
 

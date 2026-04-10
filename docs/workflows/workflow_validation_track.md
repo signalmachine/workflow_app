@@ -67,9 +67,9 @@ Implementation note recorded on 2026-04-09:
 19. the 2026-04-10 closeout Playwright sweep then passed on the served `/app` seam with four checks covering desktop shell persistence, route-catalog continuity, admin maintenance plus exact party detail, promoted route-family rendering, and exact request -> proposal -> approval -> document -> accounting continuity using the dedicated verification org seeded by `cmd/verify-agent`
 20. a follow-on Milestone 14 Slice 1 checkpoint on 2026-04-10 then restored the parked-request lifecycle controls on exact inbound-request detail and corrected the desktop shell tab-column layout, with focused frontend tests passing through `npm --prefix web test -- src/lib/api/inbound.test.ts src/routes/(app)/inbound-requests/page_detail.test.ts` and `npm --prefix web run check`
 
-## 3.1 Milestone 13 post-cutover checklist
+## 3.1 Milestone 13 closeout evidence baseline
 
-Milestone 13 should be treated as ready for closeout only when the larger post-cutover sweep below has explicit pass or blocker evidence recorded on this workflow track.
+Milestone 13 is now closed with the evidence below. Keep this checklist as the baseline for future served-runtime browser regressions and for Milestone 14 workflow-critical reruns.
 
 Closeout sweep:
 
@@ -80,7 +80,7 @@ Closeout sweep:
 5. explicit confirmation that no promoted route still depends on the retired template browser path and that missing static-asset requests return a real asset result or a `404` rather than silently falling back to the SPA shell
 6. explicit confirmation that any defect found during this review is either fixed and revalidated or recorded as a blocker before milestone closeout
 
-Current evidence recorded on 2026-04-09:
+Current evidence recorded through 2026-04-10:
 
 1. `pass: served /app shell - HTTP 200 with the embedded Svelte runtime and /app-based asset imports on the real app server`
 2. `pass: static asset handling - /app/_app/version.json returned JSON and missing /app/_app/immutable/entry/missing.js returned HTTP 404 instead of the SPA shell`
@@ -98,7 +98,7 @@ Evidence rule:
 
 1. a short pass or fail note per checklist item is sufficient
 2. if the sweep finds defects, record the failing route family or workflow edge and the promoted grouped fix-plan reference in `new_app_docs/`
-3. do not mark Milestone 13 workflow-validation closeout complete in `new_app_docs/` until all six items above have pass evidence
+3. for future Milestone 14 reruns, do not mark the affected implementation slice complete until the changed route family or workflow edge has pass evidence or an explicit blocker
 
 ## 3.2 Browser-review execution plan
 
@@ -239,12 +239,12 @@ Deferred live workflow validation should resume with:
 1. draft request -> continue editing -> queue -> process -> downstream request and proposal continuity
 2. failed provider or failed processing path -> failure visibility -> operator troubleshooting continuity
 
-Immediate Milestone 13-first order before the broader backlog resumes:
+Immediate Milestone 14 validation order:
 
-1. complete the larger Milestone 13 post-cutover sweep in section 3.1
-2. if the sweep passes, mark the Milestone 13 browser-validation closeout complete in the canonical planning docs
-3. if the sweep fails, promote one grouped corrective slice for the related defects and then rerun the affected parts of the sweep
-4. then resume the broader deferred workflow-validation backlog listed above
+1. use the Milestone 13 closeout evidence in section 3.1 as the baseline rather than rerunning it wholesale without a new risk
+2. validate the draft request -> continue editing -> queue -> process -> downstream request and proposal continuity path after the Milestone 14 request-detail lifecycle correction
+3. validate the failed provider or failed processing path -> failure visibility -> operator troubleshooting continuity path
+4. if a rerun fails, promote one grouped corrective slice for the related defects and then rerun the affected parts of the checklist
 
 ## 5. Issue-handling rule
 

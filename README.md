@@ -477,6 +477,6 @@ Implemented:
 
 Immediate next steps:
 
-1. keep the separate Milestone 10 browser-review and workflow-continuity closeout moving on `docs/workflows/`
-2. promote later Milestone 12 policy or operational controls only when workflow evidence justifies another bounded admin slice
+1. continue Milestone 14 with grouped-directory and dedicated-destination cleanup in the crowded Admin and Accounting areas
+2. then add the baseline accounting reports for trial balance, balance sheet, and income statement on the shared reporting seam
 3. continue widening shared backend contracts only where they strengthen one shared truth model for browser and later clients

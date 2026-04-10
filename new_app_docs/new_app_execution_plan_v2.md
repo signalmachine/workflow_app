@@ -75,7 +75,7 @@ The post-closeout implementation review then found the first Milestone 14 correc
 7. Milestone 14 should also absorb clearly similar adjacent readiness gaps that are discovered during implementation review when those additions stay coherent, bounded, and production-shape-driven
 8. the next production-readiness push should prioritize workflow-critical correctness tests, failure-path validation, documentation truth, backend-owned reporting depth, operator-usable information architecture, and a realistic demo baseline rather than another broad browser-architecture milestone
 9. the first 2026-04-10 Slice 1 checkpoint is now implemented in code and focused frontend verification: exact inbound-request detail exposes draft save plus queue plus delete and queued cancel plus amend controls through the shared backend seam, and the desktop shell layout now starts the contextual-tab row over the content column instead of above the sidebar
-10. the remaining Slice 1 work should therefore resume from documentation-truth cleanup, any request-list continuity follow-through still needed, and the broader grouped-directory pass in Admin and Accounting rather than reopening the request-detail or shell-layout checkpoint
+10. the follow-up Slice 1 documentation-truth checkpoint on 2026-04-10 realigned the workflow catalog, inbound-request lifecycle guide, agent-chat guide, inbound-request technical guide, and active scope note with the current route contract, so the remaining Slice 1 work should resume from the broader grouped-directory pass in Admin and Accounting rather than reopening the request-detail, shell-layout, or inbound-request route-vocabulary checkpoints
 
 ## 2.2 Milestone 15 future direction
 

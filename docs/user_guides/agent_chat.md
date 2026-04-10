@@ -1,6 +1,6 @@
 # Agent Chat
 
-Date: 2026-03-31
+Date: 2026-04-10
 Status: Active
 Purpose: explain how to use the coordinator-facing browser chat surface on the persisted inbound-request foundation.
 
@@ -38,6 +38,6 @@ If the chat submission does not persist:
 
 If the request does not appear in the normal request flow:
 
-1. check `/app/inbound-requests`
+1. check `/app/review/inbound-requests`
 2. check `/app/review/proposals`
 3. confirm the chat request reached the shared inbound-request queue

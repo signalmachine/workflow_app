@@ -1,7 +1,7 @@
 # workflow_app End-to-End Validation Checklist
 
-Date: 2026-04-09
-Status: Durable checklist with a desktop-first pre-validation browser-review precheck for the current Milestone 13 served Svelte runtime at `/app`, including the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families, plus the persisted desktop sidebar collapse state, before broader live workflow validation resumes
+Date: 2026-04-10
+Status: Durable checklist with a desktop-first served-runtime browser-review precheck for the current Go-served Svelte runtime at `/app`, including the contextual-navigation shell, promoted workflow, utility, admin, and detail-route families, persisted desktop sidebar collapse state, request-detail lifecycle controls, and Milestone 14 follow-up validation work
 Purpose: provide a reusable bounded checklist for live review and testing of application end-to-end workflows on the real `/app` plus `/api/...` seam.
 
 ## 1. Use of this checklist
@@ -34,7 +34,7 @@ Policy:
 7. run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
 8. if the served Svelte runtime, the contextual-navigation shell, or any promoted workflow, utility, admin, or detail-route family is newly landed and not yet closed, review `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/admin/parties/{party_id}` for exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat`, plus `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit` on desktop, and only add a narrow-width compatibility pass when a concrete concern justifies it, before resuming live workflow validation
 
-## 2.1 Milestone 13 post-cutover precheck
+## 2.1 Served-runtime precheck
 
 Before broader end-to-end workflow validation resumes, use this bounded post-cutover precheck:
 
@@ -44,7 +44,7 @@ Before broader end-to-end workflow validation resumes, use this bounded post-cut
 4. confirm one exact drill-down chain across request -> proposal -> approval -> document, and use the verification-org credentials emitted by `cmd/verify-agent -database-url "$DATABASE_URL" -approval-flow` when the continuity proof is seeded outside the main admin org
 5. confirm one exact drill-down chain from request or proposal into accounting or inventory or work-order detail, preferring an exact accounting-entry route over a filtered accounting list when the posted journal entry is already known, and treat the verify-agent-emitted journal entry id as the canonical proof input when that seed path is being used
 6. confirm the served runtime returns real static assets under `/app/_app/...` and returns `404` for missing asset requests instead of silently falling back to the SPA shell
-7. record pass or blocker evidence in `workflow_validation_track.md` before treating the Milestone 13 browser-validation closeout as complete
+7. record pass or blocker evidence in `workflow_validation_track.md` before treating any affected browser-validation slice as complete
 8. confirm the promoted shell now reads as a thin blue-gray desktop-first operator application with a major-area sidebar, contextual section tabs, route-directory landing pages instead of hero-card mosaics, simpler login, and single-column workflow pages where those surfaces are the active default
 9. confirm route review, workflow continuity, and defect notes are written against the current served Svelte runtime rather than older server-rendered HTML expectations
 

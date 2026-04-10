@@ -1,6 +1,6 @@
 # Inbound Request Lifecycle
 
-Date: 2026-03-31
+Date: 2026-04-10
 Status: Active
 Purpose: explain how to create, park, edit, queue, cancel, delete, and process inbound requests from the browser surfaces.
 
@@ -30,7 +30,9 @@ Use draft save when the request is not ready for processing yet. Use submit when
 
 ## 3. Continue editing a draft
 
-Open the request detail page for the stable `REQ-...` reference, for example:
+Use `/app/review/inbound-requests` when you need to find a parked, queued, failed, or processed request from the browser list.
+
+Open the exact request detail page for the stable `REQ-...` reference, for example:
 
 `/app/inbound-requests/{request_reference_or_id}`
 
