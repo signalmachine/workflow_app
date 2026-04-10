@@ -1,7 +1,7 @@
 # workflow_app Tracker V2
 
 Date: 2026-04-09
-Status: Thin-v1 is complete, Milestones 10 through 12 are implemented history, Milestone 13 Slice 1 and Slice 2 are implemented, and the active work is now the final Milestone 13 Slice 3 desktop browser-review closeout after a bounded coordinator-provider corrective pass, a downstream-accounting exact-detail continuity pass, a shared-session approval-continuity verification pass, and verification reruns
+Status: Thin-v1 is complete, Milestones 10 through 12 are implemented history, Milestone 13 Slice 1 and Slice 2 are implemented, and the active work is now the final Milestone 13 Slice 3 live desktop browser-review closeout after a bounded coordinator-provider corrective pass, a downstream-accounting exact-detail continuity pass, a shared-session approval-continuity verification pass, focused Svelte closeout coverage for route discovery, admin status controls, and exact accounting-entry continuity, and verification reruns
 Purpose: track the active implementation state, current sequencing, and immediate next steps without carrying full milestone history in the default context.
 
 ## 1. Current state
@@ -18,12 +18,13 @@ Purpose: track the active implementation state, current sequencing, and immediat
 10. the broader DB-backed canonical suite `set -a; source .env; set +a; timeout 300s go test -p 1 ./cmd/... ./internal/...` passed cleanly on 2026-04-09, so the earlier `create tax code: unauthorized` and `reset test database: deadlock detected` failures should be treated as non-reproduced transient environment or test-state noise rather than active blockers
 11. an additional real-seam validation pass on 2026-04-09 confirmed the served Svelte shell and asset behavior at `/app`, browser-session login through `/api/session/login`, route-catalog search for `pending approvals`, and one live request submission plus queue processing chain through exact request and proposal review continuity on the shared `/api/...` seam
 12. `cmd/verify-agent` now also supports `-approval-flow`, and a 2026-04-09 live run used that shared-session API path to confirm one exact request -> proposal -> approval -> document continuity chain on the same verification request
-13. Milestone 13 closeout is still not complete because the desktop browser-review sweep still needs explicit evidence in `docs/workflows/`
+13. focused Svelte route and component tests added on 2026-04-10 now assert multi-term route-catalog continuity, promoted admin accounting and inventory status controls, and exact accounting-entry drill-down from request and proposal detail before the final live browser sweep
+14. Milestone 13 closeout is still not complete because the live desktop browser-review sweep still needs explicit evidence in `docs/workflows/`
 
 ## 2. Active implementation order
 
 1. keep this doc cleanup as the completed prerequisite for the next implementation session
-2. complete the remaining Milestone 13 Slice 3 desktop browser-review and workflow-validation closeout work on the shared Svelte plus Go seam
+2. complete the remaining Milestone 13 Slice 3 live desktop browser-review and workflow-validation closeout work on the shared Svelte plus Go seam
 3. keep the 2026-04-09 coordinator-provider corrective slice and verification rerun as the latest prerequisite already completed for that closeout
 4. keep `docs/workflows/` up to date with explicit browser-review and workflow-validation evidence
 5. after Milestone 13 closeout, decide the next bounded v2 milestone instead of reopening completed milestone buckets broadly
@@ -37,7 +38,7 @@ The next session should assume this active Slice 3 baseline is already landed:
 3. migrated list, home, review-landing, and coordinator-chat surfaces already deep-link to exact detail routes where known identifiers exist
 4. the served Go runtime already embeds and serves the Svelte frontend at `/app`
 5. the retired template-browser `/app` layer has already been removed from the active codebase
-6. the main remaining work is the real-seam desktop browser-review sweep plus any narrowly grouped corrective follow-up that that validation proves necessary
+6. focused automated closeout coverage now exists for route discovery, admin status controls, and exact accounting-entry continuity, so the main remaining work is the real-seam desktop browser-review sweep plus any narrowly grouped corrective follow-up that that validation proves necessary
 7. the promoted request and proposal detail surfaces already include exact downstream accounting-entry continuity when the shared reporting seam exposes a posted journal entry for the linked document
 
 Use these supporting docs for the remaining closeout:

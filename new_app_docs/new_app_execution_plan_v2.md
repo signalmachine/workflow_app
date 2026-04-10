@@ -1,7 +1,7 @@
 # workflow_app Execution Plan V2
 
 Date: 2026-04-09
-Status: Active execution order after archive reset, with the 2026-04-09 coordinator-provider corrective slice, approval-continuity verification pass, and verification reruns completed ahead of the remaining browser-review closeout
+Status: Active execution order after archive reset, with the 2026-04-09 coordinator-provider corrective slice, approval-continuity verification pass, the 2026-04-10 focused Svelte closeout coverage pass, and verification reruns completed ahead of the remaining live browser-review closeout
 Purpose: define the current execution order without carrying the full completed milestone narrative in the default context.
 
 ## 1. Completed baseline
@@ -43,6 +43,11 @@ Completed prerequisite recorded on 2026-04-09:
 2. `cmd/verify-agent` now creates its verification actor through the shared browser-session auth path instead of only the lower-level session bootstrap
 3. `cmd/verify-agent` now also supports `-approval-flow`, which creates one deterministic approval-ready proposal on the processed verification request and confirms request -> proposal -> approval -> document continuity through the shared session plus `/api/...` seam
 4. `go build ./cmd/... ./internal/...`, `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...`, `set -a; source .env; set +a; go run ./cmd/verify-agent`, `set -a; source .env; set +a; go run ./cmd/verify-agent -approval-flow`, and `set -a; source .env; set +a; go test -tags integration -count=1 ./internal/app -run TestOpenAIAgentProcessorLiveIntegration -v` all passed after that corrective slice
+
+Completed prerequisite recorded on 2026-04-10:
+
+1. focused Svelte component coverage now asserts multi-term route-catalog search continuity, promoted admin accounting and inventory status controls, and exact accounting-entry drill-down from request and proposal detail when the journal entry is already known
+2. `npm --prefix web test -- page.test.ts page_detail.test.ts navigation.test.ts inventory/page.test.ts agent-chat/page.test.ts review/page.test.ts admin/accounting/page.test.ts admin/inventory/page.test.ts routes/page.test.ts`, `npm --prefix web run check`, and `git diff --check` all passed for that closeout-coverage slice
 
 ## 3. Promotion rule for the next milestone
 
