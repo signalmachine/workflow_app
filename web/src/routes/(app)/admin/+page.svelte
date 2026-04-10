@@ -8,30 +8,25 @@
 <PageHeader
 	eyebrow="Admin"
 	title="Privileged maintenance hub"
-	description="Bounded accounting, party, access, and inventory maintenance stays on the shared backend seam and now runs from the Svelte shell."
+	description="Privileged maintenance starts from grouped directories before operators enter concrete setup, list, and access destinations."
 />
 
 <div class="page-stack">
 	<div class="card-grid">
 		<ActionCard
-			title="Accounting setup"
-			summary="Maintain ledger accounts, tax codes, and accounting periods without reopening business truth inside the browser."
-			href={routes.adminAccounting}
+			title="Master data"
+			summary="Choose accounting, party, or inventory setup from one grouped directory before making maintenance changes."
+			href={routes.adminMasterData}
 		/>
 		<ActionCard
-			title="Party setup"
-			summary="Create support parties and continue into exact contact maintenance on the same shared party model."
-			href={routes.adminParties}
+			title="Lists"
+			summary="Review maintained records, exact detail continuity, and status controls from a grouped list directory."
+			href={routes.adminLists}
 		/>
 		<ActionCard
 			title="Access controls"
 			summary="Provision org users and update membership roles while keeping one shared auth foundation."
 			href={routes.adminAccess}
-		/>
-		<ActionCard
-			title="Inventory setup"
-			summary="Maintain item and location masters with explicit status governance on the inventory foundation."
-			href={routes.adminInventory}
 		/>
 	</div>
 
@@ -40,7 +35,7 @@
 		<ul class="principles">
 			<li>Admin surfaces stay bounded to maintenance and setup, not manual workflow truth editing.</li>
 			<li>All writes still flow through the shared Go services and audit boundaries.</li>
-			<li>Slice 3 admin parity is now live; review-detail and cutover work remains separate follow-through.</li>
+			<li>Directory pages group setup and list destinations without turning admin into a broad manual-entry workspace.</li>
 		</ul>
 	</SurfaceCard>
 </div>

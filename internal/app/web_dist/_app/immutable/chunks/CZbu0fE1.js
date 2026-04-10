@@ -1,1 +1,0 @@
-import{a as t}from"./C-jCndlc.js";function u(e,n=fetch){return t("/api/inbound-requests",{method:"POST",body:JSON.stringify(e)},n)}function o(e=fetch){return t("/api/agent/process-next-queued-inbound-request",{method:"POST",body:JSON.stringify({channel:"browser"})},e)}export{o as p,u as s};

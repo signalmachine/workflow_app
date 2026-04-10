@@ -66,6 +66,7 @@ Implementation note recorded on 2026-04-09:
 18. the 2026-04-10 real-browser closeout uncovered one real admin defect and one verification-harness mismatch: admin accounting tax-code creation needed governed control-account selectors rather than raw account-id text fields, and `cmd/verify-agent` needed an explicit `-database-url "$DATABASE_URL"` run plus emitted verification-org credentials and a posted invoice seed so the browser continuity proof could run against the same backend and a real journal-entry chain
 19. the 2026-04-10 closeout Playwright sweep then passed on the served `/app` seam with four checks covering desktop shell persistence, route-catalog continuity, admin maintenance plus exact party detail, promoted route-family rendering, and exact request -> proposal -> approval -> document -> accounting continuity using the dedicated verification org seeded by `cmd/verify-agent`
 20. a follow-on Milestone 14 Slice 1 checkpoint on 2026-04-10 then restored the parked-request lifecycle controls on exact inbound-request detail and corrected the desktop shell tab-column layout, with focused frontend tests passing through `npm --prefix web test -- src/lib/api/inbound.test.ts src/routes/(app)/inbound-requests/page_detail.test.ts` and `npm --prefix web run check`
+21. a grouped navigation checkpoint on 2026-04-10 added Admin `Master Data` and `Lists` directory routes plus dedicated accounting report destinations for journal entries, control balances, and tax summaries behind the `/app/review/accounting` report directory; focused Svelte checks, Svelte build, focused Go served-route checks, and gopls diagnostics passed for that route-family change
 
 ## 3.1 Milestone 13 closeout evidence baseline
 
@@ -73,7 +74,7 @@ Milestone 13 is now closed with the evidence below. Keep this checklist as the b
 
 Closeout sweep:
 
-1. browser-review pass on desktop for `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/admin/parties/{party_id}` for exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, `/app/agent-chat`, `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit`
+1. browser-review pass on desktop for `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/master-data` for an admin actor, `/app/admin/lists` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/admin/parties/{party_id}` for exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, `/app/agent-chat`, `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/accounting/journal-entries`, `/app/review/accounting/control-balances`, `/app/review/accounting/tax-summaries`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit`
 2. optional narrow-width compatibility pass only where a real concern exists for navigation reachability, contained overflow, or obvious operator blockage on the served web surface
 3. focused continuity pass from exact request detail into proposal detail, approval detail, and document detail
 4. focused continuity pass from exact request detail or proposal detail into one downstream accounting or inventory or work-order drill-down surface, preferring a direct accounting-entry route when the linked document already has a posted journal entry
@@ -138,14 +139,16 @@ Routes:
 3. `/app/routes`
 4. `/app/settings`
 5. `/app/admin` for an admin actor
-6. `/app/admin/accounting` for an admin actor
-7. `/app/admin/parties` for an admin actor
-8. `/app/admin/parties/{party_id}` for exact-detail contact creation
-9. `/app/admin/access` for an admin actor
-10. `/app/admin/inventory` for an admin actor
-11. `/app/submit-inbound-request`
-12. `/app/operations-feed`
-13. `/app/agent-chat`
+6. `/app/admin/master-data` for an admin actor
+7. `/app/admin/lists` for an admin actor
+8. `/app/admin/accounting` for an admin actor
+9. `/app/admin/parties` for an admin actor
+10. `/app/admin/parties/{party_id}` for exact-detail contact creation
+11. `/app/admin/access` for an admin actor
+12. `/app/admin/inventory` for an admin actor
+13. `/app/submit-inbound-request`
+14. `/app/operations-feed`
+15. `/app/agent-chat`
 
 Assertions:
 
@@ -153,7 +156,7 @@ Assertions:
 2. home behaves like an operator start surface with clear next actions, not a generic dashboard mosaic
 3. route catalog search returns useful route matches for operator-intent queries such as `pending approvals` and `failed requests`
 4. the major-area sidebar and contextual section tabs make the current area and local view obvious without reintroducing one flat global route list
-5. settings, admin, admin accounting setup including status controls, admin party setup plus the exact party-detail contact surface, admin access controls, and admin inventory setup including status controls feel secondary to workflow destinations and do not compete with the main shell
+5. settings, admin directory pages, admin accounting setup including status controls, admin party setup plus the exact party-detail contact surface, admin access controls, and admin inventory setup including status controls feel secondary to workflow destinations and do not compete with the main shell
 6. the access-maintenance page keeps provisioning and role updates bounded to shared identity control rather than reading like a broad identity console
 7. the inventory-maintenance page stays bounded to item and location setup rather than drifting into generic stock editing or movement correction
 8. intake, operations-feed, and agent-chat each present one clear primary action without burying it under supporting copy
@@ -182,9 +185,12 @@ Routes:
 3. `/app/review/proposals`
 4. `/app/review/documents`
 5. `/app/review/accounting`
-6. `/app/review/inventory`
-7. `/app/review/work-orders`
-8. `/app/review/audit`
+6. `/app/review/accounting/journal-entries`
+7. `/app/review/accounting/control-balances`
+8. `/app/review/accounting/tax-summaries`
+9. `/app/review/inventory`
+10. `/app/review/work-orders`
+11. `/app/review/audit`
 
 Assertions:
 

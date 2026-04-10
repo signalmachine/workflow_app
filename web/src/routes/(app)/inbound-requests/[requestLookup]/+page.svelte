@@ -389,7 +389,7 @@
 							{/if}
 						</a>
 					{:else}
-						<a href={withQuery(routes.reviewAccounting, { document_id: latestProposal.document_id })}>Open accounting review</a>
+						<a href={withQuery(routes.reviewAccountingJournalEntries, { document_id: latestProposal.document_id })}>Open accounting review</a>
 					{/if}
 				{/if}
 			</div>
@@ -506,7 +506,7 @@
 									{/if}
 								</a>
 							{:else}
-								<a href={withQuery(routes.reviewAccounting, { document_id: proposal.document_id })}>Accounting review</a>
+								<a href={withQuery(routes.reviewAccountingJournalEntries, { document_id: proposal.document_id })}>Accounting review</a>
 							{/if}
 						{/if}
 					</div>

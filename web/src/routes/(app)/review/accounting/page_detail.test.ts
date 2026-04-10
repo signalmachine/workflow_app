@@ -37,5 +37,8 @@ describe('accounting detail page', () => {
 		expect(screen.getByRole('link', { name: 'Proposal detail' }).getAttribute('href')).toBe(
 			'/app/review/proposals/proposal-1'
 		);
+		expect(screen.getByRole('link', { name: 'Filtered accounting view' }).getAttribute('href')).toBe(
+			'/app/review/accounting/journal-entries?entry_id=entry-1'
+		);
 	});
 });

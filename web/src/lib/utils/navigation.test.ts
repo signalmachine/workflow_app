@@ -27,13 +27,7 @@ describe('navigation model', () => {
 		const model = getNavigationModel('/app/admin/inventory', 'admin');
 
 		expect(model.activeArea.id).toBe('admin');
-		expect(model.activeArea.tabs.map((tab) => tab.label)).toEqual([
-			'Overview',
-			'Accounting',
-			'Parties',
-			'Access',
-			'Inventory'
-		]);
+		expect(model.activeArea.tabs.map((tab) => tab.label)).toEqual(['Overview', 'Master Data', 'Lists', 'Access']);
 	});
 });
 

@@ -32,15 +32,15 @@ Policy:
 5. when the validation session also needs one exact request -> proposal -> approval -> document continuity chain on the shared auth plus `/api/...` seam, rerun `set -a; source .env; set +a; go run ./cmd/verify-agent -approval-flow`
 6. when the workflow depends on the app-level live provider seam, also rerun `set -a; source .env; set +a; go test -tags integration -count=1 ./internal/app -run TestOpenAIAgentProcessorLiveIntegration -v`
 7. run `set -a; source .env; set +a; APP_LISTEN_ADDR=127.0.0.1:18080 go run ./cmd/app`
-8. if the served Svelte runtime, the contextual-navigation shell, or any promoted workflow, utility, admin, or detail-route family is newly landed and not yet closed, review `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/admin/parties/{party_id}` for exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat`, plus `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit` on desktop, and only add a narrow-width compatibility pass when a concrete concern justifies it, before resuming live workflow validation
+8. if the served Svelte runtime, the contextual-navigation shell, or any promoted workflow, utility, admin, or detail-route family is newly landed and not yet closed, review `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/master-data` for an admin actor, `/app/admin/lists` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/admin/parties/{party_id}` for exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat`, plus `/app/inbound-requests/{request_reference_or_id}`, `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/accounting/journal-entries`, `/app/review/accounting/control-balances`, `/app/review/accounting/tax-summaries`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit` on desktop, and only add a narrow-width compatibility pass when a concrete concern justifies it, before resuming live workflow validation
 
 ## 2.1 Served-runtime precheck
 
 Before broader end-to-end workflow validation resumes, use this bounded post-cutover precheck:
 
-1. confirm `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/admin/parties/{party_id}` including exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat` render cleanly and preserve their primary navigation actions, including multi-term route-catalog searches such as `pending approvals` or `failed requests`, visible active or inactive status controls on the promoted admin master-data pages, the inventory landing snapshot links for stock, movement history, and pending execution or accounting handoffs, and the expanded-versus-collapsed desktop sidebar state
+1. confirm `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/master-data` for an admin actor, `/app/admin/lists` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/admin/parties/{party_id}` including exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat` render cleanly and preserve their primary navigation actions, including multi-term route-catalog searches such as `pending approvals` or `failed requests`, visible active or inactive status controls on the promoted admin master-data pages, the inventory landing snapshot links for stock, movement history, and pending execution or accounting handoffs, and the expanded-versus-collapsed desktop sidebar state
 2. confirm `/app/inbound-requests/{request_reference_or_id}` renders request controls, including draft save plus queue plus delete and queued cancel plus amend when the current request state allows them, alongside request evidence, execution trace, and top-level downstream continuity links for the latest proposal plus any approval or document follow-through, preferring an exact accounting-entry drill-down when the linked proposal document already has a posted journal entry, and confirm the operator home plus coordinator chat plus review landing snapshots now take known proposal and approval rows straight into exact detail routes instead of filtered lists
-3. confirm `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit` render cleanly with filters, contained tables, and exact drill-down links
+3. confirm `/app/review/inbound-requests`, `/app/review/approvals`, `/app/review/proposals`, `/app/review/documents`, `/app/review/accounting`, `/app/review/accounting/journal-entries`, `/app/review/accounting/control-balances`, `/app/review/accounting/tax-summaries`, `/app/review/inventory`, `/app/review/work-orders`, and `/app/review/audit` render cleanly with directory links, filters, contained tables, and exact drill-down links
 4. confirm one exact drill-down chain across request -> proposal -> approval -> document, and use the verification-org credentials emitted by `cmd/verify-agent -database-url "$DATABASE_URL" -approval-flow` when the continuity proof is seeded outside the main admin org
 5. confirm one exact drill-down chain from request or proposal into accounting or inventory or work-order detail, preferring an exact accounting-entry route over a filtered accounting list when the posted journal entry is already known, and treat the verify-agent-emitted journal entry id as the canonical proof input when that seed path is being used
 6. confirm the served runtime returns real static assets under `/app/_app/...` and returns `404` for missing asset requests instead of silently falling back to the SPA shell
@@ -69,26 +69,31 @@ Review these routes first on desktop:
 3. `/app/routes`
 4. `/app/settings`
 5. `/app/admin`
-6. `/app/admin/accounting`
-7. `/app/admin/parties`
-8. `/app/admin/parties/{party_id}`
-9. `/app/admin/access`
-10. `/app/admin/inventory`
-11. `/app/operations`
-12. `/app/review`
-13. `/app/inventory`
-14. `/app/submit-inbound-request`
-15. `/app/operations-feed`
-16. `/app/agent-chat`
-17. `/app/inbound-requests/{request_reference_or_id}`
-18. `/app/review/inbound-requests`
-19. `/app/review/approvals`
-20. `/app/review/proposals`
-21. `/app/review/documents`
-22. `/app/review/accounting`
-23. `/app/review/inventory`
-24. `/app/review/work-orders`
-25. `/app/review/audit`
+6. `/app/admin/master-data`
+7. `/app/admin/lists`
+8. `/app/admin/accounting`
+9. `/app/admin/parties`
+10. `/app/admin/parties/{party_id}`
+11. `/app/admin/access`
+12. `/app/admin/inventory`
+13. `/app/operations`
+14. `/app/review`
+15. `/app/inventory`
+16. `/app/submit-inbound-request`
+17. `/app/operations-feed`
+18. `/app/agent-chat`
+19. `/app/inbound-requests/{request_reference_or_id}`
+20. `/app/review/inbound-requests`
+21. `/app/review/approvals`
+22. `/app/review/proposals`
+23. `/app/review/documents`
+24. `/app/review/accounting`
+25. `/app/review/accounting/journal-entries`
+26. `/app/review/accounting/control-balances`
+27. `/app/review/accounting/tax-summaries`
+28. `/app/review/inventory`
+29. `/app/review/work-orders`
+30. `/app/review/audit`
 
 For each route, check:
 

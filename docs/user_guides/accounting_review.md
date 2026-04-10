@@ -1,6 +1,6 @@
 # Accounting Review
 
-Date: 2026-03-31
+Date: 2026-04-10
 Status: Active
 Purpose: explain how to review accounting output and confirm it matches the document workflow chain.
 
@@ -10,12 +10,12 @@ Open the accounting review page from the browser navigation or from a linked wor
 
 1. `/app/review/accounting`
 2. `/app/review/accounting/{entry_id}`
-3. `/app/review/accounting?entry_id={entry_id}`
-4. `/app/review/accounting?document_id={document_id}`
-5. `/app/review/accounting/control-accounts/{account_id}`
-6. `/app/review/accounting/tax-summaries/{tax_code}`
+3. `/app/review/accounting/journal-entries?entry_id={entry_id}`
+4. `/app/review/accounting/journal-entries?document_id={document_id}`
+5. `/app/review/accounting/control-balances`
+6. `/app/review/accounting/tax-summaries`
 
-Use this surface when you need to inspect the current accounting truth for a document-linked workflow.
+Use the accounting report directory first, then open the dedicated journal, control-balance, or tax-summary destination needed for the current workflow trace.
 
 ## 2. Review the accounting record
 

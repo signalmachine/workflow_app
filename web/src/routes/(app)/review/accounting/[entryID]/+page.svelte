@@ -28,7 +28,7 @@
 		</div>
 		<p>{data.journal.summary}</p>
 		<div class="action-row">
-			<a href={withQuery(routes.reviewAccounting, { entry_id: data.journal.entry_id })}>Filtered accounting view</a>
+			<a href={withQuery(routes.reviewAccountingJournalEntries, { entry_id: data.journal.entry_id })}>Filtered accounting view</a>
 			{#if data.journal.source_document_id}
 				<a href={documentDetail(data.journal.source_document_id)}>Document detail</a>
 			{/if}
@@ -44,4 +44,3 @@
 		</div>
 	</SurfaceCard>
 </div>
-

@@ -242,7 +242,7 @@
 									-
 								{/if}
 							</td>
-							<td><a href={withQuery(routes.reviewAccounting, { document_id: item.document_id })}>Open accounting review</a></td>
+							<td><a href={withQuery(routes.reviewAccountingJournalEntries, { document_id: item.document_id })}>Open accounting review</a></td>
 						</tr>
 					{:else}
 						<tr>

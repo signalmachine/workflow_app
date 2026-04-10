@@ -108,7 +108,8 @@ Current checkpoint recorded on 2026-04-10:
 2. the bounded shared-shell desktop layout correction is also landed: the sidebar remains directly under the top app bar while the contextual tabs now begin over the main content column
 3. focused frontend verification for the new mutation clients, request-detail lifecycle controls, and shell layout contract passed
 4. a follow-up documentation-truth checkpoint on 2026-04-10 realigned the workflow catalog, inbound-request lifecycle guide, agent-chat guide, inbound-request technical guide, and active scope note with the current route contract
-5. Slice 1 remains open until the next grouped navigation cleanup step is completed in Admin and Accounting
+5. the grouped navigation checkpoint then added Admin `Master Data` and `Lists` directory pages, changed the Admin contextual tabs to grouped directories plus Access, and changed `/app/review/accounting` into an accounting report directory with dedicated `journal-entries`, `control-balances`, and `tax-summaries` destinations
+6. Slice 1 is now closed enough to move the active implementation path to baseline accounting reports in Slice 3 while preserving broader information-architecture cleanup as follow-through when new crowded areas appear
 
 ### 5.2 Slice 2: production-readiness test expansion
 

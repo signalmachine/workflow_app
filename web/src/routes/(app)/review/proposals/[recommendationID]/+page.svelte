@@ -42,7 +42,7 @@
 						{/if}
 					</a>
 				{:else}
-					<a href={withQuery(routes.reviewAccounting, { document_id: data.proposal.document_id })}>Accounting review</a>
+					<a href={withQuery(routes.reviewAccountingJournalEntries, { document_id: data.proposal.document_id })}>Accounting review</a>
 				{/if}
 			{/if}
 		</div>

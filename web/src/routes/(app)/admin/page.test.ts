@@ -8,17 +8,10 @@ describe('admin hub page', () => {
 		render(AdminPage, { props: {} as never });
 
 		expect(screen.getByText('Privileged maintenance hub')).toBeTruthy();
-		expect(screen.getByRole('link', { name: /Accounting setup/i }).getAttribute('href')).toBe(
-			'/app/admin/accounting'
-		);
-		expect(screen.getByRole('link', { name: /Party setup/i }).getAttribute('href')).toBe(
-			'/app/admin/parties'
-		);
+		expect(screen.getByRole('link', { name: /Master data/i }).getAttribute('href')).toBe('/app/admin/master-data');
+		expect(screen.getByRole('link', { name: /Lists/i }).getAttribute('href')).toBe('/app/admin/lists');
 		expect(screen.getByRole('link', { name: /Access controls/i }).getAttribute('href')).toBe(
 			'/app/admin/access'
-		);
-		expect(screen.getByRole('link', { name: /Inventory setup/i }).getAttribute('href')).toBe(
-			'/app/admin/inventory'
 		);
 	});
 });

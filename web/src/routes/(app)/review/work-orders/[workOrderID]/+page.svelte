@@ -40,7 +40,7 @@
 				<a href={approvalDetail(data.workOrder.approval_id)}>Approval detail</a>
 			{/if}
 			{#if data.workOrder.last_accounting_posted_at}
-				<a href={withQuery(routes.reviewAccounting, { document_id: data.workOrder.document_id })}>Accounting review</a>
+				<a href={withQuery(routes.reviewAccountingJournalEntries, { document_id: data.workOrder.document_id })}>Accounting review</a>
 			{/if}
 		</div>
 		<p class="muted-copy">
@@ -48,4 +48,3 @@
 		</p>
 	</SurfaceCard>
 </div>
-

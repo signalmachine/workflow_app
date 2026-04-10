@@ -36,19 +36,20 @@ Purpose: track the active implementation state, current sequencing, and immediat
 28. the first strong future milestone after Milestone 14 should be structured data exchange: CSV-first bulk master-data import plus CSV/Excel-compatible export for promoted lists and reports
 29. the first Milestone 14 Slice 1 checkpoint is now landed on 2026-04-10: exact inbound-request detail exposes draft save plus queue plus delete controls and queued cancel plus amend controls through the existing shared `/api/inbound-requests/{request_id}/{action}` seam, the desktop shell now places contextual tabs over the main content column instead of across the far-left edge, and focused Svelte checks for those new browser contracts now pass
 30. a follow-up Slice 1 documentation-truth checkpoint on 2026-04-10 realigned the durable workflow catalog, inbound-request lifecycle guide, agent-chat guide, inbound-request technical guide, and active scope note with the current route contract: `/app/review/inbound-requests` is the list surface, `/app/inbound-requests/{request_reference_or_id}` is the exact detail and lifecycle-action surface, `/app/operations` owns the browser process-next action, and `/api/...` remains the mutation seam
-31. the remainder of Slice 1 should now resume with grouped-directory and dedicated-destination navigation cleanup in Admin and Accounting rather than reopening the inbound-request documentation-truth pass
+31. the grouped-directory navigation checkpoint is now landed on 2026-04-10: the Admin contextual tabs now route through grouped `Master Data` and `Lists` directory pages before concrete accounting, party, inventory, or access destinations, and `/app/review/accounting` now acts as an accounting report directory with dedicated `journal-entries`, `control-balances`, and `tax-summaries` destinations behind it
+32. focused Svelte component tests, `npm --prefix web run check`, `npm --prefix web run build`, focused Go served-route tests, and gopls diagnostics passed for that grouped navigation checkpoint on 2026-04-10
+33. the remainder of Milestone 14 should now move to baseline accounting reports for trial balance, balance sheet, and income statement rather than reopening the Slice 1 inbound-request, shell-layout, documentation-truth, or grouped-directory checkpoints
 
 ## 2. Active implementation order
 
 1. treat Milestone 13 implementation as delivered baseline and Milestone 14 as the active next bounded milestone
-2. continue Milestone 14 Slice 1 from the now-landed request-detail lifecycle, shell-layout, and inbound-request documentation-truth checkpoints
-3. apply the grouped-directory and dedicated-destination navigation model in the most crowded promoted areas, starting with Admin and then Accounting
-4. then land baseline accounting reports for trial balance, balance sheet, and income statement on the shared reporting seam and add similarly justified adjacent reporting capability when it is exposed as an obvious gap during implementation
-5. then seed `North Harbor Works` with the minimum realistic chart of accounts and master-data baseline needed for reports, lists, and bounded user testing
-6. then expand production-readiness verification where current tests are still too narrow for the real risk
-7. then execute the deferred live workflow-validation backlog against the corrected promoted runtime
-8. then make user-testing readiness explicit by documenting the supported testing posture, any remaining exclusions, and the workflow guidance testers should rely on
-9. use the updated Playwright plus `cmd/verify-agent -database-url "$DATABASE_URL" -approval-flow` pattern as the default real-browser continuity proof for future workflow-critical Svelte changes
+2. treat Milestone 14 Slice 1 as closed through the request-detail lifecycle, shell-layout, inbound-request documentation-truth, and first grouped-directory navigation checkpoints
+3. land baseline accounting reports for trial balance, balance sheet, and income statement on the shared reporting seam and add similarly justified adjacent reporting capability when it is exposed as an obvious gap during implementation
+4. then seed `North Harbor Works` with the minimum realistic chart of accounts and master-data baseline needed for reports, lists, and bounded user testing
+5. then expand production-readiness verification where current tests are still too narrow for the real risk
+6. then execute the deferred live workflow-validation backlog against the corrected promoted runtime
+7. then make user-testing readiness explicit by documenting the supported testing posture, any remaining exclusions, and the workflow guidance testers should rely on
+8. use the updated Playwright plus `cmd/verify-agent -database-url "$DATABASE_URL" -approval-flow` pattern as the default real-browser continuity proof for future workflow-critical Svelte changes
 
 ## 2.1 Current delivered baseline
 
@@ -84,11 +85,10 @@ The next implementation session should answer this in code and verification, not
 
 1. does the promoted Svelte runtime regain full parked-request lifecycle support, or is the browser contract intentionally narrowed and documented as such
 2. does the shared desktop shell land the bounded sidebar-versus-contextual-tab layout correction cleanly on the promoted runtime
-3. does the new grouped-directory contextual-tab model land cleanly in the crowded Admin and Accounting areas and improve operator clarity without creating unnecessary depth
-4. do baseline accounting reports land in a production-shape form on the shared reporting seam, and what adjacent similar report gaps should be closed in the same milestone
-5. does `North Harbor Works` gain the minimum realistic chart of accounts and master-data baseline needed for bounded user testing and meaningful report review
-6. what new tests are still required to move the delivered runtime closer to a production-ready and user-testing-ready quality bar
-7. what workflow-validation evidence and documentation updates are required to close Milestone 14 cleanly
+3. do baseline accounting reports land in a production-shape form on the shared reporting seam, and what adjacent similar report gaps should be closed in the same milestone
+4. does `North Harbor Works` gain the minimum realistic chart of accounts and master-data baseline needed for bounded user testing and meaningful report review
+5. what new tests are still required to move the delivered runtime closer to a production-ready and user-testing-ready quality bar
+6. what workflow-validation evidence and documentation updates are required to close Milestone 14 cleanly
 
 ## 4. Working rules
 

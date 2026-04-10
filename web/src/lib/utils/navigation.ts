@@ -225,28 +225,22 @@ function buildNavigationAreas(roleCode: string): NavigationArea[] {
 					matchers: [exact(routes.admin)]
 				},
 				{
-					id: 'accounting',
-					label: 'Accounting',
-					href: routes.adminAccounting,
-					matchers: [prefix(routes.adminAccounting)]
+					id: 'master-data',
+					label: 'Master Data',
+					href: routes.adminMasterData,
+					matchers: [prefix(routes.adminMasterData), prefix(routes.adminAccounting), prefix(routes.adminParties), prefix(routes.adminInventory)]
 				},
 				{
-					id: 'parties',
-					label: 'Parties',
-					href: routes.adminParties,
-					matchers: [prefix(routes.adminParties)]
+					id: 'lists',
+					label: 'Lists',
+					href: routes.adminLists,
+					matchers: [prefix(routes.adminLists)]
 				},
 				{
 					id: 'access',
 					label: 'Access',
 					href: routes.adminAccess,
 					matchers: [prefix(routes.adminAccess)]
-				},
-				{
-					id: 'inventory',
-					label: 'Inventory',
-					href: routes.adminInventory,
-					matchers: [prefix(routes.adminInventory)]
 				}
 			]
 		});

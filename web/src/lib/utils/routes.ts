@@ -28,10 +28,15 @@ export const routes = {
 	inventory: withBase('/inventory'),
 	settings: withBase('/settings'),
 	admin: withBase('/admin'),
+	adminMasterData: withBase('/admin/master-data'),
+	adminLists: withBase('/admin/lists'),
 	adminAccounting: withBase('/admin/accounting'),
 	adminParties: withBase('/admin/parties'),
 	adminAccess: withBase('/admin/access'),
-	adminInventory: withBase('/admin/inventory')
+	adminInventory: withBase('/admin/inventory'),
+	reviewAccountingJournalEntries: withBase('/review/accounting/journal-entries'),
+	reviewAccountingControlBalances: withBase('/review/accounting/control-balances'),
+	reviewAccountingTaxSummaries: withBase('/review/accounting/tax-summaries')
 };
 
 export function adminPartyDetail(partyID: string): string {
