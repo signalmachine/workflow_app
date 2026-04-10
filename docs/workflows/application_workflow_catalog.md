@@ -1,7 +1,7 @@
 # workflow_app Application Workflow Catalog
 
 Date: 2026-04-10
-Status: Active durable workflow catalog updated for the current served Svelte runtime at `/app`, including the contextual-navigation shell, the grouped landing pages at `/app/operations`, `/app/review`, and `/app/inventory`, the searchable route catalog at `/app/routes`, the utility surfaces at `/app/settings` plus access-scoped `/app/admin`, the grouped admin directory routes at `/app/admin/master-data` and `/app/admin/lists`, the admin accounting, party, access-control, and inventory setup surfaces at `/app/admin/accounting`, `/app/admin/parties`, `/app/admin/access`, and `/app/admin/inventory`, the accounting report directory at `/app/review/accounting`, the dedicated accounting report destinations under `/app/review/accounting/journal-entries`, `/app/review/accounting/control-balances`, and `/app/review/accounting/tax-summaries`, the role-aware operator home on `/app`, the `/app/review/inbound-requests` list route, and the exact `/app/inbound-requests/{request_reference_or_id}` detail route with parked-request lifecycle controls
+Status: Active durable workflow catalog updated for the current served Svelte runtime at `/app`, including the contextual-navigation shell, the grouped landing pages at `/app/operations`, `/app/review`, and `/app/inventory`, the searchable route catalog at `/app/routes`, the utility surfaces at `/app/settings` plus access-scoped `/app/admin`, the grouped admin directory routes at `/app/admin/master-data` and `/app/admin/lists`, the admin accounting, party, access-control, and inventory setup surfaces at `/app/admin/accounting`, `/app/admin/parties`, `/app/admin/access`, and `/app/admin/inventory`, the accounting report directory at `/app/review/accounting`, the dedicated accounting report destinations under `/app/review/accounting/journal-entries`, `/app/review/accounting/control-balances`, `/app/review/accounting/tax-summaries`, `/app/review/accounting/trial-balance`, `/app/review/accounting/balance-sheet`, and `/app/review/accounting/income-statement`, the role-aware operator home on `/app`, the `/app/review/inbound-requests` list route, and the exact `/app/inbound-requests/{request_reference_or_id}` detail route with parked-request lifecycle controls
 Purpose: capture the application workflows and related feature continuity in one durable reference document for implementation review, testing, onboarding, and later user-guide preparation.
 
 ## 1. How to read this document
@@ -74,7 +74,7 @@ Primary continuity surfaces:
 12. admin party setup surface
 13. admin access-control surface
 14. admin inventory setup surface
-15. accounting report directory and dedicated journal, control-balance, and tax-summary destinations
+15. accounting report directory and dedicated journal, control-balance, tax-summary, trial-balance, balance-sheet, and income-statement destinations
 16. session introspection
 17. subsequent browser-authenticated `/api/...` writes and review reads
 
@@ -182,6 +182,42 @@ Expected outputs:
 3. bounded active or inactive status governance for inventory items and locations on that same shared truth model
 4. visible browser continuity between the admin maintenance hub, the inventory setup page, and the existing exact inventory review routes
 5. shared API reuse for later non-browser inventory maintenance without introducing browser-local truth
+
+Current status:
+
+1. implemented
+2. repo_verified
+3. pending_live_validation
+
+### 2.1.5 Accounting report review
+
+Purpose:
+allow operators to inspect posted accounting truth, control balances, tax summaries, and baseline financial statements from the shared reporting seam without moving report composition into the browser runtime.
+
+Entry points:
+
+1. `GET /api/review/accounting/journal-entries`
+2. `GET /api/review/accounting/control-account-balances`
+3. `GET /api/review/accounting/tax-summaries`
+4. `GET /api/review/accounting/trial-balance`
+5. `GET /api/review/accounting/balance-sheet`
+6. `GET /api/review/accounting/income-statement`
+7. `/app/review/accounting`
+8. `/app/review/accounting/journal-entries`
+9. `/app/review/accounting/control-balances`
+10. `/app/review/accounting/tax-summaries`
+11. `/app/review/accounting/trial-balance`
+12. `/app/review/accounting/balance-sheet`
+13. `/app/review/accounting/income-statement`
+
+Expected outputs:
+
+1. exact journal-entry review with upstream document, approval, request, recommendation, and run continuity when that provenance exists
+2. control-account balance review with as-of filtering
+3. GST and TDS tax-summary review with effective-date range filters
+4. trial balance with debit and credit balance totals plus an explicit imbalance total
+5. balance sheet with assets, liabilities, equity, current earnings, and an explicit imbalance total
+6. income statement with revenue, expense, and net-income totals over a selected effective-date range
 
 Current status:
 

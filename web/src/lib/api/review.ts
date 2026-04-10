@@ -7,8 +7,10 @@ import type {
 	AIStep,
 	ApprovalQueueEntry,
 	AuditEvent,
+	BalanceSheetReport,
 	ControlAccountBalance,
 	DocumentReview,
+	IncomeStatementReport,
 	InventoryMovementDetail,
 	InboundRequestDetail,
 	InboundRequestMessage,
@@ -22,6 +24,7 @@ import type {
 	ProcessedProposalStatusSummary,
 	RequestAttachment,
 	TaxSummary,
+	TrialBalanceReport,
 	WorkOrderReview
 } from '$lib/api/types';
 
@@ -186,6 +189,40 @@ export function listTaxSummaries(
 			end_on: params.endOn,
 			tax_type: params.taxType,
 			tax_code: params.taxCode
+		}),
+		undefined,
+		fetcher
+	);
+}
+
+export function getTrialBalance(params: { asOf?: string }, fetcher: typeof fetch = fetch): Promise<TrialBalanceReport> {
+	return apiRequest(
+		withSearch('/api/review/accounting/trial-balance', {
+			as_of: params.asOf
+		}),
+		undefined,
+		fetcher
+	);
+}
+
+export function getBalanceSheet(params: { asOf?: string }, fetcher: typeof fetch = fetch): Promise<BalanceSheetReport> {
+	return apiRequest(
+		withSearch('/api/review/accounting/balance-sheet', {
+			as_of: params.asOf
+		}),
+		undefined,
+		fetcher
+	);
+}
+
+export function getIncomeStatement(
+	params: { startOn?: string; endOn?: string },
+	fetcher: typeof fetch = fetch
+): Promise<IncomeStatementReport> {
+	return apiRequest(
+		withSearch('/api/review/accounting/income-statement', {
+			start_on: params.startOn,
+			end_on: params.endOn
 		}),
 		undefined,
 		fetcher

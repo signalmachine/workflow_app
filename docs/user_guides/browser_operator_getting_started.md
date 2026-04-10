@@ -36,7 +36,7 @@ From the dashboard, move to the task-specific pages:
 4. review processed proposals from `/app/review/proposals`
 5. review approvals from `/app/review/approvals`
 6. review documents from `/app/review/documents`
-7. review accounting from `/app/review/accounting`, then open journal entries, control balances, or tax summaries from that report directory
+7. review accounting from `/app/review/accounting`, then open journal entries, control balances, tax summaries, trial balance, balance sheet, or income statement from that report directory
 8. review inventory from `/app/review/inventory`
 9. review work orders from `/app/review/work-orders`
 10. review audit history from `/app/review/audit`

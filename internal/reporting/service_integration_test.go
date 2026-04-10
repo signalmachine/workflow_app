@@ -883,6 +883,49 @@ func TestReportingReviewSurfacesIntegration(t *testing.T) {
 		t.Fatalf("unexpected filtered GST tax summaries: %+v", gstTaxSummaries)
 	}
 
+	trialBalance, err := reportingService.GetTrialBalance(ctx, reporting.GetTrialBalanceInput{
+		AsOf:  tdsPostedAt,
+		Actor: admin,
+	})
+	if err != nil {
+		t.Fatalf("get trial balance: %v", err)
+	}
+	if trialBalance.TotalDebitBalanceMinor != 121600 || trialBalance.TotalCreditBalanceMinor != 121600 || trialBalance.ImbalanceMinor != 0 {
+		t.Fatalf("unexpected trial balance totals: %+v", trialBalance)
+	}
+	if got := findTrialBalanceLine(t, trialBalance.Lines, receivable.Code).DebitBalanceMinor; got != 108000 {
+		t.Fatalf("unexpected receivable trial balance: %d", got)
+	}
+	if got := findTrialBalanceLine(t, trialBalance.Lines, revenue.Code).CreditBalanceMinor; got != 100000 {
+		t.Fatalf("unexpected revenue trial balance: %d", got)
+	}
+
+	balanceSheet, err := reportingService.GetBalanceSheet(ctx, reporting.GetBalanceSheetInput{
+		AsOf:  tdsPostedAt,
+		Actor: admin,
+	})
+	if err != nil {
+		t.Fatalf("get balance sheet: %v", err)
+	}
+	if balanceSheet.TotalAssetsMinor != 108000 || balanceSheet.TotalLiabilitiesMinor != 20600 || balanceSheet.TotalEquityMinor != 87400 || balanceSheet.ImbalanceMinor != 0 {
+		t.Fatalf("unexpected balance sheet totals: %+v", balanceSheet)
+	}
+	if currentEarnings := findFinancialStatementLine(t, balanceSheet.Lines, "current_earnings"); currentEarnings.AmountMinor != 87400 || !currentEarnings.IsSynthetic {
+		t.Fatalf("unexpected current earnings line: %+v", currentEarnings)
+	}
+
+	incomeStatement, err := reportingService.GetIncomeStatement(ctx, reporting.GetIncomeStatementInput{
+		StartOn: startedAt,
+		EndOn:   tdsPostedAt,
+		Actor:   admin,
+	})
+	if err != nil {
+		t.Fatalf("get income statement: %v", err)
+	}
+	if incomeStatement.TotalRevenueMinor != 100000 || incomeStatement.TotalExpensesMinor != 12600 || incomeStatement.NetIncomeMinor != 87400 {
+		t.Fatalf("unexpected income statement totals: %+v", incomeStatement)
+	}
+
 	auditEvents, err := reportingService.LookupAuditEvents(ctx, reporting.LookupAuditEventsInput{
 		EntityType: "work_orders.work_order",
 		EntityID:   workOrderResult.WorkOrder.ID,
@@ -956,6 +999,28 @@ func findTaxSummary(t *testing.T, summaries []reporting.TaxSummary, taxCode stri
 	}
 	t.Fatalf("tax summary not found for tax code %s", taxCode)
 	return reporting.TaxSummary{}
+}
+
+func findTrialBalanceLine(t *testing.T, lines []reporting.TrialBalanceLine, code string) reporting.TrialBalanceLine {
+	t.Helper()
+	for _, line := range lines {
+		if line.AccountCode == code {
+			return line
+		}
+	}
+	t.Fatalf("trial balance line not found for code %s", code)
+	return reporting.TrialBalanceLine{}
+}
+
+func findFinancialStatementLine(t *testing.T, lines []reporting.FinancialStatementLine, key string) reporting.FinancialStatementLine {
+	t.Helper()
+	for _, line := range lines {
+		if line.LineKey == key {
+			return line
+		}
+	}
+	t.Fatalf("financial statement line not found for key %s", key)
+	return reporting.FinancialStatementLine{}
 }
 
 func findInventoryReconciliationByDocument(t *testing.T, rows []reporting.InventoryReconciliationItem, documentID string) reporting.InventoryReconciliationItem {

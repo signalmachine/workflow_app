@@ -381,6 +381,57 @@ export interface TaxSummary {
 	last_effective_on?: string;
 }
 
+export interface TrialBalanceLine {
+	account_id: string;
+	account_code: string;
+	account_name: string;
+	account_class: string;
+	total_debit_minor: number;
+	total_credit_minor: number;
+	net_minor: number;
+	debit_balance_minor: number;
+	credit_balance_minor: number;
+	last_effective_on?: string;
+}
+
+export interface TrialBalanceReport {
+	as_of?: string;
+	lines: TrialBalanceLine[];
+	total_debit_balance_minor: number;
+	total_credit_balance_minor: number;
+	imbalance_minor: number;
+}
+
+export interface FinancialStatementLine {
+	line_key: string;
+	account_id?: string;
+	account_code?: string;
+	account_name: string;
+	account_class: string;
+	section: string;
+	amount_minor: number;
+	is_synthetic: boolean;
+}
+
+export interface BalanceSheetReport {
+	as_of?: string;
+	lines: FinancialStatementLine[];
+	total_assets_minor: number;
+	total_liabilities_minor: number;
+	total_equity_minor: number;
+	total_liabilities_and_equity_minor: number;
+	imbalance_minor: number;
+}
+
+export interface IncomeStatementReport {
+	start_on?: string;
+	end_on?: string;
+	lines: FinancialStatementLine[];
+	total_revenue_minor: number;
+	total_expenses_minor: number;
+	net_income_minor: number;
+}
+
 export interface InventoryStockItem {
 	item_id: string;
 	item_sku: string;

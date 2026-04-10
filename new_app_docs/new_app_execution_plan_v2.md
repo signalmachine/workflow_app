@@ -77,7 +77,8 @@ The post-closeout implementation review then found the first Milestone 14 correc
 9. the first 2026-04-10 Slice 1 checkpoint is now implemented in code and focused frontend verification: exact inbound-request detail exposes draft save plus queue plus delete and queued cancel plus amend controls through the shared backend seam, and the desktop shell layout now starts the contextual-tab row over the content column instead of above the sidebar
 10. the follow-up Slice 1 documentation-truth checkpoint on 2026-04-10 realigned the workflow catalog, inbound-request lifecycle guide, agent-chat guide, inbound-request technical guide, and active scope note with the current route contract
 11. the grouped navigation checkpoint on 2026-04-10 then added Admin `Master Data` and `Lists` directory pages, changed the Admin contextual tabs to grouped directories plus Access, and changed `/app/review/accounting` into an accounting report directory with dedicated `journal-entries`, `control-balances`, and `tax-summaries` destinations
-12. the remaining Milestone 14 implementation work should now move to baseline accounting reports rather than reopening the request-detail, shell-layout, inbound-request route-vocabulary, or first grouped-directory checkpoints
+12. the baseline accounting-report checkpoint on 2026-04-10 then added backend-owned trial balance, balance sheet, and income statement report contracts plus dedicated Svelte destinations under `/app/review/accounting`, with focused reporting integration tests, focused route-serving tests, focused Svelte component tests, frontend check/build, Go build, and gopls diagnostics passing for that checkpoint
+13. the remaining Milestone 14 implementation work should now move to the `North Harbor Works` demo-data baseline rather than reopening the request-detail, shell-layout, inbound-request route-vocabulary, first grouped-directory, or baseline accounting-report checkpoints
 
 ## 2.2 Milestone 15 future direction
 

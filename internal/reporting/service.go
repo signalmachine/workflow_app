@@ -394,6 +394,73 @@ type ListTaxSummariesInput struct {
 	Actor   identityaccess.Actor
 }
 
+type TrialBalanceLine struct {
+	AccountID          string
+	AccountCode        string
+	AccountName        string
+	AccountClass       string
+	TotalDebitMinor    int64
+	TotalCreditMinor   int64
+	NetMinor           int64
+	DebitBalanceMinor  int64
+	CreditBalanceMinor int64
+	LastEffectiveOn    sql.NullTime
+}
+
+type TrialBalanceReport struct {
+	AsOf                    sql.NullTime
+	Lines                   []TrialBalanceLine
+	TotalDebitBalanceMinor  int64
+	TotalCreditBalanceMinor int64
+	ImbalanceMinor          int64
+}
+
+type GetTrialBalanceInput struct {
+	AsOf  time.Time
+	Actor identityaccess.Actor
+}
+
+type FinancialStatementLine struct {
+	LineKey      string
+	AccountID    sql.NullString
+	AccountCode  sql.NullString
+	AccountName  string
+	AccountClass string
+	Section      string
+	AmountMinor  int64
+	IsSynthetic  bool
+}
+
+type BalanceSheetReport struct {
+	AsOf                           sql.NullTime
+	Lines                          []FinancialStatementLine
+	TotalAssetsMinor               int64
+	TotalLiabilitiesMinor          int64
+	TotalEquityMinor               int64
+	TotalLiabilitiesAndEquityMinor int64
+	ImbalanceMinor                 int64
+}
+
+type GetBalanceSheetInput struct {
+	AsOf  time.Time
+	Actor identityaccess.Actor
+}
+
+type IncomeStatementReport struct {
+	StartOn            sql.NullTime
+	EndOn              sql.NullTime
+	Lines              []FinancialStatementLine
+	TotalRevenueMinor  int64
+	TotalExpensesMinor int64
+	NetIncomeMinor     int64
+}
+
+type GetIncomeStatementInput struct {
+	StartOn time.Time
+	EndOn   time.Time
+	Actor   identityaccess.Actor
+}
+
 type GetWorkOrderReviewInput struct {
 	WorkOrderID string
 	Actor       identityaccess.Actor
@@ -2387,6 +2454,349 @@ LIMIT $6;`,
 	return summaries, nil
 }
 
+func (s *Service) GetTrialBalance(ctx context.Context, input GetTrialBalanceInput) (TrialBalanceReport, error) {
+	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
+	if err != nil {
+		return TrialBalanceReport{}, err
+	}
+	defer tx.Rollback()
+
+	asOf, asOfSet := normalizeOptionalDate(input.AsOf)
+	report, err := getTrialBalanceTx(ctx, tx, input.Actor.OrgID, asOf, asOfSet)
+	if err != nil {
+		return TrialBalanceReport{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return TrialBalanceReport{}, fmt.Errorf("commit trial balance read: %w", err)
+	}
+
+	return report, nil
+}
+
+func (s *Service) GetBalanceSheet(ctx context.Context, input GetBalanceSheetInput) (BalanceSheetReport, error) {
+	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
+	if err != nil {
+		return BalanceSheetReport{}, err
+	}
+	defer tx.Rollback()
+
+	asOf, asOfSet := normalizeOptionalDate(input.AsOf)
+	report, err := getBalanceSheetTx(ctx, tx, input.Actor.OrgID, asOf, asOfSet)
+	if err != nil {
+		return BalanceSheetReport{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return BalanceSheetReport{}, fmt.Errorf("commit balance sheet read: %w", err)
+	}
+
+	return report, nil
+}
+
+func (s *Service) GetIncomeStatement(ctx context.Context, input GetIncomeStatementInput) (IncomeStatementReport, error) {
+	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
+	if err != nil {
+		return IncomeStatementReport{}, err
+	}
+	defer tx.Rollback()
+
+	startOn, startSet := normalizeOptionalDate(input.StartOn)
+	endOn, endSet := normalizeOptionalDate(input.EndOn)
+	report, err := getIncomeStatementTx(ctx, tx, input.Actor.OrgID, startOn, startSet, endOn, endSet)
+	if err != nil {
+		return IncomeStatementReport{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return IncomeStatementReport{}, fmt.Errorf("commit income statement read: %w", err)
+	}
+
+	return report, nil
+}
+
+func getTrialBalanceTx(ctx context.Context, tx *sql.Tx, orgID string, asOf time.Time, asOfSet bool) (TrialBalanceReport, error) {
+	rows, err := tx.QueryContext(ctx, `
+WITH posted_lines AS (
+	SELECT
+		l.account_id,
+		l.debit_minor,
+		l.credit_minor,
+		e.effective_on
+	FROM accounting.journal_lines l
+	JOIN accounting.journal_entries e
+		ON e.id = l.entry_id
+	   AND e.org_id = l.org_id
+	WHERE l.org_id = $1
+	  AND ($2::date IS NULL OR e.effective_on <= $2::date)
+)
+SELECT
+	a.id,
+	a.code,
+	a.name,
+	a.account_class,
+	COALESCE(SUM(pl.debit_minor), 0) AS total_debit_minor,
+	COALESCE(SUM(pl.credit_minor), 0) AS total_credit_minor,
+	MAX(pl.effective_on) AS last_effective_on
+FROM accounting.ledger_accounts a
+LEFT JOIN posted_lines pl
+	ON pl.account_id = a.id
+WHERE a.org_id = $1
+  AND a.status = 'active'
+GROUP BY a.id, a.code, a.name, a.account_class
+ORDER BY a.code ASC;`,
+		orgID,
+		nullableDate(asOf, asOfSet),
+	)
+	if err != nil {
+		return TrialBalanceReport{}, fmt.Errorf("query trial balance: %w", err)
+	}
+	defer rows.Close()
+
+	report := TrialBalanceReport{
+		AsOf:  nullTimeFromOptionalDate(asOf, asOfSet),
+		Lines: []TrialBalanceLine{},
+	}
+	for rows.Next() {
+		var line TrialBalanceLine
+		if err := rows.Scan(
+			&line.AccountID,
+			&line.AccountCode,
+			&line.AccountName,
+			&line.AccountClass,
+			&line.TotalDebitMinor,
+			&line.TotalCreditMinor,
+			&line.LastEffectiveOn,
+		); err != nil {
+			return TrialBalanceReport{}, fmt.Errorf("scan trial balance line: %w", err)
+		}
+		line.NetMinor = line.TotalDebitMinor - line.TotalCreditMinor
+		if line.NetMinor >= 0 {
+			line.DebitBalanceMinor = line.NetMinor
+		} else {
+			line.CreditBalanceMinor = -line.NetMinor
+		}
+		report.TotalDebitBalanceMinor += line.DebitBalanceMinor
+		report.TotalCreditBalanceMinor += line.CreditBalanceMinor
+		report.Lines = append(report.Lines, line)
+	}
+	if err := rows.Err(); err != nil {
+		return TrialBalanceReport{}, fmt.Errorf("iterate trial balance lines: %w", err)
+	}
+	report.ImbalanceMinor = report.TotalDebitBalanceMinor - report.TotalCreditBalanceMinor
+	return report, nil
+}
+
+func getBalanceSheetTx(ctx context.Context, tx *sql.Tx, orgID string, asOf time.Time, asOfSet bool) (BalanceSheetReport, error) {
+	rows, err := tx.QueryContext(ctx, `
+WITH posted_lines AS (
+	SELECT
+		l.account_id,
+		l.debit_minor,
+		l.credit_minor
+	FROM accounting.journal_lines l
+	JOIN accounting.journal_entries e
+		ON e.id = l.entry_id
+	   AND e.org_id = l.org_id
+	WHERE l.org_id = $1
+	  AND ($2::date IS NULL OR e.effective_on <= $2::date)
+),
+account_balances AS (
+	SELECT
+		a.id,
+		a.code,
+		a.name,
+		a.account_class,
+		COALESCE(SUM(pl.debit_minor), 0) AS total_debit_minor,
+		COALESCE(SUM(pl.credit_minor), 0) AS total_credit_minor
+	FROM accounting.ledger_accounts a
+	LEFT JOIN posted_lines pl
+		ON pl.account_id = a.id
+	WHERE a.org_id = $1
+	  AND a.status = 'active'
+	GROUP BY a.id, a.code, a.name, a.account_class
+)
+SELECT
+	id,
+	code,
+	name,
+	account_class,
+	total_debit_minor,
+	total_credit_minor
+FROM account_balances
+WHERE account_class IN ('asset', 'liability', 'equity')
+ORDER BY account_class, code ASC;`,
+		orgID,
+		nullableDate(asOf, asOfSet),
+	)
+	if err != nil {
+		return BalanceSheetReport{}, fmt.Errorf("query balance sheet: %w", err)
+	}
+	defer rows.Close()
+
+	report := BalanceSheetReport{
+		AsOf:  nullTimeFromOptionalDate(asOf, asOfSet),
+		Lines: []FinancialStatementLine{},
+	}
+	for rows.Next() {
+		var (
+			accountID        string
+			accountCode      string
+			accountName      string
+			accountClass     string
+			totalDebitMinor  int64
+			totalCreditMinor int64
+		)
+		if err := rows.Scan(
+			&accountID,
+			&accountCode,
+			&accountName,
+			&accountClass,
+			&totalDebitMinor,
+			&totalCreditMinor,
+		); err != nil {
+			return BalanceSheetReport{}, fmt.Errorf("scan balance sheet line: %w", err)
+		}
+
+		amountMinor := debitNormalAmount(accountClass, totalDebitMinor, totalCreditMinor)
+		line := financialStatementLine(accountID, accountCode, accountName, accountClass, accountClass, amountMinor)
+		report.Lines = append(report.Lines, line)
+		switch accountClass {
+		case "asset":
+			report.TotalAssetsMinor += amountMinor
+		case "liability":
+			report.TotalLiabilitiesMinor += amountMinor
+		case "equity":
+			report.TotalEquityMinor += amountMinor
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return BalanceSheetReport{}, fmt.Errorf("iterate balance sheet lines: %w", err)
+	}
+
+	currentEarnings, err := currentEarningsTx(ctx, tx, orgID, asOf, asOfSet)
+	if err != nil {
+		return BalanceSheetReport{}, err
+	}
+	if currentEarnings != 0 {
+		report.Lines = append(report.Lines, FinancialStatementLine{
+			LineKey:      "current_earnings",
+			AccountName:  "Current earnings",
+			AccountClass: "equity",
+			Section:      "equity",
+			AmountMinor:  currentEarnings,
+			IsSynthetic:  true,
+		})
+		report.TotalEquityMinor += currentEarnings
+	}
+	report.TotalLiabilitiesAndEquityMinor = report.TotalLiabilitiesMinor + report.TotalEquityMinor
+	report.ImbalanceMinor = report.TotalAssetsMinor - report.TotalLiabilitiesAndEquityMinor
+	return report, nil
+}
+
+func currentEarningsTx(ctx context.Context, tx *sql.Tx, orgID string, asOf time.Time, asOfSet bool) (int64, error) {
+	var revenueMinor, expenseMinor int64
+	if err := tx.QueryRowContext(ctx, `
+SELECT
+	COALESCE(SUM(l.credit_minor - l.debit_minor) FILTER (WHERE a.account_class = 'revenue'), 0) AS revenue_minor,
+	COALESCE(SUM(l.debit_minor - l.credit_minor) FILTER (WHERE a.account_class = 'expense'), 0) AS expense_minor
+FROM accounting.ledger_accounts a
+JOIN accounting.journal_lines l
+	ON l.account_id = a.id
+   AND l.org_id = a.org_id
+JOIN accounting.journal_entries e
+	ON e.id = l.entry_id
+   AND e.org_id = a.org_id
+WHERE a.org_id = $1
+  AND a.account_class IN ('revenue', 'expense')
+  AND ($2::date IS NULL OR e.effective_on <= $2::date);`,
+		orgID,
+		nullableDate(asOf, asOfSet),
+	).Scan(&revenueMinor, &expenseMinor); err != nil {
+		return 0, fmt.Errorf("query current earnings: %w", err)
+	}
+	return revenueMinor - expenseMinor, nil
+}
+
+func getIncomeStatementTx(ctx context.Context, tx *sql.Tx, orgID string, startOn time.Time, startSet bool, endOn time.Time, endSet bool) (IncomeStatementReport, error) {
+	rows, err := tx.QueryContext(ctx, `
+WITH posted_lines AS (
+	SELECT
+		l.account_id,
+		l.debit_minor,
+		l.credit_minor
+	FROM accounting.journal_lines l
+	JOIN accounting.journal_entries e
+		ON e.id = l.entry_id
+	   AND e.org_id = l.org_id
+	WHERE l.org_id = $1
+	  AND ($2::date IS NULL OR e.effective_on >= $2::date)
+	  AND ($3::date IS NULL OR e.effective_on <= $3::date)
+)
+SELECT
+	a.id,
+	a.code,
+	a.name,
+	a.account_class,
+	COALESCE(SUM(pl.debit_minor), 0) AS total_debit_minor,
+	COALESCE(SUM(pl.credit_minor), 0) AS total_credit_minor
+FROM accounting.ledger_accounts a
+LEFT JOIN posted_lines pl
+	ON pl.account_id = a.id
+WHERE a.org_id = $1
+  AND a.status = 'active'
+  AND a.account_class IN ('revenue', 'expense')
+GROUP BY a.id, a.code, a.name, a.account_class
+ORDER BY a.account_class DESC, a.code ASC;`,
+		orgID,
+		nullableDate(startOn, startSet),
+		nullableDate(endOn, endSet),
+	)
+	if err != nil {
+		return IncomeStatementReport{}, fmt.Errorf("query income statement: %w", err)
+	}
+	defer rows.Close()
+
+	report := IncomeStatementReport{
+		StartOn: nullTimeFromOptionalDate(startOn, startSet),
+		EndOn:   nullTimeFromOptionalDate(endOn, endSet),
+		Lines:   []FinancialStatementLine{},
+	}
+	for rows.Next() {
+		var (
+			accountID        string
+			accountCode      string
+			accountName      string
+			accountClass     string
+			totalDebitMinor  int64
+			totalCreditMinor int64
+		)
+		if err := rows.Scan(
+			&accountID,
+			&accountCode,
+			&accountName,
+			&accountClass,
+			&totalDebitMinor,
+			&totalCreditMinor,
+		); err != nil {
+			return IncomeStatementReport{}, fmt.Errorf("scan income statement line: %w", err)
+		}
+		amountMinor := debitNormalAmount(accountClass, totalDebitMinor, totalCreditMinor)
+		report.Lines = append(report.Lines, financialStatementLine(accountID, accountCode, accountName, accountClass, accountClass, amountMinor))
+		switch accountClass {
+		case "revenue":
+			report.TotalRevenueMinor += amountMinor
+		case "expense":
+			report.TotalExpensesMinor += amountMinor
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return IncomeStatementReport{}, fmt.Errorf("iterate income statement lines: %w", err)
+	}
+	report.NetIncomeMinor = report.TotalRevenueMinor - report.TotalExpensesMinor
+	return report, nil
+}
+
 func (s *Service) LookupAuditEvents(ctx context.Context, input LookupAuditEventsInput) ([]AuditEvent, error) {
 	tx, err := s.beginAuthorizedRead(ctx, input.Actor)
 	if err != nil {
@@ -3540,6 +3950,31 @@ func nullableDate(value time.Time, set bool) any {
 		return nil
 	}
 	return value.Format(time.DateOnly)
+}
+
+func nullTimeFromOptionalDate(value time.Time, set bool) sql.NullTime {
+	return sql.NullTime{Time: value, Valid: set}
+}
+
+func debitNormalAmount(accountClass string, totalDebitMinor, totalCreditMinor int64) int64 {
+	switch accountClass {
+	case "asset", "expense":
+		return totalDebitMinor - totalCreditMinor
+	default:
+		return totalCreditMinor - totalDebitMinor
+	}
+}
+
+func financialStatementLine(accountID, accountCode, accountName, accountClass, section string, amountMinor int64) FinancialStatementLine {
+	return FinancialStatementLine{
+		LineKey:      accountID,
+		AccountID:    sql.NullString{String: accountID, Valid: accountID != ""},
+		AccountCode:  sql.NullString{String: accountCode, Valid: accountCode != ""},
+		AccountName:  accountName,
+		AccountClass: accountClass,
+		Section:      section,
+		AmountMinor:  amountMinor,
+	}
 }
 
 func isValidDocumentStatus(status string) bool {

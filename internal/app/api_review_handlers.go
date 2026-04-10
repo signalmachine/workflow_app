@@ -564,6 +564,100 @@ func (h *AgentAPIHandler) handleListTaxSummaries(w http.ResponseWriter, r *http.
 	writeJSON(w, http.StatusOK, response)
 }
 
+func (h *AgentAPIHandler) handleGetTrialBalance(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != reviewTrialBalancePath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+		return
+	}
+	if h.reviewService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "review service unavailable"})
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	report, err := h.reviewService.GetTrialBalance(r.Context(), reporting.GetTrialBalanceInput{
+		AsOf:  parseOptionalDate(r.URL.Query().Get("as_of")),
+		Actor: actor,
+	})
+	if err != nil {
+		handleReviewError(w, err, "failed to load trial balance")
+		return
+	}
+	writeJSON(w, http.StatusOK, mapTrialBalanceReport(report))
+}
+
+func (h *AgentAPIHandler) handleGetBalanceSheet(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != reviewBalanceSheetPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+		return
+	}
+	if h.reviewService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "review service unavailable"})
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	report, err := h.reviewService.GetBalanceSheet(r.Context(), reporting.GetBalanceSheetInput{
+		AsOf:  parseOptionalDate(r.URL.Query().Get("as_of")),
+		Actor: actor,
+	})
+	if err != nil {
+		handleReviewError(w, err, "failed to load balance sheet")
+		return
+	}
+	writeJSON(w, http.StatusOK, mapBalanceSheetReport(report))
+}
+
+func (h *AgentAPIHandler) handleGetIncomeStatement(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != reviewIncomeStatementPath {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "method not allowed"})
+		return
+	}
+	if h.reviewService == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "review service unavailable"})
+		return
+	}
+
+	actor, err := h.actorFromRequest(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	report, err := h.reviewService.GetIncomeStatement(r.Context(), reporting.GetIncomeStatementInput{
+		StartOn: parseOptionalDate(r.URL.Query().Get("start_on")),
+		EndOn:   parseOptionalDate(r.URL.Query().Get("end_on")),
+		Actor:   actor,
+	})
+	if err != nil {
+		handleReviewError(w, err, "failed to load income statement")
+		return
+	}
+	writeJSON(w, http.StatusOK, mapIncomeStatementReport(report))
+}
+
 func (h *AgentAPIHandler) handleListInventoryStock(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != reviewInventoryStockPath {
 		http.NotFound(w, r)

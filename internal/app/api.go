@@ -63,6 +63,9 @@ const (
 	webAccountingJournalsPath    = "/app/review/accounting/journal-entries"
 	webAccountingControlsPath    = "/app/review/accounting/control-balances"
 	webAccountingTaxesPath       = "/app/review/accounting/tax-summaries"
+	webAccountingTrialPath       = "/app/review/accounting/trial-balance"
+	webAccountingBalancePath     = "/app/review/accounting/balance-sheet"
+	webAccountingIncomePath      = "/app/review/accounting/income-statement"
 	webAccountingDetailPrefix    = "/app/review/accounting/"
 	webApprovalsPath             = "/app/review/approvals"
 	webApprovalDetailPrefix      = "/app/review/approvals/"
@@ -90,6 +93,9 @@ const (
 	reviewJournalEntriesPath     = "/api/review/accounting/journal-entries"
 	reviewControlBalancesPath    = "/api/review/accounting/control-account-balances"
 	reviewTaxSummariesPath       = "/api/review/accounting/tax-summaries"
+	reviewTrialBalancePath       = "/api/review/accounting/trial-balance"
+	reviewBalanceSheetPath       = "/api/review/accounting/balance-sheet"
+	reviewIncomeStatementPath    = "/api/review/accounting/income-statement"
 	reviewInventoryStockPath     = "/api/review/inventory/stock"
 	reviewInventoryMovesPath     = "/api/review/inventory/movements"
 	reviewInventoryReconPath     = "/api/review/inventory/reconciliation"
@@ -146,6 +152,9 @@ type operatorReviewReader interface {
 	ListJournalEntries(ctx context.Context, input reporting.ListJournalEntriesInput) ([]reporting.JournalEntryReview, error)
 	ListControlAccountBalances(ctx context.Context, input reporting.ListControlAccountBalancesInput) ([]reporting.ControlAccountBalance, error)
 	ListTaxSummaries(ctx context.Context, input reporting.ListTaxSummariesInput) ([]reporting.TaxSummary, error)
+	GetTrialBalance(ctx context.Context, input reporting.GetTrialBalanceInput) (reporting.TrialBalanceReport, error)
+	GetBalanceSheet(ctx context.Context, input reporting.GetBalanceSheetInput) (reporting.BalanceSheetReport, error)
+	GetIncomeStatement(ctx context.Context, input reporting.GetIncomeStatementInput) (reporting.IncomeStatementReport, error)
 	ListInventoryStock(ctx context.Context, input reporting.ListInventoryStockInput) ([]reporting.InventoryStockItem, error)
 	ListInventoryMovements(ctx context.Context, input reporting.ListInventoryMovementsInput) ([]reporting.InventoryMovementReview, error)
 	ListInventoryReconciliation(ctx context.Context, input reporting.ListInventoryReconciliationInput) ([]reporting.InventoryReconciliationItem, error)
@@ -593,6 +602,9 @@ func newAgentAPIHandlerWithDependencies(loader queuedInboundRequestProcessorLoad
 	mux.HandleFunc(reviewJournalEntriesPath+"/", handler.handleGetJournalEntryDetail)
 	mux.HandleFunc(reviewControlBalancesPath, handler.handleListControlAccountBalances)
 	mux.HandleFunc(reviewTaxSummariesPath, handler.handleListTaxSummaries)
+	mux.HandleFunc(reviewTrialBalancePath, handler.handleGetTrialBalance)
+	mux.HandleFunc(reviewBalanceSheetPath, handler.handleGetBalanceSheet)
+	mux.HandleFunc(reviewIncomeStatementPath, handler.handleGetIncomeStatement)
 	mux.HandleFunc(reviewInventoryStockPath, handler.handleListInventoryStock)
 	mux.HandleFunc(reviewInventoryMovesPath, handler.handleListInventoryMovements)
 	mux.HandleFunc(reviewInventoryMovesPath+"/", handler.handleGetInventoryMovementDetail)
@@ -1070,6 +1082,57 @@ type taxSummaryResponse struct {
 	PayableAccountCode    *string    `json:"payable_account_code,omitempty"`
 	PayableAccountName    *string    `json:"payable_account_name,omitempty"`
 	LastEffectiveOn       *time.Time `json:"last_effective_on,omitempty"`
+}
+
+type trialBalanceLineResponse struct {
+	AccountID          string     `json:"account_id"`
+	AccountCode        string     `json:"account_code"`
+	AccountName        string     `json:"account_name"`
+	AccountClass       string     `json:"account_class"`
+	TotalDebitMinor    int64      `json:"total_debit_minor"`
+	TotalCreditMinor   int64      `json:"total_credit_minor"`
+	NetMinor           int64      `json:"net_minor"`
+	DebitBalanceMinor  int64      `json:"debit_balance_minor"`
+	CreditBalanceMinor int64      `json:"credit_balance_minor"`
+	LastEffectiveOn    *time.Time `json:"last_effective_on,omitempty"`
+}
+
+type trialBalanceReportResponse struct {
+	AsOf                    *time.Time                 `json:"as_of,omitempty"`
+	Lines                   []trialBalanceLineResponse `json:"lines"`
+	TotalDebitBalanceMinor  int64                      `json:"total_debit_balance_minor"`
+	TotalCreditBalanceMinor int64                      `json:"total_credit_balance_minor"`
+	ImbalanceMinor          int64                      `json:"imbalance_minor"`
+}
+
+type financialStatementLineResponse struct {
+	LineKey      string  `json:"line_key"`
+	AccountID    *string `json:"account_id,omitempty"`
+	AccountCode  *string `json:"account_code,omitempty"`
+	AccountName  string  `json:"account_name"`
+	AccountClass string  `json:"account_class"`
+	Section      string  `json:"section"`
+	AmountMinor  int64   `json:"amount_minor"`
+	IsSynthetic  bool    `json:"is_synthetic"`
+}
+
+type balanceSheetReportResponse struct {
+	AsOf                           *time.Time                       `json:"as_of,omitempty"`
+	Lines                          []financialStatementLineResponse `json:"lines"`
+	TotalAssetsMinor               int64                            `json:"total_assets_minor"`
+	TotalLiabilitiesMinor          int64                            `json:"total_liabilities_minor"`
+	TotalEquityMinor               int64                            `json:"total_equity_minor"`
+	TotalLiabilitiesAndEquityMinor int64                            `json:"total_liabilities_and_equity_minor"`
+	ImbalanceMinor                 int64                            `json:"imbalance_minor"`
+}
+
+type incomeStatementReportResponse struct {
+	StartOn            *time.Time                       `json:"start_on,omitempty"`
+	EndOn              *time.Time                       `json:"end_on,omitempty"`
+	Lines              []financialStatementLineResponse `json:"lines"`
+	TotalRevenueMinor  int64                            `json:"total_revenue_minor"`
+	TotalExpensesMinor int64                            `json:"total_expenses_minor"`
+	NetIncomeMinor     int64                            `json:"net_income_minor"`
 }
 
 type inventoryStockResponse struct {
@@ -1822,6 +1885,71 @@ func mapTaxSummary(summary reporting.TaxSummary) taxSummaryResponse {
 		PayableAccountName:    stringPtr(summary.PayableAccountName),
 		LastEffectiveOn:       timePtr(summary.LastEffectiveOn),
 	}
+}
+
+func mapTrialBalanceReport(report reporting.TrialBalanceReport) trialBalanceReportResponse {
+	response := trialBalanceReportResponse{
+		AsOf:                    timePtr(report.AsOf),
+		Lines:                   make([]trialBalanceLineResponse, 0, len(report.Lines)),
+		TotalDebitBalanceMinor:  report.TotalDebitBalanceMinor,
+		TotalCreditBalanceMinor: report.TotalCreditBalanceMinor,
+		ImbalanceMinor:          report.ImbalanceMinor,
+	}
+	for _, line := range report.Lines {
+		response.Lines = append(response.Lines, trialBalanceLineResponse{
+			AccountID:          line.AccountID,
+			AccountCode:        line.AccountCode,
+			AccountName:        line.AccountName,
+			AccountClass:       line.AccountClass,
+			TotalDebitMinor:    line.TotalDebitMinor,
+			TotalCreditMinor:   line.TotalCreditMinor,
+			NetMinor:           line.NetMinor,
+			DebitBalanceMinor:  line.DebitBalanceMinor,
+			CreditBalanceMinor: line.CreditBalanceMinor,
+			LastEffectiveOn:    timePtr(line.LastEffectiveOn),
+		})
+	}
+	return response
+}
+
+func mapBalanceSheetReport(report reporting.BalanceSheetReport) balanceSheetReportResponse {
+	return balanceSheetReportResponse{
+		AsOf:                           timePtr(report.AsOf),
+		Lines:                          mapFinancialStatementLines(report.Lines),
+		TotalAssetsMinor:               report.TotalAssetsMinor,
+		TotalLiabilitiesMinor:          report.TotalLiabilitiesMinor,
+		TotalEquityMinor:               report.TotalEquityMinor,
+		TotalLiabilitiesAndEquityMinor: report.TotalLiabilitiesAndEquityMinor,
+		ImbalanceMinor:                 report.ImbalanceMinor,
+	}
+}
+
+func mapIncomeStatementReport(report reporting.IncomeStatementReport) incomeStatementReportResponse {
+	return incomeStatementReportResponse{
+		StartOn:            timePtr(report.StartOn),
+		EndOn:              timePtr(report.EndOn),
+		Lines:              mapFinancialStatementLines(report.Lines),
+		TotalRevenueMinor:  report.TotalRevenueMinor,
+		TotalExpensesMinor: report.TotalExpensesMinor,
+		NetIncomeMinor:     report.NetIncomeMinor,
+	}
+}
+
+func mapFinancialStatementLines(lines []reporting.FinancialStatementLine) []financialStatementLineResponse {
+	response := make([]financialStatementLineResponse, 0, len(lines))
+	for _, line := range lines {
+		response = append(response, financialStatementLineResponse{
+			LineKey:      line.LineKey,
+			AccountID:    stringPtr(line.AccountID),
+			AccountCode:  stringPtr(line.AccountCode),
+			AccountName:  line.AccountName,
+			AccountClass: line.AccountClass,
+			Section:      line.Section,
+			AmountMinor:  line.AmountMinor,
+			IsSynthetic:  line.IsSynthetic,
+		})
+	}
+	return response
 }
 
 func mapInventoryStock(item reporting.InventoryStockItem) inventoryStockResponse {

@@ -149,6 +149,15 @@ Guardrail:
 1. keep financial-statement rules explicit, auditable, and backend-owned, especially account classification, sign conventions, and date or period filtering
 2. keep Accounting tabs task-oriented and directory-oriented rather than turning one accounting page into a dense mixed workspace
 
+Current checkpoint recorded on 2026-04-10:
+
+1. trial balance is implemented on the shared reporting seam with active-ledger-account rows, debit and credit balance totals, as-of filtering, and an explicit imbalance total
+2. balance sheet is implemented on the shared reporting seam with assets, liabilities, equity, current earnings derived from revenue and expense balances, as-of filtering, and an explicit imbalance total
+3. income statement is implemented on the shared reporting seam with revenue, expense, and net-income totals over an effective-date range
+4. `/app/review/accounting` now links to dedicated `trial-balance`, `balance-sheet`, and `income-statement` Svelte report destinations without moving report composition rules into browser-only state
+5. focused reporting integration tests, focused app route-serving tests, focused Svelte component tests, `npm --prefix web run check`, `npm --prefix web run build`, `go build ./cmd/... ./internal/...`, `git diff --check`, and gopls diagnostics passed for this checkpoint
+6. Slice 3 is closed enough to move the active implementation path to Slice 4 demo-data seeding
+
 ### 5.4 Slice 4: demo-data and master-data baseline for user testing
 
 Goal:

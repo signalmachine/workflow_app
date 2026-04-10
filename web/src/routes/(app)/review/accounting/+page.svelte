@@ -1,7 +1,6 @@
 <script lang="ts">
 	import PageHeader from '$lib/components/layout/PageHeader.svelte';
 	import ActionCard from '$lib/components/primitives/ActionCard.svelte';
-	import SurfaceCard from '$lib/components/primitives/SurfaceCard.svelte';
 	import { routes } from '$lib/utils/routes';
 </script>
 
@@ -28,12 +27,22 @@
 			summary="Review tax-code summaries by effective range, tax type, or tax code without mixing them into the journal list."
 			href={routes.reviewAccountingTaxSummaries}
 		/>
+		<ActionCard
+			title="Trial balance"
+			summary="Review debit and credit balances across active ledger accounts with an explicit imbalance check."
+			href={routes.reviewAccountingTrialBalance}
+		/>
+		<ActionCard
+			title="Balance sheet"
+			summary="Review assets, liabilities, equity, and current earnings as an as-of financial position."
+			href={routes.reviewAccountingBalanceSheet}
+		/>
+		<ActionCard
+			title="Income statement"
+			summary="Review revenue, expenses, and net income over a selected effective-date range."
+			href={routes.reviewAccountingIncomeStatement}
+		/>
 	</div>
-
-	<SurfaceCard tone="muted">
-		<p class="eyebrow">Next reporting step</p>
-		<p class="muted-copy">Trial balance, balance sheet, and income statement remain the next reporting additions behind this directory.</p>
-	</SurfaceCard>
 </div>
 
 <style>

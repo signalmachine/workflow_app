@@ -17,5 +17,14 @@ describe('accounting directory page', () => {
 		expect(screen.getByRole('link', { name: /Tax summaries/i }).getAttribute('href')).toBe(
 			'/app/review/accounting/tax-summaries'
 		);
+		expect(screen.getByRole('link', { name: /Trial balance/i }).getAttribute('href')).toBe(
+			'/app/review/accounting/trial-balance'
+		);
+		expect(screen.getByRole('link', { name: /Balance sheet/i }).getAttribute('href')).toBe(
+			'/app/review/accounting/balance-sheet'
+		);
+		expect(screen.getByRole('link', { name: /Income statement/i }).getAttribute('href')).toBe(
+			'/app/review/accounting/income-statement'
+		);
 	});
 });

@@ -36,7 +36,10 @@ export const routes = {
 	adminInventory: withBase('/admin/inventory'),
 	reviewAccountingJournalEntries: withBase('/review/accounting/journal-entries'),
 	reviewAccountingControlBalances: withBase('/review/accounting/control-balances'),
-	reviewAccountingTaxSummaries: withBase('/review/accounting/tax-summaries')
+	reviewAccountingTaxSummaries: withBase('/review/accounting/tax-summaries'),
+	reviewAccountingTrialBalance: withBase('/review/accounting/trial-balance'),
+	reviewAccountingBalanceSheet: withBase('/review/accounting/balance-sheet'),
+	reviewAccountingIncomeStatement: withBase('/review/accounting/income-statement')
 };
 
 export function adminPartyDetail(partyID: string): string {
