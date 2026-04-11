@@ -1,6 +1,6 @@
 # Reporting Read Model
 
-Date: 2026-03-31
+Date: 2026-04-11
 Status: Active technical guide
 Purpose: explain how the reporting package turns module-owned truth into operator-facing review views.
 
@@ -36,6 +36,9 @@ Instead, reporting provides stable inspection models such as:
 10. inbound request review
 11. processed proposal review
 12. audit lookup
+13. trial balance
+14. balance sheet
+15. income statement
 
 ## 3. Read model examples
 
@@ -69,6 +72,7 @@ Examples:
 5. exact `entry_id`
 6. exact `movement_id`
 7. exact `event_id`
+8. effective-date filters for financial statements
 
 That exact lookup model is what lets the browser land on a single record instead of only a broad list page.
 
@@ -98,4 +102,4 @@ Be careful with:
 3. exact lookup support
 4. derived-count calculations
 5. browser-facing review expectations
-
+6. financial-statement sign conventions, current-earnings treatment, and imbalance totals

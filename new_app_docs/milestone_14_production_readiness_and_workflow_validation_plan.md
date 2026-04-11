@@ -1,23 +1,23 @@
 # workflow_app Milestone 14 Production Readiness and Workflow Validation Plan
 
 Date: 2026-04-10
-Status: Active next milestone
+Status: Fast-close active milestone after core implementation checkpoints landed
 Purpose: define the next bounded v2 milestone after Milestone 13 so the repository closes the implementation and documentation gaps found in the codebase review, strengthens production-readiness verification, resumes deeper workflow validation, and makes the documentation set reflect the current promoted runtime truth.
 
 ## 1. Why this milestone exists
 
 Milestone 13 closed the Svelte cutover and real-browser closeout, but the implementation review immediately after that closeout found that the repository still has residual gaps that should be handled as one bounded next milestone rather than as scattered follow-up edits.
 
-The review found eight concrete needs:
+The initial review found eight concrete needs:
 
-1. the promoted Svelte browser layer does not currently expose the full parked-request lifecycle that older docs and archived status still describe as implemented
-2. some workflow and user-guide material still points to retired or nonexistent browser paths
+1. the promoted Svelte browser layer did not expose the full parked-request lifecycle that older docs and archived status described as implemented before the Slice 1 correction
+2. some workflow and user-guide material pointed to retired or nonexistent browser paths before the documentation-truth correction
 3. production-readiness verification is now materially stronger after the landed Milestone 14 checkpoints, so remaining closeout should avoid broader pre-user-testing expansion and use only a bounded confidence gate
 4. the canonical and downstream docs need a truth pass so current implementation status, workflow support, and operator guidance are aligned again
-5. the shared Svelte shell still needs one bounded desktop layout correction so the sidebar starts directly beneath the top application bar and the contextual tab row begins over the main content column instead of spanning from the far left edge
-6. the promoted accounting review surface still lacks baseline operator financial statements such as trial balance, balance sheet, and income statement, and Milestone 14 should also review adjacent reporting gaps and add clearly similar production-shape capability where it materially improves readiness
-7. the current contextual-tab and admin information architecture is too noisy and crowded on several promoted pages, and Milestone 14 should restructure it around task-group directory pages that open dedicated destinations for reports, lists, master-data creation, and workflow-specific screens
-8. the default demo entity `North Harbor Works` is still under-seeded for realistic user testing and should ship with a standard chart of accounts plus minimum master data needed to exercise the promoted workflows and admin/list/report surfaces
+5. the shared Svelte shell needed one bounded desktop layout correction before the shell-layout checkpoint
+6. the promoted accounting review surface lacked baseline operator financial statements before trial balance, balance sheet, and income statement landed on the shared reporting seam
+7. the contextual-tab and admin information architecture was too noisy and crowded before the grouped-directory checkpoints
+8. the default demo entity `North Harbor Works` was under-seeded for realistic user testing before the demo-baseline checkpoint
 
 This milestone exists to close those gaps while keeping the repository on the current v2 implementation path instead of reopening historical milestone buckets broadly.
 
@@ -63,20 +63,20 @@ Out of scope:
 6. adding navigation depth for its own sake where a direct destination is already the clearer operator path
 7. seeding broad fake ERP data without tying it to the minimum realistic baseline needed for supported workflows, reports, and user testing
 
-## 4. Review findings that Milestone 14 must address first
+## 4. Review findings that Milestone 14 addressed first
 
-The first bounded corrective slice should start from the review findings already established against the current codebase:
+The first bounded corrective slices started from the review findings established against the then-current codebase:
 
-1. the backend still supports draft update, queue, cancel, amend, and delete on `/api/inbound-requests/{request_id}/{action}`, but the promoted Svelte browser runtime currently exposes only new-request creation plus read-only detail continuity
-2. the inbound-request lifecycle user guide still points operators to a nonexistent browser path for queue processing instead of the current operations-page action
-3. route vocabulary still mixes `/app/inbound-requests` and `/app/review/inbound-requests` in places where only one of those surfaces is actually implemented as a list route on the promoted Svelte runtime
-4. archived and downstream documentation still overstates current browser support for parked-request lifecycle flows, so documentation truth is ahead of the current promoted implementation
-5. the current shared desktop shell still places the contextual tab row across the far-left edge above the sidebar instead of keeping the sidebar directly under the top app bar and starting contextual tabs over the content column
-6. the promoted accounting area still stops short of standard operator financial statements, which leaves accounting review materially underbuilt for a production-oriented business application
-7. admin and other promoted contextual-tab families still mix too many actions, forms, and list surfaces onto single pages instead of using cleaner grouped directory pages plus dedicated destination pages
-8. the default demo entity still needs a baseline chart of accounts and other minimum master data so user testing does not begin from an unrealistically empty state
+1. the backend supported draft update, queue, cancel, amend, and delete on `/api/inbound-requests/{request_id}/{action}`, but the promoted Svelte browser runtime exposed only new-request creation plus read-only detail continuity
+2. the inbound-request lifecycle user guide pointed operators to a nonexistent browser path for queue processing instead of the current operations-page action
+3. route vocabulary mixed `/app/inbound-requests` and `/app/review/inbound-requests` in places where only one of those surfaces is implemented as a list route on the promoted Svelte runtime
+4. archived and downstream documentation overstated browser support for parked-request lifecycle flows before the browser correction landed
+5. the shared desktop shell placed the contextual tab row across the far-left edge above the sidebar instead of keeping the sidebar directly under the top app bar and starting contextual tabs over the content column
+6. the promoted accounting area stopped short of standard operator financial statements, which left accounting review underbuilt for a production-oriented business application
+7. admin and other promoted contextual-tab families mixed too many actions, forms, and list surfaces onto single pages instead of using cleaner grouped directory pages plus dedicated destination pages
+8. the default demo entity needed a baseline chart of accounts and other minimum master data so user testing did not begin from an unrealistically empty state
 
-Milestone 14 should not treat those as optional polish items. They are the first correctness and readiness gaps to close.
+Milestone 14 did not treat those as optional polish items. The remaining work is the bounded final confidence gate plus documentation truth and user-testing readiness closeout.
 
 ## 5. Delivery slices
 
@@ -301,7 +301,7 @@ When Milestone 14 changes:
 
 ## 9. Current queue position
 
-Milestone 14 is now the active next milestone.
+Milestone 14 is now the active fast-close milestone.
 
 Recommended order:
 

@@ -14,7 +14,7 @@ Purpose: define the current execution order without carrying the full completed 
 
 ## 2. Active execution order
 
-1. treat Milestone 14 as the active next milestone
+1. treat Milestone 14 as the active fast-close milestone
 2. start with the bounded review-gap corrective pass on inbound-request lifecycle support and documentation truth
 3. include the bounded shared-shell desktop layout correction in that first corrective pass because it is a real promoted-runtime UX issue rather than a later optional polish item
 4. then apply the grouped-directory contextual-tab model in the most crowded promoted areas, starting with Admin and then Accounting, so tabs lead to focused directory pages and dedicated destinations
@@ -67,11 +67,11 @@ Completed prerequisite recorded on 2026-04-10:
 The post-closeout implementation review then found the first Milestone 14 corrective scope:
 
 1. the backend parked-request lifecycle seams remain implemented, but the promoted Svelte runtime does not yet expose the full draft-edit, queue, cancel, amend, and delete contract that older docs still describe
-2. stale workflow and user-guide references still point at retired or nonexistent browser paths
-3. the shared desktop shell still needs one bounded layout correction so the sidebar begins directly beneath the top app bar and the contextual tab row starts over the content column
-4. the promoted accounting area is still underbuilt for a production-oriented operator surface until baseline financial statements exist on the shared reporting seam
-5. the current contextual-tab and admin/accounting page model is still too crowded, so the promoted runtime should move toward grouped directory pages with dedicated destination pages behind them
-6. the default demo entity is still too empty for realistic testing, so Milestone 14 should seed `North Harbor Works` with a standard chart of accounts and minimum master data through the shared backend-owned setup path
+2. stale workflow and user-guide references pointed at retired or nonexistent browser paths before the Milestone 14 documentation-truth correction
+3. the shared desktop shell needed one bounded layout correction before the shell-layout checkpoint
+4. the promoted accounting area was underbuilt for a production-oriented operator surface before baseline financial statements landed on the shared reporting seam
+5. the contextual-tab and admin/accounting page model was too crowded before the grouped-directory checkpoints
+6. the default demo entity was too empty for realistic testing before Milestone 14 seeded `North Harbor Works` with a standard chart of accounts and minimum master data through the shared backend-owned setup path
 7. Milestone 14 should also absorb clearly similar adjacent readiness gaps that are discovered during implementation review when those additions stay coherent, bounded, and production-shape-driven
 8. the next production-readiness push should prioritize workflow-critical correctness tests, failure-path validation, documentation truth, backend-owned reporting depth, operator-usable information architecture, and a realistic demo baseline rather than another broad browser-architecture milestone
 9. the first 2026-04-10 Slice 1 checkpoint is now implemented in code and focused frontend verification: exact inbound-request detail exposes draft save plus queue plus delete and queued cancel plus amend controls through the shared backend seam, and the desktop shell layout now starts the contextual-tab row over the content column instead of above the sidebar

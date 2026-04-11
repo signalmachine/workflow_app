@@ -198,6 +198,9 @@ http://127.0.0.1:8080/app/review/accounting
 http://127.0.0.1:8080/app/review/accounting/journal-entries
 http://127.0.0.1:8080/app/review/accounting/control-balances
 http://127.0.0.1:8080/app/review/accounting/tax-summaries
+http://127.0.0.1:8080/app/review/accounting/trial-balance
+http://127.0.0.1:8080/app/review/accounting/balance-sheet
+http://127.0.0.1:8080/app/review/accounting/income-statement
 http://127.0.0.1:8080/app/review/accounting/<journal-entry-uuid>
 http://127.0.0.1:8080/app/review/approvals
 http://127.0.0.1:8080/app/review/approvals/<approval-uuid>
@@ -387,6 +390,15 @@ curl "http://127.0.0.1:8080/api/review/accounting/tax-summaries?tax_type=gst" \
 curl "http://127.0.0.1:8080/api/review/accounting/tax-summaries?tax_code=GST18" \
   -b cookies.txt
 
+curl "http://127.0.0.1:8080/api/review/accounting/trial-balance" \
+  -b cookies.txt
+
+curl "http://127.0.0.1:8080/api/review/accounting/balance-sheet" \
+  -b cookies.txt
+
+curl "http://127.0.0.1:8080/api/review/accounting/income-statement" \
+  -b cookies.txt
+
 curl "http://127.0.0.1:8080/api/review/inventory/stock" \
   -b cookies.txt
 
@@ -481,9 +493,11 @@ Implemented:
 38. the latest browser continuity slice extends exact inbound-request detail lookup on the shared browser and API seams to resolve `run:<agent-run-id>` and `delegation:<delegation-id>`, and it adds audit-page entity continuation for `ai.agent_run` plus `ai.agent_delegation` so provider-execution audit events now return operators to the exact inbound-request execution trail instead of dead-ending on generic audit results
 39. the latest browser continuity slice extends exact inbound-request detail lookup on the shared browser and API seams to resolve `step:<agent-step-id>` as well, and it adds step-level audit continuation plus step-section audit links so `ai.agent_run_step` or `ai.agent_step` entities can land operators on the exact persisted execution step instead of only the broader request page
 40. the latest navigation cleanup turns `/app/admin` into grouped `Master Data`, `Lists`, and `Access` contextual tabs, adds `/app/admin/master-data` and `/app/admin/lists` directory pages, and turns `/app/review/accounting` into a report directory with dedicated journal-entry, control-balance, and tax-summary destinations
+41. the Milestone 14 accounting-report checkpoint adds backend-owned trial balance, balance sheet, and income statement API contracts plus dedicated `/app/review/accounting/trial-balance`, `/app/review/accounting/balance-sheet`, and `/app/review/accounting/income-statement` browser destinations
+42. the Milestone 14 demo-baseline checkpoint makes `cmd/bootstrap-admin` seed North Harbor Works with the minimum chart of accounts, GST tax codes, FY2026-27 accounting period, sample parties and contacts, starter inventory items, and starter locations needed for bounded user testing
 
 Immediate next steps:
 
-1. continue Milestone 14 with grouped-directory and dedicated-destination cleanup in the crowded Admin and Accounting areas
-2. then add the baseline accounting reports for trial balance, balance sheet, and income statement on the shared reporting seam
-3. continue widening shared backend contracts only where they strengthen one shared truth model for browser and later clients
+1. finish the Milestone 14 documentation truth and user-testing-readiness closeout
+2. run the bounded final confidence gate from `docs/technical_guides/07_testing_and_verification.md`
+3. move into extensive user testing on the Milestone 14 runtime before promoting Milestone 15 data exchange from future candidate to active work

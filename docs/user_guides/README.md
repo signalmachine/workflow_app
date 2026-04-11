@@ -1,7 +1,7 @@
 # User Guides
 
-Date: 2026-03-31
-Status: Initialized
+Date: 2026-04-11
+Status: Active
 Purpose: provide operator-facing and reader-friendly guidance for using `workflow_app` through its supported application surfaces.
 
 ## 1. Role of this folder
@@ -55,18 +55,19 @@ Recommended reading order:
 1. `running_the_application.md`
 2. `browser_sign_in_and_admin_bootstrap.md`
 3. `browser_operator_getting_started.md`
-4. `inbound_request_lifecycle.md`
-5. `failed_processing_visibility.md`
-6. `processed_proposal_review.md`
-7. `request_approval_from_processed_proposal.md`
-8. `approval_decision_workflow.md`
-9. `operations_feed.md`
-10. `agent_chat.md`
-11. `document_review.md`
-12. `accounting_review.md`
-13. `inventory_review.md`
-14. `work_order_review.md`
-15. `audit_lookup.md`
+4. `user_testing_readiness.md`
+5. `inbound_request_lifecycle.md`
+6. `failed_processing_visibility.md`
+7. `processed_proposal_review.md`
+8. `request_approval_from_processed_proposal.md`
+9. `approval_decision_workflow.md`
+10. `operations_feed.md`
+11. `agent_chat.md`
+12. `document_review.md`
+13. `accounting_review.md`
+14. `inventory_review.md`
+15. `work_order_review.md`
+16. `audit_lookup.md`
 
 ## 4. Organization rule
 

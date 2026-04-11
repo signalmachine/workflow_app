@@ -1,6 +1,6 @@
 # workflow_app Application Workflow Catalog
 
-Date: 2026-04-10
+Date: 2026-04-11
 Status: Active durable workflow catalog updated for the current served Svelte runtime at `/app`, including the contextual-navigation shell, the grouped landing pages at `/app/operations`, `/app/review`, and `/app/inventory`, the searchable route catalog at `/app/routes`, the utility surfaces at `/app/settings` plus access-scoped `/app/admin`, the grouped admin directory routes at `/app/admin/master-data` and `/app/admin/lists`, the admin accounting, party, access-control, and inventory setup surfaces at `/app/admin/accounting`, `/app/admin/parties`, `/app/admin/access`, and `/app/admin/inventory`, the accounting report directory at `/app/review/accounting`, the dedicated accounting report destinations under `/app/review/accounting/journal-entries`, `/app/review/accounting/control-balances`, `/app/review/accounting/tax-summaries`, `/app/review/accounting/trial-balance`, `/app/review/accounting/balance-sheet`, and `/app/review/accounting/income-statement`, the role-aware operator home on `/app`, the `/app/review/inbound-requests` list route, and the exact `/app/inbound-requests/{request_reference_or_id}` detail route with parked-request lifecycle controls
 Purpose: capture the application workflows and related feature continuity in one durable reference document for implementation review, testing, onboarding, and later user-guide preparation.
 
@@ -24,7 +24,7 @@ Status meanings used here:
 1. `implemented`: supported in the current codebase
 2. `repo_verified`: covered by repository build or test verification
 3. `live_validated`: exercised on the real `/app` plus `/api/...` seam and recorded in the active validation docs
-4. `pending_live_validation`: implemented, but still awaiting explicit live workflow validation
+4. `pending_live_validation`: implemented, but still awaiting explicit live workflow validation; for Milestone 14 closeout, remaining deeper live-validation backlog items are intentionally deferred to the user-testing period unless the bounded final confidence gate finds a concrete blocker
 
 For live planning and next steps, use:
 

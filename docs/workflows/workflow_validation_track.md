@@ -1,7 +1,7 @@
 # workflow_app Workflow Validation Track
 
-Date: 2026-04-10
-Status: Active validation track, separate from implementation planning; the current browser runtime is the Milestone 13 served Svelte frontend with the contextual-navigation shell, the promoted workflow, utility, admin, and detail-route families now run on that one Go-served `/app` surface, the inventory landing now hands off into an explicit scoped inventory-review UI for pending execution and accounting follow-through, the operator home plus coordinator chat plus review landing snapshots now also route known proposal and approval rows directly into exact detail pages, exact inbound-request detail plus exact proposal detail now also prefer direct downstream accounting-entry drill-down when a linked proposal document already has a posted journal entry, exact inbound-request detail now also exposes the parked-request lifecycle controls directly on the promoted Svelte route, the accounting report directory now includes backend-owned trial balance, balance sheet, and income statement destinations behind the shared reporting seam, the desktop shell now keeps a persisted collapsed-sidebar preference and the contextual-tab row starts over the main content column instead of across the far-left edge, the mobile drawer model stays as secondary compatibility rather than an active optimization target, focused automated coverage now also asserts route-catalog operator-intent continuity plus promoted admin accounting and inventory status controls plus exact downstream accounting-entry drill-down plus the promoted login and utility and admin and operations and exact approval or document or accounting detail surfaces, the served handler returns real `/app/_app/...` assets and `404` for missing bundle paths, the live provider seam has been reconfirmed after the 2026-04-09 bounded coordinator corrective pass, `cmd/verify-agent -database-url "$DATABASE_URL" -approval-flow` now also confirms one exact request -> proposal -> approval -> document -> accounting chain on the shared session plus `/api/...` seam for its verification org, and the Milestone 13 desktop browser-review closeout now has explicit real-browser pass evidence rather than an open blocker
+Date: 2026-04-11
+Status: Active validation track, separate from implementation planning; the current browser runtime is the served Svelte frontend on the shared Go `/app` seam, Milestone 13 browser closeout has explicit real-browser pass evidence, Milestone 14 implementation checkpoints have restored request-detail lifecycle controls, corrected the desktop shell tab-column layout, added grouped Admin and Accounting directory routes, added backend-owned trial balance, balance sheet, and income statement destinations, seeded the North Harbor Works demo baseline, and added focused production-readiness API boundary coverage; remaining deeper workflow-validation backlog execution is intentionally deferred to the user-testing period unless a concrete blocker is discovered during the bounded final confidence gate
 Purpose: keep workflow testing, live review, and readiness evidence on a workflow-validation track in `docs/workflows/` rather than inside the normal product-implementation planning stream in `new_app_docs/`.
 
 ## 1. Why this document exists
@@ -69,6 +69,8 @@ Implementation note recorded on 2026-04-09:
 21. a grouped navigation checkpoint on 2026-04-10 added Admin `Master Data` and `Lists` directory routes plus dedicated accounting report destinations for journal entries, control balances, and tax summaries behind the `/app/review/accounting` report directory; focused Svelte checks, Svelte build, focused Go served-route checks, and gopls diagnostics passed for that route-family change
 22. a Milestone 14 accounting-report checkpoint on 2026-04-10 added backend-owned trial balance, balance sheet, and income statement report contracts with dedicated Svelte destinations under `/app/review/accounting`; focused reporting integration tests, focused app route-serving tests, focused Svelte component tests, `npm --prefix web run check`, `npm --prefix web run build`, `go build ./cmd/... ./internal/...`, and gopls diagnostics passed for that checkpoint
 23. a Milestone 14 production-readiness test checkpoint on 2026-04-11 added focused `internal/app` API integration coverage for failed provider processing through the browser-session process-next endpoint and exact inbound-request review detail; the focused failure-continuity test, full `internal/app` package verification, `go build ./cmd/... ./internal/...`, serialized canonical Go verification, and gopls diagnostics passed for that checkpoint
+24. additional 2026-04-11 production-readiness checkpoints added browser-session API boundary coverage for inbound-request lifecycle mutations, cross-org approval decisions, cross-org proposal approval requests, accounting-report org boundaries, inventory and work-order review org boundaries, and Admin exact-record org boundaries
+25. those 2026-04-11 checks make the remaining Milestone 14 pre-handoff workflow-validation question a bounded documentation and final-confidence-gate question rather than a reason to reopen broad test expansion before user testing
 
 ## 3.1 Milestone 13 closeout evidence baseline
 
@@ -253,12 +255,12 @@ Deferred live workflow validation should resume with:
 1. draft request -> continue editing -> queue -> process -> downstream request and proposal continuity
 2. failed provider or failed processing path -> failure visibility -> operator troubleshooting continuity
 
-Immediate Milestone 14 validation order:
+Milestone 14 closeout decision:
 
-1. use the Milestone 13 closeout evidence in section 3.1 as the baseline rather than rerunning it wholesale without a new risk
-2. validate the draft request -> continue editing -> queue -> process -> downstream request and proposal continuity path after the Milestone 14 request-detail lifecycle correction
-3. validate the failed provider or failed processing path -> failure visibility -> operator troubleshooting continuity path
-4. if a rerun fails, promote one grouped corrective slice for the related defects and then rerun the affected parts of the checklist
+1. use the Milestone 13 closeout evidence in section 3.1 and the landed Milestone 14 focused API boundary coverage as the pre-user-testing baseline
+2. do not rerun the full browser sweep or broaden workflow-validation scope before handoff unless the final confidence gate finds a concrete blocker
+3. carry the two deferred live workflow paths above into the user-testing period as explicit validation targets
+4. if user testing or the final confidence gate finds a real defect, promote one grouped corrective slice for the related defects and then rerun the affected parts of the checklist
 
 ## 5. Issue-handling rule
 

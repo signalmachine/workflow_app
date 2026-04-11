@@ -28,6 +28,6 @@ Purpose: define the current scope boundaries for active implementation after thi
 
 ## 4. Current scope focus
 
-1. the active implementation focus is Milestone 14 production-readiness, workflow-validation, navigation cleanup, reporting baseline, and user-testing readiness on the promoted Svelte runtime
+1. the active implementation focus is Milestone 14 fast closeout, final confidence gating, documentation truth, and user-testing readiness on the promoted Svelte runtime
 2. the active workflow follow-through focus is keeping `docs/workflows/` and downstream user guides aligned with the current served `/app` route family and supported browser actions
 3. completed Milestone 10, Milestone 11, Milestone 12, and Milestone 13 planning detail is now archive material rather than active default context
