@@ -33,7 +33,7 @@ Purpose: track the active implementation state, current sequencing, and immediat
 25. Milestone 14 should also review the application for nearby production-shape gaps and add clearly similar bounded capability where those additions materially improve readiness, correctness, or operator continuity
 26. the current contextual-tab and admin/accounting information architecture is still too noisy on several promoted pages, so Milestone 14 should move those areas toward grouped directory pages such as `Master Data`, `Lists`, and `Reports` with dedicated destination pages behind them
 27. the demo entity `North Harbor Works` still needs a standard chart of accounts and other essential master data so user testing and report review do not begin from an unrealistically empty org
-28. the first strong future milestone after Milestone 14 should be structured data exchange: CSV-first bulk master-data import plus CSV/Excel-compatible export for promoted lists and reports
+28. the first strong future milestone candidate remains structured data exchange: CSV-first bulk master-data import plus CSV/Excel-compatible export for promoted lists and reports, but Milestone 15 should not start immediately after Milestone 14 because the application should first go through extensive user testing on the Milestone 14 runtime
 29. the first Milestone 14 Slice 1 checkpoint is now landed on 2026-04-10: exact inbound-request detail exposes draft save plus queue plus delete controls and queued cancel plus amend controls through the existing shared `/api/inbound-requests/{request_id}/{action}` seam, the desktop shell now places contextual tabs over the main content column instead of across the far-left edge, and focused Svelte checks for those new browser contracts now pass
 30. a follow-up Slice 1 documentation-truth checkpoint on 2026-04-10 realigned the durable workflow catalog, inbound-request lifecycle guide, agent-chat guide, inbound-request technical guide, and active scope note with the current route contract: `/app/review/inbound-requests` is the list surface, `/app/inbound-requests/{request_reference_or_id}` is the exact detail and lifecycle-action surface, `/app/operations` owns the browser process-next action, and `/api/...` remains the mutation seam
 31. the grouped-directory navigation checkpoint is now landed on 2026-04-10: the Admin contextual tabs now route through grouped `Master Data` and `Lists` directory pages before concrete accounting, party, inventory, or access destinations, and `/app/review/accounting` now acts as an accounting report directory with dedicated `journal-entries`, `control-balances`, and `tax-summaries` destinations behind it
@@ -76,9 +76,9 @@ Use these supporting docs for the remaining closeout:
 1. `../docs/workflows/end_to_end_validation_checklist.md` for bounded real-seam validation steps
 2. `../docs/workflows/workflow_validation_track.md` for explicit validation evidence and blocker tracking
 
-## 2.2 Next future milestone candidate
+## 2.2 Future milestone candidate after user testing
 
-After Milestone 14, the next planned milestone candidate is Milestone 15:
+After Milestone 14, the immediate next operating step is extensive user testing on the corrected promoted runtime. Milestone 15 remains the next planned implementation milestone candidate after that user-testing period, not the immediate follow-on work:
 
 1. start with CSV-first bulk master-data import rather than native Excel workbook import
 2. use CSV upload for bounded bulk creation of records such as chart-of-accounts rows, parties, inventory items, and locations

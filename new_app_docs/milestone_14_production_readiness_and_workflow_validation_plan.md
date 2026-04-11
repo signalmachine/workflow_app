@@ -267,6 +267,7 @@ Milestone 14 is complete only when:
 8. adjacent production-shape gaps found during Milestone 14 implementation have either been addressed in bounded form or recorded explicitly rather than left as silent drift
 9. the promoted navigation model now uses the intended grouped-directory pattern in the crowded areas selected for Milestone 14, with dedicated pages for concrete reports, lists, master-data creation, or workflow screens
 10. `North Harbor Works` has a usable minimum demo-data baseline, including a standard chart of accounts and essential master data for realistic bounded testing
+11. the post-Milestone-14 path is explicit: extensive user testing comes next, and Milestone 15 data-exchange implementation remains future work after that testing period rather than the immediate next implementation step
 
 ## 7. Verification
 
@@ -308,4 +309,5 @@ Recommended order:
 5. then seed `North Harbor Works` with the minimum realistic chart of accounts and master-data baseline needed for those reports and for bounded user testing
 6. then promote the highest-value production-readiness test additions exposed by the corrective work and by focused codebase review
 7. then execute the deferred live workflow-validation backlog on the corrected promoted runtime
-8. then close with the broader documentation truth and coverage pass needed to make the repository defensible for ongoing production-oriented work
+8. then close with the broader documentation truth and coverage pass needed to make the repository defensible for extensive user testing
+9. then move into extensive user testing before promoting Milestone 15 from future candidate to active implementation work

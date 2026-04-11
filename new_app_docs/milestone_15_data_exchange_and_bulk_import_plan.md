@@ -2,11 +2,13 @@
 
 Date: 2026-04-10
 Status: Future milestone candidate
-Purpose: define the next planned v2 milestone after Milestone 14 for structured data exchange, starting with bulk master-data creation through CSV upload and export of reports and lists in CSV or Excel-compatible formats.
+Purpose: define a future v2 milestone candidate for structured data exchange after the Milestone 14 runtime has gone through extensive user testing, starting with bulk master-data creation through CSV upload and export of reports and lists in CSV or Excel-compatible formats.
 
 ## 1. Why this milestone exists
 
-Once Milestone 14 closes the current readiness, workflow, reporting, navigation, and demo-data gaps, the next strong production-shape need is data exchange.
+Once Milestone 14 closes the current readiness, workflow, reporting, navigation, and demo-data gaps, the immediate next operating step is extensive user testing on that corrected runtime. Milestone 15 should remain future implementation work until that testing period has produced and triaged its findings.
+
+After that user-testing period, the next strong production-shape need is expected to be data exchange.
 
 Operators will need:
 
@@ -135,7 +137,8 @@ Milestone 15 work should include:
 
 When Milestone 15 begins:
 
-1. update the active tracker and execution plan to promote it from future candidate to active milestone
-2. add operator documentation for upload templates and export behavior
-3. add technical documentation for backend import and export seams
-4. keep sample templates and docs aligned with the real validated schema
+1. confirm the post-Milestone-14 user-testing findings have been reviewed and any required corrective work has been planned or completed
+2. update the active tracker and execution plan to promote it from future candidate to active milestone
+3. add operator documentation for upload templates and export behavior
+4. add technical documentation for backend import and export seams
+5. keep sample templates and docs aligned with the real validated schema

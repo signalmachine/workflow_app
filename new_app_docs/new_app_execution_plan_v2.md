@@ -86,9 +86,11 @@ The post-closeout implementation review then found the first Milestone 14 correc
 18. the next production-readiness test-expansion checkpoint on 2026-04-11 added `internal/app` API integration coverage proving the promoted browser-session accounting-report endpoints keep trial balance, balance sheet, and income statement data scoped to the authenticated org
 19. the remaining Milestone 14 implementation work should now continue production-readiness test expansion where risk still exceeds coverage, then move to deferred workflow validation rather than reopening the request-detail, shell-layout, inbound-request route-vocabulary, first grouped-directory, baseline accounting-report, first demo-baseline, first lifecycle API-coverage, first approval-boundary API-coverage, first failed-provider API-coverage, first cross-org proposal-approval boundary checkpoint, or first browser-session accounting-report org-boundary checkpoint
 
-## 2.2 Milestone 15 future direction
+## 2.2 Post-Milestone 14 user testing and Milestone 15 future direction
 
-If Milestone 14 closes cleanly, the next planned direction should be Milestone 15 data exchange:
+If Milestone 14 closes cleanly, do not start Milestone 15 immediately. The next operating step should be extensive user testing on the Milestone 14 runtime, with findings triaged into bounded corrective work as needed.
+
+Milestone 15 remains the future implementation milestone candidate after that user-testing period. Its planned direction is data exchange:
 
 1. CSV-first bulk master-data import on the shared backend seam
 2. CSV and Excel-compatible export for promoted lists and reports

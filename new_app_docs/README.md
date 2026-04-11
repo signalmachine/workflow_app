@@ -31,7 +31,7 @@ Read these in order for active implementation work:
 4. `new_app_implementation_defaults_v2.md`
 5. `new_app_execution_plan_v2.md`
 6. `milestone_14_production_readiness_and_workflow_validation_plan.md` when working on the current active milestone
-7. `milestone_15_data_exchange_and_bulk_import_plan.md` for the current future milestone candidate after Milestone 14
+7. `milestone_15_data_exchange_and_bulk_import_plan.md` for the future data-exchange milestone candidate; do not start Milestone 15 immediately after Milestone 14, because extensive user testing comes first
 
 Then use:
 
