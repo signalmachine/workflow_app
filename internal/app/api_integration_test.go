@@ -1860,6 +1860,61 @@ func TestAgentAPIDecideApprovalIntegration(t *testing.T) {
 	}
 }
 
+func TestAgentAPIDecideApprovalRejectsCrossOrgDecisionWithoutMutationIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
+	otherOrgID, otherApproverUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleApprover)
+
+	documentService := documents.NewService(db)
+	workflowService := workflow.NewService(db, documentService)
+	approval, doc := createPendingApproval(t, ctx, documentService, workflowService, operator)
+
+	handler := app.NewServedAgentAPIHandler(db)
+	otherApproverCookies := issueBrowserSessionCookies(t, ctx, db, handler, otherOrgID, otherApproverUserID)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/approvals/"+approval.ID+"/decision", bytes.NewBufferString(`{"decision":"approved","decision_note":"wrong org should not mutate"}`))
+	req.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(req, otherApproverCookies)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("unexpected cross-org approval decision status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	requireContains(t, recorder.Body.String(), `"error":"approval not found"`)
+
+	var approvalStatus string
+	var decidedByUserID sql.NullString
+	var decisionNote sql.NullString
+	var decidedAt sql.NullTime
+	if err := db.QueryRowContext(
+		ctx,
+		`SELECT status, decided_by_user_id, decision_note, decided_at FROM workflow.approvals WHERE id = $1`,
+		approval.ID,
+	).Scan(&approvalStatus, &decidedByUserID, &decisionNote, &decidedAt); err != nil {
+		t.Fatalf("load approval after cross-org decision attempt: %v", err)
+	}
+	if approvalStatus != "pending" || decidedByUserID.Valid || decisionNote.Valid || decidedAt.Valid {
+		t.Fatalf("expected cross-org decision attempt to preserve pending approval, got status=%s decided_by=%v note=%v decided_at=%v", approvalStatus, decidedByUserID, decisionNote, decidedAt)
+	}
+
+	var documentStatus string
+	if err := db.QueryRowContext(ctx, `SELECT status FROM documents.documents WHERE id = $1`, doc.ID).Scan(&documentStatus); err != nil {
+		t.Fatalf("load document after cross-org decision attempt: %v", err)
+	}
+	if documentStatus != string(documents.StatusSubmitted) {
+		t.Fatalf("expected cross-org decision attempt to preserve submitted document, got %s", documentStatus)
+	}
+}
+
 func TestAgentAPIDecideApprovalRejectsInvalidApprovalIDIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()
