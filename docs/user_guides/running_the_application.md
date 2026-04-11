@@ -42,6 +42,8 @@ If you need the browser-login defaults or a friendlier local admin login, see [`
 
 The default bootstrap step also seeds the minimum North Harbor Works demo baseline for bounded testing. Pass `-seed-demo-baseline=false` if you need only the admin login records.
 
+For the durable technical setup contract, see [`Demo Entity: North Harbor Works`](../technical_guides/16_demo_entity_north_harbor_works.md).
+
 Migration rule:
 
 1. run `go run ./cmd/migrate` on first setup for a database

@@ -74,6 +74,8 @@ The default demo baseline includes:
 
 Pass `-seed-demo-baseline=false` when you only want the friendly org and admin login without demo master data.
 
+For the durable technical setup contract, see [`Demo Entity: North Harbor Works`](../technical_guides/16_demo_entity_north_harbor_works.md).
+
 ## 4. Default example
 
 With the default values, use:

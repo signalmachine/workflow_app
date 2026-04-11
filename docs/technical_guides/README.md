@@ -56,6 +56,7 @@ Start with the most important concepts first:
 13. [Attachments and derived text](./13_attachments_and_derived_text.md)
 14. [Data modeling and database schema](./14_data_modeling_and_database_schema.md)
 15. [Production readiness and release checklist](./15_production_readiness_and_release_checklist.md)
+16. [Demo entity: North Harbor Works](./16_demo_entity_north_harbor_works.md)
 
 ## 4. Organization rule
 
