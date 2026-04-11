@@ -51,7 +51,76 @@ The current minimum baseline includes:
 
 The seed is intentionally small. It exists to make admin, list, report, and review surfaces usable after sign-in without turning the demo org into a broad fake ERP dataset.
 
-## 4. Idempotency
+## 4. Seeded Chart Of Accounts
+
+The current chart of accounts baseline is:
+
+| Code | Name | Class | Control type | Direct posting |
+| --- | --- | --- | --- | --- |
+| `1000` | Cash and Bank | asset | none | yes |
+| `1100` | Accounts Receivable | asset | receivable | no |
+| `1200` | Inventory Asset | asset | none | yes |
+| `1300` | GST Input Receivable | asset | gst_input | no |
+| `2000` | Accounts Payable | liability | payable | no |
+| `2100` | GST Output Payable | liability | gst_output | no |
+| `3000` | Owner Equity | equity | none | yes |
+| `4000` | Service Revenue | revenue | none | yes |
+| `4100` | Parts and Materials Revenue | revenue | none | yes |
+| `5000` | Cost of Goods Sold | expense | none | yes |
+| `5100` | Subcontractor Expense | expense | none | yes |
+| `5200` | Inventory Adjustments | expense | none | yes |
+| `6000` | Operating Expense | expense | none | yes |
+
+## 5. Seeded Tax Codes And Period
+
+The current tax-code baseline is:
+
+| Code | Name | Type | Rate | Receivable account | Payable account |
+| --- | --- | --- | --- | --- | --- |
+| `GST18-SALES` | GST 18% Sales | gst | 18% | | `2100` GST Output Payable |
+| `GST18-PURCH` | GST 18% Purchases | gst | 18% | `1300` GST Input Receivable | |
+
+The current accounting-period baseline is:
+
+| Period code | Start | End | Status |
+| --- | --- | --- | --- |
+| `FY2026-27` | `2026-04-01` | `2027-03-31` | open |
+
+## 6. Seeded Parties And Contacts
+
+The current party and contact baseline is:
+
+| Party code | Display name | Kind | Primary contact | Role | Email | Phone |
+| --- | --- | --- | --- | --- | --- | --- |
+| `CUST-ACME` | Acme Facilities | customer | Asha Rao | Facilities Manager | `asha.rao@acme.example` | `+91-80-5550-0101` |
+| `CUST-METRO` | Metro Property Group | customer | Karan Mehta | Operations Lead | `karan.mehta@metro.example` | `+91-80-5550-0102` |
+| `VEND-HARBOR` | Harbor Industrial Supply | vendor | Neha Iyer | Account Manager | `neha.iyer@harbor-supply.example` | `+91-80-5550-0201` |
+| `VEND-POWER` | Powerline Electricals | vendor | Vikram Singh | Sales Desk | `sales@powerline.example` | `+91-80-5550-0202` |
+| `VEND-SUBCO` | Reliable Field Services | vendor | Maya D'Souza | Dispatch Coordinator | `dispatch@reliable-field.example` | `+91-80-5550-0203` |
+
+## 7. Seeded Inventory Master Data
+
+The current inventory item baseline is:
+
+| SKU | Name | Item role | Tracking mode |
+| --- | --- | --- | --- |
+| `SVC-MAT-FILTER` | Replacement filter kit | service_material | none |
+| `SVC-MAT-SEAL` | Industrial sealant pack | service_material | none |
+| `RES-PUMP-100` | Pump assembly | resale | none |
+| `EQ-METER-200` | Field meter | traceable_equipment | serial |
+| `EXP-CLEANUP` | Shop cleanup consumables | direct_expense_consumable | none |
+
+The current inventory location baseline is:
+
+| Code | Name | Location role |
+| --- | --- | --- |
+| `MAIN-WH` | Main warehouse | warehouse |
+| `FIELD-VAN-1` | Field van 1 | van |
+| `ADJ-BIN` | Inventory adjustment bin | adjustment |
+| `JOB-SITE` | Active job site | site |
+| `INSTALLED` | Installed equipment base | installed |
+
+## 8. Idempotency
 
 The seed is idempotent.
 
@@ -70,7 +139,7 @@ Use this after:
 3. rotating the local demo admin password
 4. restoring a partially seeded local environment
 
-## 5. Login-Only Bootstrap
+## 9. Login-Only Bootstrap
 
 Use this when a database should get only the friendly org and admin login without demo master data:
 
@@ -80,7 +149,7 @@ go run ./cmd/bootstrap-admin -password 'choose-a-strong-password' -seed-demo-bas
 
 That path is useful for targeted testing where demo master data would make fixture state less obvious.
 
-## 6. Ownership
+## 10. Ownership
 
 The seed belongs to the backend setup layer, currently `internal/setup`, and is invoked by `cmd/bootstrap-admin`.
 
