@@ -135,7 +135,9 @@ Current checkpoint recorded on 2026-04-11:
 3. focused `internal/app` verification, `go build ./cmd/... ./internal/...`, serialized canonical Go verification, and gopls diagnostics passed for this checkpoint
 4. additional approval-decision API coverage now proves that a browser-session approver from another org receives a not-found response for a foreign approval and does not mutate the pending approval status, decision metadata, or submitted document state
 5. the focused approval-decision integration test group, full `internal/app` package verification, `go build ./cmd/... ./internal/...`, serialized canonical Go verification, `git diff --check`, and gopls diagnostics passed for that additional checkpoint
-6. Slice 2 should continue with similarly high-value production-readiness tests where remaining workflow, failure-path, auth, or transport-contract risk still exceeds coverage
+6. additional failed-provider API coverage now proves that the browser-session process-next endpoint returns the exact failed request reference and run id and that exact inbound-request review detail exposes the failed request state, failed run state, and failed provider-execution step with the failure payload
+7. the focused process-next failure-continuity test, full `internal/app` package verification, `go build ./cmd/... ./internal/...`, serialized canonical Go verification, and gopls diagnostics passed for that additional checkpoint
+8. Slice 2 should continue with similarly high-value production-readiness tests where remaining workflow, failure-path, auth, or transport-contract risk still exceeds coverage
 
 ### 5.3 Slice 3: baseline accounting reports and reporting-gap pass
 

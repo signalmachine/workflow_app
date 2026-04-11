@@ -68,6 +68,7 @@ Implementation note recorded on 2026-04-09:
 20. a follow-on Milestone 14 Slice 1 checkpoint on 2026-04-10 then restored the parked-request lifecycle controls on exact inbound-request detail and corrected the desktop shell tab-column layout, with focused frontend tests passing through `npm --prefix web test -- src/lib/api/inbound.test.ts src/routes/(app)/inbound-requests/page_detail.test.ts` and `npm --prefix web run check`
 21. a grouped navigation checkpoint on 2026-04-10 added Admin `Master Data` and `Lists` directory routes plus dedicated accounting report destinations for journal entries, control balances, and tax summaries behind the `/app/review/accounting` report directory; focused Svelte checks, Svelte build, focused Go served-route checks, and gopls diagnostics passed for that route-family change
 22. a Milestone 14 accounting-report checkpoint on 2026-04-10 added backend-owned trial balance, balance sheet, and income statement report contracts with dedicated Svelte destinations under `/app/review/accounting`; focused reporting integration tests, focused app route-serving tests, focused Svelte component tests, `npm --prefix web run check`, `npm --prefix web run build`, `go build ./cmd/... ./internal/...`, and gopls diagnostics passed for that checkpoint
+23. a Milestone 14 production-readiness test checkpoint on 2026-04-11 added focused `internal/app` API integration coverage for failed provider processing through the browser-session process-next endpoint and exact inbound-request review detail; the focused failure-continuity test, full `internal/app` package verification, `go build ./cmd/... ./internal/...`, serialized canonical Go verification, and gopls diagnostics passed for that checkpoint
 
 ## 3.1 Milestone 13 closeout evidence baseline
 
@@ -96,6 +97,7 @@ Current evidence recorded through 2026-04-10:
 10. `pass: focused Svelte route-family coverage 2026-04-10 - login, settings, admin hub, admin access, admin parties, operations landing, submit-inbound-request, operations feed, and exact approval/document/accounting detail surfaces all have explicit component assertions`
 11. `pass: request -> proposal -> approval -> document -> accounting chain 2026-04-10 - cmd/verify-agent -database-url "$DATABASE_URL" -approval-flow seeded a dedicated verification org with a posted invoice and journal entry, and the real-browser Playwright pass followed exact request, proposal, approval, document, and accounting detail routes on that served org without continuity breaks`
 12. `pass: baseline accounting reports 2026-04-10 - trial balance, balance sheet, and income statement now have backend reporting integration assertions, dedicated Svelte component assertions, and served route-family coverage after rebuilding the embedded Svelte artifact`
+13. `pass: failed provider review continuity 2026-04-11 - focused internal/app API integration coverage now proves browser-session process-next failure returns the failed request reference and run id, and exact inbound-request review detail exposes failed request, run, and provider-step state with the failure payload`
 
 Evidence rule:
 

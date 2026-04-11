@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -21,6 +22,7 @@ import (
 	"workflow_app/internal/intake"
 	"workflow_app/internal/inventoryops"
 	"workflow_app/internal/parties"
+	"workflow_app/internal/reporting"
 	"workflow_app/internal/testsupport/dbtest"
 	"workflow_app/internal/workflow"
 	"workflow_app/internal/workforce"
@@ -1160,6 +1162,92 @@ func TestAgentAPISubmitInboundRequestRejectsUnknownJSONFieldsIntegration(t *test
 	if requestCount != 0 {
 		t.Fatalf("expected unknown-field request rejection before persistence, found %d requests", requestCount)
 	}
+}
+
+func TestAgentAPIProcessNextFailureExposesReviewContinuityIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	session := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: session.ID}
+	request := createQueuedRequest(t, ctx, db, operator, "Provider failure should remain review-visible.")
+
+	handler := app.NewServedAgentAPIHandlerWithDependencies(func() (app.ProcessNextQueuedInboundRequester, error) {
+		return app.NewAgentProcessor(db, fakeCoordinatorProvider{err: errors.New("upstream provider timeout")})
+	}, app.NewSubmissionService(db), reporting.NewService(db), nil, identityaccess.NewService(db))
+	cookies := issueBrowserSessionCookies(t, ctx, db, handler, orgID, operatorUserID)
+
+	processReq := httptest.NewRequest(http.MethodPost, "/api/agent/process-next-queued-inbound-request", bytes.NewBufferString(`{"channel":"browser"}`))
+	processReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(processReq, cookies)
+	processRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(processRecorder, processReq)
+	if processRecorder.Code != http.StatusInternalServerError {
+		t.Fatalf("unexpected process failure status: got %d body=%s", processRecorder.Code, processRecorder.Body.String())
+	}
+
+	var processResponse struct {
+		Error            string `json:"error"`
+		RequestReference string `json:"request_reference"`
+		RunID            string `json:"run_id"`
+	}
+	if err := json.Unmarshal(processRecorder.Body.Bytes(), &processResponse); err != nil {
+		t.Fatalf("decode process failure response: %v", err)
+	}
+	if processResponse.Error != "failed to process queued inbound request" || processResponse.RequestReference != request.RequestReference || processResponse.RunID == "" {
+		t.Fatalf("unexpected process failure response: %+v", processResponse)
+	}
+
+	detailReq := httptest.NewRequest(http.MethodGet, "/api/review/inbound-requests/"+request.RequestReference, nil)
+	applyResponseCookies(detailReq, cookies)
+	detailRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(detailRecorder, detailReq)
+	if detailRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected failed request detail status: got %d body=%s", detailRecorder.Code, detailRecorder.Body.String())
+	}
+
+	var detailResponse struct {
+		Request struct {
+			RequestReference string  `json:"request_reference"`
+			Status           string  `json:"status"`
+			FailureReason    string  `json:"failure_reason"`
+			FailedAt         *string `json:"failed_at"`
+			LastRunID        *string `json:"last_run_id"`
+			LastRunStatus    *string `json:"last_run_status"`
+		} `json:"request"`
+		Runs []struct {
+			RunID   string `json:"run_id"`
+			Status  string `json:"status"`
+			Summary string `json:"summary"`
+		} `json:"runs"`
+		Steps []struct {
+			RunID         string          `json:"run_id"`
+			StepTitle     string          `json:"step_title"`
+			Status        string          `json:"status"`
+			OutputPayload json.RawMessage `json:"output_payload"`
+		} `json:"steps"`
+	}
+	if err := json.Unmarshal(detailRecorder.Body.Bytes(), &detailResponse); err != nil {
+		t.Fatalf("decode failed request detail response: %v", err)
+	}
+	if detailResponse.Request.RequestReference != request.RequestReference || detailResponse.Request.Status != intake.StatusFailed || detailResponse.Request.FailureReason != "upstream provider timeout" || detailResponse.Request.FailedAt == nil {
+		t.Fatalf("unexpected failed request review state: %+v", detailResponse.Request)
+	}
+	if detailResponse.Request.LastRunID == nil || *detailResponse.Request.LastRunID != processResponse.RunID || detailResponse.Request.LastRunStatus == nil || *detailResponse.Request.LastRunStatus != ai.RunStatusFailed {
+		t.Fatalf("unexpected failed request latest run linkage: %+v", detailResponse.Request)
+	}
+	if len(detailResponse.Runs) != 1 || detailResponse.Runs[0].RunID != processResponse.RunID || detailResponse.Runs[0].Status != ai.RunStatusFailed || detailResponse.Runs[0].Summary != "upstream provider timeout" {
+		t.Fatalf("unexpected failed run review state: %+v", detailResponse.Runs)
+	}
+	if len(detailResponse.Steps) != 1 || detailResponse.Steps[0].RunID != processResponse.RunID || detailResponse.Steps[0].Status != ai.StepStatusFailed || detailResponse.Steps[0].StepTitle != "Provider execution failed" {
+		t.Fatalf("unexpected failed step review state: %+v", detailResponse.Steps)
+	}
+	requireContains(t, string(detailResponse.Steps[0].OutputPayload), `"error":"upstream provider timeout"`)
 }
 
 func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
