@@ -1671,6 +1671,114 @@ func TestAgentAPIRequestProcessedProposalApprovalIntegration(t *testing.T) {
 	}
 }
 
+func TestAgentAPIRequestProcessedProposalApprovalRejectsCrossOrgActionWithoutMutationIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	operatorSession := startSession(t, ctx, db, orgID, operatorUserID)
+	operator := identityaccess.Actor{OrgID: orgID, UserID: operatorUserID, SessionID: operatorSession.ID}
+	otherOrgID, otherOperatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+
+	documentService := documents.NewService(db)
+	doc, err := documentService.CreateDraft(ctx, documents.CreateDraftInput{
+		TypeCode: "invoice",
+		Title:    "Foreign proposal approval boundary invoice",
+		Actor:    operator,
+	})
+	if err != nil {
+		t.Fatalf("create foreign-boundary document: %v", err)
+	}
+	doc, err = documentService.Submit(ctx, documents.SubmitInput{
+		DocumentID: doc.ID,
+		Actor:      operator,
+	})
+	if err != nil {
+		t.Fatalf("submit foreign-boundary document: %v", err)
+	}
+
+	request := createQueuedRequest(t, ctx, db, operator, "Create a proposal that another org must not approve.")
+	intakeService := intake.NewService(db)
+	request, err = intakeService.ClaimNextQueued(ctx, intake.ClaimNextQueuedInput{
+		Channel: "browser",
+		Actor:   operator,
+	})
+	if err != nil {
+		t.Fatalf("claim foreign-boundary request: %v", err)
+	}
+	request, err = intakeService.AdvanceRequest(ctx, intake.AdvanceRequestInput{
+		RequestID: request.ID,
+		Status:    intake.StatusProcessed,
+		Actor:     operator,
+	})
+	if err != nil {
+		t.Fatalf("advance foreign-boundary request: %v", err)
+	}
+
+	aiService := ai.NewService(db)
+	run, err := aiService.StartRun(ctx, ai.StartRunInput{
+		InboundRequestID: request.ID,
+		AgentRole:        ai.RunRoleCoordinator,
+		CapabilityCode:   ai.DefaultCoordinatorCapabilityCode,
+		Actor:            operator,
+	})
+	if err != nil {
+		t.Fatalf("start foreign-boundary run: %v", err)
+	}
+	recommendation, err := aiService.CreateRecommendation(ctx, ai.CreateRecommendationInput{
+		RunID:              run.ID,
+		RecommendationType: "request_approval",
+		Summary:            "Request finance approval for a foreign-boundary invoice.",
+		Payload:            map[string]any{"document_id": doc.ID, "queue_code": "finance-review"},
+		Actor:              operator,
+	})
+	if err != nil {
+		t.Fatalf("create foreign-boundary recommendation: %v", err)
+	}
+
+	handler := app.NewServedAgentAPIHandler(db)
+	otherOrgCookies := issueBrowserSessionCookies(t, ctx, db, handler, otherOrgID, otherOperatorUserID)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/review/processed-proposals/"+recommendation.ID+"/request-approval", bytes.NewBufferString(`{"reason":"wrong org should not mutate"}`))
+	req.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(req, otherOrgCookies)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("unexpected cross-org request-approval status: got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	requireContains(t, recorder.Body.String(), `"error":"record not found"`)
+
+	var approvalID sql.NullString
+	if err := db.QueryRowContext(ctx, `SELECT approval_id FROM ai.agent_recommendations WHERE id = $1`, recommendation.ID).Scan(&approvalID); err != nil {
+		t.Fatalf("load recommendation approval after cross-org request-approval attempt: %v", err)
+	}
+	if approvalID.Valid {
+		t.Fatalf("expected recommendation approval link to remain empty after cross-org request-approval attempt, got %s", approvalID.String)
+	}
+
+	var approvalCount int
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM workflow.approvals WHERE document_id = $1`, doc.ID).Scan(&approvalCount); err != nil {
+		t.Fatalf("count approvals after cross-org request-approval attempt: %v", err)
+	}
+	if approvalCount != 0 {
+		t.Fatalf("expected no approval rows after cross-org request-approval attempt, got %d", approvalCount)
+	}
+
+	var documentStatus string
+	if err := db.QueryRowContext(ctx, `SELECT status FROM documents.documents WHERE id = $1`, doc.ID).Scan(&documentStatus); err != nil {
+		t.Fatalf("load document after cross-org request-approval attempt: %v", err)
+	}
+	if documentStatus != string(documents.StatusSubmitted) {
+		t.Fatalf("expected cross-org request-approval attempt to preserve submitted document, got %s", documentStatus)
+	}
+}
+
 func TestAgentAPIProcessedProposalApprovalDecisionContinuityIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()
