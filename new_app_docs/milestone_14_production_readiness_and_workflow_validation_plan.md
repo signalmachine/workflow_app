@@ -176,6 +176,14 @@ Guardrail:
 
 1. seed only the minimum realistic baseline needed for supported operator flows and reports; do not turn the demo entity into an uncontrolled catch-all data dump
 
+Current checkpoint recorded on 2026-04-11:
+
+1. `cmd/bootstrap-admin` now seeds the minimum North Harbor Works demo baseline by default through `internal/setup`
+2. the seed is idempotent and currently covers a standard chart of accounts, GST 18% sales and purchase tax codes, one open `FY2026-27` accounting period, sample customer and vendor parties with primary contacts, starter inventory items, and starter inventory locations
+3. operators can pass `-seed-demo-baseline=false` when they need only the friendly admin login records
+4. focused setup integration tests, focused bootstrap/setup package tests, and gopls diagnostics passed for this checkpoint
+5. Slice 4 is closed enough to move the active implementation path to production-readiness test expansion and deferred workflow validation
+
 ### 5.5 Slice 5: navigation and information-architecture cleanup
 
 Goal:

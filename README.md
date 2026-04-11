@@ -77,8 +77,9 @@ The bootstrap command is idempotent. By default it ensures:
 2. org slug `north-harbor`
 3. admin email `admin@northharbor.local`
 4. admin display name `North Harbor Admin`
+5. a minimum North Harbor Works demo baseline for bounded testing: chart of accounts, GST tax codes, one open FY2026-27 accounting period, sample customers and vendors with primary contacts, and starter inventory items and locations
 
-You can override any of those with flags such as `-org-name`, `-org-slug`, `-email`, and `-display-name`.
+You can override the identity values with flags such as `-org-name`, `-org-slug`, `-email`, and `-display-name`. Pass `-seed-demo-baseline=false` when you only want the admin login records.
 
 Run tests with the configured test database:
 

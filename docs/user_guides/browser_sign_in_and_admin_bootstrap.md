@@ -1,6 +1,6 @@
 # Browser Sign-In And Admin Bootstrap
 
-Date: 2026-03-30
+Date: 2026-04-11
 Status: Active
 Purpose: explain the recommended best-practice path for creating a real local admin login instead of relying on generated verification identities.
 
@@ -41,6 +41,7 @@ The browser sign-in flow is available at `/app/login`, and `/app` routes unauthe
 3. ensure the user has an active membership in that org
 4. ensure the membership role is `admin`
 5. hash and store the password through the same identity layer used by sign-in
+6. by default, seed the minimum North Harbor Works demo baseline needed for bounded testing
 
 Plain-language meaning:
 
@@ -48,6 +49,7 @@ Plain-language meaning:
 2. it is the first-run setup path for a friendly organization and admin login
 3. it does not create a second app or a separate isolated environment
 4. it creates or reuses records inside the main database pointed to by `DATABASE_URL`
+5. it seeds demo records idempotently, so rerunning the command does not duplicate the baseline records
 
 Name and identifier distinction:
 
@@ -60,6 +62,17 @@ The command is safe to rerun when you need to:
 1. recreate a local login on a fresh database
 2. standardize a friendlier local org slug and email
 3. rotate the bootstrap admin password
+4. restore the minimum North Harbor Works baseline records after a reset
+
+The default demo baseline includes:
+
+1. standard chart-of-accounts rows for cash, receivables, inventory, GST control accounts, payables, equity, revenue, cost of goods sold, subcontractor expense, inventory adjustments, and operating expense
+2. GST 18% sales and purchase tax codes wired to the seeded GST control accounts
+3. one open accounting period, `FY2026-27`
+4. sample customer and vendor parties with primary contacts
+5. starter inventory items and locations for warehouse, van, adjustment, job-site, and installed-equipment review
+
+Pass `-seed-demo-baseline=false` when you only want the friendly org and admin login without demo master data.
 
 ## 4. Default example
 

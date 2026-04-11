@@ -76,7 +76,7 @@ The session service is therefore a control boundary, not a convenience helper.
 
 The repository includes an admin bootstrap path to make first-run access practical.
 
-The bootstrap path upserts the org, user, and membership, then hashes the password.
+The bootstrap path upserts the org, user, and membership, then hashes the password. The `cmd/bootstrap-admin` command also calls the backend-owned setup seed by default so the North Harbor Works demo org has the minimum chart of accounts and master-data baseline needed for bounded testing.
 
 ```go
 passwordHash, err := HashPassword(input.Password)
@@ -85,7 +85,7 @@ if err != nil {
 }
 ```
 
-This is intentionally explicit because the repo is designed to be bootstrapped into a working environment rather than manually seeded with ad hoc SQL.
+This is intentionally explicit because the repo is designed to be bootstrapped into a working environment rather than manually seeded with ad hoc SQL. Pass `-seed-demo-baseline=false` to skip the demo master-data seed when a login-only bootstrap is required.
 
 ## 6. Actor resolution
 

@@ -40,6 +40,8 @@ The runnable commands auto-load `.env` from the repository root when it exists. 
 
 If you need the browser-login defaults or a friendlier local admin login, see [`browser_sign_in_and_admin_bootstrap.md`](./browser_sign_in_and_admin_bootstrap.md).
 
+The default bootstrap step also seeds the minimum North Harbor Works demo baseline for bounded testing. Pass `-seed-demo-baseline=false` if you need only the admin login records.
+
 Migration rule:
 
 1. run `go run ./cmd/migrate` on first setup for a database

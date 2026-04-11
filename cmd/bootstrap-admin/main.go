@@ -13,6 +13,7 @@ import (
 
 	"workflow_app/internal/identityaccess"
 	"workflow_app/internal/platform/envload"
+	"workflow_app/internal/setup"
 )
 
 const bootstrapTimeout = 30 * time.Second
@@ -23,12 +24,13 @@ func main() {
 	}
 
 	var (
-		databaseURL     string
-		orgName         string
-		orgSlug         string
-		userEmail       string
-		userDisplayName string
-		password        string
+		databaseURL      string
+		orgName          string
+		orgSlug          string
+		userEmail        string
+		userDisplayName  string
+		password         string
+		seedDemoBaseline bool
 	)
 
 	flag.StringVar(&databaseURL, "database-url", os.Getenv("DATABASE_URL"), "PostgreSQL connection string")
@@ -37,6 +39,7 @@ func main() {
 	flag.StringVar(&userEmail, "email", "admin@northharbor.local", "admin user email used for sign-in")
 	flag.StringVar(&userDisplayName, "display-name", "North Harbor Admin", "admin user display name")
 	flag.StringVar(&password, "password", "", "plain-text admin password to hash and store")
+	flag.BoolVar(&seedDemoBaseline, "seed-demo-baseline", true, "seed the minimum North Harbor Works demo chart of accounts and master data")
 	flag.Parse()
 
 	if databaseURL == "" {
@@ -71,9 +74,29 @@ func main() {
 		log.Fatalf("bootstrap admin: %v", err)
 	}
 
+	var baseline setup.DemoBaselineResult
+	if seedDemoBaseline {
+		baseline, err = setup.EnsureDemoBaseline(ctx, db, setup.DemoBaselineInput{
+			OrgID:       result.OrgID,
+			ActorUserID: result.UserID,
+		})
+		if err != nil {
+			log.Fatalf("seed demo baseline: %v", err)
+		}
+	}
+
 	fmt.Printf("org_slug=%s\n", orgSlug)
 	fmt.Printf("email=%s\n", userEmail)
 	fmt.Printf("org_id=%s\n", result.OrgID)
 	fmt.Printf("user_id=%s\n", result.UserID)
 	fmt.Printf("membership_id=%s\n", result.MembershipID)
+	if seedDemoBaseline {
+		fmt.Printf("demo_ledger_accounts_created=%d\n", baseline.LedgerAccountsCreated)
+		fmt.Printf("demo_tax_codes_created=%d\n", baseline.TaxCodesCreated)
+		fmt.Printf("demo_accounting_periods_created=%d\n", baseline.AccountingPeriodsCreated)
+		fmt.Printf("demo_parties_created=%d\n", baseline.PartiesCreated)
+		fmt.Printf("demo_contacts_created=%d\n", baseline.ContactsCreated)
+		fmt.Printf("demo_inventory_items_created=%d\n", baseline.InventoryItemsCreated)
+		fmt.Printf("demo_inventory_locations_created=%d\n", baseline.InventoryLocationsCreated)
+	}
 }

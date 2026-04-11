@@ -1,6 +1,6 @@
 # Browser Operator Getting Started
 
-Date: 2026-04-10
+Date: 2026-04-11
 Status: Active
 Purpose: explain the first browser path into `workflow_app` and the main pages an operator uses after sign-in.
 
@@ -23,6 +23,8 @@ Sign in with:
 4. device label `browser`
 
 If you used the default local bootstrap values, the org slug is `north-harbor` and the email is `admin@northharbor.local`.
+
+The default bootstrap command also seeds North Harbor Works with a starter chart of accounts, GST tax codes, customers, vendors, inventory items, and inventory locations. Those records are meant to make the admin, list, reporting, and review pages useful immediately after sign-in.
 
 After sign-in, the app should place you on the operator home for that org context.
 
