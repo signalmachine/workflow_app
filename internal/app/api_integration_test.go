@@ -1604,6 +1604,215 @@ func TestAgentAPIAccountingReportsUseBrowserSessionOrgBoundaryIntegration(t *tes
 	}
 }
 
+func TestAgentAPIInventoryAndWorkOrderReviewUseBrowserSessionOrgBoundaryIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, adminUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleAdmin)
+	adminSession := startSession(t, ctx, db, orgID, adminUserID)
+	admin := identityaccess.Actor{OrgID: orgID, UserID: adminUserID, SessionID: adminSession.ID}
+	_, operatorUserID := seedOrgAndUserInOrg(t, ctx, db, identityaccess.RoleOperator, orgID)
+	_, approverUserID := seedOrgAndUserInOrg(t, ctx, db, identityaccess.RoleApprover, orgID)
+	approverSession := startSession(t, ctx, db, orgID, approverUserID)
+	approver := identityaccess.Actor{OrgID: orgID, UserID: approverUserID, SessionID: approverSession.ID}
+
+	documentService := documents.NewService(db)
+	workflowService := workflow.NewService(db, documentService)
+	accountingService := accounting.NewService(db, documentService)
+	inventoryService := inventoryops.NewService(db)
+	workOrderService := workorders.NewService(db, documentService)
+	workforceService := workforce.NewService(db)
+	workOrder := seedBrowserReviewData(t, ctx, documentService, workflowService, accountingService, inventoryService, workOrderService, workforceService, admin, approver)
+
+	otherOrgID, otherOperatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+
+	handler := app.NewServedAgentAPIHandler(db)
+	operatorCookies := issueBrowserSessionCookies(t, ctx, db, handler, orgID, operatorUserID)
+	otherOrgCookies := issueBrowserSessionCookies(t, ctx, db, handler, otherOrgID, otherOperatorUserID)
+
+	stockReq := httptest.NewRequest(http.MethodGet, "/api/review/inventory/stock", nil)
+	applyResponseCookies(stockReq, operatorCookies)
+	stockRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(stockRecorder, stockReq)
+	if stockRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected same-org inventory stock status: got %d body=%s", stockRecorder.Code, stockRecorder.Body.String())
+	}
+	var stockResponse struct {
+		Items []struct {
+			ItemSKU      string `json:"item_sku"`
+			LocationCode string `json:"location_code"`
+			OnHandMilli  int64  `json:"on_hand_milli"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(stockRecorder.Body.Bytes(), &stockResponse); err != nil {
+		t.Fatalf("decode same-org inventory stock: %v", err)
+	}
+	if len(stockResponse.Items) != 1 || stockResponse.Items[0].ItemSKU != "RPT-MAT-1" || stockResponse.Items[0].LocationCode != "RPT-WH-1" || stockResponse.Items[0].OnHandMilli != 3000 {
+		t.Fatalf("unexpected same-org inventory stock response: %+v", stockResponse)
+	}
+
+	movementReq := httptest.NewRequest(http.MethodGet, "/api/review/inventory/movements", nil)
+	applyResponseCookies(movementReq, operatorCookies)
+	movementRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(movementRecorder, movementReq)
+	if movementRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected same-org inventory movement status: got %d body=%s", movementRecorder.Code, movementRecorder.Body.String())
+	}
+	var movementResponse struct {
+		Items []struct {
+			MovementID    string `json:"movement_id"`
+			ItemSKU       string `json:"item_sku"`
+			MovementType  string `json:"movement_type"`
+			QuantityMilli int64  `json:"quantity_milli"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(movementRecorder.Body.Bytes(), &movementResponse); err != nil {
+		t.Fatalf("decode same-org inventory movements: %v", err)
+	}
+	if len(movementResponse.Items) != 2 {
+		t.Fatalf("unexpected same-org inventory movement count: %+v", movementResponse.Items)
+	}
+	var issueMovementID string
+	for _, item := range movementResponse.Items {
+		if item.ItemSKU != "RPT-MAT-1" {
+			t.Fatalf("unexpected same-org movement item: %+v", item)
+		}
+		if item.MovementType == "issue" {
+			issueMovementID = item.MovementID
+			if item.QuantityMilli != 2000 {
+				t.Fatalf("unexpected issue movement quantity: %+v", item)
+			}
+		}
+	}
+	if issueMovementID == "" {
+		t.Fatalf("expected issue movement in same-org response: %+v", movementResponse.Items)
+	}
+
+	movementDetailReq := httptest.NewRequest(http.MethodGet, "/api/review/inventory/movements/"+issueMovementID, nil)
+	applyResponseCookies(movementDetailReq, operatorCookies)
+	movementDetailRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(movementDetailRecorder, movementDetailReq)
+	if movementDetailRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected same-org inventory movement detail status: got %d body=%s", movementDetailRecorder.Code, movementDetailRecorder.Body.String())
+	}
+	var movementDetailResponse struct {
+		Review struct {
+			MovementID string `json:"movement_id"`
+			ItemSKU    string `json:"item_sku"`
+		} `json:"review"`
+		Reconciliation []struct {
+			MovementID         string  `json:"movement_id"`
+			WorkOrderID        *string `json:"work_order_id"`
+			AccountingPostedAt *string `json:"accounting_posted_at"`
+		} `json:"reconciliation"`
+	}
+	if err := json.Unmarshal(movementDetailRecorder.Body.Bytes(), &movementDetailResponse); err != nil {
+		t.Fatalf("decode same-org inventory movement detail: %v", err)
+	}
+	if movementDetailResponse.Review.MovementID != issueMovementID || movementDetailResponse.Review.ItemSKU != "RPT-MAT-1" {
+		t.Fatalf("unexpected same-org inventory movement detail: %+v", movementDetailResponse.Review)
+	}
+	if len(movementDetailResponse.Reconciliation) != 1 || movementDetailResponse.Reconciliation[0].MovementID != issueMovementID || movementDetailResponse.Reconciliation[0].WorkOrderID == nil || *movementDetailResponse.Reconciliation[0].WorkOrderID != workOrder.ID || movementDetailResponse.Reconciliation[0].AccountingPostedAt == nil {
+		t.Fatalf("unexpected same-org inventory reconciliation detail: %+v", movementDetailResponse.Reconciliation)
+	}
+
+	workOrderReq := httptest.NewRequest(http.MethodGet, "/api/review/work-orders/"+workOrder.ID, nil)
+	applyResponseCookies(workOrderReq, operatorCookies)
+	workOrderRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(workOrderRecorder, workOrderReq)
+	if workOrderRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected same-org work order status: got %d body=%s", workOrderRecorder.Code, workOrderRecorder.Body.String())
+	}
+	var workOrderResponse struct {
+		WorkOrderID              string `json:"work_order_id"`
+		WorkOrderCode            string `json:"work_order_code"`
+		CompletedTaskCount       int    `json:"completed_task_count"`
+		LaborEntryCount          int    `json:"labor_entry_count"`
+		PostedLaborEntryCount    int    `json:"posted_labor_entry_count"`
+		MaterialUsageCount       int    `json:"material_usage_count"`
+		PostedMaterialUsageCount int    `json:"posted_material_usage_count"`
+	}
+	if err := json.Unmarshal(workOrderRecorder.Body.Bytes(), &workOrderResponse); err != nil {
+		t.Fatalf("decode same-org work order review: %v", err)
+	}
+	if workOrderResponse.WorkOrderID != workOrder.ID || workOrderResponse.WorkOrderCode != workOrder.WorkOrderCode || workOrderResponse.CompletedTaskCount != 1 || workOrderResponse.LaborEntryCount != 1 || workOrderResponse.PostedLaborEntryCount != 1 || workOrderResponse.MaterialUsageCount != 1 || workOrderResponse.PostedMaterialUsageCount != 1 {
+		t.Fatalf("unexpected same-org work order review: %+v", workOrderResponse)
+	}
+
+	foreignStockReq := httptest.NewRequest(http.MethodGet, "/api/review/inventory/stock", nil)
+	applyResponseCookies(foreignStockReq, otherOrgCookies)
+	foreignStockRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(foreignStockRecorder, foreignStockReq)
+	if foreignStockRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected foreign-org inventory stock status: got %d body=%s", foreignStockRecorder.Code, foreignStockRecorder.Body.String())
+	}
+	var foreignStockResponse struct {
+		Items []struct{} `json:"items"`
+	}
+	if err := json.Unmarshal(foreignStockRecorder.Body.Bytes(), &foreignStockResponse); err != nil {
+		t.Fatalf("decode foreign-org inventory stock: %v", err)
+	}
+	if len(foreignStockResponse.Items) != 0 {
+		t.Fatalf("expected foreign-org inventory stock to stay empty, got %+v", foreignStockResponse.Items)
+	}
+
+	foreignMovementReq := httptest.NewRequest(http.MethodGet, "/api/review/inventory/movements/"+issueMovementID, nil)
+	applyResponseCookies(foreignMovementReq, otherOrgCookies)
+	foreignMovementRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(foreignMovementRecorder, foreignMovementReq)
+	if foreignMovementRecorder.Code != http.StatusNotFound {
+		t.Fatalf("expected foreign-org inventory movement detail to be hidden, got %d body=%s", foreignMovementRecorder.Code, foreignMovementRecorder.Body.String())
+	}
+	requireContains(t, foreignMovementRecorder.Body.String(), `"error":"inventory movement not found"`)
+
+	foreignReconciliationReq := httptest.NewRequest(http.MethodGet, "/api/review/inventory/reconciliation?movement_id="+issueMovementID, nil)
+	applyResponseCookies(foreignReconciliationReq, otherOrgCookies)
+	foreignReconciliationRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(foreignReconciliationRecorder, foreignReconciliationReq)
+	if foreignReconciliationRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected foreign-org inventory reconciliation status: got %d body=%s", foreignReconciliationRecorder.Code, foreignReconciliationRecorder.Body.String())
+	}
+	var foreignReconciliationResponse struct {
+		Items []struct{} `json:"items"`
+	}
+	if err := json.Unmarshal(foreignReconciliationRecorder.Body.Bytes(), &foreignReconciliationResponse); err != nil {
+		t.Fatalf("decode foreign-org inventory reconciliation: %v", err)
+	}
+	if len(foreignReconciliationResponse.Items) != 0 {
+		t.Fatalf("expected foreign-org inventory reconciliation to stay empty, got %+v", foreignReconciliationResponse.Items)
+	}
+
+	foreignWorkOrderListReq := httptest.NewRequest(http.MethodGet, "/api/review/work-orders?work_order_id="+workOrder.ID, nil)
+	applyResponseCookies(foreignWorkOrderListReq, otherOrgCookies)
+	foreignWorkOrderListRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(foreignWorkOrderListRecorder, foreignWorkOrderListReq)
+	if foreignWorkOrderListRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected foreign-org work order list status: got %d body=%s", foreignWorkOrderListRecorder.Code, foreignWorkOrderListRecorder.Body.String())
+	}
+	var foreignWorkOrderListResponse struct {
+		Items []struct{} `json:"items"`
+	}
+	if err := json.Unmarshal(foreignWorkOrderListRecorder.Body.Bytes(), &foreignWorkOrderListResponse); err != nil {
+		t.Fatalf("decode foreign-org work order list: %v", err)
+	}
+	if len(foreignWorkOrderListResponse.Items) != 0 {
+		t.Fatalf("expected foreign-org work order list to stay empty, got %+v", foreignWorkOrderListResponse.Items)
+	}
+
+	foreignWorkOrderReq := httptest.NewRequest(http.MethodGet, "/api/review/work-orders/"+workOrder.ID, nil)
+	applyResponseCookies(foreignWorkOrderReq, otherOrgCookies)
+	foreignWorkOrderRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(foreignWorkOrderRecorder, foreignWorkOrderReq)
+	if foreignWorkOrderRecorder.Code != http.StatusNotFound {
+		t.Fatalf("expected foreign-org work order detail to be hidden, got %d body=%s", foreignWorkOrderRecorder.Code, foreignWorkOrderRecorder.Body.String())
+	}
+	requireContains(t, foreignWorkOrderRecorder.Body.String(), `"error":"record not found"`)
+}
+
 func TestAgentAPIRequestProcessedProposalApprovalIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()
