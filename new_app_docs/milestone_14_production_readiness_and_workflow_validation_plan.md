@@ -12,7 +12,7 @@ The review found eight concrete needs:
 
 1. the promoted Svelte browser layer does not currently expose the full parked-request lifecycle that older docs and archived status still describe as implemented
 2. some workflow and user-guide material still points to retired or nonexistent browser paths
-3. production-readiness verification is stronger than it was before Milestone 13 closeout, but it still needs broader and more intentional test coverage, workflow-proof coverage, and failure-path validation
+3. production-readiness verification is now materially stronger after the landed Milestone 14 checkpoints, so remaining closeout should avoid broader pre-user-testing expansion and use only a bounded confidence gate
 4. the canonical and downstream docs need a truth pass so current implementation status, workflow support, and operator guidance are aligned again
 5. the shared Svelte shell still needs one bounded desktop layout correction so the sidebar starts directly beneath the top application bar and the contextual tab row begins over the main content column instead of spanning from the far left edge
 6. the promoted accounting review surface still lacks baseline operator financial statements such as trial balance, balance sheet, and income statement, and Milestone 14 should also review adjacent reporting gaps and add clearly similar production-shape capability where it materially improves readiness
@@ -115,18 +115,18 @@ Current checkpoint recorded on 2026-04-10:
 
 Goal:
 
-1. expand verification where real production risk still exceeds the current test and browser-proof surface
+1. close verification quickly with the already-landed risk-based coverage plus a bounded final confidence gate
 
-Scope:
+Fast-close scope:
 
-1. review current backend, frontend, integration, and browser coverage for obvious gaps
-2. add tests for workflow-critical mutation paths, exact drill-down continuity, failure visibility, and auth or access boundaries where coverage is still weak
-3. strengthen focused rerun patterns and verification guidance when the current technical guide is too generic for the actual risk
-4. keep test additions aligned with the real promoted runtime rather than with retired template-era behavior
+1. treat the already-landed Milestone 14 production-readiness test checkpoints as sufficient for user-testing handoff unless a concrete blocker or high-risk defect is found
+2. do not add more broad coverage-expansion work by default before Milestone 14 closes
+3. add new tests only when a discovered defect would make bounded user testing misleading or unsafe without a narrow regression guard
+4. keep any final verification aligned with the promoted runtime rather than retired template-era behavior
 
 Guardrail:
 
-1. prefer tests that prove business continuity, workflow correctness, or transport contracts over low-signal snapshot or copy-only assertions
+1. prefer closing with documentation truth and a bounded confidence gate over continuing open-ended test expansion
 
 Current checkpoint recorded on 2026-04-11:
 
@@ -145,7 +145,7 @@ Current checkpoint recorded on 2026-04-11:
 13. the focused inventory/work-order org-boundary test, full `internal/app` package verification, `go build ./cmd/... ./internal/...`, serialized canonical Go verification, `git diff --check`, and gopls diagnostics passed for that additional checkpoint
 14. additional Admin exact-record API boundary coverage now proves that browser-session admins from another org receive not-found responses and do not mutate foreign ledger-account status, tax-code status, accounting-period close state, party detail/status/contact state, inventory item/location status, or access membership roles
 15. that checkpoint also corrected accounting and inventory setup-status error translation so foreign exact ids return not-found rather than generic server failures; the focused admin-boundary test, full `internal/app`, affected `internal/accounting` and `internal/inventoryops` package verification, `go build ./cmd/... ./internal/...`, serialized canonical Go verification, `git diff --check`, and gopls diagnostics passed for that additional checkpoint
-16. Slice 2 should continue with similarly high-value production-readiness tests where remaining workflow, failure-path, auth, or transport-contract risk still exceeds coverage
+16. Slice 2 is now closed enough for Milestone 14 fast closeout; deeper workflow, failure-path, auth, or transport-contract testing should move into the user-testing feedback period unless a concrete pre-handoff blocker appears
 
 ### 5.3 Slice 3: baseline accounting reports and reporting-gap pass
 
@@ -226,18 +226,17 @@ Guardrail:
 
 Goal:
 
-1. execute the bounded workflow-validation backlog on the real seam and record explicit evidence
+1. perform only the minimal workflow-validation evidence refresh needed to avoid stale or misleading Milestone 14 handoff docs
 
 Scope:
 
-1. draft or parked request lifecycle continuity on the promoted runtime after the Slice 1 corrective pass
-2. failed-provider or failed-processing visibility and troubleshooting continuity
-3. exact request -> proposal -> approval -> document -> accounting continuity reruns when changed code warrants it
-4. updating `docs/workflows/` evidence and checklists to reflect what is now supported, blocked, or deferred
+1. run at most one small live-smoke validation pass on the real seam if current documentation claims need fresh evidence
+2. otherwise record that deeper workflow-validation backlog execution is intentionally deferred to the user-testing period
+3. update `docs/workflows/` evidence and checklists to reflect what is supported, what was smoke-validated, and what is deferred
 
 Guardrail:
 
-1. workflow validation should state pass, fail, or blocker explicitly and should not silently rely on stale milestone-closeout language
+1. workflow validation should state pass, fail, blocker, or deferred-to-user-testing explicitly and should not silently rely on stale milestone-closeout language
 
 ### 5.7 Slice 7: documentation truth and coverage pass
 
@@ -262,9 +261,9 @@ Guardrail:
 Milestone 14 is complete only when:
 
 1. the implementation and documentation mismatches found in the review are resolved or explicitly narrowed with updated docs and tests in the same change
-2. production-readiness verification coverage is materially stronger and justified against the current real risk surface
+2. production-readiness verification coverage is materially stronger than the pre-Milestone-14 baseline and no further broad pre-user-testing expansion is required unless a concrete blocker is discovered
 3. baseline accounting reports for trial balance, balance sheet, and income statement are available on the shared reporting seam with sufficient verification and documentation
-4. the active workflow-validation backlog for the promoted runtime has explicit evidence or explicit blockers recorded
+4. the active workflow-validation backlog for the promoted runtime has explicit evidence, explicit blockers, or explicit deferral to the user-testing period recorded
 5. canonical planning docs, workflow docs, user guides, technical guides, and the top-level README no longer materially drift from the current codebase
 6. the repository has an explicit bounded user-testing-ready posture for the currently supported runtime, with any remaining exclusions or blockers documented clearly enough that testers are not asked to discover them accidentally
 7. the promoted shared shell has the corrected desktop layout contract for sidebar and contextual-tab placement, with verification sufficient to keep that layout from regressing silently
@@ -275,14 +274,14 @@ Milestone 14 is complete only when:
 
 ## 7. Verification
 
-For Milestone 14 work:
+For Milestone 14 fast-close work:
 
 1. run focused frontend checks and tests for edited Svelte surfaces
 2. run focused Go package or integration tests for edited backend seams
 3. run the canonical repository verification command before closing implementation slices unless an explicit blocker is recorded
-4. use Playwright for real browser validation when the open risk is workflow-critical rendered behavior on `/app`
-5. use `cmd/verify-agent -database-url "$DATABASE_URL" -approval-flow` when the browser proof needs exact seeded continuity on the same backend
-6. record workflow-validation evidence in `docs/workflows/` in the same change that updates implementation status
+4. use Playwright for real browser validation only when the open risk is workflow-critical rendered behavior on `/app` and cannot be handled by the already-landed evidence
+5. use `cmd/verify-agent -database-url "$DATABASE_URL" -approval-flow` only when the final smoke pass needs exact seeded continuity on the same backend
+6. record workflow-validation evidence, blockers, or deferrals in `docs/workflows/` in the same change that updates implementation status
 7. for accounting-reporting additions, run focused backend verification for report composition and focused browser or route verification for the promoted report surfaces
 8. for navigation and information-architecture changes, run focused route, navigation, and real-browser verification on the restructured grouped-directory and dedicated-page flows
 9. for demo-data seeding changes, verify both the backend seed path and the visible runtime surfaces that depend on the seeded chart of accounts and minimum master data
@@ -311,7 +310,7 @@ Recommended order:
 3. then apply the grouped-directory and dedicated-destination navigation model in the most crowded promoted areas, starting with Admin and then Accounting
 4. then land baseline accounting reports and close the most obvious adjacent reporting gaps exposed by that work
 5. then seed `North Harbor Works` with the minimum realistic chart of accounts and master-data baseline needed for those reports and for bounded user testing
-6. then promote the highest-value production-readiness test additions exposed by the corrective work and by focused codebase review
-7. then execute the deferred live workflow-validation backlog on the corrected promoted runtime
-8. then close with the broader documentation truth and coverage pass needed to make the repository defensible for extensive user testing
+6. treat the landed production-readiness tests as sufficient unless a concrete blocker appears
+7. run only the bounded final confidence gate and at most one small live-smoke workflow validation pass if needed for documentation truth
+8. then close with the broader documentation truth and coverage pass needed to make the repository defensible for extensive user testing; do not compromise this documentation pass
 9. then move into extensive user testing before promoting Milestone 15 from future candidate to active implementation work

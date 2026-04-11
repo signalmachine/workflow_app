@@ -1,7 +1,7 @@
 # workflow_app Tracker V2
 
 Date: 2026-04-10
-Status: Thin-v1 is complete, Milestones 10 through 13 are implemented history, and Milestone 14 is now the active bounded v2 milestone to close the code-review gaps, strengthen production-readiness testing, execute deferred workflow validation, realign the documentation set with the current promoted runtime truth, make the promoted application ready for bounded user testing, add the first baseline accounting reports plus other clearly similar readiness-improving capability discovered during implementation review, restructure the most crowded promoted navigation families around grouped directory pages plus dedicated destinations, and seed `North Harbor Works` with a realistic minimum chart of accounts and master-data baseline
+Status: Thin-v1 is complete, Milestones 10 through 13 are implemented history, and Milestone 14 is now in fast-close mode after its core implementation checkpoints landed; remaining work should avoid broad new testing or workflow-validation expansion, run only a small risk-based verification gate needed for confidence, and prioritize the no-compromise documentation truth and user-testing-readiness closeout
 Purpose: track the active implementation state, current sequencing, and immediate next steps without carrying full milestone history in the default context.
 
 ## 1. Current state
@@ -54,10 +54,10 @@ Purpose: track the active implementation state, current sequencing, and immediat
 2. treat Milestone 14 Slice 1 as closed through the request-detail lifecycle, shell-layout, inbound-request documentation-truth, and first grouped-directory navigation checkpoints
 3. treat the first baseline accounting-report checkpoint as landed through trial balance, balance sheet, and income statement on the shared reporting seam
 4. treat the first `North Harbor Works` demo-baseline checkpoint as landed through the bootstrap-owned chart-of-accounts, tax-code, accounting-period, party/contact, and inventory master-data seed
-5. treat the current production-readiness test-expansion checkpoints as landed through the inbound-request lifecycle API mutation seam, cross-org request mutation-boundary coverage, cross-org proposal-approval no-mutation coverage, cross-org approval-decision no-mutation coverage, failed-provider process-next review-continuity coverage, browser-session accounting-report org-boundary coverage, browser-session inventory/work-order review org-boundary coverage, and browser-session Admin exact-record org-boundary coverage
-6. then continue production-readiness verification where remaining current tests are still too narrow for the real risk
-7. then execute the deferred live workflow-validation backlog against the corrected promoted runtime
-8. then make user-testing readiness explicit by documenting the supported testing posture, any remaining exclusions, and the workflow guidance testers should rely on
+5. treat the current production-readiness test-expansion checkpoints as sufficient for Milestone 14 closeout unless a concrete blocker or high-risk defect is discovered; do not add more broad test-expansion slices by default
+6. run only a bounded final verification gate for closeout: the canonical Go verification, any focused frontend check needed for edited docs-adjacent runtime files, and at most one small live-smoke workflow validation pass on the promoted runtime if the documentation claims need fresh evidence
+7. then make user-testing readiness explicit by documenting the supported testing posture, remaining exclusions, workflow guidance, and known validation limits; this documentation closeout is required and should not be reduced
+8. defer deeper workflow-validation backlog execution and additional exploratory testing to the user-testing period unless a current blocker would make bounded testing misleading
 9. use the updated Playwright plus `cmd/verify-agent -database-url "$DATABASE_URL" -approval-flow` pattern as the default real-browser continuity proof for future workflow-critical Svelte changes
 
 ## 2.1 Current delivered baseline
@@ -96,8 +96,8 @@ The next implementation session should answer this in code and verification, not
 2. does the shared desktop shell land the bounded sidebar-versus-contextual-tab layout correction cleanly on the promoted runtime
 3. do baseline accounting reports land in a production-shape form on the shared reporting seam, and what adjacent similar report gaps should be closed in the same milestone
 4. does `North Harbor Works` gain the minimum realistic chart of accounts and master-data baseline needed for bounded user testing and meaningful report review
-5. what new tests are still required to move the delivered runtime closer to a production-ready and user-testing-ready quality bar
-6. what workflow-validation evidence and documentation updates are required to close Milestone 14 cleanly
+5. what small final verification gate is still required to avoid handing testers an obviously broken runtime
+6. what documentation updates are required to close Milestone 14 cleanly, including explicit notes for any workflow-validation evidence deferred to user testing
 
 ## 4. Working rules
 
