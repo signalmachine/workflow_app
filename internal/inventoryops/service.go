@@ -451,8 +451,8 @@ RETURNING
 	))
 	if err != nil {
 		_ = tx.Rollback()
-		if errors.Is(err, ErrItemNotFound) {
-			return Item{}, err
+		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, ErrItemNotFound) {
+			return Item{}, ErrItemNotFound
 		}
 		return Item{}, fmt.Errorf("update inventory item status: %w", err)
 	}
@@ -517,8 +517,8 @@ RETURNING
 	))
 	if err != nil {
 		_ = tx.Rollback()
-		if errors.Is(err, ErrLocationNotFound) {
-			return Location{}, err
+		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, ErrLocationNotFound) {
+			return Location{}, ErrLocationNotFound
 		}
 		return Location{}, fmt.Errorf("update inventory location status: %w", err)
 	}

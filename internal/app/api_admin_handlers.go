@@ -369,6 +369,10 @@ func handleInventoryAdminError(w http.ResponseWriter, err error, fallback string
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid inventory item"})
 	case errors.Is(err, inventoryops.ErrInvalidLocation):
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid inventory location"})
+	case errors.Is(err, inventoryops.ErrItemNotFound):
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "inventory item not found"})
+	case errors.Is(err, inventoryops.ErrLocationNotFound):
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "inventory location not found"})
 	default:
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: fallback})
 	}

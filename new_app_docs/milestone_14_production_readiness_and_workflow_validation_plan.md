@@ -143,7 +143,9 @@ Current checkpoint recorded on 2026-04-11:
 11. the focused accounting-report org-boundary test, full `internal/app` package verification, `go build ./cmd/... ./internal/...`, serialized canonical Go verification, and gopls diagnostics passed for that additional checkpoint
 12. additional inventory and work-order review API boundary coverage now proves that browser-session reads preserve same-org stock, movement detail, reconciliation, and work-order continuity while hiding exact foreign-org inventory and work-order records through empty list results or not-found detail responses
 13. the focused inventory/work-order org-boundary test, full `internal/app` package verification, `go build ./cmd/... ./internal/...`, serialized canonical Go verification, `git diff --check`, and gopls diagnostics passed for that additional checkpoint
-14. Slice 2 should continue with similarly high-value production-readiness tests where remaining workflow, failure-path, auth, or transport-contract risk still exceeds coverage
+14. additional Admin exact-record API boundary coverage now proves that browser-session admins from another org receive not-found responses and do not mutate foreign ledger-account status, tax-code status, accounting-period close state, party detail/status/contact state, inventory item/location status, or access membership roles
+15. that checkpoint also corrected accounting and inventory setup-status error translation so foreign exact ids return not-found rather than generic server failures; the focused admin-boundary test, full `internal/app`, affected `internal/accounting` and `internal/inventoryops` package verification, `go build ./cmd/... ./internal/...`, serialized canonical Go verification, `git diff --check`, and gopls diagnostics passed for that additional checkpoint
+16. Slice 2 should continue with similarly high-value production-readiness tests where remaining workflow, failure-path, auth, or transport-contract risk still exceeds coverage
 
 ### 5.3 Slice 3: baseline accounting reports and reporting-gap pass
 

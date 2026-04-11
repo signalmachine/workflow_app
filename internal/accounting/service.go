@@ -698,8 +698,8 @@ RETURNING
 	))
 	if err != nil {
 		_ = tx.Rollback()
-		if errors.Is(err, ErrLedgerAccountNotFound) {
-			return LedgerAccount{}, err
+		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, ErrLedgerAccountNotFound) {
+			return LedgerAccount{}, ErrLedgerAccountNotFound
 		}
 		return LedgerAccount{}, fmt.Errorf("update ledger account status: %w", err)
 	}
@@ -767,8 +767,8 @@ RETURNING
 	))
 	if err != nil {
 		_ = tx.Rollback()
-		if errors.Is(err, ErrTaxCodeNotFound) {
-			return TaxCode{}, err
+		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, ErrTaxCodeNotFound) {
+			return TaxCode{}, ErrTaxCodeNotFound
 		}
 		return TaxCode{}, fmt.Errorf("update tax code status: %w", err)
 	}

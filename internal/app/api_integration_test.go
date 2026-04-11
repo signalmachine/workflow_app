@@ -698,6 +698,207 @@ func TestAgentAPIAdminInventoryMaintenanceIntegration(t *testing.T) {
 	requireContains(t, updateLocationRecorder.Body.String(), `"status":"inactive"`)
 }
 
+func TestAgentAPIAdminMaintenanceRejectsCrossOrgExactActionsWithoutMutationIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, adminUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleAdmin)
+	adminSession := startSession(t, ctx, db, orgID, adminUserID)
+	admin := identityaccess.Actor{OrgID: orgID, UserID: adminUserID, SessionID: adminSession.ID}
+	_, targetOperatorUserID := seedOrgAndUserInOrg(t, ctx, db, identityaccess.RoleOperator, orgID)
+
+	otherOrgID, otherAdminUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleAdmin)
+
+	accountingService := accounting.NewService(db, nil)
+	ledgerAccount, err := accountingService.CreateLedgerAccount(ctx, accounting.CreateLedgerAccountInput{
+		Code:                "XORG-AR",
+		Name:                "Cross Org Accounts Receivable",
+		AccountClass:        "asset",
+		ControlType:         "receivable",
+		AllowsDirectPosting: false,
+		Actor:               admin,
+	})
+	if err != nil {
+		t.Fatalf("create cross-org boundary ledger account: %v", err)
+	}
+	taxControlAccount, err := accountingService.CreateLedgerAccount(ctx, accounting.CreateLedgerAccountInput{
+		Code:                "XORG-GST",
+		Name:                "Cross Org GST Output",
+		AccountClass:        "liability",
+		ControlType:         "gst_output",
+		AllowsDirectPosting: false,
+		Actor:               admin,
+	})
+	if err != nil {
+		t.Fatalf("create cross-org boundary tax control account: %v", err)
+	}
+	taxCode, err := accountingService.CreateTaxCode(ctx, accounting.CreateTaxCodeInput{
+		Code:             "XORG-GST18",
+		Name:             "Cross Org GST 18%",
+		TaxType:          "gst",
+		RateBasisPoints:  1800,
+		PayableAccountID: taxControlAccount.ID,
+		Actor:            admin,
+	})
+	if err != nil {
+		t.Fatalf("create cross-org boundary tax code: %v", err)
+	}
+	period, err := accountingService.CreateAccountingPeriod(ctx, accounting.CreateAccountingPeriodInput{
+		PeriodCode: "XORG-FY2026-04",
+		StartOn:    time.Date(2026, time.April, 1, 0, 0, 0, 0, time.UTC),
+		EndOn:      time.Date(2026, time.April, 30, 0, 0, 0, 0, time.UTC),
+		Actor:      admin,
+	})
+	if err != nil {
+		t.Fatalf("create cross-org boundary accounting period: %v", err)
+	}
+
+	partiesService := parties.NewService(db)
+	party, err := partiesService.CreateParty(ctx, parties.CreatePartyInput{
+		PartyCode:   "XORG-CUST",
+		DisplayName: "Cross Org Customer",
+		PartyKind:   parties.PartyKindCustomer,
+		Actor:       admin,
+	})
+	if err != nil {
+		t.Fatalf("create cross-org boundary party: %v", err)
+	}
+
+	inventoryService := inventoryops.NewService(db)
+	item, err := inventoryService.CreateItem(ctx, inventoryops.CreateItemInput{
+		SKU:          "XORG-ITEM",
+		Name:         "Cross Org Item",
+		ItemRole:     inventoryops.ItemRoleServiceMaterial,
+		TrackingMode: inventoryops.TrackingModeNone,
+		Actor:        admin,
+	})
+	if err != nil {
+		t.Fatalf("create cross-org boundary item: %v", err)
+	}
+	location, err := inventoryService.CreateLocation(ctx, inventoryops.CreateLocationInput{
+		Code:         "XORG-WH",
+		Name:         "Cross Org Warehouse",
+		LocationRole: inventoryops.LocationRoleWarehouse,
+		Actor:        admin,
+	})
+	if err != nil {
+		t.Fatalf("create cross-org boundary location: %v", err)
+	}
+
+	targetOperatorMembershipID := loadMembershipIDForUser(t, ctx, db, orgID, targetOperatorUserID)
+
+	handler := app.NewServedAgentAPIHandler(db)
+	otherAdminCookies := issueBrowserSessionCookies(t, ctx, db, handler, otherOrgID, otherAdminUserID)
+
+	testCases := []struct {
+		name          string
+		method        string
+		path          string
+		body          string
+		expectedError string
+	}{
+		{
+			name:          "ledger account status",
+			method:        http.MethodPost,
+			path:          "/api/admin/accounting/ledger-accounts/" + ledgerAccount.ID + "/status",
+			body:          `{"status":"inactive"}`,
+			expectedError: `"error":"ledger account not found"`,
+		},
+		{
+			name:          "tax code status",
+			method:        http.MethodPost,
+			path:          "/api/admin/accounting/tax-codes/" + taxCode.ID + "/status",
+			body:          `{"status":"inactive"}`,
+			expectedError: `"error":"tax code not found"`,
+		},
+		{
+			name:          "accounting period close",
+			method:        http.MethodPost,
+			path:          "/api/admin/accounting/periods/" + period.ID + "/close",
+			expectedError: `"error":"accounting period not found"`,
+		},
+		{
+			name:          "party detail",
+			method:        http.MethodGet,
+			path:          "/api/admin/parties/" + party.ID,
+			expectedError: `"error":"party not found"`,
+		},
+		{
+			name:          "party status",
+			method:        http.MethodPost,
+			path:          "/api/admin/parties/" + party.ID + "/status",
+			body:          `{"status":"inactive"}`,
+			expectedError: `"error":"party not found"`,
+		},
+		{
+			name:          "party contact",
+			method:        http.MethodPost,
+			path:          "/api/admin/parties/" + party.ID + "/contacts",
+			body:          `{"full_name":"Wrong Org Contact","email":"wrong-org@example.com"}`,
+			expectedError: `"error":"party not found"`,
+		},
+		{
+			name:          "inventory item status",
+			method:        http.MethodPost,
+			path:          "/api/admin/inventory/items/" + item.ID + "/status",
+			body:          `{"status":"inactive"}`,
+			expectedError: `"error":"inventory item not found"`,
+		},
+		{
+			name:          "inventory location status",
+			method:        http.MethodPost,
+			path:          "/api/admin/inventory/locations/" + location.ID + "/status",
+			body:          `{"status":"inactive"}`,
+			expectedError: `"error":"inventory location not found"`,
+		},
+		{
+			name:          "membership role",
+			method:        http.MethodPost,
+			path:          "/api/admin/access/users/" + targetOperatorMembershipID + "/role",
+			body:          `{"role_code":"approver"}`,
+			expectedError: `"error":"membership not found"`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, bytes.NewBufferString(tc.body))
+			if tc.body != "" {
+				req.Header.Set("Content-Type", "application/json")
+			}
+			applyResponseCookies(req, otherAdminCookies)
+
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, req)
+
+			if recorder.Code != http.StatusNotFound {
+				t.Fatalf("unexpected cross-org admin status for %s: got %d body=%s", tc.path, recorder.Code, recorder.Body.String())
+			}
+			requireContains(t, recorder.Body.String(), tc.expectedError)
+		})
+	}
+
+	assertColumnValue(t, ctx, db, `SELECT status FROM accounting.ledger_accounts WHERE id = $1`, ledgerAccount.ID, accounting.StatusActive)
+	assertColumnValue(t, ctx, db, `SELECT status FROM accounting.tax_codes WHERE id = $1`, taxCode.ID, accounting.StatusActive)
+	assertColumnValue(t, ctx, db, `SELECT status FROM accounting.periods WHERE id = $1`, period.ID, "open")
+	assertColumnValue(t, ctx, db, `SELECT status FROM parties.parties WHERE id = $1`, party.ID, parties.StatusActive)
+	assertColumnValue(t, ctx, db, `SELECT status FROM inventory_ops.items WHERE id = $1`, item.ID, inventoryops.StatusActive)
+	assertColumnValue(t, ctx, db, `SELECT status FROM inventory_ops.locations WHERE id = $1`, location.ID, inventoryops.StatusActive)
+	assertColumnValue(t, ctx, db, `SELECT role_code FROM identityaccess.memberships WHERE id = $1`, targetOperatorMembershipID, identityaccess.RoleOperator)
+
+	var contactCount int
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM parties.contacts WHERE party_id = $1`, party.ID).Scan(&contactCount); err != nil {
+		t.Fatalf("count cross-org boundary contacts: %v", err)
+	}
+	if contactCount != 0 {
+		t.Fatalf("expected cross-org contact creation to be rejected, found %d contacts", contactCount)
+	}
+}
+
 func TestAgentAPITokenSessionIssueRefreshAndRevokeIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()
@@ -2621,6 +2822,18 @@ func loadMembershipIDForUser(t *testing.T, ctx context.Context, db *sql.DB, orgI
 		t.Fatalf("load membership id: %v", err)
 	}
 	return membershipID
+}
+
+func assertColumnValue(t *testing.T, ctx context.Context, db *sql.DB, query, id, want string) {
+	t.Helper()
+
+	var got string
+	if err := db.QueryRowContext(ctx, query, id).Scan(&got); err != nil {
+		t.Fatalf("load column value: %v", err)
+	}
+	if got != want {
+		t.Fatalf("unexpected column value for %s: got %q want %q", id, got, want)
+	}
 }
 
 func issueBrowserSessionCookies(t *testing.T, ctx context.Context, db *sql.DB, handler http.Handler, orgID, userID string) []*http.Cookie {
