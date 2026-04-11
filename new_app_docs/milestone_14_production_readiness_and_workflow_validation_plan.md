@@ -128,6 +128,13 @@ Guardrail:
 
 1. prefer tests that prove business continuity, workflow correctness, or transport contracts over low-signal snapshot or copy-only assertions
 
+Current checkpoint recorded on 2026-04-11:
+
+1. `internal/app` API integration coverage now exercises the promoted inbound-request lifecycle mutation seam end-to-end through browser-session cookies
+2. the new coverage proves draft creation without queuing, draft update on the persisted request/message seam, queueing, cross-org cancel rejection without state mutation, same-org cancellation with reason and timestamp, amend-back-to-draft with queue/cancel metadata reset, and final draft deletion
+3. focused `internal/app` verification, `go build ./cmd/... ./internal/...`, serialized canonical Go verification, and gopls diagnostics passed for this checkpoint
+4. Slice 2 should continue with similarly high-value production-readiness tests where remaining workflow, failure-path, auth, or transport-contract risk still exceeds coverage
+
 ### 5.3 Slice 3: baseline accounting reports and reporting-gap pass
 
 Goal:

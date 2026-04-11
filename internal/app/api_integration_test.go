@@ -27,6 +27,26 @@ import (
 	"workflow_app/internal/workorders"
 )
 
+type inboundRequestMutationTestResponse struct {
+	RequestID           string     `json:"request_id"`
+	RequestReference    string     `json:"request_reference"`
+	Status              string     `json:"status"`
+	MessageID           string     `json:"message_id,omitempty"`
+	AttachmentIDs       []string   `json:"attachment_ids,omitempty"`
+	CancellationReason  string     `json:"cancellation_reason,omitempty"`
+	FailureReason       string     `json:"failure_reason,omitempty"`
+	ReceivedAt          time.Time  `json:"received_at"`
+	QueuedAt            *time.Time `json:"queued_at,omitempty"`
+	ProcessingStartedAt *time.Time `json:"processing_started_at,omitempty"`
+	ProcessedAt         *time.Time `json:"processed_at,omitempty"`
+	ActedOnAt           *time.Time `json:"acted_on_at,omitempty"`
+	CompletedAt         *time.Time `json:"completed_at,omitempty"`
+	FailedAt            *time.Time `json:"failed_at,omitempty"`
+	CancelledAt         *time.Time `json:"cancelled_at,omitempty"`
+	CreatedAt           time.Time  `json:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at"`
+}
+
 func TestAgentAPISessionLoginCurrentSessionAndLogoutIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()
@@ -946,6 +966,161 @@ func TestAgentAPIInboundRequestCancelRejectsInvalidJSONIntegration(t *testing.T)
 	}
 	if status != intake.StatusQueued {
 		t.Fatalf("expected invalid cancel payload to preserve queued status, got %s", status)
+	}
+}
+
+func TestAgentAPIInboundRequestLifecycleActionsIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, operatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	otherOrgID, otherOperatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+	handler := app.NewServedAgentAPIHandler(db)
+	operatorCookies := issueBrowserSessionCookies(t, ctx, db, handler, orgID, operatorUserID)
+	otherOperatorCookies := issueBrowserSessionCookies(t, ctx, db, handler, otherOrgID, otherOperatorUserID)
+
+	draftReq := httptest.NewRequest(http.MethodPost, "/api/inbound-requests", bytes.NewBufferString(`{
+		"origin_type":"human",
+		"channel":"browser",
+		"metadata":{"submitter_label":"front desk"},
+		"message":{"message_role":"request","text_content":"Initial draft details"},
+		"queue_for_review":false
+	}`))
+	draftReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(draftReq, operatorCookies)
+
+	draftRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(draftRecorder, draftReq)
+	if draftRecorder.Code != http.StatusCreated {
+		t.Fatalf("unexpected draft-create status: got %d body=%s", draftRecorder.Code, draftRecorder.Body.String())
+	}
+
+	var draftResponse inboundRequestMutationTestResponse
+	if err := json.Unmarshal(draftRecorder.Body.Bytes(), &draftResponse); err != nil {
+		t.Fatalf("decode draft-create response: %v", err)
+	}
+	if draftResponse.RequestID == "" || draftResponse.MessageID == "" || draftResponse.Status != intake.StatusDraft {
+		t.Fatalf("unexpected draft-create response: %+v", draftResponse)
+	}
+
+	updateReq := httptest.NewRequest(http.MethodPut, "/api/inbound-requests/"+draftResponse.RequestID+"/draft", bytes.NewBufferString(`{
+		"origin_type":"human",
+		"channel":"browser",
+		"metadata":{"submitter_label":"front desk","operator_note":"ready for queue"},
+		"message_id":"`+draftResponse.MessageID+`",
+		"message":{"message_role":"request","text_content":"Updated draft details for queue"}
+	}`))
+	updateReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(updateReq, operatorCookies)
+
+	updateRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(updateRecorder, updateReq)
+	if updateRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected draft-update status: got %d body=%s", updateRecorder.Code, updateRecorder.Body.String())
+	}
+
+	var updateResponse inboundRequestMutationTestResponse
+	if err := json.Unmarshal(updateRecorder.Body.Bytes(), &updateResponse); err != nil {
+		t.Fatalf("decode draft-update response: %v", err)
+	}
+	if updateResponse.RequestID != draftResponse.RequestID || updateResponse.MessageID != draftResponse.MessageID || updateResponse.Status != intake.StatusDraft {
+		t.Fatalf("unexpected draft-update response: %+v", updateResponse)
+	}
+
+	queueReq := httptest.NewRequest(http.MethodPost, "/api/inbound-requests/"+draftResponse.RequestID+"/queue", nil)
+	applyResponseCookies(queueReq, operatorCookies)
+	queueRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(queueRecorder, queueReq)
+	if queueRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected queue status: got %d body=%s", queueRecorder.Code, queueRecorder.Body.String())
+	}
+
+	var queueResponse inboundRequestMutationTestResponse
+	if err := json.Unmarshal(queueRecorder.Body.Bytes(), &queueResponse); err != nil {
+		t.Fatalf("decode queue response: %v", err)
+	}
+	if queueResponse.Status != intake.StatusQueued || queueResponse.QueuedAt == nil {
+		t.Fatalf("unexpected queue response: %+v", queueResponse)
+	}
+
+	crossOrgCancelReq := httptest.NewRequest(http.MethodPost, "/api/inbound-requests/"+draftResponse.RequestID+"/cancel", bytes.NewBufferString(`{"reason":"wrong org should not mutate"}`))
+	crossOrgCancelReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(crossOrgCancelReq, otherOperatorCookies)
+	crossOrgCancelRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(crossOrgCancelRecorder, crossOrgCancelReq)
+	if crossOrgCancelRecorder.Code != http.StatusBadRequest {
+		t.Fatalf("unexpected cross-org cancel status: got %d body=%s", crossOrgCancelRecorder.Code, crossOrgCancelRecorder.Body.String())
+	}
+
+	var statusAfterCrossOrgAttempt string
+	if err := db.QueryRowContext(ctx, `SELECT status FROM ai.inbound_requests WHERE id = $1`, draftResponse.RequestID).Scan(&statusAfterCrossOrgAttempt); err != nil {
+		t.Fatalf("load request after cross-org cancel: %v", err)
+	}
+	if statusAfterCrossOrgAttempt != intake.StatusQueued {
+		t.Fatalf("expected cross-org cancel to preserve queued status, got %s", statusAfterCrossOrgAttempt)
+	}
+
+	cancelReq := httptest.NewRequest(http.MethodPost, "/api/inbound-requests/"+draftResponse.RequestID+"/cancel", bytes.NewBufferString(`{"reason":"operator paused request"}`))
+	cancelReq.Header.Set("Content-Type", "application/json")
+	applyResponseCookies(cancelReq, operatorCookies)
+	cancelRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(cancelRecorder, cancelReq)
+	if cancelRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected cancel status: got %d body=%s", cancelRecorder.Code, cancelRecorder.Body.String())
+	}
+
+	var cancelResponse inboundRequestMutationTestResponse
+	if err := json.Unmarshal(cancelRecorder.Body.Bytes(), &cancelResponse); err != nil {
+		t.Fatalf("decode cancel response: %v", err)
+	}
+	if cancelResponse.Status != intake.StatusCancelled || cancelResponse.CancellationReason != "operator paused request" || cancelResponse.CancelledAt == nil {
+		t.Fatalf("unexpected cancel response: %+v", cancelResponse)
+	}
+
+	amendReq := httptest.NewRequest(http.MethodPost, "/api/inbound-requests/"+draftResponse.RequestID+"/amend", nil)
+	applyResponseCookies(amendReq, operatorCookies)
+	amendRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(amendRecorder, amendReq)
+	if amendRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected amend status: got %d body=%s", amendRecorder.Code, amendRecorder.Body.String())
+	}
+
+	var amendResponse inboundRequestMutationTestResponse
+	if err := json.Unmarshal(amendRecorder.Body.Bytes(), &amendResponse); err != nil {
+		t.Fatalf("decode amend response: %v", err)
+	}
+	if amendResponse.Status != intake.StatusDraft || amendResponse.QueuedAt != nil || amendResponse.CancelledAt != nil || amendResponse.CancellationReason != "" {
+		t.Fatalf("unexpected amend response: %+v", amendResponse)
+	}
+
+	deleteReq := httptest.NewRequest(http.MethodDelete, "/api/inbound-requests/"+draftResponse.RequestID+"/delete", nil)
+	applyResponseCookies(deleteReq, operatorCookies)
+	deleteRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(deleteRecorder, deleteReq)
+	if deleteRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected delete status: got %d body=%s", deleteRecorder.Code, deleteRecorder.Body.String())
+	}
+
+	var deleteResponse struct {
+		Deleted bool `json:"deleted"`
+	}
+	if err := json.Unmarshal(deleteRecorder.Body.Bytes(), &deleteResponse); err != nil {
+		t.Fatalf("decode delete response: %v", err)
+	}
+	if !deleteResponse.Deleted {
+		t.Fatalf("unexpected delete response: %+v", deleteResponse)
+	}
+
+	var remaining int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM ai.inbound_requests WHERE id = $1`, draftResponse.RequestID).Scan(&remaining); err != nil {
+		t.Fatalf("count deleted request: %v", err)
+	}
+	if remaining != 0 {
+		t.Fatalf("expected deleted draft request to be removed, found %d", remaining)
 	}
 }
 
