@@ -1492,6 +1492,118 @@ func TestAgentAPIReviewSurfacesIntegration(t *testing.T) {
 
 }
 
+func TestAgentAPIAccountingReportsUseBrowserSessionOrgBoundaryIntegration(t *testing.T) {
+	db := dbtest.Open(t)
+	defer db.Close()
+	dbtest.Reset(t, db)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	orgID, adminUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleAdmin)
+	adminSession := startSession(t, ctx, db, orgID, adminUserID)
+	admin := identityaccess.Actor{OrgID: orgID, UserID: adminUserID, SessionID: adminSession.ID}
+	_, operatorUserID := seedOrgAndUserInOrg(t, ctx, db, identityaccess.RoleOperator, orgID)
+	_, approverUserID := seedOrgAndUserInOrg(t, ctx, db, identityaccess.RoleApprover, orgID)
+	approverSession := startSession(t, ctx, db, orgID, approverUserID)
+	approver := identityaccess.Actor{OrgID: orgID, UserID: approverUserID, SessionID: approverSession.ID}
+
+	documentService := documents.NewService(db)
+	workflowService := workflow.NewService(db, documentService)
+	accountingService := accounting.NewService(db, documentService)
+	postApprovedGSTInvoice(t, ctx, accountingService, documentService, workflowService, admin, approver)
+
+	otherOrgID, otherOperatorUserID := seedOrgAndUser(t, ctx, db, identityaccess.RoleOperator)
+
+	handler := app.NewServedAgentAPIHandler(db)
+	operatorCookies := issueBrowserSessionCookies(t, ctx, db, handler, orgID, operatorUserID)
+	otherOrgCookies := issueBrowserSessionCookies(t, ctx, db, handler, otherOrgID, otherOperatorUserID)
+
+	trialBalanceReq := httptest.NewRequest(http.MethodGet, "/api/review/accounting/trial-balance?as_of=2026-03-31", nil)
+	applyResponseCookies(trialBalanceReq, operatorCookies)
+	trialBalanceRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(trialBalanceRecorder, trialBalanceReq)
+	if trialBalanceRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected same-org trial balance status: got %d body=%s", trialBalanceRecorder.Code, trialBalanceRecorder.Body.String())
+	}
+	var trialBalanceResponse struct {
+		Lines []struct {
+			AccountCode string `json:"account_code"`
+		} `json:"lines"`
+		TotalDebitBalanceMinor  int64 `json:"total_debit_balance_minor"`
+		TotalCreditBalanceMinor int64 `json:"total_credit_balance_minor"`
+		ImbalanceMinor          int64 `json:"imbalance_minor"`
+	}
+	if err := json.Unmarshal(trialBalanceRecorder.Body.Bytes(), &trialBalanceResponse); err != nil {
+		t.Fatalf("decode same-org trial balance: %v", err)
+	}
+	if len(trialBalanceResponse.Lines) != 3 || trialBalanceResponse.TotalDebitBalanceMinor != 177000 || trialBalanceResponse.TotalCreditBalanceMinor != 177000 || trialBalanceResponse.ImbalanceMinor != 0 {
+		t.Fatalf("unexpected same-org trial balance response: %+v", trialBalanceResponse)
+	}
+
+	foreignTrialBalanceReq := httptest.NewRequest(http.MethodGet, "/api/review/accounting/trial-balance?as_of=2026-03-31", nil)
+	applyResponseCookies(foreignTrialBalanceReq, otherOrgCookies)
+	foreignTrialBalanceRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(foreignTrialBalanceRecorder, foreignTrialBalanceReq)
+	if foreignTrialBalanceRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected foreign-org trial balance status: got %d body=%s", foreignTrialBalanceRecorder.Code, foreignTrialBalanceRecorder.Body.String())
+	}
+	var foreignTrialBalanceResponse struct {
+		Lines                   []struct{} `json:"lines"`
+		TotalDebitBalanceMinor  int64      `json:"total_debit_balance_minor"`
+		TotalCreditBalanceMinor int64      `json:"total_credit_balance_minor"`
+		ImbalanceMinor          int64      `json:"imbalance_minor"`
+	}
+	if err := json.Unmarshal(foreignTrialBalanceRecorder.Body.Bytes(), &foreignTrialBalanceResponse); err != nil {
+		t.Fatalf("decode foreign-org trial balance: %v", err)
+	}
+	if len(foreignTrialBalanceResponse.Lines) != 0 || foreignTrialBalanceResponse.TotalDebitBalanceMinor != 0 || foreignTrialBalanceResponse.TotalCreditBalanceMinor != 0 || foreignTrialBalanceResponse.ImbalanceMinor != 0 {
+		t.Fatalf("expected foreign-org trial balance to stay empty, got %+v", foreignTrialBalanceResponse)
+	}
+
+	foreignBalanceSheetReq := httptest.NewRequest(http.MethodGet, "/api/review/accounting/balance-sheet?as_of=2026-03-31", nil)
+	applyResponseCookies(foreignBalanceSheetReq, otherOrgCookies)
+	foreignBalanceSheetRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(foreignBalanceSheetRecorder, foreignBalanceSheetReq)
+	if foreignBalanceSheetRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected foreign-org balance sheet status: got %d body=%s", foreignBalanceSheetRecorder.Code, foreignBalanceSheetRecorder.Body.String())
+	}
+	var foreignBalanceSheetResponse struct {
+		Lines                          []struct{} `json:"lines"`
+		TotalAssetsMinor               int64      `json:"total_assets_minor"`
+		TotalLiabilitiesMinor          int64      `json:"total_liabilities_minor"`
+		TotalEquityMinor               int64      `json:"total_equity_minor"`
+		TotalLiabilitiesAndEquityMinor int64      `json:"total_liabilities_and_equity_minor"`
+		ImbalanceMinor                 int64      `json:"imbalance_minor"`
+	}
+	if err := json.Unmarshal(foreignBalanceSheetRecorder.Body.Bytes(), &foreignBalanceSheetResponse); err != nil {
+		t.Fatalf("decode foreign-org balance sheet: %v", err)
+	}
+	if len(foreignBalanceSheetResponse.Lines) != 0 || foreignBalanceSheetResponse.TotalAssetsMinor != 0 || foreignBalanceSheetResponse.TotalLiabilitiesMinor != 0 || foreignBalanceSheetResponse.TotalEquityMinor != 0 || foreignBalanceSheetResponse.TotalLiabilitiesAndEquityMinor != 0 || foreignBalanceSheetResponse.ImbalanceMinor != 0 {
+		t.Fatalf("expected foreign-org balance sheet to stay empty, got %+v", foreignBalanceSheetResponse)
+	}
+
+	foreignIncomeStatementReq := httptest.NewRequest(http.MethodGet, "/api/review/accounting/income-statement?start_on=2026-03-01&end_on=2026-03-31", nil)
+	applyResponseCookies(foreignIncomeStatementReq, otherOrgCookies)
+	foreignIncomeStatementRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(foreignIncomeStatementRecorder, foreignIncomeStatementReq)
+	if foreignIncomeStatementRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected foreign-org income statement status: got %d body=%s", foreignIncomeStatementRecorder.Code, foreignIncomeStatementRecorder.Body.String())
+	}
+	var foreignIncomeStatementResponse struct {
+		Lines              []struct{} `json:"lines"`
+		TotalRevenueMinor  int64      `json:"total_revenue_minor"`
+		TotalExpensesMinor int64      `json:"total_expenses_minor"`
+		NetIncomeMinor     int64      `json:"net_income_minor"`
+	}
+	if err := json.Unmarshal(foreignIncomeStatementRecorder.Body.Bytes(), &foreignIncomeStatementResponse); err != nil {
+		t.Fatalf("decode foreign-org income statement: %v", err)
+	}
+	if len(foreignIncomeStatementResponse.Lines) != 0 || foreignIncomeStatementResponse.TotalRevenueMinor != 0 || foreignIncomeStatementResponse.TotalExpensesMinor != 0 || foreignIncomeStatementResponse.NetIncomeMinor != 0 {
+		t.Fatalf("expected foreign-org income statement to stay empty, got %+v", foreignIncomeStatementResponse)
+	}
+}
+
 func TestAgentAPIRequestProcessedProposalApprovalIntegration(t *testing.T) {
 	db := dbtest.Open(t)
 	defer db.Close()

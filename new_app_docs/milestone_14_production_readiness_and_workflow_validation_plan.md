@@ -139,7 +139,9 @@ Current checkpoint recorded on 2026-04-11:
 7. the focused process-next failure-continuity test, full `internal/app` package verification, `go build ./cmd/... ./internal/...`, serialized canonical Go verification, and gopls diagnostics passed for that additional checkpoint
 8. additional proposal-approval API boundary coverage now proves that a browser-session actor from another org receives a not-found response when requesting approval for a foreign processed proposal and does not mutate the recommendation approval link, create an approval row, or change the submitted document state
 9. the focused cross-org proposal-approval boundary test, full `internal/app` package verification, `go build ./cmd/... ./internal/...`, serialized canonical Go verification, `git diff --check`, and gopls diagnostics passed for that additional checkpoint
-10. Slice 2 should continue with similarly high-value production-readiness tests where remaining workflow, failure-path, auth, or transport-contract risk still exceeds coverage
+10. additional accounting-report API boundary coverage now proves that trial balance, balance sheet, and income statement reads through browser-session cookies stay scoped to the authenticated org and do not expose another org's posted journal activity
+11. the focused accounting-report org-boundary test, full `internal/app` package verification, `go build ./cmd/... ./internal/...`, serialized canonical Go verification, and gopls diagnostics passed for that additional checkpoint
+12. Slice 2 should continue with similarly high-value production-readiness tests where remaining workflow, failure-path, auth, or transport-contract risk still exceeds coverage
 
 ### 5.3 Slice 3: baseline accounting reports and reporting-gap pass
 
