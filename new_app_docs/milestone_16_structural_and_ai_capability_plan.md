@@ -25,7 +25,7 @@ The planned slices below are the starting structure, not the delivery ceiling. D
 
 This milestone should still avoid novelty-driven or unrelated refactors. New work belongs in Milestone 16 when it is necessary to make the foundational workflow pass from request submission through AI processing, proposal/document creation, approval, accounting posting, and final accounting entry persistence in the database.
 
-The first Milestone 16 implementation checkpoint should target the foundational accounting workflow directly. Do not make that checkpoint wait behind every structural cleanup slice. Implement only the enabling cleanup, context-loading, prompt/schema, or specialist-registry work needed to deliver and verify the request-to-accounting-entry path first; then continue with the remaining structural and capability slices.
+The first Milestone 16 implementation checkpoint should target the foundational accounting workflow directly. Do not make that checkpoint wait behind every structural cleanup slice. Implement only the enabling cleanup, context-loading, prompt/schema, or specialist-registry work needed to deliver and verify the request-to-accounting-entry path first; then continue with the remaining structural and capability slices. For non-accounting business events, the first checkpoint only needs classification and safe no-accounting behavior, not persistence into new non-accounting tables.
 
 ## 3. Scope
 
@@ -101,6 +101,7 @@ Recommended execution order:
 3. run the live or seeded continuity proof through final accounting-entry persistence
 4. implement Slice 5.8 recovery if the first workflow pass exposes stuck-run or requeue gaps
 5. continue through the remaining cleanup, refactor, storage, queue, tool-breadth, policy, and proactive-AI slices
+6. defer persistence for supported non-accounting event types until after the accounting path is proven, unless one such event type is explicitly promoted with its own prompt, service, table, and workflow acceptance criteria
 
 This order preserves the original plan while making the end-to-end workflow the milestone's controlling priority.
 
@@ -169,7 +170,7 @@ Implement:
 
 1. add an accounting-impact and accounting-intent classification path for inbound requests, covering at least:
    - no accounting impact and no supported persistence path
-   - supported non-accounting business event, reserved for future explicitly configured event types
+   - supported non-accounting business event, reserved for future explicitly configured event types and not required for the first checkpoint
    - manual journal or expense entry requests
    - purchase/vendor invoice requests
    - customer invoice or revenue requests when supported by current document seams
@@ -305,7 +306,7 @@ Resolve these before implementing Slice 5.6:
 3. For office-supplies-plus-GST requests, should the first implementation prefer a vendor invoice flow, a payment/receipt flow, or a journal-style expense accrual when the vendor/payment state is unspecified?
 4. Which fields should be required before creating a document, and which fields should remain operator-editable before approval?
 5. Should accounting-intent detection run inside the general coordinator, a registered accounting specialist, or a dedicated provider method that the coordinator invokes after classification?
-6. What is the first durable non-accounting business-event model, and should Milestone 16 only return no-accounting-impact comments until that model exists?
+6. What is the first durable non-accounting business-event model, and should Milestone 16 only return no-accounting-impact comments until that model exists? The default answer for the first checkpoint is yes: classify safely first and defer non-accounting persistence.
 7. How should child proposal/document candidates be numbered and displayed when one inbound request contains multiple invoices or accounting events?
 
 ## 8. Completion Rule
