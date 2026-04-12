@@ -51,12 +51,13 @@ Purpose: track the active implementation state, current sequencing, and immediat
 43. the Milestone 14 final confidence gate passed on 2026-04-12 with `git diff --check`, `go build ./cmd/... ./internal/...`, and `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...`; no blocker was found that would justify reopening broad pre-user-testing workflow validation or test expansion
 44. the April 2026 review documents `code_review_and_improvement_plan.md` and `ai_layer_improvement_plan.md` are now validated as the planning source for the next corrective work, with Milestone 15 reserved for urgent API defects, attachment bounds, inventory landing completion, current-runtime AI hardening, and specialist-truth correction
 45. Milestone 16 is now the planned follow-on for non-urgent structural refactors, full specialist execution, prompt/context architecture, recovery and feedback loops, queue triggering, AI tool breadth, and deployment-policy cleanup
+46. the `REQ-000002` smoke test and comparison against `https://github.com/signalmachine/accounting-agent-app` exposed a specific Milestone 16 capability gap: accounting-style inbound requests currently become generic operator-review recommendations rather than structured, document-linked, approval-ready accounting proposals
 
 ## 2. Active implementation order
 
 1. treat Milestone 13 and Milestone 14 implementation as delivered baseline
 2. implement Milestone 15 urgent review and AI hardening before broadening into larger refactor or capability work
-3. then use Milestone 16 for the remaining non-urgent structural, operational, and AI capability improvements that were validated but are not urgent defects
+3. then use Milestone 16 for the remaining non-urgent structural, operational, and AI capability improvements that were validated but are not urgent defects, including the newly explicit accounting proposal generation slice
 4. keep the remaining deeper workflow-validation backlog in the user-testing period unless Milestone 15 or user testing discovers a concrete blocker
 5. if user testing finds a real defect, promote one bounded corrective slice for the related defect family and rerun the affected checklist items
 6. do not start future data-exchange implementation until Milestone 15 closes and user-testing findings have been triaged
