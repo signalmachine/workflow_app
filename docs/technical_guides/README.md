@@ -1,6 +1,6 @@
 # Technical Guides
 
-Date: 2026-04-01
+Date: 2026-04-12
 Status: Initialized
 Purpose: provide durable technical reference material for humans and AI coding agents working on `workflow_app`, especially architecture, system patterns, and implementation conventions.
 
@@ -57,6 +57,7 @@ Start with the most important concepts first:
 14. [Data modeling and database schema](./14_data_modeling_and_database_schema.md)
 15. [Production readiness and release checklist](./15_production_readiness_and_release_checklist.md)
 16. [Demo entity: North Harbor Works](./16_demo_entity_north_harbor_works.md)
+17. [Svelte web runtime](./17_svelte_web_runtime.md)
 
 ## 4. Organization rule
 

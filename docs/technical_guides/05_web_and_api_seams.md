@@ -1,8 +1,10 @@
 # Web And API Seams
 
-Date: 2026-04-09
+Date: 2026-04-12
 Status: Active technical guide
 Purpose: explain how the shared backend seam serves both the browser layer and the JSON API layer.
+
+For the current Svelte UI runtime, route model, build output, shell composition, and browser-ownership boundaries, also see [`17_svelte_web_runtime.md`](./17_svelte_web_runtime.md).
 
 ## 1. The seam model
 
