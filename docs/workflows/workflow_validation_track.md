@@ -35,14 +35,15 @@ Do not use this folder for:
 
 ## 3. Current deferred validation order
 
-The implementation track is currently prioritized ahead of resumed live workflow review while the post-cutover Milestone 13 served browser surface settles.
+Milestone 14 is closed, and the remaining live workflow-validation backlog is intentionally carried into the user-testing period unless a new concrete blocker appears.
 
 Current order:
 
 1. treat the Milestone 13 browser-review sweep as complete evidence and use the same split admin plus verification-org pattern for future workflow-critical browser reruns
-2. resume the deferred live workflow validation backlog on the real seam from a post-closeout baseline rather than treating Milestone 13 browser review as still open work
-3. if later browser review finds real defects, group tightly related findings into one bounded corrective fix plan in `new_app_docs/` rather than scattering many tiny follow-up slices across the browser surface
-4. record evidence against the current served Svelte runtime and shared API seams, not against the retired template-browser behavior
+2. use the Milestone 14 final confidence gate and focused API boundary coverage as the pre-user-testing baseline
+3. resume the deferred live workflow validation backlog through user-testing sessions on the real seam
+4. if user testing or later browser review finds real defects, group tightly related findings into one bounded corrective fix plan in `new_app_docs/` rather than scattering many tiny follow-up slices across the browser surface
+5. record evidence against the current served Svelte runtime and shared API seams, not against the retired template-browser behavior
 
 Implementation note recorded on 2026-04-09:
 

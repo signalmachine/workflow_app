@@ -1,7 +1,7 @@
 # workflow_app End-to-End Validation Checklist
 
-Date: 2026-04-10
-Status: Durable checklist with a desktop-first served-runtime browser-review precheck for the current Go-served Svelte runtime at `/app`, including the contextual-navigation shell, promoted workflow, utility, admin, and detail-route families, persisted desktop sidebar collapse state, request-detail lifecycle controls, and Milestone 14 follow-up validation work
+Date: 2026-04-12
+Status: Durable checklist for user-testing and regression validation on the current Go-served Svelte runtime at `/app`, including the contextual-navigation shell, promoted workflow, utility, admin, and detail-route families, persisted desktop sidebar collapse state, request-detail lifecycle controls, and post-Milestone-14 bounded corrective follow-up
 Purpose: provide a reusable bounded checklist for live review and testing of application end-to-end workflows on the real `/app` plus `/api/...` seam.
 
 ## 1. Use of this checklist
@@ -9,7 +9,7 @@ Purpose: provide a reusable bounded checklist for live review and testing of app
 Use this checklist for:
 
 1. post-checkpoint live workflow validation
-2. supervised user-testing preparation
+2. supervised user testing
 3. regression review after workflow-affecting changes
 
 This checklist complements, but does not replace:
@@ -36,7 +36,7 @@ Policy:
 
 ## 2.1 Served-runtime precheck
 
-Before broader end-to-end workflow validation resumes, use this bounded post-cutover precheck:
+Before broader end-to-end workflow validation resumes, or when user-testing findings require a runtime precheck, use this bounded served-runtime precheck:
 
 1. confirm `/app/login`, `/app`, `/app/routes`, `/app/settings`, `/app/admin` for an admin actor, `/app/admin/master-data` for an admin actor, `/app/admin/lists` for an admin actor, `/app/admin/accounting` for an admin actor, `/app/admin/parties` for an admin actor, `/app/admin/parties/{party_id}` including exact-detail contact creation, `/app/admin/access` for an admin actor, `/app/admin/inventory` for an admin actor, `/app/operations`, `/app/review`, `/app/inventory`, `/app/submit-inbound-request`, `/app/operations-feed`, and `/app/agent-chat` render cleanly and preserve their primary navigation actions, including multi-term route-catalog searches such as `pending approvals` or `failed requests`, visible active or inactive status controls on the promoted admin master-data pages, the inventory landing snapshot links for stock, movement history, and pending execution or accounting handoffs, and the expanded-versus-collapsed desktop sidebar state
 2. confirm `/app/inbound-requests/{request_reference_or_id}` renders request controls, including draft save plus queue plus delete and queued cancel plus amend when the current request state allows them, alongside request evidence, execution trace, and top-level downstream continuity links for the latest proposal plus any approval or document follow-through, preferring an exact accounting-entry drill-down when the linked proposal document already has a posted journal entry, and confirm the operator home plus coordinator chat plus review landing snapshots now take known proposal and approval rows straight into exact detail routes instead of filtered lists
