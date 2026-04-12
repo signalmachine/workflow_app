@@ -18,6 +18,8 @@ Purpose: record the defaults that active implementation should preserve unless t
 3. draft inbound requests must not be processed by AI
 4. request identity remains distinct from downstream document identity
 5. meaningful workflow and control state must remain durably reconstructible from database records
+6. classify submitted business events before proposing writes; accounting events may produce accounting proposals, supported non-accounting events may later produce non-accounting event updates, and unsupported events should return a comment or missing-capability result
+7. never record non-accounting business events in accounting tables just to preserve them; future support must use explicit non-accounting tables and backend-owned event workflows
 
 ## 3. Architecture defaults
 

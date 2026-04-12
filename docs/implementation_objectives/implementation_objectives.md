@@ -83,6 +83,8 @@ Implementation consequences:
 12. draft requests may still be hard-deleted completely because they have not yet entered the AI processing queue
 13. queued or cancelled pre-processing requests may return to `draft` for amendment and later resubmission while preserving the same intake identity
 14. every meaningful feature, control seam, state transition, and support surface should tie to one or more workflows, even when the thing itself is not a workflow record
+15. AI triage should distinguish accounting business events, supported non-accounting business events, and unsupported events before proposing writes
+16. supported non-accounting business events may later be persisted through explicit prompts, backend services, and non-accounting database tables; unsupported non-accounting events should return a comment or missing-capability result rather than inventing persistence
 
 ## 4. Versioning stance and thin-v1 completion
 

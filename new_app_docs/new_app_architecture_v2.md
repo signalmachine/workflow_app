@@ -30,6 +30,8 @@ Purpose: keep the current architectural truth clear without requiring the older 
 2. AI processing should usually run asynchronously from that persisted queue
 3. request records remain distinct from downstream business documents
 4. every meaningful workflow and control state must be reconstructible from durable database records
+5. AI triage must classify submitted business events before proposing writes: accounting events may move toward accounting proposals through approval and posting boundaries, while non-accounting events must not create accounting documents, journal proposals, or ledger entries
+6. future non-accounting business-event persistence must be explicit and selective: only supported event types with defined prompts, backend services, and non-accounting tables may be recorded, and unsupported events should return a comment or missing-capability result rather than inventing persistence
 
 ## 5. Active implementation implication
 

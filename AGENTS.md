@@ -121,6 +121,8 @@ Keep these product-model invariants intact:
 3. draft requests must not be processed by AI, and user-visible removal should normally be soft cancel or soft delete rather than unrestricted hard deletion
 4. attachment handling may start in PostgreSQL for v1 or early v2, but must preserve a clean path to external object storage and retain original uploaded artifacts
 5. every meaningful workflow and control state must be durably reconstructible from database records rather than transient process or client state
+6. AI triage must distinguish accounting business events from non-accounting business events before proposing writes; non-accounting events must not create accounting documents, journal proposals, or accounting entries
+7. future persistence for selected non-accounting business events must use explicit supported event types, prompts, backend services, and non-accounting database tables rather than ad hoc storage or placeholder accounting rows
 
 Use the technical guides for the detailed system shape:
 
