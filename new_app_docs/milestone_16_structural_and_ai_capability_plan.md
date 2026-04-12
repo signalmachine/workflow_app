@@ -39,8 +39,9 @@ In scope:
 6. Architectural Gap 1 PostgreSQL `LISTEN/NOTIFY` queue triggering
 7. Architectural Gap 2 scheduled/proactive AI runs only after the coordinator and operator-recovery slices are stable
 8. accounting-intent workflow generation from inbound requests: detect accounting-entry, invoice, payment, or receipt intent; produce structured backend-owned document or journal proposal data; link the AI recommendation to the resulting document when enough information exists; and expose a missing-data state when it does not
-9. documentation updates to keep the review plans, active tracker, workflow docs, and user guides aligned as capabilities land
-10. additional AI-layer, workflow, approval, document, accounting, recovery, and observability work discovered during implementation when it is required to make the foundational end-to-end workflow execute successfully
+9. accounting-impact triage for business events: determine whether the request has accounting impact; return a clear no-accounting-impact comment without creating an accounting proposal when it does not; and decompose requests that contain multiple accounting events into separate proposal/document candidates
+10. documentation updates to keep the review plans, active tracker, workflow docs, and user guides aligned as capabilities land
+11. additional AI-layer, workflow, approval, document, accounting, recovery, and observability work discovered during implementation when it is required to make the foundational end-to-end workflow execute successfully
 
 Out of scope by default:
 
@@ -71,6 +72,13 @@ The smaller `accounting-agent-app` succeeds at the accounting-entry scenario bec
 5. the proposal-approval path correctly rejects documentless proposals because it requires a linked `document_id`
 
 The result is visible in the `REQ-000002` smoke test: the AI correctly understood the accounting intent, but only recommended that an operator create an entry. It did not create an accounting document, approval-ready proposal, or journal proposal.
+
+Milestone 16 should also make the AI layer explicitly classify business events before proposing accounting work:
+
+1. if the event has no accounting impact, the agent should return a clear operator comment that no accounting proposal is needed
+2. if the event has accounting impact, the agent should determine whether it represents one accounting event or multiple separate accounting events
+3. if a single request includes multiple invoices or otherwise distinct accounting events, the system should prepare separate proposal/document candidates rather than collapsing them into one journal entry
+4. future support for storing non-accounting business events should use a database-owned event/workflow model outside the accounting tables, not placeholder rows in accounting truth tables
 
 Milestone 16 must close that integration gap without copying the smaller app's weaker shortcut of committing ledger truth immediately after chat confirmation. The `workflow_app` target remains:
 
@@ -150,19 +158,24 @@ Implement the missing accounting workflow capability exposed by the `REQ-000002`
 Goal:
 
 1. convert sufficiently specific accounting-style inbound requests into structured backend-owned proposals that can move into approval and posting
-2. keep AI output advisory and structured
-3. keep document creation, approval, and posting under deterministic Go services
+2. distinguish accounting-impacting events from non-accounting business events
+3. decompose requests with multiple accounting events into separate proposal/document candidates
+4. keep AI output advisory and structured
+5. keep document creation, approval, and posting under deterministic Go services
 
 Implement:
 
-1. add an accounting-intent classification path for inbound requests, covering at least:
+1. add an accounting-impact and accounting-intent classification path for inbound requests, covering at least:
+   - no accounting impact
    - manual journal or expense entry requests
    - purchase/vendor invoice requests
    - customer invoice or revenue requests when supported by current document seams
    - payment or receipt requests when supported by current document seams
-2. add a strict structured AI output schema for accounting proposals, separate from the generic coordinator brief schema
+2. add a strict structured AI output schema for accounting triage and proposals, separate from the generic coordinator brief schema
 3. include fields needed for deterministic validation, such as:
+   - accounting impact classification
    - intent type
+   - event count and event boundaries
    - document type code
    - title and summary
    - effective or posting date
@@ -171,18 +184,24 @@ Implement:
    - proposed debit and credit lines when a journal-style proposal is appropriate
    - party, contact, or counterparty references when an invoice or payment document is appropriate
    - confidence, rationale, and missing-data questions
-4. validate structured accounting output before persistence:
+4. return a reviewable no-accounting-impact comment when the request has no accounting impact, without creating an accounting document, journal proposal, or accounting approval
+5. split multiple accounting events into separate proposal/document candidates:
+   - two or more invoices should normally become two or more invoice proposals or accounting documents
+   - unrelated payments and invoices should not be collapsed into one journal entry unless the backend accounting service explicitly models that combined event
+   - ambiguous grouping must produce a missing-data or operator-review result rather than guessing
+6. validate structured accounting output before persistence:
    - account codes must exist and belong to the actor's org
    - debit and credit totals must balance for journal-style proposals
    - tax codes must exist when used
    - document type must be supported by the backend document/accounting service
    - missing required fields must produce a reviewable missing-data result rather than a half-created document
-5. create or prepare the correct backend-owned downstream record when validation succeeds:
+7. create or prepare the correct backend-owned downstream record when validation succeeds:
    - for invoice/payment-style flows, create the appropriate document payload through the accounting/document services when the current backend seam supports the required structure
    - for journal-style flows, create a reviewable accounting document or structured proposal record rather than directly posting a journal entry
    - link the `ai.agent_recommendations` row to the resulting document so `RequestProcessedProposalApproval` can proceed
-6. expose missing-data states in the proposal UI so operators can amend the request or fill required fields instead of silently receiving a generic brief
-7. ensure the exact request, proposal, approval, document, and accounting detail routes preserve the same `REQ-...` continuity chain
+8. expose missing-data and no-accounting-impact states in the proposal UI so operators can understand why no accounting proposal was created, amend the request, or fill required fields instead of silently receiving a generic brief
+9. ensure the exact request, proposal, approval, document, and accounting detail routes preserve the same `REQ-...` continuity chain
+10. defer true bulk upload and batch-management UX until the single-request decomposition path is proven, but design the schema and services so a future batch of vendor invoices can create one child proposal/document candidate per invoice
 
 Guardrails:
 
@@ -191,6 +210,8 @@ Guardrails:
 3. do not store accounting truth only in an AI artifact payload
 4. do not collapse the request record into the accounting document; keep `REQ-...` as request tracking only
 5. prefer typed Go DTOs and service methods over ad hoc JSON maps for accounting proposal persistence
+6. do not create accounting-table rows for non-accounting business events; future non-accounting event persistence must live in a separate database-owned workflow/event model
+7. do not collapse multiple invoices or separate accounting events into one accounting entry merely because they arrived in the same request or upload batch
 
 Acceptance evidence:
 
@@ -200,6 +221,8 @@ Acceptance evidence:
 4. approval changes the linked document state through the existing workflow seam
 5. posting, when explicitly performed through the accounting seam, creates a journal entry linked back to the same document, recommendation, run, and request
 6. when the request lacks required accounting data, the proposal clearly lists the missing data and does not create an invalid document
+7. a request with no accounting impact returns a clear no-accounting-impact comment and creates no accounting document, journal proposal, or accounting approval
+8. a request containing two vendor invoices produces two separate proposal/document candidates or a clear missing-data result explaining why the split cannot be made safely
 
 ### 5.7 Slice 7: Real specialist execution
 
@@ -253,10 +276,12 @@ Milestone 16 verification should scale by slice:
 1. mechanical same-package file splits require `go build`, package tests, gopls diagnostics, and `git diff --check`
 2. accounting/reporting read-path changes require focused org-boundary and report correctness tests plus serialized canonical Go verification
 3. accounting proposal generation requires focused tests for classification, schema validation, missing-data handling, document linkage, approval linkage, and posting continuity
-4. AI provider/context/prompt/specialist work requires focused `internal/ai` tests, coordinator integration tests, and live or mocked provider validation as appropriate
-5. frontend type and error-boundary changes require `npm --prefix web run check`, `npm --prefix web run build`, and focused Svelte tests
-6. workflow-visible behavior changes require `docs/workflows/` updates before downstream user-guide updates
-7. at least one live or seeded continuity proof should cover:
+4. no-accounting-impact triage requires focused tests proving no accounting proposal/document/approval is created
+5. multi-event decomposition requires focused tests proving two distinct invoices or accounting events do not collapse into one accounting entry
+6. AI provider/context/prompt/specialist work requires focused `internal/ai` tests, coordinator integration tests, and live or mocked provider validation as appropriate
+7. frontend type and error-boundary changes require `npm --prefix web run check`, `npm --prefix web run build`, and focused Svelte tests
+8. workflow-visible behavior changes require `docs/workflows/` updates before downstream user-guide updates
+9. at least one live or seeded continuity proof should cover:
    - submit an accounting-style inbound request
    - process it
    - confirm the processed proposal has a linked document when data is sufficient
@@ -276,6 +301,8 @@ Resolve these before implementing Slice 5.6:
 3. For office-supplies-plus-GST requests, should the first implementation prefer a vendor invoice flow, a payment/receipt flow, or a journal-style expense accrual when the vendor/payment state is unspecified?
 4. Which fields should be required before creating a document, and which fields should remain operator-editable before approval?
 5. Should accounting-intent detection run inside the general coordinator, a registered accounting specialist, or a dedicated provider method that the coordinator invokes after classification?
+6. What is the first durable non-accounting business-event model, and should Milestone 16 only return no-accounting-impact comments until that model exists?
+7. How should child proposal/document candidates be numbered and displayed when one inbound request contains multiple invoices or accounting events?
 
 ## 8. Completion Rule
 
