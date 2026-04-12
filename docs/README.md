@@ -61,5 +61,7 @@ Use these entry points depending on the task:
 2. workflow validation or workflow continuity review: `workflows/README.md`
 3. operator-facing usage guidance: `user_guides/README.md`
 4. high-level objective summary: `implementation_objectives/implementation_objectives.md`
+5. AI agent layer improvement: `../new_app_docs/ai_layer_improvement_plan.md`
+6. application-wide code review: `../new_app_docs/code_review_and_improvement_plan.md`
 
 For active implementation planning, return to `new_app_docs/README.md`.

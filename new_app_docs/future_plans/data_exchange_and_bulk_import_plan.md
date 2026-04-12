@@ -1,12 +1,12 @@
-# workflow_app Milestone 15 Data Exchange and Bulk Import Plan
+# workflow_app Future Data Exchange and Bulk Import Plan
 
 Date: 2026-04-10
-Status: Future milestone candidate
-Purpose: define a future v2 milestone candidate for structured data exchange after the Milestone 14 runtime has gone through extensive user testing, starting with bulk master-data creation through CSV upload and export of reports and lists in CSV or Excel-compatible formats.
+Status: Future implementation candidate
+Purpose: define a future v2 implementation candidate for structured data exchange after the Milestone 14 runtime has gone through extensive user testing, starting with bulk master-data creation through CSV upload and export of reports and lists in CSV or Excel-compatible formats.
 
-## 1. Why this milestone exists
+## 1. Why this plan exists
 
-Once Milestone 14 closes the current readiness, workflow, reporting, navigation, and demo-data gaps, the immediate next operating step is extensive user testing on that corrected runtime. Milestone 15 should remain future implementation work until that testing period has produced and triaged its findings.
+Once Milestone 14 closes the current readiness, workflow, reporting, navigation, and demo-data gaps, the immediate next operating step is extensive user testing on that corrected runtime. Data-exchange implementation should remain future work until that testing period has produced and triaged its findings.
 
 After that user-testing period, the next strong production-shape need is expected to be data exchange.
 
@@ -25,9 +25,9 @@ Reason:
 3. CSV can still serve most bulk master-data upload needs when templates and validation feedback are strong
 4. export can support both CSV and Excel-compatible delivery, but the import side should start with the simpler bounded contract
 
-## 2. Milestone objectives
+## 2. Plan objectives
 
-Milestone 15 should achieve the following:
+This future plan should achieve the following:
 
 1. add bulk master-data creation through CSV upload on the shared backend seam
 2. add export for promoted reports and lists in CSV and, where justified, Excel-compatible form
@@ -46,7 +46,7 @@ In scope:
 6. admin or reporting UI surfaces for initiating import and export
 7. tests and docs for the import and export contracts
 
-Out of scope for the first Milestone 15 pass:
+Out of scope for the first data-exchange pass:
 
 1. broad Excel workbook import with multiple sheets, formulas, or loose spreadsheet parsing
 2. unrestricted import into every module at once
@@ -55,7 +55,7 @@ Out of scope for the first Milestone 15 pass:
 
 ## 4. First feature set
 
-The first Milestone 15 feature set should include:
+The first data-exchange feature set should include:
 
 1. bulk master-data creation through CSV upload
 2. export of reports and lists in CSV
@@ -126,7 +126,7 @@ Scope:
 
 ## 7. Verification
 
-Milestone 15 work should include:
+Future data-exchange work should include:
 
 1. focused backend tests for parsing, validation, and persistence
 2. focused browser or route tests for upload and export entry points
@@ -135,10 +135,10 @@ Milestone 15 work should include:
 
 ## 8. Documentation sync
 
-When Milestone 15 begins:
+When this data-exchange plan begins:
 
 1. confirm the post-Milestone-14 user-testing findings have been reviewed and any required corrective work has been planned or completed
-2. update the active tracker and execution plan to promote it from future candidate to active milestone
+2. update the active tracker and execution plan to promote it from future candidate to active implementation work
 3. add operator documentation for upload templates and export behavior
 4. add technical documentation for backend import and export seams
 5. keep sample templates and docs aligned with the real validated schema

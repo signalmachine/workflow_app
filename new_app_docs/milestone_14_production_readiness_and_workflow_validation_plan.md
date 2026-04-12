@@ -270,7 +270,7 @@ Milestone 14 is complete only when:
 8. adjacent production-shape gaps found during Milestone 14 implementation have either been addressed in bounded form or recorded explicitly rather than left as silent drift
 9. the promoted navigation model now uses the intended grouped-directory pattern in the crowded areas selected for Milestone 14, with dedicated pages for concrete reports, lists, master-data creation, or workflow screens
 10. `North Harbor Works` has a usable minimum demo-data baseline, including a standard chart of accounts and essential master data for realistic bounded testing
-11. the post-Milestone-14 path is explicit: extensive user testing comes next, and Milestone 15 data-exchange implementation remains future work after that testing period rather than the immediate next implementation step
+11. the post-Milestone-14 path is explicit: extensive user testing comes next, and data-exchange implementation remains future work after that testing period rather than the immediate next implementation step
 
 ## 7. Verification
 
@@ -308,4 +308,4 @@ Current order:
 1. use the corrected Milestone 14 runtime for extensive user testing
 2. record user-testing pass, fail, blocker, and deferral evidence in `docs/workflows/`
 3. group any real defects into bounded corrective slices rather than reopening Milestone 14 broadly
-4. keep Milestone 15 data exchange as a future candidate until user-testing findings have been triaged
+4. keep data exchange as a future candidate until user-testing findings have been triaged

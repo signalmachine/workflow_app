@@ -20,6 +20,7 @@ Historical planning detail now lives in:
 1. `v2_archive/` for the previous heavy v2 planning set
 2. `thin_v1_archive/` for completed thin-v1 planning history
 3. `app_v2_plans/` for proposal and parking-lot material rather than active control docs
+4. `future_plans/` for future implementation candidates that are not active implementation work
 
 ## Active reading order
 
@@ -31,7 +32,9 @@ Read these in order for active implementation work:
 4. `new_app_implementation_defaults_v2.md`
 5. `new_app_execution_plan_v2.md`
 6. `milestone_14_production_readiness_and_workflow_validation_plan.md` when working on the current active milestone
-7. `milestone_15_data_exchange_and_bulk_import_plan.md` for the future data-exchange milestone candidate; do not start Milestone 15 immediately after Milestone 14, because extensive user testing comes first
+7. `future_plans/data_exchange_and_bulk_import_plan.md` for the future data-exchange candidate; do not start data-exchange implementation immediately after Milestone 14, because extensive user testing comes first
+8. `ai_layer_improvement_plan.md` when working on AI-agent layer improvement findings
+9. `code_review_and_improvement_plan.md` when working on application-wide code-review findings
 
 Then use:
 

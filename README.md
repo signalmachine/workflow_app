@@ -500,4 +500,4 @@ Immediate next steps:
 
 1. run extensive user testing on the closed Milestone 14 runtime
 2. record pass, fail, blocker, and deferral evidence in `docs/workflows/workflow_validation_track.md`
-3. group real user-testing defects into bounded corrective slices before promoting Milestone 15 data exchange from future candidate to active work
+3. group real user-testing defects into bounded corrective slices before promoting data exchange from future candidate to active work

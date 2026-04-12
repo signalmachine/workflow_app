@@ -65,7 +65,7 @@ The handoff is for bounded user testing, not production release.
 Known limits:
 
 1. deeper live workflow-validation backlog execution is intentionally deferred into the user-testing period
-2. Milestone 15 data exchange, CSV import, and CSV or Excel-compatible export are future work after user-testing findings are triaged
+2. data exchange, CSV import, and CSV or Excel-compatible export are future work after user-testing findings are triaged
 3. mobile-specific UX depth remains out of scope for the served web runtime
 4. production-parity release checks in `docs/technical_guides/15_production_readiness_and_release_checklist.md` are still required before production rollout
 5. OpenAI-backed processing requires valid `OPENAI_API_KEY` and `OPENAI_MODEL` in the environment

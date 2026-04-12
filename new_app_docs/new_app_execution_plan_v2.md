@@ -1,7 +1,7 @@
 # workflow_app Execution Plan V2
 
 Date: 2026-04-12
-Status: Milestone 14 is closed after the core implementation checkpoints, documentation-truth closeout, and final confidence gate; extensive user testing on the corrected runtime is now the active next operating step before Milestone 15 data exchange can become active implementation
+Status: Milestone 14 is closed after the core implementation checkpoints, documentation-truth closeout, and final confidence gate; extensive user testing on the corrected runtime is now the active next operating step before future data-exchange work can become active implementation
 Purpose: define the current execution order without carrying the full completed milestone narrative in the default context.
 
 ## 1. Completed baseline
@@ -19,7 +19,7 @@ Purpose: define the current execution order without carrying the full completed 
 3. record pass, fail, blocker, and deferral evidence in `docs/workflows/` before promoting follow-up implementation work
 4. group real product defects found during testing into bounded corrective slices rather than reopening broad milestone buckets
 5. update user guides, technical guides, setup docs, and active planning docs when user testing changes supported workflow truth
-6. keep Milestone 15 data exchange as future implementation until user-testing findings have been triaged
+6. keep data exchange as future implementation until user-testing findings have been triaged
 
 ## 2.1 Delivered Milestone 13 baseline
 
@@ -83,11 +83,11 @@ The post-closeout implementation review then found the first Milestone 14 correc
 20. the next production-readiness test-expansion checkpoint on 2026-04-11 added `internal/app` API integration coverage proving promoted browser-session Admin exact-record actions reject foreign-org ledger-account status, tax-code status, accounting-period close, party detail/status/contact creation, inventory item/location status, and access membership-role changes without mutating those records, and corrected accounting and inventory status-update not-found translation for foreign exact ids
 21. the Milestone 14 documentation-truth closeout and final confidence gate are now complete; avoid additional broad pre-user-testing production-readiness expansion unless user testing or a concrete blocker promotes one bounded corrective slice
 
-## 2.2 Post-Milestone 14 user testing and Milestone 15 future direction
+## 2.2 Post-Milestone 14 user testing and future data exchange
 
-Milestone 14 has closed cleanly. Do not start Milestone 15 immediately. The next operating step is extensive user testing on the Milestone 14 runtime, with findings triaged into bounded corrective work as needed.
+Milestone 14 has closed cleanly. Do not start data-exchange implementation immediately. The next operating step is extensive user testing on the Milestone 14 runtime, with findings triaged into bounded corrective work as needed.
 
-Milestone 15 remains the future implementation milestone candidate after that user-testing period. Its planned direction is data exchange:
+Data exchange remains the future implementation candidate after that user-testing period. Its planned direction is:
 
 1. CSV-first bulk master-data import on the shared backend seam
 2. CSV and Excel-compatible export for promoted lists and reports
