@@ -16,7 +16,7 @@ Purpose: define the current execution order without carrying the full completed 
 
 1. treat Milestone 14 as closed baseline rather than active implementation scope
 2. implement `milestone_15_urgent_review_and_ai_hardening_plan.md` first: urgent API defects, attachment bounds, inventory landing continuity, current-runtime AI hardening, and specialist-truth correction
-3. implement `milestone_16_structural_and_ai_capability_plan.md` next for the remaining validated non-urgent refactors, AI architecture improvements, accounting proposal generation from inbound requests, specialist execution, recovery loops, and capability expansion
+3. implement `milestone_16_structural_and_ai_capability_plan.md` next as a full AI-layer and foundational workflow-execution overhaul: start from the planned non-urgent refactors, AI architecture improvements, accounting proposal generation from inbound requests, specialist execution, recovery loops, and capability expansion, then add any additional activities discovered during implementation that are required for request submission through accounting-entry persistence to pass end to end
 4. continue extensive user testing on the corrected promoted runtime, but do not let user testing defer the urgent Milestone 15 defects once they are validated
 5. record pass, fail, blocker, and deferral evidence in `docs/workflows/` before promoting workflow-facing follow-up implementation work
 6. group real product defects found during testing into bounded corrective slices rather than reopening broad milestone buckets

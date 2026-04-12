@@ -2,7 +2,7 @@
 
 Date: 2026-04-12
 Status: Planned follow-on milestone after Milestone 15
-Purpose: define the non-urgent structural, recommended, and capability-expansion work from the April 2026 review plans after urgent defects and current-runtime hardening are closed.
+Purpose: define the full AI-layer overhaul and workflow-execution milestone after urgent defects and current-runtime hardening are closed.
 
 ## 1. Source Review Documents
 
@@ -19,9 +19,11 @@ Milestone 16 also incorporates the 2026-04-12 comparison against `https://github
 
 ## 2. Milestone Position
 
-Milestone 16 should start only after Milestone 15 has closed. Its job is to reduce structural drag, make the AI layer easier to evolve, and implement the larger capability improvements that are too broad for an urgent corrective milestone.
+Milestone 16 should start only after Milestone 15 has closed. Its job is to overhaul the AI layer enough to support reliable end-to-end workflow execution, not merely to complete a fixed checklist of non-urgent refactors.
 
-This milestone should remain bounded. It should not become a dumping ground for every possible refactor; each slice should be promoted when it materially improves correctness, operability, maintainability, or AI output quality.
+The planned slices below are the starting structure, not the delivery ceiling. During implementation, code review and workflow testing may expose additional gaps in the AI layer, backend workflow seams, document lifecycle, approval lifecycle, posting path, observability, or operator recovery flow. Add those activities to Milestone 16 when they materially block or weaken end-to-end workflow execution.
+
+This milestone should still avoid novelty-driven or unrelated refactors. New work belongs in Milestone 16 when it is necessary to make the foundational workflow pass from request submission through AI processing, proposal/document creation, approval, accounting posting, and final accounting entry persistence in the database.
 
 ## 3. Scope
 
@@ -36,6 +38,7 @@ In scope:
 7. Architectural Gap 2 scheduled/proactive AI runs only after the coordinator and operator-recovery slices are stable
 8. accounting-intent workflow generation from inbound requests: detect accounting-entry, invoice, payment, or receipt intent; produce structured backend-owned document or journal proposal data; link the AI recommendation to the resulting document when enough information exists; and expose a missing-data state when it does not
 9. documentation updates to keep the review plans, active tracker, workflow docs, and user guides aligned as capabilities land
+10. additional AI-layer, workflow, approval, document, accounting, recovery, and observability work discovered during implementation when it is required to make the foundational end-to-end workflow execute successfully
 
 Out of scope by default:
 
@@ -76,6 +79,8 @@ inbound request -> AI structured proposal -> backend-owned document draft/submis
 AI may prepare or propose. Humans approve. The accounting package posts.
 
 ## 5. Delivery Slices
+
+These slices are planning anchors. They should be expanded during implementation when codebase review or workflow testing exposes a gap that blocks the foundational workflow from completing correctly. Do not treat the slice list as a reason to defer a required AI-layer or workflow-seam fix that is discovered while implementing Milestone 16.
 
 ### 5.1 Slice 1: App structural cleanup
 
@@ -248,6 +253,8 @@ Milestone 16 verification should scale by slice:
    - post through the accounting seam
    - open the exact accounting entry and trace it back to the same request and recommendation
 
+The milestone cannot close on package tests alone. The foundational workflow must be successfully tested and recorded as passed from request submission to the final accounting entry hitting the database. Any defect that prevents that path from completing belongs in Milestone 16 unless there is an explicit, documented reason that it is outside the AI/workflow foundation.
+
 ## 7. Open Implementation Questions
 
 Resolve these before implementing Slice 5.6:
@@ -260,4 +267,8 @@ Resolve these before implementing Slice 5.6:
 
 ## 8. Completion Rule
 
-Milestone 16 is complete when the non-urgent review findings have either been implemented, explicitly deferred with rationale, or promoted into a later focused plan. Do not mark the milestone complete while review-plan items remain ambiguous between “not started” and “consciously deferred.”
+Milestone 16 is complete only when the foundational AI-driven accounting workflow has been implemented and tested end to end: request submission, durable queue processing, AI proposal generation, backend-owned document or accounting proposal creation, human approval, accounting posting, and the resulting accounting entry persisted in the database with traceability back to the original request.
+
+Do not mark Milestone 16 complete merely because the initial planned slices are done. If implementation review or workflow testing exposes additional AI-layer, workflow-seam, approval, posting, persistence, recovery, or operator-continuity gaps that block this end-to-end path, add those activities to Milestone 16 and complete them before closure.
+
+The non-urgent review findings must also be implemented, explicitly deferred with rationale, or promoted into a later focused plan. Do not mark the milestone complete while review-plan items remain ambiguous between “not started” and “consciously deferred.”
