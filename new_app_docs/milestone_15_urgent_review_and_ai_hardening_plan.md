@@ -4,7 +4,18 @@ Date: 2026-04-12
 Status: Planned next implementation milestone
 Purpose: define the urgent corrective milestone after the April 2026 application-wide and AI-layer reviews, separating defects and current-runtime hardening from larger structural and capability work.
 
-## 1. Validation Summary
+## 1. Source Review Documents
+
+Milestone 15 is a sequencing and implementation overlay on top of the original validated review documents. It does not replace them.
+
+Use these original documents as the detailed issue source of truth while implementing Milestone 15:
+
+1. `new_app_docs/code_review_and_improvement_plan.md`
+2. `new_app_docs/ai_layer_improvement_plan.md`
+
+When a Milestone 15 item references a priority, gap, or improvement label such as P1-1, P3-1, Gap 2, or Improvement G, interpret that label by reading the matching section in the original review document first. Keep any implementation status updates synchronized between this milestone plan and the relevant original review document so the two tracks do not drift.
+
+## 2. Validation Summary
 
 The two review documents are directionally valid and should drive the next work:
 
@@ -14,7 +25,7 @@ The two review documents are directionally valid and should drive the next work:
 4. the `AuthorizeReadOnlyTx` recommendation is shared by both plans and should be implemented once, then used by the AI tool-policy path and the read-heavy accounting/reporting paths as scope permits.
 5. P3-5 in `code_review_and_improvement_plan.md` is overstated: the current decoder does not reject trailing whitespace because the second decode returns `io.EOF` after whitespace. Treat the recommendation as a non-urgent API strictness decision, not as a validated defect.
 
-## 2. Milestone Position
+## 3. Milestone Position
 
 Milestone 15 should happen before broad production use and before larger Milestone 16 refactors. It is justified because the validated issues affect:
 
@@ -26,7 +37,7 @@ Milestone 15 should happen before broad production use and before larger Milesto
 6. current coordinator reliability and operator visibility
 7. misleading specialist-run attribution if delegation is recorded without a real specialist provider
 
-## 3. Scope
+## 4. Scope
 
 In scope:
 
@@ -49,9 +60,9 @@ Out of scope:
 6. broad CORS, telemetry, module-path, or frontend error-boundary policy work
 7. changing the JSON decoder strictness policy unless a concrete client failure is reproduced
 
-## 4. Delivery Slices
+## 5. Delivery Slices
 
-### 4.1 Slice 1: API contract and auth defect pass
+### 5.1 Slice 1: API contract and auth defect pass
 
 Implement:
 
@@ -60,7 +71,7 @@ Implement:
 3. P1-3: sanitized `500` for unexpected `GET /api/session` failures, preserving `401` for unauthorized
 4. focused tests proving unauthenticated review/inbound/approval requests return `401`, detail wrong-method calls return `405`, and session non-auth failures do not leak raw errors
 
-### 4.2 Slice 2: Inventory landing runtime completion
+### 5.2 Slice 2: Inventory landing runtime completion
 
 Implement:
 
@@ -68,7 +79,7 @@ Implement:
 2. P4-4: `InventoryLandingSnapshot` frontend type, API client function, and Svelte inventory hub data loading
 3. focused backend and frontend tests proving the route is registered, org-scoped, and consumed by the promoted inventory hub
 
-### 4.3 Slice 3: Attachment resource bound
+### 5.3 Slice 3: Attachment resource bound
 
 Implement:
 
@@ -76,7 +87,7 @@ Implement:
 2. `http.MaxBytesError` handling in `writeJSONBodyError`
 3. focused tests proving oversized attachment payloads return `413` without attempting unbounded decode
 
-### 4.4 Slice 4: AI runtime hardening
+### 5.4 Slice 4: AI runtime hardening
 
 Implement:
 
@@ -89,7 +100,7 @@ Implement:
 7. Improvement G: unique read-tool counting in `coordinatorReadToolBudgetExhausted`
 8. focused AI tests for policy resolution, timeout behavior through mocks, degraded-mode payloads, provider naming, output-token constants, and repeated-tool budget counting
 
-### 4.5 Slice 5: Specialist truth correction
+### 5.5 Slice 5: Specialist truth correction
 
 Implement one bounded correction:
 
@@ -98,7 +109,7 @@ Implement one bounded correction:
 
 The goal is not to implement real specialists in Milestone 15. The goal is to prevent the system from implying that a domain specialist performed analysis when the coordinator output was reused.
 
-## 5. Verification
+## 6. Verification
 
 Use `docs/technical_guides/07_testing_and_verification.md` for exact command shape. Expected closeout evidence:
 
@@ -111,6 +122,6 @@ Use `docs/technical_guides/07_testing_and_verification.md` for exact command sha
 7. gopls diagnostics on edited Go files
 8. `git diff --check`
 
-## 6. Completion Rule
+## 7. Completion Rule
 
 Milestone 15 is complete only when urgent API defects, attachment bounds, inventory landing continuity, AI Phase 1 hardening, and specialist-truth correction are implemented and verified. Any remaining structural or capability recommendations move to Milestone 16 unless implementation uncovers a new blocking defect.

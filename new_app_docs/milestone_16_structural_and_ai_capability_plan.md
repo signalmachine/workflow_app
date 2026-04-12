@@ -4,13 +4,24 @@ Date: 2026-04-12
 Status: Planned follow-on milestone after Milestone 15
 Purpose: define the non-urgent structural, recommended, and capability-expansion work from the April 2026 review plans after urgent defects and current-runtime hardening are closed.
 
-## 1. Milestone Position
+## 1. Source Review Documents
+
+Milestone 16 is a sequencing and implementation overlay on top of the original validated review documents. It does not replace them.
+
+Use these original documents as the detailed issue source of truth while implementing Milestone 16:
+
+1. `new_app_docs/code_review_and_improvement_plan.md`
+2. `new_app_docs/ai_layer_improvement_plan.md`
+
+When a Milestone 16 item references a priority, gap, or improvement label such as P2-1, P3-7, Gap 1, or Improvement K, interpret that label by reading the matching section in the original review document first. Keep any implementation status updates synchronized between this milestone plan and the relevant original review document so the two tracks do not drift.
+
+## 2. Milestone Position
 
 Milestone 16 should start only after Milestone 15 has closed. Its job is to reduce structural drag, make the AI layer easier to evolve, and implement the larger capability improvements that are too broad for an urgent corrective milestone.
 
 This milestone should remain bounded. It should not become a dumping ground for every possible refactor; each slice should be promoted when it materially improves correctness, operability, maintainability, or AI output quality.
 
-## 2. Scope
+## 3. Scope
 
 In scope:
 
@@ -31,9 +42,9 @@ Out of scope by default:
 4. broad module-path or deployment-policy changes without a confirmed repository and deployment target
 5. implementing proactive AI before failed-run recovery and specialist execution are reliable
 
-## 3. Delivery Slices
+## 4. Delivery Slices
 
-### 3.1 Slice 1: App structural cleanup
+### 4.1 Slice 1: App structural cleanup
 
 Implement the low-risk app cleanup items that remain after Milestone 15:
 
@@ -46,7 +57,7 @@ Implement the low-risk app cleanup items that remain after Milestone 15:
 7. P3-5: decide whether to keep strict single-JSON-value decoding or simplify it; do not treat it as a validated whitespace defect
 8. P4-1: fix implicit JSON `Content-Type` detection
 
-### 3.2 Slice 2: Read-path and session write-hotspot hardening
+### 4.2 Slice 2: Read-path and session write-hotspot hardening
 
 Implement:
 
@@ -54,7 +65,7 @@ Implement:
 2. P3-7: rate-limit `last_seen_at` writes or otherwise reduce per-request session write contention
 3. focused concurrency and org-boundary tests around the changed read paths
 
-### 3.3 Slice 3: File decomposition refactors
+### 4.3 Slice 3: File decomposition refactors
 
 Implement as same-package mechanical refactors with focused verification after each package:
 
@@ -63,7 +74,7 @@ Implement as same-package mechanical refactors with focused verification after e
 3. P4-3: split `web/src/lib/api/types.ts` into domain-scoped type modules with a barrel export
 4. AI Improvement A: split `internal/ai/openai_provider.go` by provider, tools, prompt, schema, parse, and repair concerns
 
-### 3.4 Slice 4: Attachment storage seam
+### 4.4 Slice 4: Attachment storage seam
 
 Implement:
 
@@ -72,7 +83,7 @@ Implement:
 3. tests proving create, read, and download behavior remains unchanged
 4. documentation update confirming the clean path to external object storage
 
-### 3.5 Slice 5: AI prompt and context architecture
+### 4.5 Slice 5: AI prompt and context architecture
 
 Implement:
 
@@ -82,7 +93,7 @@ Implement:
 4. Improvement D: documented stopword maintenance rule and focused tests
 5. Improvement H: derived-text and message prompt-size bounds with explicit truncation markers
 
-### 3.6 Slice 6: Real specialist execution
+### 4.6 Slice 6: Real specialist execution
 
 Implement:
 
@@ -92,7 +103,7 @@ Implement:
 4. fallback behavior that is explicit and auditable when no specialist provider is registered or a specialist fails
 5. verification that child specialist artifacts differ from coordinator artifacts when a specialist actually runs
 
-### 3.7 Slice 7: Operator recovery and feedback loop
+### 4.7 Slice 7: Operator recovery and feedback loop
 
 Implement:
 
@@ -101,7 +112,7 @@ Implement:
 3. Improvement J: coordinator brief feedback table, backend handler, and minimal Svelte gesture
 4. reporting or admin review surface enough to correlate feedback with instruction version
 
-### 3.8 Slice 8: Queue triggering and AI tool breadth
+### 4.8 Slice 8: Queue triggering and AI tool breadth
 
 Implement only after the coordinator is stable:
 
@@ -109,7 +120,7 @@ Implement only after the coordinator is stable:
 2. Improvement K: first additional read tools, starting with inventory item levels, budget position, approval authority, and vendor summary where backend seams are ready
 3. policy entries and tests for each new tool
 
-### 3.9 Slice 9: Production policy and observability cleanup
+### 4.9 Slice 9: Production policy and observability cleanup
 
 Implement after deployment requirements are clear:
 
@@ -118,7 +129,7 @@ Implement after deployment requirements are clear:
 3. P5-3: improved Svelte error boundary and structured client error logging once observability tooling is chosen
 4. P5-1: Go module path correction only after a canonical VCS module path is confirmed
 
-### 3.10 Slice 10: Proactive AI capability
+### 4.10 Slice 10: Proactive AI capability
 
 Implement Architectural Gap 2 only after the earlier AI slices are stable:
 
@@ -126,7 +137,7 @@ Implement Architectural Gap 2 only after the earlier AI slices are stable:
 2. operator alert/review surface for runs that are not tied to an inbound request
 3. explicit safeguards preserving approval gates, auditability, and database truth
 
-## 4. Verification
+## 5. Verification
 
 Milestone 16 verification should scale by slice:
 
@@ -136,6 +147,6 @@ Milestone 16 verification should scale by slice:
 4. frontend type and error-boundary changes require `npm --prefix web run check`, `npm --prefix web run build`, and focused Svelte tests
 5. workflow-visible behavior changes require `docs/workflows/` updates before downstream user-guide updates
 
-## 5. Completion Rule
+## 6. Completion Rule
 
 Milestone 16 is complete when the non-urgent review findings have either been implemented, explicitly deferred with rationale, or promoted into a later focused plan. Do not mark the milestone complete while review-plan items remain ambiguous between “not started” and “consciously deferred.”
