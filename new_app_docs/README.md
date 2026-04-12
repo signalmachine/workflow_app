@@ -31,10 +31,12 @@ Read these in order for active implementation work:
 3. `new_app_architecture_v2.md`
 4. `new_app_implementation_defaults_v2.md`
 5. `new_app_execution_plan_v2.md`
-6. `milestone_14_production_readiness_and_workflow_validation_plan.md` when working on the current active milestone
-7. `future_plans/data_exchange_and_bulk_import_plan.md` for the future data-exchange candidate; do not start data-exchange implementation immediately after Milestone 14, because extensive user testing comes first
-8. `ai_layer_improvement_plan.md` when working on AI-agent layer improvement findings
-9. `code_review_and_improvement_plan.md` when working on application-wide code-review findings
+6. `milestone_15_urgent_review_and_ai_hardening_plan.md` when working on the current urgent corrective milestone
+7. `milestone_16_structural_and_ai_capability_plan.md` when working on follow-on structural and AI capability improvements after Milestone 15
+8. `milestone_14_production_readiness_and_workflow_validation_plan.md` only when historical Milestone 14 detail is needed
+9. `future_plans/data_exchange_and_bulk_import_plan.md` for the future data-exchange candidate; do not start data-exchange implementation until the Milestone 15 urgent review findings have been closed and user-testing findings have been triaged
+10. `ai_layer_improvement_plan.md` when working on AI-agent layer improvement findings
+11. `code_review_and_improvement_plan.md` when working on application-wide code-review findings
 
 Then use:
 

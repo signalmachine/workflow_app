@@ -28,6 +28,7 @@ Purpose: define the current scope boundaries for active implementation after thi
 
 ## 4. Current scope focus
 
-1. the active implementation focus is post-Milestone-14 user-testing support, bounded corrective slices for real defects, and readiness-preserving follow-through on the promoted Svelte runtime
-2. the active workflow follow-through focus is recording user-testing evidence in `docs/workflows/` first and keeping downstream user guides aligned with the current served `/app` route family and supported browser actions
-3. completed Milestone 10, Milestone 11, Milestone 12, and Milestone 13 planning detail is now archive material rather than active default context
+1. the active implementation focus is Milestone 15 urgent review and AI hardening: validated API defects, attachment bounds, inventory landing continuity, current-runtime AI hardening, and specialist-truth correction
+2. the active follow-on focus is Milestone 16 structural and AI capability improvement after Milestone 15 closes
+3. the active workflow follow-through focus remains recording user-testing evidence in `docs/workflows/` first and keeping downstream user guides aligned with the current served `/app` route family and supported browser actions
+4. completed Milestone 10, Milestone 11, Milestone 12, and Milestone 13 planning detail is now archive material rather than active default context

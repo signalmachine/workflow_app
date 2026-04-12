@@ -1,7 +1,7 @@
 # workflow_app Tracker V2
 
 Date: 2026-04-12
-Status: Thin-v1 is complete, Milestones 10 through 14 are implemented history, the Milestone 14 final confidence gate has passed, and the active next operating step is extensive user testing on the corrected promoted runtime before future data-exchange work is promoted from candidate to active implementation
+Status: Thin-v1 is complete, Milestones 10 through 14 are implemented history, the Milestone 14 final confidence gate has passed, and the April 2026 review findings now promote Milestone 15 urgent review and AI hardening as the next implementation step before broader Milestone 16 structural and capability work
 Purpose: track the active implementation state, current sequencing, and immediate next steps without carrying full milestone history in the default context.
 
 ## 1. Current state
@@ -33,7 +33,7 @@ Purpose: track the active implementation state, current sequencing, and immediat
 25. Milestone 14 also reviewed the application for nearby production-shape gaps and added clearly similar bounded capability where those additions materially improved readiness, correctness, or operator continuity
 26. the contextual-tab and admin/accounting information architecture was too noisy before the Milestone 14 grouped-directory checkpoint
 27. the demo entity `North Harbor Works` needed a standard chart of accounts and other essential master data before the Milestone 14 demo-baseline checkpoint
-28. the first strong future candidate remains structured data exchange: CSV-first bulk master-data import plus CSV/Excel-compatible export for promoted lists and reports, but data-exchange implementation should not start immediately after Milestone 14 because the application should first go through extensive user testing on the Milestone 14 runtime
+28. the first strong future candidate remains structured data exchange: CSV-first bulk master-data import plus CSV/Excel-compatible export for promoted lists and reports, but data-exchange implementation should wait until Milestone 15 urgent review hardening is closed and user-testing findings have been triaged
 29. the first Milestone 14 Slice 1 checkpoint is now landed on 2026-04-10: exact inbound-request detail exposes draft save plus queue plus delete controls and queued cancel plus amend controls through the existing shared `/api/inbound-requests/{request_id}/{action}` seam, the desktop shell now places contextual tabs over the main content column instead of across the far-left edge, and focused Svelte checks for those new browser contracts now pass
 30. a follow-up Slice 1 documentation-truth checkpoint on 2026-04-10 realigned the durable workflow catalog, inbound-request lifecycle guide, agent-chat guide, inbound-request technical guide, and active scope note with the current route contract: `/app/review/inbound-requests` is the list surface, `/app/inbound-requests/{request_reference_or_id}` is the exact detail and lifecycle-action surface, `/app/operations` owns the browser process-next action, and `/api/...` remains the mutation seam
 31. the grouped-directory navigation checkpoint is now landed on 2026-04-10: the Admin contextual tabs now route through grouped `Master Data` and `Lists` directory pages before concrete accounting, party, inventory, or access destinations, and `/app/review/accounting` now acts as an accounting report directory with dedicated `journal-entries`, `control-balances`, and `tax-summaries` destinations behind it
@@ -49,15 +49,18 @@ Purpose: track the active implementation state, current sequencing, and immediat
 41. another production-readiness test-expansion checkpoint is now landed on 2026-04-11: `internal/app` API integration coverage now proves promoted browser-session Admin exact-record actions reject cross-org access without mutation across ledger-account status, tax-code status, accounting-period close, party detail/status/contact creation, inventory item/location status, and access membership role changes; the checkpoint also normalized accounting and inventory setup-status not-found errors so foreign exact ids return not-found rather than generic server failures; the focused admin-boundary test, full `internal/app`, affected `internal/accounting` and `internal/inventoryops` package verification, `go build ./cmd/... ./internal/...`, serialized canonical Go verification, `git diff --check`, and gopls diagnostics passed for that checkpoint
 42. the Milestone 14 documentation-truth closeout checkpoint is now landed on 2026-04-11: the workflow-validation track records the remaining deeper live workflow backlog as deferred to the user-testing period unless a final confidence gate blocker appears, a user-testing readiness guide now states the supported runtime, setup path, test focus, limits, and evidence baseline, README status now points to user testing rather than already-landed grouped-navigation or accounting-report implementation work, and `git diff --check`, `go build ./cmd/... ./internal/...`, and `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` passed
 43. the Milestone 14 final confidence gate passed on 2026-04-12 with `git diff --check`, `go build ./cmd/... ./internal/...`, and `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...`; no blocker was found that would justify reopening broad pre-user-testing workflow validation or test expansion
+44. the April 2026 review documents `code_review_and_improvement_plan.md` and `ai_layer_improvement_plan.md` are now validated as the planning source for the next corrective work, with Milestone 15 reserved for urgent API defects, attachment bounds, inventory landing completion, current-runtime AI hardening, and specialist-truth correction
+45. Milestone 16 is now the planned follow-on for non-urgent structural refactors, full specialist execution, prompt/context architecture, recovery and feedback loops, queue triggering, AI tool breadth, and deployment-policy cleanup
 
 ## 2. Active implementation order
 
 1. treat Milestone 13 and Milestone 14 implementation as delivered baseline
-2. make extensive user testing on the corrected Milestone 14 runtime the active next operating step
-3. keep the remaining deeper workflow-validation backlog in the user-testing period unless a concrete blocker is discovered
-4. if user testing finds a real defect, promote one bounded corrective slice for the related defect family and rerun the affected checklist items
-5. do not start future data-exchange implementation until user-testing findings have been triaged
-6. use the updated Playwright plus `cmd/verify-agent -database-url "$DATABASE_URL" -approval-flow` pattern as the default real-browser continuity proof for future workflow-critical Svelte changes
+2. implement Milestone 15 urgent review and AI hardening before broadening into larger refactor or capability work
+3. then use Milestone 16 for the remaining non-urgent structural, operational, and AI capability improvements that were validated but are not urgent defects
+4. keep the remaining deeper workflow-validation backlog in the user-testing period unless Milestone 15 or user testing discovers a concrete blocker
+5. if user testing finds a real defect, promote one bounded corrective slice for the related defect family and rerun the affected checklist items
+6. do not start future data-exchange implementation until Milestone 15 closes and user-testing findings have been triaged
+7. use the updated Playwright plus `cmd/verify-agent -database-url "$DATABASE_URL" -approval-flow` pattern as the default real-browser continuity proof for future workflow-critical Svelte changes
 
 ## 2.1 Current delivered baseline
 
@@ -77,9 +80,9 @@ Use these supporting docs for user-testing validation and any bounded corrective
 1. `../docs/workflows/end_to_end_validation_checklist.md` for bounded real-seam validation steps
 2. `../docs/workflows/workflow_validation_track.md` for explicit validation evidence and blocker tracking
 
-## 2.2 Future implementation candidate after user testing
+## 2.2 Future implementation candidate after review hardening and user testing
 
-After Milestone 14, the immediate next operating step is extensive user testing on the corrected promoted runtime. Data exchange remains the next planned future implementation candidate after that user-testing period, not the immediate follow-on work:
+After Milestone 14, the April 2026 review findings created a nearer-term Milestone 15 urgent corrective step and a Milestone 16 follow-on improvement step. Data exchange remains a future implementation candidate after Milestone 15 closes and user-testing findings have been triaged, not the immediate follow-on work:
 
 1. start with CSV-first bulk master-data import rather than native Excel workbook import
 2. use CSV upload for bounded bulk creation of records such as chart-of-accounts rows, parties, inventory items, and locations
@@ -87,14 +90,16 @@ After Milestone 14, the immediate next operating step is extensive user testing 
 4. support Excel-compatible export for key reports and lists where justified
 5. keep import validation, persistence, and auditability on the shared backend seam
 
-## 3. Current user-testing gate
+## 3. Current review and user-testing gate
 
-The next implementation session should not start a new feature milestone by default. It should first use the Milestone 14 runtime in user testing and answer:
+The next implementation session should not start a new feature milestone by default. It should first close Milestone 15 urgent review findings and continue using the promoted runtime in user testing to answer:
 
-1. which supported workflows pass for real operators without implementation changes
-2. which findings are documentation or training issues rather than product defects
-3. which findings are real defects that should be grouped into one bounded corrective slice
-4. whether any finding changes the future data-exchange priority or sequencing after testing
+1. which validated review findings are urgent defects or current-runtime hardening items that belong in Milestone 15
+2. which validated recommendations are non-urgent structural or capability items that belong in Milestone 16
+3. which supported workflows pass for real operators without implementation changes
+4. which findings are documentation or training issues rather than product defects
+5. which findings are real defects that should be grouped into one bounded corrective slice
+6. whether any finding changes the future data-exchange priority or sequencing after testing
 
 ## 4. Working rules
 

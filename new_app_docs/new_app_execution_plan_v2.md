@@ -1,7 +1,7 @@
 # workflow_app Execution Plan V2
 
 Date: 2026-04-12
-Status: Milestone 14 is closed after the core implementation checkpoints, documentation-truth closeout, and final confidence gate; extensive user testing on the corrected runtime is now the active next operating step before future data-exchange work can become active implementation
+Status: Milestone 14 is closed after the core implementation checkpoints, documentation-truth closeout, and final confidence gate; April 2026 review validation now promotes Milestone 15 urgent review and AI hardening before broader Milestone 16 structural and AI capability work
 Purpose: define the current execution order without carrying the full completed milestone narrative in the default context.
 
 ## 1. Completed baseline
@@ -15,11 +15,13 @@ Purpose: define the current execution order without carrying the full completed 
 ## 2. Active execution order
 
 1. treat Milestone 14 as closed baseline rather than active implementation scope
-2. run extensive user testing on the corrected promoted runtime
-3. record pass, fail, blocker, and deferral evidence in `docs/workflows/` before promoting follow-up implementation work
-4. group real product defects found during testing into bounded corrective slices rather than reopening broad milestone buckets
-5. update user guides, technical guides, setup docs, and active planning docs when user testing changes supported workflow truth
-6. keep data exchange as future implementation until user-testing findings have been triaged
+2. implement `milestone_15_urgent_review_and_ai_hardening_plan.md` first: urgent API defects, attachment bounds, inventory landing continuity, current-runtime AI hardening, and specialist-truth correction
+3. implement `milestone_16_structural_and_ai_capability_plan.md` next for the remaining validated non-urgent refactors, AI architecture improvements, specialist execution, recovery loops, and capability expansion
+4. continue extensive user testing on the corrected promoted runtime, but do not let user testing defer the urgent Milestone 15 defects once they are validated
+5. record pass, fail, blocker, and deferral evidence in `docs/workflows/` before promoting workflow-facing follow-up implementation work
+6. group real product defects found during testing into bounded corrective slices rather than reopening broad milestone buckets
+7. update user guides, technical guides, setup docs, and active planning docs when user testing or review implementation changes supported workflow truth
+8. keep data exchange as future implementation until Milestone 15 closes and user-testing findings have been triaged
 
 ## 2.1 Delivered Milestone 13 baseline
 
@@ -85,7 +87,9 @@ The post-closeout implementation review then found the first Milestone 14 correc
 
 ## 2.2 Post-Milestone 14 user testing and future data exchange
 
-Milestone 14 has closed cleanly. Do not start data-exchange implementation immediately. The next operating step is extensive user testing on the Milestone 14 runtime, with findings triaged into bounded corrective work as needed.
+Milestone 14 has closed cleanly. Do not start data-exchange implementation immediately. The April 2026 review findings now create a nearer-term Milestone 15 urgent corrective step before future data exchange or larger feature work.
+
+Milestone 15 should close the urgent review findings first. Milestone 16 should then handle the remaining non-urgent structural and AI capability recommendations. User testing on the promoted runtime should continue, with findings triaged into bounded corrective work as needed.
 
 Data exchange remains the future implementation candidate after that user-testing period. Its planned direction is:
 
