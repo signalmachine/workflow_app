@@ -1,7 +1,7 @@
 # workflow_app Execution Plan V2
 
-Date: 2026-04-10
-Status: Fast-close execution order for Milestone 14 after the core implementation checkpoints landed; remaining work should avoid open-ended test and workflow-validation expansion, run only a bounded confidence gate, and prioritize the documentation truth and user-testing-readiness closeout
+Date: 2026-04-12
+Status: Milestone 14 is closed after the core implementation checkpoints, documentation-truth closeout, and final confidence gate; extensive user testing on the corrected runtime is now the active next operating step before Milestone 15 data exchange can become active implementation
 Purpose: define the current execution order without carrying the full completed milestone narrative in the default context.
 
 ## 1. Completed baseline
@@ -14,17 +14,12 @@ Purpose: define the current execution order without carrying the full completed 
 
 ## 2. Active execution order
 
-1. treat Milestone 14 as the active fast-close milestone
-2. start with the bounded review-gap corrective pass on inbound-request lifecycle support and documentation truth
-3. include the bounded shared-shell desktop layout correction in that first corrective pass because it is a real promoted-runtime UX issue rather than a later optional polish item
-4. then apply the grouped-directory contextual-tab model in the most crowded promoted areas, starting with Admin and then Accounting, so tabs lead to focused directory pages and dedicated destinations
-5. then add baseline accounting reports for trial balance, balance sheet, and income statement on the shared reporting seam and close clearly similar adjacent reporting gaps when they are exposed during the same work
-6. then seed `North Harbor Works` with a standard chart of accounts and the minimum realistic master-data baseline needed for reports, admin/list surfaces, and bounded user testing
-7. treat the already-landed production-readiness test expansion as sufficient for Milestone 14 unless a concrete blocker or high-risk defect is discovered
-8. then run a bounded final confidence gate: canonical Go verification, any focused frontend check required by edited runtime files, and at most one small live-smoke workflow validation pass when current documentation claims need fresh evidence
-9. then make the user-testing posture explicit so the application can be handed to bounded testers with clear supported workflows, exclusions, known validation limits, and guidance
-10. update durable workflow-validation material in `docs/workflows/` whenever supported workflow truth or validation evidence changes
-11. then update user guides, technical guides, and setup docs so the documentation set reflects the corrected current state
+1. treat Milestone 14 as closed baseline rather than active implementation scope
+2. run extensive user testing on the corrected promoted runtime
+3. record pass, fail, blocker, and deferral evidence in `docs/workflows/` before promoting follow-up implementation work
+4. group real product defects found during testing into bounded corrective slices rather than reopening broad milestone buckets
+5. update user guides, technical guides, setup docs, and active planning docs when user testing changes supported workflow truth
+6. keep Milestone 15 data exchange as future implementation until user-testing findings have been triaged
 
 ## 2.1 Delivered Milestone 13 baseline
 
@@ -86,11 +81,11 @@ The post-closeout implementation review then found the first Milestone 14 correc
 18. the next production-readiness test-expansion checkpoint on 2026-04-11 added `internal/app` API integration coverage proving the promoted browser-session accounting-report endpoints keep trial balance, balance sheet, and income statement data scoped to the authenticated org
 19. the next production-readiness test-expansion checkpoint on 2026-04-11 added `internal/app` API integration coverage proving the promoted browser-session inventory and work-order review endpoints preserve same-org stock, movement detail, reconciliation, and work-order continuity while hiding exact foreign-org records through empty list results or not-found detail responses
 20. the next production-readiness test-expansion checkpoint on 2026-04-11 added `internal/app` API integration coverage proving promoted browser-session Admin exact-record actions reject foreign-org ledger-account status, tax-code status, accounting-period close, party detail/status/contact creation, inventory item/location status, and access membership-role changes without mutating those records, and corrected accounting and inventory status-update not-found translation for foreign exact ids
-21. the remaining Milestone 14 work should now move to fast closeout: avoid additional broad production-readiness test expansion, run only the bounded confidence gate needed before user testing, perform at most one small live-smoke workflow validation pass if current documentation claims need fresh evidence, and then complete the no-compromise documentation truth and user-testing-readiness pass rather than reopening the request-detail, shell-layout, route-vocabulary, grouped-directory, baseline accounting-report, demo-baseline, or already-landed API boundary checkpoints
+21. the Milestone 14 documentation-truth closeout and final confidence gate are now complete; avoid additional broad pre-user-testing production-readiness expansion unless user testing or a concrete blocker promotes one bounded corrective slice
 
 ## 2.2 Post-Milestone 14 user testing and Milestone 15 future direction
 
-If Milestone 14 closes cleanly, do not start Milestone 15 immediately. The next operating step should be extensive user testing on the Milestone 14 runtime, with findings triaged into bounded corrective work as needed.
+Milestone 14 has closed cleanly. Do not start Milestone 15 immediately. The next operating step is extensive user testing on the Milestone 14 runtime, with findings triaged into bounded corrective work as needed.
 
 Milestone 15 remains the future implementation milestone candidate after that user-testing period. Its planned direction is data exchange:
 
@@ -108,7 +103,7 @@ Milestone 15 remains the future implementation milestone candidate after that us
 
 1. do not treat implementation as complete without running the required verification or recording an explicit blocker
 2. use `../docs/technical_guides/07_testing_and_verification.md` for exact verification commands and workflow
-3. for Milestone 14 fast closeout, verification should be limited to canonical Go verification, focused checks for any edited runtime surface, and a single small live-smoke workflow validation pass only when needed to support current documentation claims
+3. for post-Milestone-14 corrective slices, verification should be limited to the affected runtime surface, canonical Go verification when code or persistence changes warrant it, and a single small live-smoke workflow validation pass only when needed to support current documentation claims
 4. browser-serving changes must be checked for real asset serving, correct SPA fallback behavior, and one bounded browser smoke pass on `/app`
 5. when Playwright is available locally, prefer it for the Milestone 13 real browser-review sweep rather than treating manual route clicking as the default first path
 6. for future workflow-critical browser closeout, record the exact seed command, backend target, org slug, actor credentials, and continuity ids used for the pass in the same change that records the evidence

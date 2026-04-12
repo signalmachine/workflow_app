@@ -1,6 +1,6 @@
 # User Testing Readiness
 
-Date: 2026-04-11
+Date: 2026-04-12
 Status: Active
 Purpose: describe the supported Milestone 14 runtime, setup path, workflow scope, and validation limits for bounded user testing.
 
@@ -70,5 +70,6 @@ Current pre-handoff evidence includes:
 2. focused frontend checks for request-detail lifecycle controls, grouped navigation, and accounting report destinations
 3. focused backend and API integration coverage for inbound-request lifecycle mutations, provider failure visibility, approval and proposal org boundaries, accounting-report org boundaries, inventory and work-order org boundaries, and Admin exact-record org boundaries
 4. canonical Go verification from the landed Milestone 14 production-readiness checkpoints
+5. the 2026-04-12 final confidence gate: `git diff --check`, `go build ./cmd/... ./internal/...`, and `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...`
 
 Record new user-testing pass, fail, blocker, or deferral notes in `docs/workflows/workflow_validation_track.md` before promoting follow-up implementation work.

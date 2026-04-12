@@ -1,7 +1,7 @@
 # workflow_app Tracker V2
 
-Date: 2026-04-10
-Status: Thin-v1 is complete, Milestones 10 through 13 are implemented history, and Milestone 14 is now in fast-close mode after its core implementation checkpoints landed; remaining work should avoid broad new testing or workflow-validation expansion, run only a small risk-based verification gate needed for confidence, and prioritize the no-compromise documentation truth and user-testing-readiness closeout
+Date: 2026-04-12
+Status: Thin-v1 is complete, Milestones 10 through 14 are implemented history, the Milestone 14 final confidence gate has passed, and the active next operating step is extensive user testing on the corrected promoted runtime before Milestone 15 data exchange is promoted from future candidate to active implementation
 Purpose: track the active implementation state, current sequencing, and immediate next steps without carrying full milestone history in the default context.
 
 ## 1. Current state
@@ -47,23 +47,21 @@ Purpose: track the active implementation state, current sequencing, and immediat
 39. another production-readiness test-expansion checkpoint is now landed on 2026-04-11: `internal/app` API integration coverage now proves the promoted browser-session accounting-report endpoints keep trial balance, balance sheet, and income statement data scoped to the authenticated org; the focused accounting-report org-boundary test, full `internal/app` package verification, `go build ./cmd/... ./internal/...`, serialized canonical Go verification, and gopls diagnostics passed for that checkpoint
 40. another production-readiness test-expansion checkpoint is now landed on 2026-04-11: `internal/app` API integration coverage now proves promoted browser-session inventory and work-order review endpoints preserve same-org stock, movement detail, reconciliation, and work-order continuity while hiding the same exact records from another org through empty list results or not-found detail responses; the focused inventory/work-order org-boundary test, full `internal/app` package verification, `go build ./cmd/... ./internal/...`, serialized canonical Go verification, `git diff --check`, and gopls diagnostics passed for that checkpoint
 41. another production-readiness test-expansion checkpoint is now landed on 2026-04-11: `internal/app` API integration coverage now proves promoted browser-session Admin exact-record actions reject cross-org access without mutation across ledger-account status, tax-code status, accounting-period close, party detail/status/contact creation, inventory item/location status, and access membership role changes; the checkpoint also normalized accounting and inventory setup-status not-found errors so foreign exact ids return not-found rather than generic server failures; the focused admin-boundary test, full `internal/app`, affected `internal/accounting` and `internal/inventoryops` package verification, `go build ./cmd/... ./internal/...`, serialized canonical Go verification, `git diff --check`, and gopls diagnostics passed for that checkpoint
-42. the Milestone 14 documentation-truth closeout checkpoint is now landed on 2026-04-11: the workflow-validation track records the remaining deeper live workflow backlog as deferred to the user-testing period unless the bounded final confidence gate finds a blocker, a user-testing readiness guide now states the supported runtime, setup path, test focus, limits, and evidence baseline, README status now points to user testing rather than already-landed grouped-navigation or accounting-report implementation work, and `git diff --check`, `go build ./cmd/... ./internal/...`, and `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` passed
+42. the Milestone 14 documentation-truth closeout checkpoint is now landed on 2026-04-11: the workflow-validation track records the remaining deeper live workflow backlog as deferred to the user-testing period unless a final confidence gate blocker appears, a user-testing readiness guide now states the supported runtime, setup path, test focus, limits, and evidence baseline, README status now points to user testing rather than already-landed grouped-navigation or accounting-report implementation work, and `git diff --check`, `go build ./cmd/... ./internal/...`, and `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...` passed
+43. the Milestone 14 final confidence gate passed on 2026-04-12 with `git diff --check`, `go build ./cmd/... ./internal/...`, and `set -a; source .env; set +a; GOCACHE=/tmp/go-build go test -p 1 ./cmd/... ./internal/...`; no blocker was found that would justify reopening broad pre-user-testing workflow validation or test expansion
 
 ## 2. Active implementation order
 
-1. treat Milestone 13 implementation as delivered baseline and Milestone 14 as the active next bounded milestone
-2. treat Milestone 14 Slice 1 as closed through the request-detail lifecycle, shell-layout, inbound-request documentation-truth, and first grouped-directory navigation checkpoints
-3. treat the first baseline accounting-report checkpoint as landed through trial balance, balance sheet, and income statement on the shared reporting seam
-4. treat the first `North Harbor Works` demo-baseline checkpoint as landed through the bootstrap-owned chart-of-accounts, tax-code, accounting-period, party/contact, and inventory master-data seed
-5. treat the current production-readiness test-expansion checkpoints as sufficient for Milestone 14 closeout unless a concrete blocker or high-risk defect is discovered; do not add more broad test-expansion slices by default
-6. run only a bounded final verification gate for closeout: the canonical Go verification, any focused frontend check needed for edited docs-adjacent runtime files, and at most one small live-smoke workflow validation pass on the promoted runtime if the documentation claims need fresh evidence
-7. finish the documentation-truth closeout and final confidence gate; do not reopen broad test expansion unless a concrete blocker appears
-8. defer deeper workflow-validation backlog execution and additional exploratory testing to the user-testing period unless a current blocker would make bounded testing misleading
-9. use the updated Playwright plus `cmd/verify-agent -database-url "$DATABASE_URL" -approval-flow` pattern as the default real-browser continuity proof for future workflow-critical Svelte changes
+1. treat Milestone 13 and Milestone 14 implementation as delivered baseline
+2. make extensive user testing on the corrected Milestone 14 runtime the active next operating step
+3. keep the remaining deeper workflow-validation backlog in the user-testing period unless a concrete blocker is discovered
+4. if user testing finds a real defect, promote one bounded corrective slice for the related defect family and rerun the affected checklist items
+5. do not start Milestone 15 data exchange until user-testing findings have been triaged
+6. use the updated Playwright plus `cmd/verify-agent -database-url "$DATABASE_URL" -approval-flow` pattern as the default real-browser continuity proof for future workflow-critical Svelte changes
 
 ## 2.1 Current delivered baseline
 
-The next session should assume this pre-Milestone-14 baseline is already landed:
+The next session should assume this Milestone 14 baseline is already landed:
 
 1. `/app/settings` and the bounded admin family already have promoted Svelte continuity on shared backend seams
 2. exact Svelte detail routes already exist for inbound requests, approvals, proposals, documents, accounting, inventory, work orders, and audit
@@ -74,7 +72,7 @@ The next session should assume this pre-Milestone-14 baseline is already landed:
 7. the promoted request and proposal detail surfaces already include exact downstream accounting-entry continuity when the shared reporting seam exposes a posted journal entry for the linked document
 8. Playwright-driven browser review on the served `/app` runtime should remain the preferred closeout path over adding more indirect HTTP-only or component-only evidence when future workflow-critical UI slices land
 
-Use these supporting docs for the remaining closeout:
+Use these supporting docs for user-testing validation and any bounded corrective follow-up:
 
 1. `../docs/workflows/end_to_end_validation_checklist.md` for bounded real-seam validation steps
 2. `../docs/workflows/workflow_validation_track.md` for explicit validation evidence and blocker tracking
@@ -89,16 +87,14 @@ After Milestone 14, the immediate next operating step is extensive user testing 
 4. support Excel-compatible export for key reports and lists where justified
 5. keep import validation, persistence, and auditability on the shared backend seam
 
-## 3. Current decision gate
+## 3. Current user-testing gate
 
-The next implementation session should answer this in code and verification, not in more planning expansion:
+The next implementation session should not start a new feature milestone by default. It should first use the Milestone 14 runtime in user testing and answer:
 
-1. does the promoted Svelte runtime regain full parked-request lifecycle support, or is the browser contract intentionally narrowed and documented as such
-2. does the shared desktop shell land the bounded sidebar-versus-contextual-tab layout correction cleanly on the promoted runtime
-3. do baseline accounting reports land in a production-shape form on the shared reporting seam, and what adjacent similar report gaps should be closed in the same milestone
-4. does `North Harbor Works` gain the minimum realistic chart of accounts and master-data baseline needed for bounded user testing and meaningful report review
-5. what small final verification gate is still required to avoid handing testers an obviously broken runtime
-6. what documentation updates are required to close Milestone 14 cleanly, including explicit notes for any workflow-validation evidence deferred to user testing
+1. which supported workflows pass for real operators without implementation changes
+2. which findings are documentation or training issues rather than product defects
+3. which findings are real defects that should be grouped into one bounded corrective slice
+4. whether any finding changes the Milestone 15 data-exchange priority or sequencing after testing
 
 ## 4. Working rules
 

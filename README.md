@@ -498,6 +498,6 @@ Implemented:
 
 Immediate next steps:
 
-1. finish the Milestone 14 documentation truth and user-testing-readiness closeout
-2. run the bounded final confidence gate from `docs/technical_guides/07_testing_and_verification.md`
-3. move into extensive user testing on the Milestone 14 runtime before promoting Milestone 15 data exchange from future candidate to active work
+1. run extensive user testing on the closed Milestone 14 runtime
+2. record pass, fail, blocker, and deferral evidence in `docs/workflows/workflow_validation_track.md`
+3. group real user-testing defects into bounded corrective slices before promoting Milestone 15 data exchange from future candidate to active work

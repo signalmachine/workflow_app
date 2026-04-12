@@ -1,7 +1,7 @@
 # workflow_app Milestone 14 Production Readiness and Workflow Validation Plan
 
-Date: 2026-04-10
-Status: Fast-close active milestone after core implementation checkpoints landed
+Date: 2026-04-12
+Status: Closed milestone after core implementation checkpoints, documentation-truth closeout, and the final confidence gate passed
 Purpose: define the next bounded v2 milestone after Milestone 13 so the repository closes the implementation and documentation gaps found in the codebase review, strengthens production-readiness verification, resumes deeper workflow validation, and makes the documentation set reflect the current promoted runtime truth.
 
 ## 1. Why this milestone exists
@@ -76,11 +76,11 @@ The first bounded corrective slices started from the review findings established
 7. admin and other promoted contextual-tab families mixed too many actions, forms, and list surfaces onto single pages instead of using cleaner grouped directory pages plus dedicated destination pages
 8. the default demo entity needed a baseline chart of accounts and other minimum master data so user testing did not begin from an unrealistically empty state
 
-Milestone 14 did not treat those as optional polish items. The remaining work is the bounded final confidence gate plus documentation truth and user-testing readiness closeout.
+Milestone 14 did not treat those as optional polish items. The bounded final confidence gate and documentation truth closeout are now complete; the next operating step is user testing.
 
 ## 5. Delivery slices
 
-Milestone 14 should execute through six bounded slices.
+Milestone 14 executed through seven bounded slices.
 
 ### 5.1 Slice 1: review-gap corrective pass
 
@@ -301,16 +301,11 @@ When Milestone 14 changes:
 
 ## 9. Current queue position
 
-Milestone 14 is now the active fast-close milestone.
+Milestone 14 is closed.
 
-Recommended order:
+Current order:
 
-1. start with the bounded review-gap corrective pass on inbound-request lifecycle and documentation truth
-2. include the bounded shared-shell desktop layout correction in that first corrective pass rather than leaving it outside the active milestone
-3. then apply the grouped-directory and dedicated-destination navigation model in the most crowded promoted areas, starting with Admin and then Accounting
-4. then land baseline accounting reports and close the most obvious adjacent reporting gaps exposed by that work
-5. then seed `North Harbor Works` with the minimum realistic chart of accounts and master-data baseline needed for those reports and for bounded user testing
-6. treat the landed production-readiness tests as sufficient unless a concrete blocker appears
-7. run only the bounded final confidence gate and at most one small live-smoke workflow validation pass if needed for documentation truth
-8. then close with the broader documentation truth and coverage pass needed to make the repository defensible for extensive user testing; do not compromise this documentation pass
-9. then move into extensive user testing before promoting Milestone 15 from future candidate to active implementation work
+1. use the corrected Milestone 14 runtime for extensive user testing
+2. record user-testing pass, fail, blocker, and deferral evidence in `docs/workflows/`
+3. group any real defects into bounded corrective slices rather than reopening Milestone 14 broadly
+4. keep Milestone 15 data exchange as a future candidate until user-testing findings have been triaged
