@@ -37,6 +37,8 @@ Milestone 15 should happen before broad production use and before larger Milesto
 6. current coordinator reliability and operator visibility
 7. misleading specialist-run attribution if delegation is recorded without a real specialist provider
 
+Keep Milestone 15 small and corrective. Do not pull the Milestone 16 accounting-proposal workflow overhaul into this milestone unless implementation uncovers a concrete urgent defect that blocks the Milestone 15 hardening itself. The purpose of Milestone 15 is to make the current runtime safer and more reliable so Milestone 16 can overhaul the AI workflow foundation on top of a cleaner baseline.
+
 ## 4. Scope
 
 In scope:
@@ -125,3 +127,5 @@ Use `docs/technical_guides/07_testing_and_verification.md` for exact command sha
 ## 7. Completion Rule
 
 Milestone 15 is complete only when urgent API defects, attachment bounds, inventory landing continuity, AI Phase 1 hardening, and specialist-truth correction are implemented and verified. Any remaining structural or capability recommendations move to Milestone 16 unless implementation uncovers a new blocking defect.
+
+After Milestone 15 closes, the application may still have the known accounting-proposal workflow gap. That is expected and should not block Milestone 15 closure; it is the first foundational capability target for Milestone 16.

@@ -25,6 +25,8 @@ The planned slices below are the starting structure, not the delivery ceiling. D
 
 This milestone should still avoid novelty-driven or unrelated refactors. New work belongs in Milestone 16 when it is necessary to make the foundational workflow pass from request submission through AI processing, proposal/document creation, approval, accounting posting, and final accounting entry persistence in the database.
 
+The first Milestone 16 implementation checkpoint should target the foundational accounting workflow directly. Do not make that checkpoint wait behind every structural cleanup slice. Implement only the enabling cleanup, context-loading, prompt/schema, or specialist-registry work needed to deliver and verify the request-to-accounting-entry path first; then continue with the remaining structural and capability slices.
+
 ## 3. Scope
 
 In scope:
@@ -81,6 +83,16 @@ AI may prepare or propose. Humans approve. The accounting package posts.
 ## 5. Delivery Slices
 
 These slices are planning anchors. They should be expanded during implementation when codebase review or workflow testing exposes a gap that blocks the foundational workflow from completing correctly. Do not treat the slice list as a reason to defer a required AI-layer or workflow-seam fix that is discovered while implementing Milestone 16.
+
+Recommended execution order:
+
+1. start with the minimum enabling subset of Slice 5.5 and Slice 5.7 only where needed for a clean accounting-proposal path
+2. implement Slice 5.6 as the first externally meaningful Milestone 16 checkpoint
+3. run the live or seeded continuity proof through final accounting-entry persistence
+4. implement Slice 5.8 recovery if the first workflow pass exposes stuck-run or requeue gaps
+5. continue through the remaining cleanup, refactor, storage, queue, tool-breadth, policy, and proactive-AI slices
+
+This order preserves the original plan while making the end-to-end workflow the milestone's controlling priority.
 
 ### 5.1 Slice 1: App structural cleanup
 
