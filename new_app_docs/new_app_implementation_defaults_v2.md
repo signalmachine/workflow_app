@@ -1,6 +1,6 @@
 # workflow_app Implementation Defaults V2
 
-Date: 2026-04-10
+Date: 2026-04-12
 Status: Active canonical defaults
 Purpose: record the defaults that active implementation should preserve unless the active v2 planning surface is intentionally updated.
 
@@ -25,6 +25,7 @@ Purpose: record the defaults that active implementation should preserve unless t
 2. Svelte is the promoted browser interaction layer on the shared Go backend
 3. do not split backend truth into browser-specific versus later-client-specific ownership paths
 4. `internal/app` should stay transport and orchestration focused rather than accumulating durable business logic
+5. use `docs/technical_guides/` as the forward durable technical reference for the completed Svelte web runtime; treat `docs/svelte_web_guides/` as implementation-era migration guidance that is pending archive, not canonical current-state documentation
 
 ## 4. Interface defaults
 

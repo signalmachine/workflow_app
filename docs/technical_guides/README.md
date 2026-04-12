@@ -33,6 +33,8 @@ Keep document roles distinct.
 
 This folder should capture stable technical understanding of the application as built, not replace the canonical planning set.
 
+`docs/technical_guides/` is the main technical reference surface going forward, including for the completed Svelte web UI. The older `docs/svelte_web_guides/` material was implementation-era guidance for the migration and should be treated as pending archive/reference material rather than the canonical current-state web UI source.
+
 `docs/workflows/` is the canonical workflow-documentation source for supported operator workflows, workflow continuity, and workflow-validation status. Workflow-facing technical guidance in this folder should derive from that source rather than restating independent workflow truth.
 
 These guides are intended to become part of the durable technical context that both humans and AI coding agents can use during implementation, review, debugging, and extension work.
