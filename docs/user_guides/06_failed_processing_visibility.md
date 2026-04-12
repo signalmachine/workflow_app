@@ -1,6 +1,6 @@
 # Failed Processing Visibility
 
-Date: 2026-03-31
+Date: 2026-04-12
 Status: Active
 Purpose: explain how to review a failed provider or failed processing path and trace the failure back to the exact request.
 
@@ -24,6 +24,10 @@ Check that the request page shows:
 2. the failure reason
 3. the failed timestamp
 4. the AI run and step history around the failure
+
+Example:
+
+If queue processing fails for `REQ-000124`, open `/app/inbound-requests/REQ-000124` and review the failed timestamp plus run and step entries. If the provider failed before a proposal was created, use the failure state to decide whether to retry, amend the request back to draft, or collect more evidence for a defect report.
 
 ## 3. Confirm troubleshooting continuity
 

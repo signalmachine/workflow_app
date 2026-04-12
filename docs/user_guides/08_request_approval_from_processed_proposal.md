@@ -1,6 +1,6 @@
 # Request Approval From a Processed Proposal
 
-Date: 2026-03-31
+Date: 2026-04-12
 Status: Active
 Purpose: explain how to turn a processed proposal into an approval request while preserving the original workflow chain.
 
@@ -22,6 +22,10 @@ Use the approval request action from the proposal detail surface:
 The browser path is a POST form action, not a standalone GET page.
 
 After the action completes, confirm that the proposal now links into an approval record.
+
+Example:
+
+A processed proposal created a submitted vendor invoice document and shows that approval is required before posting. Use the request-approval action on the exact proposal detail page, then open the linked approval and confirm it references the same request, recommendation, and document before asking the approver to decide.
 
 ## 3. Verify the linkage
 

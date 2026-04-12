@@ -34,6 +34,10 @@ Sign in with the default demo identity unless the session owner supplied a diffe
 
 The default bootstrap command seeds the minimum North Harbor Works baseline: chart of accounts, GST tax codes, an open FY2026-27 accounting period, sample customer and vendor parties with contacts, starter inventory items, and starter locations.
 
+Example:
+
+For a clean user-testing session, start the app against `DATABASE_URL`, run the bootstrap command once, sign in as `admin@northharbor.local`, then use the seeded records to test request, approval, accounting, inventory, and admin maintenance workflows without first building master data by hand.
+
 ## 3. Supported Test Focus
 
 The current bounded user-testing pass should focus on:
@@ -49,6 +53,10 @@ The current bounded user-testing pass should focus on:
 9. Admin grouped directory pages, accounting setup, party setup, access maintenance, and inventory setup
 
 Use `docs/workflows/end_to_end_validation_checklist.md` as the checklist when a session is validating workflow continuity rather than only browsing the app.
+
+Example:
+
+A bounded user-testing pass can start with one draft inbound request, queue it, process it from `/app/operations`, review the processed proposal, request approval when the proposal provides a submitted document, make the approval decision, then confirm the document and accounting review links preserve the same `REQ-...` chain.
 
 ## 4. Current Limits
 

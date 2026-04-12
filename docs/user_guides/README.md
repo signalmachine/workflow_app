@@ -1,6 +1,6 @@
 # User Guides
 
-Date: 2026-04-11
+Date: 2026-04-12
 Status: Active
 Purpose: provide operator-facing and reader-friendly guidance for using `workflow_app` through its supported application surfaces.
 
@@ -52,22 +52,50 @@ The supported review guides should cover both list-level filters and exact detai
 
 Recommended reading order:
 
-1. `running_the_application.md`
-2. `browser_sign_in_and_admin_bootstrap.md`
-3. `browser_operator_getting_started.md`
-4. `user_testing_readiness.md`
-5. `inbound_request_lifecycle.md`
-6. `failed_processing_visibility.md`
-7. `processed_proposal_review.md`
-8. `request_approval_from_processed_proposal.md`
-9. `approval_decision_workflow.md`
-10. `operations_feed.md`
-11. `agent_chat.md`
-12. `document_review.md`
-13. `accounting_review.md`
-14. `inventory_review.md`
-15. `work_order_review.md`
-16. `audit_lookup.md`
+1. `01_running_the_application.md`
+2. `02_browser_sign_in_and_admin_bootstrap.md`
+3. `03_browser_operator_getting_started.md`
+4. `04_user_testing_readiness.md`
+5. `05_inbound_request_lifecycle.md`
+6. `06_failed_processing_visibility.md`
+7. `07_processed_proposal_review.md`
+8. `08_request_approval_from_processed_proposal.md`
+9. `09_approval_decision_workflow.md`
+10. `10_operations_feed.md`
+11. `11_agent_chat.md`
+12. `12_admin_accounting_setup.md`
+13. `13_admin_party_setup.md`
+14. `14_admin_access_maintenance.md`
+15. `15_admin_inventory_setup.md`
+16. `16_document_review.md`
+17. `17_accounting_review.md`
+18. `18_inventory_review.md`
+19. `19_work_order_review.md`
+20. `20_audit_lookup.md`
+
+## 3.1 Workflow coverage map
+
+Use this map when checking whether the user-guide layer still reflects the workflow catalog.
+
+1. browser session login and active-session continuity: `01_running_the_application.md`, `02_browser_sign_in_and_admin_bootstrap.md`, `03_browser_operator_getting_started.md`
+2. inbound request submit and queue processing: `05_inbound_request_lifecycle.md`
+3. draft save, amend, queue, cancel, and delete lifecycle: `05_inbound_request_lifecycle.md`
+4. processed proposal review and continuity: `07_processed_proposal_review.md`
+5. processed proposal to approval request: `08_request_approval_from_processed_proposal.md`
+6. approval decision and downstream continuity: `09_approval_decision_workflow.md`
+7. failed provider or failed processing visibility: `06_failed_processing_visibility.md`
+8. downstream document review: `16_document_review.md`
+9. accounting report and journal review: `17_accounting_review.md`
+10. inventory review: `18_inventory_review.md`
+11. work-order review: `19_work_order_review.md`
+12. audit lookup: `20_audit_lookup.md`
+13. operations feed and agent-chat continuity: `10_operations_feed.md`, `11_agent_chat.md`
+14. admin accounting setup maintenance: `12_admin_accounting_setup.md`
+15. admin party setup maintenance: `13_admin_party_setup.md`
+16. admin access maintenance: `14_admin_access_maintenance.md`
+17. admin inventory setup maintenance: `15_admin_inventory_setup.md`
+
+Each workflow guide should include at least one concrete example. Use examples as operator guidance only; keep canonical workflow state and validation status in `docs/workflows/`.
 
 ## 4. Organization rule
 

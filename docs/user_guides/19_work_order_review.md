@@ -1,6 +1,6 @@
 # Work-Order Review
 
-Date: 2026-03-31
+Date: 2026-04-12
 Status: Active
 Purpose: explain how to review a work-order record and confirm it matches the workflow chain that produced it.
 
@@ -23,6 +23,10 @@ Check that the work-order page shows:
 2. the current execution state
 3. any linked inventory, labor, or source document context
 4. any related downstream review details
+
+Example:
+
+When a submitted service request produces a work order, open `/app/review/work-orders/{work_order_id}` and confirm the execution state, source document, and any linked inventory movement before marking the workflow review as complete.
 
 ## 3. Confirm continuity
 

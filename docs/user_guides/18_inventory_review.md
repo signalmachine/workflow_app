@@ -1,6 +1,6 @@
 # Inventory Review
 
-Date: 2026-03-31
+Date: 2026-04-12
 Status: Active
 Purpose: explain how to review inventory output and confirm it matches the document workflow chain.
 
@@ -26,6 +26,10 @@ Check that the inventory page shows:
 2. the current stock or movement state
 3. the linked source document or execution record
 4. any related review details needed to trace the change
+
+Example:
+
+If a work-order workflow consumes `Pump seal kit` from `Main warehouse`, open `/app/review/inventory?item_id={item_id}` or the exact movement route and confirm the movement, source document, and location context match the work-order chain.
 
 ## 3. Confirm continuity
 

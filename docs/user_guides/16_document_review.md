@@ -1,6 +1,6 @@
 # Document Review
 
-Date: 2026-03-31
+Date: 2026-04-12
 Status: Active
 Purpose: explain how to review a document and confirm its continuity through the downstream workflow chain.
 
@@ -22,6 +22,10 @@ Check that the document page shows:
 2. the current document state
 3. any linked upstream request or proposal
 4. any linked downstream approval or posting context
+
+Example:
+
+When a proposal creates a submitted invoice document, open `/app/review/documents/{document_id}` from the proposal or approval page. Confirm the document state, source request, proposal, and approval context before treating the document as ready for accounting review.
 
 ## 3. Confirm continuity
 

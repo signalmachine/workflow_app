@@ -1,6 +1,6 @@
 # Operations Feed
 
-Date: 2026-03-31
+Date: 2026-04-12
 Status: Active
 Purpose: explain how to use the operations feed as a one-way coordinator and system status surface.
 
@@ -18,6 +18,10 @@ The feed should help you confirm:
 2. recent proposal activity
 3. recent approval activity
 4. direct links into the relevant detail pages
+
+Example:
+
+After a coordinator run, use `/app/operations-feed` to find the latest request or proposal activity. Follow the detail link for `REQ-...` or the proposal instead of treating the feed row as the final workflow state.
 
 ## 3. Verify continuity
 

@@ -1,6 +1,6 @@
 # Browser Operator Getting Started
 
-Date: 2026-04-11
+Date: 2026-04-12
 Status: Active
 Purpose: explain the first browser path into `workflow_app` and the main pages an operator uses after sign-in.
 
@@ -28,6 +28,10 @@ The default bootstrap command also seeds North Harbor Works with a starter chart
 
 After sign-in, the app should place you on the operator home for that org context.
 
+Example:
+
+For the default local setup, open `/app/login`, enter org slug `north-harbor`, email `admin@northharbor.local`, the bootstrap password, and device label `browser`. After sign-in, start from the operator home and use the sidebar or route catalog to reach the task-specific workflow page.
+
 ## 3. What to use next
 
 From the dashboard, move to the task-specific pages:
@@ -44,6 +48,10 @@ From the dashboard, move to the task-specific pages:
 10. review audit history from `/app/review/audit`
 11. open the operations feed from `/app/operations-feed`
 12. open the coordinator-facing browser chat surface from `/app/agent-chat`
+
+Example:
+
+If the current task is to test a vendor invoice workflow, start with `/app/submit-inbound-request`, move to `/app/operations` to process the queued request, then follow the exact request, proposal, approval, document, and accounting links instead of jumping between unrelated list pages.
 
 ## 4. What should stay true
 

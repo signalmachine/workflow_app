@@ -1,6 +1,6 @@
 # Audit Lookup
 
-Date: 2026-03-31
+Date: 2026-04-12
 Status: Active
 Purpose: explain how to use the audit lookup surface to trace workflow history across linked records.
 
@@ -23,6 +23,10 @@ Check that the audit page shows:
 2. the action history
 3. the linked request, proposal, approval, or downstream record
 4. any state change details needed to explain the event
+
+Example:
+
+If a request unexpectedly moved from queued back to draft, open `/app/review/audit?entity_type=inbound_request&entity_id={request_id}` and compare the audit event with the request detail page. The audit event should explain who or what performed the state change.
 
 ## 3. Confirm continuity
 

@@ -1,6 +1,6 @@
 # Processed Proposal Review
 
-Date: 2026-03-31
+Date: 2026-04-12
 Status: Active
 Purpose: explain how to review a processed proposal and confirm continuity back to the originating request.
 
@@ -25,6 +25,10 @@ Check that the page shows:
 3. the proposal payload
 4. any linked downstream document context
 5. the request-approval action when a submitted document is ready for approval routing
+
+Example:
+
+For a processed purchase request, open `/app/review/proposals/{recommendation_id}` and confirm the proposal still points to the original `REQ-...`, the recommendation payload describes the expected vendor or item, and any submitted document link matches the request facts before asking for approval.
 
 ## 3. Confirm continuity
 

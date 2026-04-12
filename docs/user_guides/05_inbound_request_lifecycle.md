@@ -1,6 +1,6 @@
 # Inbound Request Lifecycle
 
-Date: 2026-04-10
+Date: 2026-04-12
 Status: Active
 Purpose: explain how to create, park, edit, queue, cancel, delete, and process inbound requests from the browser surfaces.
 
@@ -28,6 +28,10 @@ From that page, you can:
 
 Use draft save when the request is not ready for processing yet. Use submit when the request is ready to be queued.
 
+Example:
+
+An operator receives a vendor email that says `Please approve the attached repair-material purchase for Harbor Retail job 42`. The operator opens `/app/submit-inbound-request`, writes a short request summary, attaches the vendor quote, and saves it as a draft if the job number or vendor contact still needs confirmation. When the details are ready, the operator queues the same request instead of creating a second request.
+
 ## 3. Continue editing a draft
 
 Use `/app/review/inbound-requests` when you need to find a parked, queued, failed, or processed request from the browser list.
@@ -44,6 +48,10 @@ From the draft detail view, you should be able to:
 
 The request reference should stay stable while the request remains in draft, queued, or processed states.
 
+Example:
+
+If the saved draft is `REQ-000123`, use `/app/inbound-requests/REQ-000123` to add the missing vendor contact. The reference should remain `REQ-000123` after the edit and after queueing.
+
 ## 4. Queue, cancel, or delete
 
 From the request detail page:
@@ -54,6 +62,10 @@ From the request detail page:
 4. delete the request only if it is still an unprocessed draft and the UI allows hard deletion
 
 If a request has already moved into processing or has been processed, do not expect the draft-only delete action to remain available.
+
+Example:
+
+If `REQ-000123` was queued by mistake before processing started, cancel it or amend it back to draft when the page offers that control. If it is still only an unprocessed draft and should be discarded entirely, use delete from the exact detail page.
 
 ## 5. Process the queue
 
@@ -69,6 +81,10 @@ After processing, check the request record for:
 3. artifact or brief output
 4. recommendation output
 5. any delegation or specialist follow-up records
+
+Example:
+
+After the operations page processes `REQ-000123`, open the request detail again and follow the proposal link. If the coordinator created a submitted document, continue from the proposal into document review or approval request rather than relying on the operations page alone.
 
 ## 6. Verify continuity
 

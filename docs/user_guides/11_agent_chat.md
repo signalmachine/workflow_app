@@ -1,6 +1,6 @@
 # Agent Chat
 
-Date: 2026-04-10
+Date: 2026-04-12
 Status: Active
 Purpose: explain how to use the coordinator-facing browser chat surface on the persisted inbound-request foundation.
 
@@ -17,6 +17,10 @@ From the chat surface:
 1. enter the guidance or coordination request
 2. submit it as an inbound request on the shared queue-oriented path
 3. keep the request on the same `REQ-...` foundation as other intake flows
+
+Example:
+
+An operator asks the coordinator to check whether a queued vendor request has enough information for approval. Submit the prompt from `/app/agent-chat`, then follow the created `REQ-...` into normal request review. Do not keep a separate chat-only action list outside the request workflow.
 
 ## 3. Confirm continuity
 

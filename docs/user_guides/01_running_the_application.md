@@ -1,6 +1,6 @@
 # Running The Application
 
-Date: 2026-03-30
+Date: 2026-04-12
 Status: Active
 Purpose: explain the recommended local run path for the main application database, browser sign-in, and the separate test-database workflow.
 
@@ -26,6 +26,10 @@ Use `TEST_DATABASE_URL` when you are:
 
 Do not point the canonical test command at the main application database.
 
+Example:
+
+Use `DATABASE_URL` for a manual North Harbor Works browser session where you want seeded demo records to persist across restarts. Use `TEST_DATABASE_URL` for `go test` runs that reset or mutate test data.
+
 ## 2. First-run setup
 
 From the repository root:
@@ -38,9 +42,13 @@ go run ./cmd/app
 
 The runnable commands auto-load `.env` from the repository root when it exists. You do not need to `source .env` first for these commands unless you want shell-level overrides.
 
-If you need the browser-login defaults or a friendlier local admin login, see [`browser_sign_in_and_admin_bootstrap.md`](./browser_sign_in_and_admin_bootstrap.md).
+If you need the browser-login defaults or a friendlier local admin login, see [`02_browser_sign_in_and_admin_bootstrap.md`](./02_browser_sign_in_and_admin_bootstrap.md).
 
 The default bootstrap step also seeds the minimum North Harbor Works demo baseline for bounded testing. Pass `-seed-demo-baseline=false` if you need only the admin login records.
+
+Example:
+
+For a normal local user-testing run, migrate the database, bootstrap North Harbor Works with a real password, start `cmd/app`, then sign in at `/app/login`. You should see the seeded chart of accounts, parties, inventory items, and locations without manually creating them first.
 
 For the durable technical setup contract, see [`Demo Entity: North Harbor Works`](../technical_guides/16_demo_entity_north_harbor_works.md).
 

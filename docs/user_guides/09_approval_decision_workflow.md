@@ -1,6 +1,6 @@
 # Approval Decision Workflow
 
-Date: 2026-03-31
+Date: 2026-04-12
 Status: Active
 Purpose: explain how to review a pending approval and make the final approve or reject decision.
 
@@ -20,6 +20,10 @@ Use the decision action from the approval detail page:
 `/app/approvals/{approval_id}/decision`
 
 This is a POST form action, not a standalone GET page. From the approval detail page, choose the approval outcome that matches the review.
+
+Example:
+
+An approver opens a pending approval for a vendor invoice generated from `REQ-000123`. The approver checks the proposal and document links, approves the request if the document is correct, then confirms the approval detail shows the decision and the document moved into the expected downstream state.
 
 ## 3. Verify downstream continuity
 

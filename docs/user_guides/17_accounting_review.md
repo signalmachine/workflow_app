@@ -1,6 +1,6 @@
 # Accounting Review
 
-Date: 2026-04-10
+Date: 2026-04-12
 Status: Active
 Purpose: explain how to review accounting output and confirm it matches the document workflow chain.
 
@@ -29,6 +29,10 @@ Check that the accounting page shows:
 3. the linked source document
 4. any related review details needed to trace the posting
 5. financial-statement totals when the task is report review rather than exact journal-entry review
+
+Example:
+
+After an approved invoice posts, open `/app/review/accounting/journal-entries?document_id={document_id}` from the document chain and confirm the journal entry points back to the same document, approval, proposal, and request. For period-level review, open trial balance, balance sheet, or income statement from `/app/review/accounting` and set the effective-date filter for the same period.
 
 ## 3. Confirm continuity
 
