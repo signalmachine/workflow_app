@@ -37,6 +37,7 @@ Read these in order for active implementation work:
 9. `future_plans/data_exchange_and_bulk_import_plan.md` for the future data-exchange candidate; do not start data-exchange implementation until the Milestone 15 urgent review findings have been closed and user-testing findings have been triaged
 10. `ai_layer_improvement_plan.md` when working on AI-agent layer improvement findings
 11. `code_review_and_improvement_plan.md` when working on application-wide code-review findings
+12. `repl_interface_plan.md` when working on the planned `cmd/repl` developer and operator REPL
 
 Then use:
 
