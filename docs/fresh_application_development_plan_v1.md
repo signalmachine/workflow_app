@@ -4,6 +4,8 @@ Date: 2026-04-16
 Status: Versioned fresh-start plan incorporating lessons from the current `workflow_app` review and the successful `accounting-agent-app` proof
 Purpose: define the architecture and phased rollout for a new AI-agent-first application stack that uses a traditional ERP simulator backend as its integration target.
 
+Planning status: this is a fresh-start proposal and design record. It does not supersede the active `workflow_app` implementation-planning surface in `new_app_docs/`, and it should not be used to silently redirect the current codebase unless the repository planning docs are explicitly updated to make that decision.
+
 ## 0. Reference Repositories
 
 Use these repositories as reference material while building the fresh applications:
@@ -11,7 +13,11 @@ Use these repositories as reference material while building the fresh applicatio
 1. main reference application: `https://github.com/signalmachine/accounting-agent-app`
 2. additional reference: `https://github.com/signalmachine/workflow_app`
 
-The main reference application is the working proof to study for the Phase 1 accounting-agent workflow pattern. The additional reference captures the broader current `workflow_app` implementation and its review lessons, but it should not override the fresh split-application architecture in this document.
+The main reference application is a strong reference repo for the accounting-agent workflow, even though the fresh implementation is intended to be better separated, more auditable, and more extensible. Study its working flow, domain vocabulary, proposal shape, validation discipline, REPL loop, and human-confirmation pattern closely. Do not treat its single-process architecture or direct ledger-write shortcuts as constraints on the fresh design.
+
+When the fresh application is not achieving its workflow objective, include the main reference application in the broader debugging process. Compare the failing path against the reference app's known-working path to identify whether the issue is in intent classification, proposal extraction, validation, confirmation flow, ledger or document persistence, reporting, or operator feedback. Use that comparison to diagnose behavior, not to weaken the fresh app's split-system architecture, audit trail, or approval boundaries.
+
+The additional reference captures the broader current `workflow_app` implementation and its review lessons, but it should not override the fresh split-application architecture in this document.
 
 ## 1. Decision Summary
 
@@ -36,14 +42,18 @@ The new system should be split into separate applications:
 1. backend application: a deterministic traditional ERP/accounting simulator
 2. AI agent application: the primary product and intelligence layer
 
-The backend application is not intended for production deployment as a real ERP. It is a realistic stand-in for systems like Tally, Zoho, QuickBooks, or SAP so that the AI agent application can be developed and tested against credible business constraints.
+The backend application is not intended for production deployment as a real ERP. It is a realistic stand-in for traditional enterprise applications such as Tally, Zoho, QuickBooks, SAP, Salesforce, and similar systems so that AI agent applications can be developed and tested against credible business constraints.
+
+The backend should not be more capable or differentiated than those traditional enterprise systems merely because it is purpose-built for agent development. Its job is to expose ordinary enterprise records, workflows, validations, reports, and APIs. The AI agent apps should be the differentiated products.
+
+In production, an AI agent app may integrate with real enterprise applications instead of this `business-backend` simulator. Therefore `business-backend` and `ai-agent-app` must be treated as two separate systems from day one, with separate databases, separate runtime ownership, and integration only through external-style API contracts.
 
 This document is not an implementation plan for continuing the current `workflow_app` codebase. It is a fresh-start plan that uses two sources as lessons:
 
 1. the current `workflow_app` Milestone 15 and Milestone 16 review findings
 2. the successful `signalmachine/accounting-agent-app` implementation at `https://github.com/signalmachine/accounting-agent-app`
 
-The central lesson from both sources is the same: the first phase must prove one real accounting workflow end to end instead of building a broad foundation first.
+The central lesson from both sources is the same: each phase must prove one complete workflow or business capability end to end instead of building a broad foundation first.
 
 ## 2. Product Boundary
 
@@ -51,7 +61,9 @@ The central lesson from both sources is the same: the first phase must prove one
 
 The backend is a traditional business-system simulator.
 
-It should support only the kinds of capabilities a normal accounting, inventory, order-management, or ERP-style application would expose:
+It is intended to stand in for many classes of enterprise applications over time, not only accounting, inventory, and order management. Future slices may add CRM, project management, task management, or other enterprise capabilities when a specific AI-agent workflow needs them. Those additions should be iterative, workflow-led, and phase-bounded rather than a big-bang attempt to build a full enterprise suite upfront.
+
+It should support only the kinds of capabilities a normal enterprise application would expose:
 
 1. master data
 2. accounting documents
@@ -62,6 +74,8 @@ It should support only the kinds of capabilities a normal accounting, inventory,
 7. reports
 8. REST APIs
 9. a development REPL that uses the REST API
+
+For Phase 1, the backend should stay focused on the accounting surface needed for the vendor-invoice workflow. Broader enterprise areas are future capability candidates, not Phase 1 foundation work.
 
 The backend should be dumb about natural language and AI, but it should not be a toy. It must enforce normal business-system invariants so that the AI app is tested against realistic constraints.
 
@@ -111,6 +125,8 @@ The AI application may propose and prepare work. It must not own accounting trut
 
 The AI application should treat the backend as an external system. Even during local development, it should call the backend through REST APIs rather than importing backend packages or writing to the backend database directly.
 
+This boundary is intentional because the backend simulator may later be replaced by a real Tally, Zoho, SAP, Salesforce, QuickBooks, or other enterprise-system integration. The AI app should depend on contracts, adapters, and observed API behavior rather than simulator internals.
+
 ## 3. High-Level Architecture
 
 ```text
@@ -154,6 +170,41 @@ backend_document_id
 backend_journal_entry_id
 ```
 
+The two applications should share API contracts, not source packages or database ownership. Any generated client code in the AI app should be generated from the backend OpenAPI contract or reviewed as a checked-in typed client; it must not import backend domain packages as a shortcut.
+
+### 3.1 Cross-Application API Contract Baseline
+
+Define these contracts before Phase 1 feature work begins:
+
+1. authentication headers for local API-client identity
+2. `X-Correlation-ID` or equivalent request correlation header
+3. `Idempotency-Key` header for mutating endpoints
+4. stable JSON error envelope with machine-readable code, message, and optional field errors
+5. `401`, `403`, `404`, `405`, `409`, and `422` response rules
+6. request-body size limits for all endpoints, even before attachments are supported
+7. timeout and retry expectations for AI-app calls into the backend
+8. OpenAPI examples for the Phase 1 workflow payloads
+
+The AI app should persist enough of each backend call to reconstruct what happened without relying on backend logs:
+
+1. method and path
+2. correlation ID
+3. idempotency key
+4. request payload hash or bounded redacted payload snapshot
+5. response status and bounded redacted response snapshot
+6. error code when present
+7. backend resource ID when created or returned
+
+### 3.2 Engineering Review Criteria
+
+Use these as review criteria for each phase. They are directional quality bars, not reasons to expand a phase beyond its workflow goal.
+
+1. full audit trail: every material request, agent run, backend API call, document transition, approval decision, posting action, and failure should leave durable evidence with actor, timestamp, correlation ID, and relevant resource IDs
+2. no hidden mutations: writes should happen only through explicit command handlers, backend REST mutations, or documented worker actions; reads, validation, REPL inspection commands, and report queries must not change business state except for clearly documented operational metadata
+3. easy debugging: every workflow should be inspectable from the REPL or API by request ID, run ID, proposal ID, backend document ID, and correlation ID, with visible tool failures and validation errors
+4. time-travel possible: the persisted records should be sufficient to reconstruct what the system believed and did at each workflow step, including prompt version, schema version, model output, backend request payload hash, response status, approval state, and posting result
+5. avoid god files: keep application, agent, backend API, domain service, posting, reporting, and persistence code split by ownership area; if a file starts concentrating unrelated orchestration, persistence, mapping, validation, and transport logic, split it before adding more behavior
+
 ## 4. Repository Layout
 
 Recommended repositories:
@@ -172,6 +223,15 @@ api-contracts/
 The contract repository is optional at the start. If not created separately, keep the backend OpenAPI contract in the backend repo and generate or copy the AI app client from it.
 
 Each repo should be independently runnable and testable. A local developer script may start both applications together, but the applications should not depend on one shared process or one shared database.
+
+Local development should use two separate PostgreSQL databases, even when both databases live in one local PostgreSQL instance:
+
+```text
+business_backend_dev
+ai_agent_app_dev
+```
+
+Tests should also use disposable database names or schemas per application so backend reset behavior cannot accidentally erase AI run evidence, and AI test setup cannot directly seed backend tables except through backend migrations, seed commands, or REST APIs.
 
 ## 5. Backend Application Shape
 
@@ -248,6 +308,8 @@ GET  /api/v1/reports/trial-balance
 
 Phase 1 mutating endpoints must accept an idempotency key. If the same idempotency key is submitted again with the same payload, the backend should return the existing result. If the payload differs, the backend should reject the request.
 
+Phase 1 mutating endpoints should also accept and persist the AI correlation headers when the caller is the AI app. These headers are for traceability only. They must not become part of backend business identity, document numbering, or posting logic.
+
 Avoid AI-shaped backend endpoints:
 
 ```text
@@ -310,6 +372,13 @@ Phase 1 AI provider contract:
 5. model output is persisted with prompt version, schema version, model name, token usage when available, and raw response identifier when available
 6. parsed output is validated before any backend call
 7. validation failures become `needs_clarification` or `failed` states, not partial backend writes
+
+Phase 1 AI workflow boundary:
+
+1. the AI app may create a backend vendor-invoice draft only after structured validation succeeds
+2. the AI app must not submit, approve, or post the vendor invoice automatically in Phase 1
+3. submit, approve, and post should be explicit human or test-harness actions through backend APIs or the backend REPL
+4. later automation may propose these actions, but it still needs an explicit policy and audit boundary before it is allowed to execute them
 
 Phase 1 tool policy:
 
@@ -481,6 +550,11 @@ Deliver:
 8. local run instructions for both apps
 9. demo seed command for backend
 10. basic test database setup
+11. JSON API error contract and middleware in both apps
+12. idempotency middleware or service in the backend
+13. correlation-ID propagation between AI app and backend
+14. bounded request-body readers in both apps
+15. minimal structured logging with correlation IDs and redaction rules
 
 Exit criteria:
 
@@ -489,6 +563,8 @@ Exit criteria:
 3. AI app can call backend health endpoint
 4. migrations are repeatable on clean databases
 5. seed command can create the Phase 1 demo baseline idempotently
+6. contract tests prove JSON responses for auth failure, wrong method, validation failure, and idempotency conflict
+7. an AI-app call into backend records the same correlation ID in both application logs or persisted call records
 
 ### Phase 1: Vendor Invoice To Posted Journal Entry
 
@@ -522,6 +598,8 @@ AI app deliverables:
 8. persist proposal and backend document ID
 9. visible missing-data state
 10. queue worker and `process-next` REPL command
+11. persisted backend API-call records with correlation and idempotency metadata
+12. explicit `needs_clarification`, `failed`, and `draft_created` request or proposal states
 
 Phase 1 `VendorInvoiceProposal` should be a typed AI-app DTO with at least:
 
@@ -582,6 +660,8 @@ Exit criteria:
 7. journal entry is balanced
 8. trial balance remains balanced
 9. traceability exists from AI message to request, run, proposal, backend document, and journal entry
+10. no AI path auto-submits, auto-approves, or auto-posts the document during the Phase 1 proof
+11. rerunning the AI worker or replaying the same idempotent create call does not create a duplicate backend invoice
 
 This phase is not complete if it only creates a generic recommendation or only creates an unposted draft.
 
@@ -773,13 +853,94 @@ Test flow:
 12. assert the backend REPL can display the journal entry
 13. assert trial balance total debit equals total credit
 14. assert traceability from AI request to backend document and journal entry
+15. replay the vendor-invoice draft create call with the same idempotency key and same payload; assert the same backend document is returned
+16. replay the vendor-invoice draft create call with the same idempotency key and different payload; assert the backend returns an idempotency conflict
+17. assert the AI app did not call submit, approve, or post automatically
+18. assert read-only REPL/API inspection of the request, run, proposal, backend document, journal entry, and trial balance does not mutate business state
+19. assert audit and persisted run records can reconstruct the workflow sequence from message intake through AI proposal, backend draft creation, human or harness lifecycle actions, posting, and final report evidence
 ```
 
 This test is the gate that prevents another long build from failing to prove the core workflow.
 
+Minimum automated verification matrix:
+
+1. backend package tests for posting balance, accounting-period validation, tax-code validation, and idempotency behavior
+2. backend API contract tests for auth, method, validation, conflict, and JSON error envelope behavior
+3. AI app package tests for router classification, specialist schema validation, missing-data handling, and fake-provider determinism
+4. AI app integration tests against the backend test server using only REST APIs
+5. one end-to-end script or Go test that starts both apps or test servers and proves the full Phase 1 acceptance flow
+6. one OpenAI-backed smoke test when credentials are available, with an explicit documented blocker when live-provider verification cannot run
+7. one audit-reconstruction check that starts from the original AI request ID and verifies the linked run, proposal, backend API-call record, backend document, approval or lifecycle actions, journal entry, and report evidence
+8. one hidden-mutation check around REPL/API read paths used by the workflow
+
 ## 11. REPL Requirements
 
-Both applications should have REPL interfaces, but REPLs must call REST APIs rather than internal services.
+Both applications should have REPL interfaces, but REPLs must be thin clients that call REST APIs rather than internal services.
+
+The REPLs should be separate executables in the relevant application repositories, not in-process admin shells:
+
+```text
+business-backend/cmd/repl
+ai-agent-app/cmd/repl
+```
+
+Do not create a third REPL repository at the start. Keeping each REPL beside the app it operates is simpler, as long as the REPL behaves like an external client.
+
+Each REPL should have one primary API target:
+
+1. `business-backend/cmd/repl` calls only the `business-backend` API
+2. `ai-agent-app/cmd/repl` calls only the `ai-agent-app` API
+
+The AI REPL may display backend document IDs, backend API-call records, and backend response snapshots that the AI app has persisted, but it should not bypass the AI app by calling simulator internals or the simulator database. When a full workflow proof needs live backend document or report inspection, use the backend REPL or a scripted harness that calls each system through its own public API.
+
+REPL implementation rules:
+
+1. import only API client packages, configuration, authentication helpers, and display formatting
+2. do not import domain services, database packages, posting logic, agent services, worker internals, or backend simulator internals
+3. exercise the same API contracts that a web UI, script, or later enterprise integration would use
+4. keep inspection commands read-only and prove they do not mutate business state
+5. make mutation commands explicit, such as `/submit`, `/approve`, `/post`, and `/requeue`
+6. display stable debugging identifiers, including request IDs, run IDs, proposal IDs, backend document IDs, backend API-call IDs, validation errors, tool failures, and correlation IDs
+
+Adapt these interaction patterns from `new_app_docs/repl_interface_plan.md`:
+
+1. slash-command syntax for all commands
+2. `/help`, `/context`, `/json`, `/quiet`, `/history`, `/script`, `/exit`, and `/quit` meta commands
+3. `$LAST_*` chaining tokens for recently created or inspected records
+4. JSON output mode for exact API payload inspection and script-friendly output
+5. non-interactive script mode for repeatable smoke scenarios
+6. stable tabular list output and detail-block output for human debugging
+
+Do not adapt the current `workflow_app` REPL plan's direct domain-service call path. That plan was written for a single-runtime codebase. The fresh applications need REPLs that prove public API behavior because the AI app may later talk to real external enterprise systems instead of the simulator.
+
+Also do not adapt the old plan's full command surface up front. Add commands only when the matching public API exists and the command supports the current workflow phase.
+
+Recommended `$LAST_*` tokens:
+
+```text
+AI REPL:
+  $LAST_REQUEST
+  $LAST_RUN
+  $LAST_PROPOSAL
+  $LAST_BACKEND_CALL
+  $LAST_BACKEND_DOCUMENT
+
+Backend REPL:
+  $LAST_VENDOR_INVOICE
+  $LAST_JOURNAL_ENTRY
+  $LAST_PARTY
+  $LAST_ACCOUNT
+  $LAST_TAX_CODE
+  $LAST_PERIOD
+```
+
+Recommended REPL build order:
+
+1. foundation: `/help`, `/context`, `/json`, `/quiet`, `/exit`, authentication, health check, and API-client wiring
+2. Phase 1 workflow loop: create or submit message, process next, inspect request, run, proposal, backend calls, vendor invoice, journal entry, and trial balance
+3. lifecycle actions: submit, approve, post, retry, requeue, and failure inspection
+4. script mode: `.repl` smoke scripts for vendor-invoice proof, idempotency replay, audit reconstruction, and hidden-mutation checks
+5. ergonomics: history, tab completion, and richer formatting after the workflow loop is proven
 
 Backend REPL examples:
 
@@ -822,7 +983,9 @@ The AI REPL should display:
 
 ## 12. Backend Capability Guardrails
 
-Because the backend is only a simulator, avoid building capabilities that real traditional systems would not normally own.
+Because the backend is only a simulator, avoid building capabilities that real traditional systems would not normally own. It should remain a credible generic stand-in for ordinary enterprise applications, not an agent-native platform disguised as an ERP.
+
+The backend can grow beyond accounting, inventory, and order management over time. Future areas may include CRM, project management, task management, service operations, or other business-system domains, but only when a concrete AI-agent workflow needs that backend capability. Do not start with a broad enterprise-suite buildout.
 
 Do not add:
 
@@ -844,6 +1007,9 @@ Do add traditional system capabilities only when they support AI-agent testing:
 6. purchase order and sales order
 7. basic GST and TDS support
 8. reports needed by agents for validation and feedback
+9. future CRM, project, task, or service records when a specific later workflow requires them
+
+Each addition should close a complete business workflow or usable backend capability, even when the scope is small. Avoid partial foundations that do not let an AI app complete and verify a real business outcome.
 
 ## 13. AI Application Guardrails
 
@@ -898,3 +1064,14 @@ Every phase must close with:
 5. documented known limitations
 
 For Phase 1, the required evidence is a posted balanced journal entry created from a natural-language vendor invoice request through the split AI app plus backend app architecture.
+
+## 16. Open Decisions Before Implementation
+
+Resolve these before creating the fresh repositories:
+
+1. whether the fresh apps live in two new repositories immediately or start in one temporary workspace with hard package-boundary checks
+2. the exact backend API authentication shape for local development and future deployment
+3. whether OpenAPI generation is mandatory from day one or whether the initial typed client is hand-written against a reviewed contract
+4. the local orchestration tool for starting both apps and databases during development
+5. the initial model name, timeout budget, and live-provider verification policy for OpenAI-backed smoke tests
+6. whether Phase 1 submit, approve, and post actions are performed by backend REPL commands, a test harness, or a minimal backend API-only operator script
